@@ -38,7 +38,8 @@ C     sqrt(s)= center of mass energy
       INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
       INTEGER NSQUAREDSO_LOOP
       REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
-      REAL * 8 single_pole, double_pole, diffeps1, diffeps2
+      REAL * 8 finite_part, single_pole, double_pole, diffeps0, diffeps1, diffeps2
+      REAL * 8 finite_part_torino, single_pole_torino, double_pole_torino
       REAL * 8 Q2
 C     
 C     GLOBAL VARIABLES
@@ -107,22 +108,43 @@ C      call virtual_NLO(sLO,VNLO,0,ierr)
      $   ,RETURNCODE)
 
       
-      VNLO = MATELEM(1,0)
+      finite_part = MATELEM(1,0)
       single_pole = MATELEM(2,0)
       double_pole = MATELEM(3,0)
 
-      Q2 = sCM 
+      Q2 = sCM ! Ellis-Exton scale, to be found!
+
+!     Attempt to convert from ML convention for the virtual to the Torino paper one
 
       
-      diffeps1 = -eulergamma+dlog((4d0*MU_R**2*Pi)/Q2)-dlog(MU_R**2/sCM)
+      diffeps1 = -(double_pole*EulerGamma) + 
+     -  double_pole*(dlog((4d0*MU_R**2*Pi)/Q2) - dlog(MU_R**2/sCM))
       
-      diffeps2 =  (eulergamma**2+dlog(4d0*Pi)**2 - 
-     -    2d0*eulergamma*dlog((4d0*MU_R**2*Pi)/Q2) + 
-     -    dlog(MU_R**2/Q2)*
-     -     dlog((16d0*MU_R**2*Pi**2)/Q2) - 
-     -    dlog(MU_R**2/sCM)**2)/2d0
 
-      VNLO = VNLO - (single_pole * diffeps1 + double_pole * diffeps2)
+      single_pole_torino = single_pole + diffeps1
+
+      diffeps0 = (6d0*double_pole*EulerGamma**2 - 
+     -    12d0*EulerGamma*single_pole - 
+     -    12d0*(double_pole*EulerGamma - single_pole)*
+     -     dlog((4d0*MU_R**2*Pi)/Q2) + 
+     -    6d0*double_pole*
+     -     dlog((4d0*MU_R**2*Pi)/Q2)**2 - 
+     -    12d0*single_pole_torino*dlog(MU_R**2/sCM) - 
+     -     6d0*double_pole*dlog(MU_R**2/sCM)**2)/12d0
+
+      finite_part_torino = finite_part + diffeps0
+      
+c$$$      diffeps1 = -eulergamma+dlog((4d0*MU_R**2*Pi)/Q2)-dlog(MU_R**2/sCM)
+c$$$      
+c$$$      diffeps2 =  (eulergamma**2+dlog(4d0*Pi)**2 - 
+c$$$     -    2d0*eulergamma*dlog((4d0*MU_R**2*Pi)/Q2) + 
+c$$$     -    dlog(MU_R**2/Q2)*
+c$$$     -     dlog((16d0*MU_R**2*Pi**2)/Q2) - 
+c$$$     -    dlog(MU_R**2/sCM)**2)/2d0
+      
+C      VNLO = VNLO - (single_pole * diffeps1 + double_pole * diffeps2)
+
+      VNLO = finite_part_torino
       
       if(ierr.eq.1)goto 999
 c

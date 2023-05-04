@@ -2203,9 +2203,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_colored_partons_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
 
         #gl
-        filename = pjoin(dirpath, 'leg_PDGs.inc')
-        filename_user = pjoin(dirpath, 'tmp_leg_PDGs.inc')
-        self.write_leg_PDGs_file(dirpath, filename, filename_user, matrix_element.get('processes')[0])
+        #filename = pjoin(dirpath, 'leg_PDGs.inc')
+        #filename_user = pjoin(dirpath, 'tmp_leg_PDGs.inc')
+        self.write_leg_PDGs_file(dirpath, matrix_element.get('processes'))
         #filename = ''
         #self.write_leg_PDGs_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
 
@@ -2415,41 +2415,55 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
     #===========================================================================
     # write the list of particle PDGs involved in the process
     #===========================================================================
-    def write_leg_PDGs_file(self, dirpath, filename, filename_user, process): 
+    def write_leg_PDGs_file(self, dirpath, processes): 
 
-        initial_state_PDGs, final_state_PDGs = process.get_cached_initial_final_pdgs()
-        all_PDGs = initial_state_PDGs, final_state_PDGs
+        strdirpath=(str(self.dir_path))
+        strdirpath=strdirpath.split('/')
 
-        # Set replace_dict 
-        replace_dict = {}
-        leg_PDGs = []
-        leg_PDGs.append(all_PDGs[0][0])
-        leg_PDGs.append(all_PDGs[0][1])
-        for i in range(0,len(final_state_PDGs)):
-            leg_PDGs.append(all_PDGs[1][i])
+        for i in range(0,len(processes)):
 
-        replace_dict['len_legPDGs'] = len(leg_PDGs)
-        replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
-        replace_dict['proc_prefix'] = process.shell_string(
-                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+            initial_state_PDGs, final_state_PDGs = processes[i].get_cached_initial_final_pdgs()
+            all_PDGs = initial_state_PDGs, final_state_PDGs
 
-        file = """ \
-          integer leg_PDGs(%(len_legPDGs)d)
-          data leg_PDGs/%(leg_PDGs)s/""" % replace_dict
+            # Set replace_dict 
+            replace_dict = {}
+            leg_PDGs = []
+            leg_PDGs.append(all_PDGs[0][0])
+            leg_PDGs.append(all_PDGs[0][1])
+            for j in range(0,len(final_state_PDGs)):
+                leg_PDGs.append(all_PDGs[1][j])
 
-        filename_user = pjoin(dirpath, 'leg_PDGs_%(proc_prefix)s.inc' % replace_dict)
+            replace_dict['len_legPDGs'] = len(leg_PDGs)
+            replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
 
-        file_user = """ \
-          integer leg_PDGs_%(proc_prefix)s(%(len_legPDGs)d)
-          data leg_PDGs_%(proc_prefix)s/%(leg_PDGs)s/""" % replace_dict
+            if i == 0 and strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L' and strdirpath[-1][4] == 'R':
+                replace_dict['proc_prefix'] = processes[i].shell_string(
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
-        # Write the file
-        #if writer:
-        writers.FortranWriter(filename).writelines(file)
-        writers.FortranWriter(filename_user).writelines(file_user)
+                file = """ \
+                  integer leg_PDGs(%(len_legPDGs)d)
+                  data leg_PDGs/%(leg_PDGs)s/""" % replace_dict
+
+                # Write the file
+                filename = pjoin(dirpath, 'leg_PDGs.inc')
+                writers.FortranWriter(filename).writelines(file)
+                
+            if strdirpath[-1][0] == 'L':
+                #if i != 0:
+                replace_dict['proc_prefix'] = processes[i].shell_string_user(
+                                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)[0]
+
+                filename = pjoin(dirpath, 'leg_PDGs_%(proc_prefix)s.inc' % replace_dict)
+
+                file = """ \
+                  integer leg_PDGs_%(proc_prefix)s(%(len_legPDGs)d)
+                  data leg_PDGs_%(proc_prefix)s/%(leg_PDGs)s/""" % replace_dict
+
+                # Write the file
+                writers.FortranWriter(filename).writelines(file)
+
         return True
-        #else:
-        #    return replace_dict     
+   
 
     #===========================================================================
     # write the list of colored partons in the process

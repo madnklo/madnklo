@@ -754,17 +754,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
-                    tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
                     if os.path.exists(dirpathLO):
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
-                        # for line in open(pjoin(dirpathLO,'leg_PDGs.inc'), 'r'):
-                        #     words=line.split()
-                        #     if words[0] == 'DATA':
-                        #         pdgs = words[1]
-                        #         pdgs = pdgs.replace('LEG_PDGS','')
-                        #         pdgs = pdgs.replace('/',')')
-                        #         tmp_Born_PDGs.append((pdgs,isec,jsec))
-
+                        tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
                         if uB_proc[j] not in Born_processes:
                             Born_processes.append(uB_proc[j])
                             path_Born_processes.append(dirpathLO)
@@ -773,6 +765,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if j == len(uB_proc) - 1:
                         extra_uB_proc = uB_proc[0]
                         replace_dict_limits['proc_prefix_S'] = extra_uB_proc
+                        tmp_Born_PDGs.append((extra_uB_proc,isec,jsec))
 
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
@@ -792,16 +785,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
-                        tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
                         if os.path.exists(dirpathLO):
                             replace_dict_limits[tmp_proc] = uB_proc[j]
-                            # for line in open(pjoin(dirpathLO,'leg_PDGs.inc'), 'r'):
-                            #     words=line.split()
-                            #     if words[0] == 'DATA':
-                            #         pdgs = words[1]
-                            #         pdgs = pdgs.replace('LEG_PDGS','')
-                            #         pdgs = pdgs.replace('/','')
-                            #         tmp_Born_PDGs.append((pdgs,isec,jsec))
+                            tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
                             if uB_proc[j] not in Born_processes:
                                 Born_processes.append(uB_proc[j])
                                 path_Born_processes.append(dirpathLO)
@@ -809,6 +795,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if j == len(uB_proc) - 1:
                             extra_uB_proc = uB_proc[0]
                             replace_dict_limits[tmp_proc] = extra_uB_proc
+                            tmp_Born_PDGs.append((extra_uB_proc,isec,jsec))
                     
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
@@ -830,8 +817,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
             os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
                         dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
-            os.symlink( path_Born_processes[i] + '/leg_PDGs_%s.inc' % Born_processes[i], 
-                        dirpath + '/leg_PDGs_%s.inc' % Born_processes[i] )
+            #include all necessary leg_PDGs_* files
+            for j in range(0,len(Born_PDGs)):
+                if j != 0 and Born_PDGs[j][0] == Born_PDGs[j-1][0]:
+                    continue
+                tmp = path_Born_processes[i] + '/leg_PDGs_%s.inc' % Born_PDGs[j][0]
+                if os.path.exists(tmp):
+                    os.symlink( path_Born_processes[i] + '/leg_PDGs_%s.inc' % Born_PDGs[j][0], 
+                        dirpath + '/leg_PDGs_%s.inc' % Born_PDGs[j][0] )
+
 
 # link to virtual dir
         for i in range(0,len(Born_processes)):
@@ -840,47 +834,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             os.symlink(dirpath + '/virtual_recoilers.inc',dirpath_virtual + '/virtual_recoilers_%s.inc' % defining_process.shell_string(
                             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
 
-######### Write leg_PDGs.inc for Born and Real processes
-
-        # if len(Born_PDGs) != len(all_sector_list):
-        #     raise MadEvent7Error('WARNING, the list of Born_PDGs is not compatible with the total number of sectors!')
-
-        # file = ''
-        # replace_dict = {}
-        # leg_PDGs = []
-        # leg_PDGs.append(all_PDGs[0][0])
-        # leg_PDGs.append(all_PDGs[0][1])
-        # for i in range(0,len(final_state_PDGs)):
-        #     leg_PDGs.append(all_PDGs[1][i])
-
-        # replace_dict['len_legPDGs'] = len(leg_PDGs)
-        # #replace_dict_tmp['len_BornPDGs'] = len(tmp_PDGs)-1
-        # replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
-
-        # file += """ \
-        #   integer leg_PDGs(%(len_legPDGs)d)
-        #   data leg_PDGs/%(leg_PDGs)s/
-        #   \n""" % replace_dict
-
-        # for i in range(0,len(Born_PDGs)):
-        #     replace_dict_tmp = {}
-        #     tmp_PDGs = []
-        #     tmp_PDGs.append(Born_PDGs[i][0][0][0])
-        #     tmp_PDGs.append(Born_PDGs[i][0][0][1])
-        #     for j in range(0,len(Born_PDGs[i][0][-1])):
-        #         tmp_PDGs.append(Born_PDGs[i][0][1][j])
-        #     replace_dict_tmp['isec'] = Born_PDGs[i][1]
-        #     replace_dict_tmp['jsec'] = Born_PDGs[i][2]
-        #     replace_dict_tmp['len_tmpPDGs'] = len(tmp_PDGs)
-        #     replace_dict_tmp['tmp_PDGs'] = str(tmp_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
-
-        #     file += """ \
-        #        integer Born_leg_PDGs_%(isec)d_%(jsec)d(%(len_tmpPDGs)d)
-        #        data Born_leg_PDGs_%(isec)d_%(jsec)d/%(tmp_PDGs)s/
-        #        \n""" % replace_dict_tmp
-
-        # filename = pjoin(dirpath, 'leg_PDGs.inc')
-        # writer(filename).writelines(file)
 
 ######### Write get_Born_PDGs.f
 
@@ -893,10 +846,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
           implicit none
           """
 
-        for i in range(0,len(Born_processes)):
+        for i in range(0,len(Born_PDGs)):
+            if i != 0 and Born_PDGs[i][0] == Born_PDGs[i-1][0]:
+                continue
             file += """ \
                 include 'leg_PDGs_%s.inc'
-                """ % Born_processes[i]
+                """ % Born_PDGs[i][0]
 
         file += """ \
           integer isec, jsec
@@ -907,15 +862,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         for i in range(0,len(Born_PDGs)):
             replace_dict_tmp = {}
-            #tmp_PDGs = []
-            #tmp_PDGs.append(Born_PDGs[i][0][0][0])
-            #tmp_PDGs.append(Born_PDGs[i][0][0][1])
-            #for j in range(0,len(Born_PDGs[i][0][-1])):
-            #    tmp_PDGs.append(Born_PDGs[i][0][1][j])
             replace_dict_tmp['isec'] = Born_PDGs[i][1]
             replace_dict_tmp['jsec'] = Born_PDGs[i][2]
             replace_dict_tmp['tmp_PDGs'] = 'leg_PDGS_%s' % Born_PDGs[i][0]
-            #replace_dict_tmp['tmp_PDGs'] = str(tmp_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
 
             if i == 0:
                 replace_dict_tmp['if_elseif'] = 'if'

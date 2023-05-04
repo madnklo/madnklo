@@ -845,10 +845,16 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         #cp(pjoin(dirpathBorn, 'matrix.f'), pjoin(os.getcwd(),'born_matrix.f'))
         #cp(pjoin(dirpathBorn, 'spin_correlations.inc'), os.getcwd())
 
-        linkfiles = ['leg_PDGs.inc', 'colored_partons.inc', 'include']
-
+        linkfiles = ['damping_factors.inc', 'colored_partons.inc', 'include']
         for file in linkfiles:
             os.symlink(dirpathBorn + '/%s' % file, os.getcwd() + '/%s' % file)
+
+        owd = os.getcwd()
+        os.chdir(dirpathBorn)
+        tmp_leg_PDGs = glob.glob("leg_PDGs_*.inc")
+        os.chdir(owd)
+        for i in range(0,len(tmp_leg_PDGs)):
+            os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
 
 
         # dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]

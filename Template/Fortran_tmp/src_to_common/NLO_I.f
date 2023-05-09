@@ -8,10 +8,9 @@ c     TODO: write  INCLUDE 'Born_PDGs.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'virtual_recoilers_epem_gddx.inc'
+      INCLUDE 'virtual_recoilers.inc'
 c     TODO: write this as link to Real directory
       INCLUDE 'leg_PDGs_epem_ddx.inc'
-      INCLUDE 'leg_PDGs_epem_gddx.inc'
       INCLUDE 'colored_partons.inc'
       integer i,j,r
       integer ierr
@@ -24,48 +23,37 @@ c     TODO: write this as link to Real directory
       DOUBLE PRECISION ALPHA_QCD
       INTEGER, PARAMETER :: HEL = - 1
       DOUBLE PRECISION  EPEM_DDX_GET_CCBLO
-      integer mapped_labels(nexternal+1), mapped_flavours(nexternal+1)
-      integer isec,jsec,iref,iref1(nexternal)
-      common/cnlosecindices/isec,jsec
+      integer iref1(nexternal)
 c
 c     initialise
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       pref=alphas/(2d0*pi)
       INLO=0d0
-      isec = 0
-      jsec = 0
-      iref = 0
       iref1 = 0
-c      
-c     call Born matrix elements
-c      call Born_LO(xsLO,BLO,ierr)
-c      if(ierr.eq.1)goto 999
-c      call cc_Born_LO(xsLO,ccBLO,ierr)
-c      if(ierr.eq.1)goto 999
+      CCBLO = 0d0
+      BLO = 0d0
+
       CALL EPEM_DDX_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      BLO = ANS(0)
 c      TODO: modify ierr      
 c      if(ierr.eq.1)goto 999
 
-      do i=1,lensectors
-         isec = sector_particles_ijr(1,i)
-         jsec = sector_particles_ijr(2,i)
-         iref = sector_particles_ijr(3,i) 
-         call get_mapped_labels('C',isec,jsec,iref,
-     $        nexternal+1,leg_PDGs_epem_gddx,mapped_labels,
-     $        mapped_flavours,isLOQCDparton)
-         iref1(mapped_labels(jsec)) = mapped_labels(iref)
+      do i=1,len_iref
+         iref1(iref(1,i)) = iref(2,i)
       enddo
-
       
 c
 c     Born contribution
       do i=1,nexternal
-         if(leg_pdgs_epem_ddx(i).eq.21)INLO=INLO+
-     &     (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+
-     &        CA*(6d0-7d0/2d0*zeta2)
-         if(leg_pdgs_epem_ddx(i).ne.0 .and.
-     &        abs(leg_pdgs_epem_ddx(i)).le.6)INLO=INLO+
-     &     (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
+         if(leg_pdgs_epem_ddx(i).eq.21) then
+            INLO=INLO+
+     &           (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+
+     &           CA*(6d0-7d0/2d0*zeta2)
+         elseif(leg_pdgs_epem_ddx(i).ne.0 .and.
+     &           abs(leg_pdgs_epem_ddx(i)).le.6) then
+            INLO=INLO+
+     &           (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
+         endif
       enddo
 c
 c     Include damping factors
@@ -79,12 +67,17 @@ c     Include damping factors
      &        abs(leg_pdgs_epem_ddx(i)).le.6)INLO=INLO+
      &   CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
+      write(33,*) 'BLO = ', BLO
       INLO=INLO*BLO
 c
 c     Colour-linked-Born contribution
       do i=1,nexternal
          do j=1,nexternal
-            CCBLO = EPEM_DDX_GET_CCBLO(i,j)
+            if(ISLOQCDPARTON(i) .and. ISLOQCDPARTON(j)) then
+               CCBLO = EPEM_DDX_GET_CCBLO(i,j)
+            else
+               cycle
+            endif
             if(j.eq.i)cycle
             INLO=INLO+ccBLO*log(sLO(i,j)/MU_R**2)*
      &      (2d0-log(sLO(i,j)/MU_R**2)/2d0)

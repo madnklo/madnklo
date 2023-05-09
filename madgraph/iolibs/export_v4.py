@@ -2203,12 +2203,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_colored_partons_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
 
         #gl
-        #filename = pjoin(dirpath, 'leg_PDGs.inc')
-        #filename_user = pjoin(dirpath, 'tmp_leg_PDGs.inc')
         self.write_leg_PDGs_file(dirpath, matrix_element.get('processes'))
-        #filename = ''
-        #self.write_leg_PDGs_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
-
 
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
@@ -2420,6 +2415,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         strdirpath=(str(self.dir_path))
         strdirpath=strdirpath.split('/')
 
+        save_path = pjoin(dirpath, '../../../SubProcesses')
+        name_of_file = 'Born_PDGs'
+        completeName = os.path.join(save_path, name_of_file + ".py") 
+
         for i in range(0,len(processes)):
 
             initial_state_PDGs, final_state_PDGs = processes[i].get_cached_initial_final_pdgs()
@@ -2461,6 +2460,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
                 # Write the file
                 writers.FortranWriter(filename).writelines(file)
+        
+                file1 = open(completeName, "a")
+                toFile = 'leg_PDGs_%(proc_prefix)s = [%(leg_PDGs)s] \n' % replace_dict
+                file1.write(toFile)
+                file1.close()
+
 
         return True
    

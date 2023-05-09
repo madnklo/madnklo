@@ -2,6 +2,7 @@
 # Generic classes for the sector implementation in subtraction schemes
 #
 import copy
+import sys
 
 
 import commons.generic_sectors as generic_sectors
@@ -483,6 +484,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                        "P%s" % defining_process.shell_string())
 
 
+######### Import Born-level PDGs
+
+        tmp_dirpath = pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0])
+        sys.path.append(tmp_dirpath)
+        import Born_PDGs as PDGs_from_Born
+
+        v_rec = recoiler_function.get_virtual_recoiler(PDGs_from_Born.leg_PDGs_epem_ddx)
+        #print(v_rec)
+
+
 ######### Write all_sector_list.inc
 
         replace_dict = {}
@@ -497,7 +508,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         filename = pjoin(dirpath, 'all_sector_list.inc')
         writer(filename).writelines(file)
         
-######### Write NLO_K_isec_jsec.f
+######### Write NLO_K_isec_jsec.f, NLO_Rsub_isec_jsec.f
 
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
@@ -607,16 +618,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
-        # write virtual_recoilers.inc
-        str_virtual = " ".join(str(list_virtual))
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['ijr_set'] = str_virtual.replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-        file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer sector_particles_ijr(3,lensectors)
-          data sector_particles_ijr/%(ijr_set)s/""" % replace_dict
-        filename = pjoin(dirpath, 'virtual_recoilers.inc')
-        writer(filename).writelines(file)
+        # # write virtual_recoilers.inc
+        # str_virtual = " ".join(str(list_virtual))
+        # replace_dict['len_sec_list'] = len(all_sector_list)
+        # replace_dict['ijr_set'] = str_virtual.replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        # file = """ \
+        #   integer, parameter :: lensectors = %(len_sec_list)d
+        #   integer sector_particles_ijr(3,lensectors)
+        #   data sector_particles_ijr/%(ijr_set)s/""" % replace_dict
+        # filename = pjoin(dirpath, 'virtual_recoilers.inc')
+        # writer(filename).writelines(file)
 
 
 ######### Write damping_factors.inc
@@ -812,6 +823,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             writer(filename).writelines(file)
 
         # Link LO files to each real process directory
+        print('Born_processes')
+        print(Born_processes)
+
         for i in range(0,len(Born_processes)):
             os.symlink( "%s/matrix_%s.f" % (path_Born_processes[i], Born_processes[i]), 
                         "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
@@ -827,12 +841,22 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         dirpath + '/leg_PDGs_%s.inc' % Born_PDGs[j][0] )
 
 
-# link to virtual dir
+# Links to virtual dir
         for i in range(0,len(Born_processes)):
             dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
             dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
-            os.symlink(dirpath + '/virtual_recoilers.inc',dirpath_virtual + '/virtual_recoilers_%s.inc' % defining_process.shell_string(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+            #os.symlink(dirpath + '/virtual_recoilers.inc',dirpath_virtual + '/virtual_recoilers_%s.inc' % defining_process.shell_string(
+            #                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+            
+            v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % Born_processes[i]))
+            data_v_rec = str(v_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+            file = """ \
+              integer, parameter :: len_iref = %d
+              integer iref(2,len_iref)
+              data iref/%s/ 
+            """ % (len(v_rec), data_v_rec)
+            filename = pjoin(dirpath_virtual, 'virtual_recoilers.inc')
+            writer(filename).writelines(file)
 
 
 ######### Write get_Born_PDGs.f
@@ -1045,7 +1069,6 @@ c     soft-collinear limit
             file = file % replace_dict
             writer(filename).writelines(file)
 
-######### Write virtual_recoilers.inc
-# link to virtual dir in export_v4, leg_PDGs.inc, get_Born_PDGs.f, abc, pdg reale, settore isec,jsec,iref, pdg Born, mapped_labels iref
+
 
         return all_sectors

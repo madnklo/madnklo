@@ -845,7 +845,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         #cp(pjoin(dirpathBorn, 'matrix.f'), pjoin(os.getcwd(),'born_matrix.f'))
         #cp(pjoin(dirpathBorn, 'spin_correlations.inc'), os.getcwd())
 
-        linkfiles = ['damping_factors.inc', 'colored_partons.inc', 'include']
+        linkfiles = ['colored_partons.inc', 'include']
         for file in linkfiles:
             os.symlink(dirpathBorn + '/%s' % file, os.getcwd() + '/%s' % file)
 

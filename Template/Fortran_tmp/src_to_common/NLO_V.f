@@ -41,6 +41,7 @@ C     sqrt(s)= center of mass energy
       REAL * 8 finite_part, single_pole, double_pole, diffeps0, diffeps1, diffeps2
       REAL * 8 finite_part_torino, single_pole_torino, double_pole_torino
       REAL * 8 Q2
+      REAL * 8 newdiffeps0
 C     
 C     GLOBAL VARIABLES
 C     
@@ -112,7 +113,9 @@ C      call virtual_NLO(sLO,VNLO,0,ierr)
       single_pole = MATELEM(2,0)
       double_pole = MATELEM(3,0)
 
-      Q2 = sCM ! Ellis-Exton scale, to be found!
+
+      
+      Q2 = MU_R**2 ! Ellis-Exton scale, to be found!
 
 !     Attempt to convert from ML convention for the virtual to the Torino paper one
 
@@ -132,6 +135,7 @@ C      call virtual_NLO(sLO,VNLO,0,ierr)
      -    12d0*single_pole_torino*dlog(MU_R**2/sCM) - 
      -     6d0*double_pole*dlog(MU_R**2/sCM)**2)/12d0
 
+
       finite_part_torino = finite_part + diffeps0
       
 c$$$      diffeps1 = -eulergamma+dlog((4d0*MU_R**2*Pi)/Q2)-dlog(MU_R**2/sCM)
@@ -145,6 +149,20 @@ c$$$     -    dlog(MU_R**2/sCM)**2)/2d0
 C      VNLO = VNLO - (single_pole * diffeps1 + double_pole * diffeps2)
 
       VNLO = finite_part_torino
+
+      ! TEST WITH PAOLO'S CODE
+
+C      pref=alphas/(2d0*pi)
+
+      
+c      VNLO = 7*pi**2/6d0-8d0
+c     &     -log(muR**2/sCM)**2-3d0*log(muR**2/sCM)
+
+
+      
+c      BLO = 
+      
+c      VNLO = VNLO * pref * CF * BLO
       
       if(ierr.eq.1)goto 999
 c

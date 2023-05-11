@@ -840,7 +840,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write file for testing limits, 'testR.f'
     #===========================================================================
 
-    def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process, i, isec, jsec, necessary_ct_list, mapping_str):
+    def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process, 
+                                        i, isec, jsec, necessary_ct_list, mapping_str):
 
         replace_dict = {}
         replace_dict['isec'] = isec

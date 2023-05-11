@@ -2218,24 +2218,27 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         plot.draw()
 
         #gl
-        # removed links to makefile and coupl.inc because we create a makefile for
-        # each subprocess
+        # removed links to makefile and coupl.inc because we create a makefile for each subprocess
         # Necessary for directories different from NLO_RxR
-        #linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
+        # linkfiles = ['check_sa.f', 'coupl.inc', 'makefile']
         strdirpath=(str(self.dir_path))
         strdirpath=strdirpath.split('/')
+
+        # Write include directory
+        os.mkdir(pjoin(dirpath, 'include'))
+        os.symlink(dirpath + '/../../../../Template/Fortran_tmp/src_to_common/math.inc',dirpath+'/include/math.inc')
+        os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
+        os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
+        os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
+        os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
 
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
-            os.mkdir(pjoin(dirpath, 'include'))
-            os.symlink(dirpath + '/../../../../Template/Fortran_tmp/src_to_common/math.inc',dirpath+'/include/math.inc')
-            os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
-            os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
-            os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
-            os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
+        else:
+            os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
@@ -3012,30 +3015,62 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Append an extra subroutine to matrix_*.f file when generating in group_subproc = True;
         # in this case a P* directory collects more that one subprocess and one needs a '%sME_ACCESSOR_HOOK' 
         # for each of them
-        extra_proc_list = []
+        extra_proc_ME = []
+        extra_proc_CCBLO = []
+        extra_proc_KKBLO = []
         if extra_proc:
             for item in extra_proc:
                 if item != proc_prefix:
-                    #print('Item : ' + str(item))
-                    extra_proc_list.append('SUBROUTINE %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % item)
-                    extra_proc_list.append('IMPLICIT NONE\n')
-                    extra_proc_list.append('#\n')
-                    extra_proc_list.append('INTEGER    NEXTERNAL\n')
-                    extra_proc_list.append('PARAMETER (NEXTERNAL=%d)\n' % nexternal)
-                    extra_proc_list.append('INTEGER NSQAMPSO\n')
-                    extra_proc_list.append('PARAMETER (NSQAMPSO=%d)\n' % replace_dict['nSqAmpSplitOrders'])
-                    extra_proc_list.append('#\n')
-                    extra_proc_list.append('REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)\n')
-                    extra_proc_list.append('INTEGER HEL\n')
-                    extra_proc_list.append('DOUBLE PRECISION USER_ALPHAS\n')
-                    extra_proc_list.append('#\n')
-                    extra_proc_list.append('CALL %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % proc_prefix)
-                    extra_proc_list.append('#\n')
-                    extra_proc_list.append('END\n')
-                    extra_proc_list.append('\n')
+                    extra_proc_ME.append('SUBROUTINE %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % item)
+                    extra_proc_ME.append('IMPLICIT NONE\n')
+                    extra_proc_ME.append('#\n')
+                    extra_proc_ME.append('INTEGER    NEXTERNAL\n')
+                    extra_proc_ME.append('PARAMETER (NEXTERNAL=%d)\n' % nexternal)
+                    extra_proc_ME.append('INTEGER NSQAMPSO\n')
+                    extra_proc_ME.append('PARAMETER (NSQAMPSO=%d)\n' % replace_dict['nSqAmpSplitOrders'])
+                    extra_proc_ME.append('#\n')
+                    extra_proc_ME.append('REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)\n')
+                    extra_proc_ME.append('INTEGER HEL\n')
+                    extra_proc_ME.append('DOUBLE PRECISION USER_ALPHAS\n')
+                    extra_proc_ME.append('#\n')
+                    extra_proc_ME.append('CALL %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % proc_prefix)
+                    extra_proc_ME.append('#\n')
+                    extra_proc_ME.append('END\n')
+                    extra_proc_ME.append('\n')
 
-        extra_proc_str = " ".join(extra_proc_list)
-        replace_dict['extra_proc'] = extra_proc_str
+                    extra_proc_CCBLO.append('DOUBLE PRECISION FUNCTION %sGET_CCBLO(LEG_A,LEG_B)\n' % item)
+                    extra_proc_CCBLO.append('IMPLICIT NONE\n')
+                    extra_proc_CCBLO.append('INTEGER LEG_A, LEG_B\n')
+                    extra_proc_CCBLO.append('DOUBLE PRECISION %sGET_CCBLO\n' % proc_prefix)
+                    extra_proc_CCBLO.append('\n')
+                    extra_proc_CCBLO.append('%sGET_CCBLO = %sGET_CCBLO(LEG_A,LEG_B)\n' % (item, proc_prefix))
+                    extra_proc_CCBLO.append('\n')
+                    extra_proc_CCBLO.append('RETURN\n')
+                    extra_proc_CCBLO.append('END FUNCTION\n')
+                    extra_proc_CCBLO.append('\n')
+
+                    extra_proc_KKBLO.append('DOUBLE PRECISION FUNCTION %sGET_KKBLO(PARENT_LEG,PB,KT)\n' % item)
+                    extra_proc_KKBLO.append('IMPLICIT NONE\n')
+                    extra_proc_KKBLO.append('INTEGER    NEXTERNAL\n')
+                    extra_proc_KKBLO.append('PARAMETER (NEXTERNAL=%d)\n' % nexternal)
+                    extra_proc_KKBLO.append('INTEGER PARENT_LEG\n')
+                    extra_proc_KKBLO.append('DOUBLE PRECISION PB(0:3,NEXTERNAL)\n')
+                    extra_proc_KKBLO.append('DOUBLE PRECISION KT(0:3)\n')
+                    extra_proc_KKBLO.append('DOUBLE PRECISION %sGET_KKBLO\n' % proc_prefix)
+                    extra_proc_KKBLO.append('\n')
+                    extra_proc_KKBLO.append('%sGET_KKBLO = %sGET_KKBLO(PARENT_LEG,PB,KT)\n' % (item, proc_prefix))
+                    extra_proc_KKBLO.append('\n')
+                    extra_proc_KKBLO.append('RETURN\n')
+                    extra_proc_KKBLO.append('END FUNCTION\n')
+                    extra_proc_KKBLO.append('\n')
+
+
+        extra_proc_ME_str = " ".join(extra_proc_ME)
+        extra_proc_CCBLO_str = " ".join(extra_proc_CCBLO)
+        extra_proc_KKBLO_str = " ".join(extra_proc_KKBLO)
+        replace_dict['extra_proc_ME_ACCESSOR_HOOK'] = extra_proc_ME_str
+        replace_dict['extra_proc_CCBLO'] = extra_proc_CCBLO_str
+        replace_dict['extra_proc_KKBLO'] = extra_proc_KKBLO_str
         #######################
 
         if write and writer:

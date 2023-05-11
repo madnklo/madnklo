@@ -1,4 +1,4 @@
-      %(extra_proc)sSUBROUTINE %(proc_prefix)sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
+      %(extra_proc_ME_ACCESSOR_HOOK)sSUBROUTINE %(proc_prefix)sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)
       IMPLICIT NONE
 C
 C CONSTANT
@@ -921,7 +921,7 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
       END
 
 C gl  
-      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)  
+      %(extra_proc_CCBLO)sDOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)  
       IMPLICIT NONE
 C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
@@ -953,7 +953,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
 
-      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKBLO(PARENT_LEG,PB,KT)
+      %(extra_proc_KKBLO)sDOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKBLO(PARENT_LEG,PB,KT)
       implicit NONE
       INTEGER I
       INTEGER NEXTERNAL

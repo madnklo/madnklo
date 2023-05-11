@@ -808,6 +808,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         #gl
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
+        os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
         
         # Return to original PWD
         os.chdir(cwd)
@@ -842,8 +843,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
         dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
-        #cp(pjoin(dirpathBorn, 'matrix.f'), pjoin(os.getcwd(),'born_matrix.f'))
-        #cp(pjoin(dirpathBorn, 'spin_correlations.inc'), os.getcwd())
 
         linkfiles = ['colored_partons.inc', 'include']
         for file in linkfiles:

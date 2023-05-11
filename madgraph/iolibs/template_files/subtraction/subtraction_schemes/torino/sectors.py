@@ -474,46 +474,49 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # TODO: point to the right process directory
         dirmadnklo=os.getcwd()
-        #file = glob.glob("eejj/NLO_R_x_R_*")
-        #file = glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])
-        #print(file)
         dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
-        #dirpath = pjoin(dirmadnklo,"eejj/NLO_R_x_R_epem_guux_1")
-        dirpath_subprocesses = pjoin(dirpath, 'SubProcesses')
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 
 
-######### Import Born-level PDGs
+######### Import Born-level PDGs from proc/SupProcesses directory
 
-        tmp_dirpath = pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0])
-        sys.path.append(tmp_dirpath)
+        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
         import Born_PDGs as PDGs_from_Born
 
-        v_rec = recoiler_function.get_virtual_recoiler(PDGs_from_Born.leg_PDGs_epem_ddx)
-        #print(v_rec)
+
+#==================================================================================
+#  Necessary template files for real subprocess directories
+# 
+#       - all_sector_list.inc
+#       - NLO_K_template.f
+#       - NLO_Rsub_template.f
+#       - driver_template.f
+#       - testR_template.f
+#       - NLO_IR_limits_template.f
+#       - get_Born_PDGs.f
+#       - makefile_npo_template.f
+#       - virtual_recoiler.inc (needed for checking recoiler consistency)
+#
+#       - links from Born to Real subproc directories
+#       - links from Born to Virtual subproc directories
+# 
+#==================================================================================
 
 
 ######### Write all_sector_list.inc
 
-        replace_dict = {}
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        self.write_all_sector_list_include(writers.FortranWriter, dirpath, all_sector_list)
 
-        file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer all_sector_list(2,lensectors)
-          data all_sector_list/%(all_sector_list)s/""" % replace_dict
-
-        filename = pjoin(dirpath, 'all_sector_list.inc')
-        writer(filename).writelines(file)
         
 ######### Write NLO_K_isec_jsec.f, NLO_Rsub_isec_jsec.f
 
+        overall_sector_info = []
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
+        # Set replace_dict for NLO_Rsub_isec_jsec.f
         replace_dict_int_real = {}
-        list_virtual = []
+        
         for i in range(0,len(all_sector_list)):
             list_M2 = []
             list_str_defHC = []
@@ -524,6 +527,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
             id_jsec = all_sector_id_list[i][1]
+
             # Check isec != jsec
             if isec == jsec:
                 raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
@@ -531,11 +535,25 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_ct['jsec'] = jsec
             replace_dict_int_real['isec'] = isec
             replace_dict_int_real['jsec'] = jsec
-            # iref for phase_space_npo in NLO_Rsub
-            replace_dict_int_real['iref'] = all_sector_recoilers[i]
-            list_virtual.append(isec)
-            list_virtual.append(jsec)
-            list_virtual.append(all_sector_recoilers[i])
+
+            # Extract the reference particle leg from recoiler_function.py
+            iref = all_sector_recoilers[i]
+            replace_dict_ct['iref'] = iref
+            replace_dict_int_real['iref'] = iref
+
+            # Update sector_info dictionary
+            sector_info = {
+                'isec'          :   0,
+                'jsec'          :   0,
+                'iref'          :   0,
+                'mapping'       :   [],
+                'Born_str'      :   '',
+                'Born_PDGs'     :   [],
+                'path_to_Born'  :   ''
+            }
+            sector_info['isec'] = isec
+            sector_info['jsec'] = jsec
+            sector_info['iref'] = iref
             
             if necessary_ct_list[i*5] == 1:
                 if id_isec != 21:
@@ -556,11 +574,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
-                    # Extract the reference particle leg from recoiler_function.py
-                    #iref_leg = recoiler_function.get_recoiler(defining_process,(isec,jsec))
-                    #iref = iref_leg.get('number')
-                    iref = all_sector_recoilers[i]
-                    replace_dict_ct['iref'] = iref
                     # Check irec validity
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
@@ -575,11 +588,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
                     list_M2.append('if(ierr.eq.1)goto 999\n')
-                    #list_int_real.append('# Symmetrised sector function for collinear kernel is equal to 1\n')
 
-                    # default mapping for final-state collinear kernels
-                    # (abc) == (ijr)
-                    mapping = ['ISEC', 'JSEC', 'IREF'] 
+                    # default mapping for final-state collinear kernels (abc) == (ijr)
+                    mapping = [('isec', isec), ('jsec', jsec), ('iref', iref)] 
+                    sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1]]
+
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     continue
@@ -595,12 +608,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     iU = %s
                     iS = %s
                     iB = %s
-                    iA = 1 ! default azimuth for NLO""" % (mapping[0],mapping[1],mapping[2])
+                    iA = 1 ! default azimuth for NLO
+                """ % (mapping[0][0], mapping[1][0], mapping[2][0])
 
                 str_defHC = " ".join(list_str_defHC)
                 str_M2 = " ".join(list_M2)
                 str_int_real = " ".join(list_int_real)
-                replace_dict_int_real['mapping_str'] = mapping_str
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
                 replace_dict_int_real['str_int_real'] = str_int_real        
@@ -608,146 +621,46 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 
+            overall_sector_info.append(sector_info)
+
             # write NLO_K
             filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
+
             # write NLO_Rsub
             filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
-        # # write virtual_recoilers.inc
-        # str_virtual = " ".join(str(list_virtual))
-        # replace_dict['len_sec_list'] = len(all_sector_list)
-        # replace_dict['ijr_set'] = str_virtual.replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-        # file = """ \
-        #   integer, parameter :: lensectors = %(len_sec_list)d
-        #   integer sector_particles_ijr(3,lensectors)
-        #   data sector_particles_ijr/%(ijr_set)s/""" % replace_dict
-        # filename = pjoin(dirpath, 'virtual_recoilers.inc')
-        # writer(filename).writelines(file)
 
+            # write driver_npo_template
+            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
 
-######### Write damping_factors.inc
+            # write testR
+            self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                                                    i, isec, jsec, necessary_ct_list, mapping_str)
 
-        # Set replace_dict 
-        replace_dict = {}
-        dfactors = factors_and_cuts.damping_factors
-        replace_dict['alpha'] = dfactors[0]
-        replace_dict['beta_FF'] = dfactors[1]
-        replace_dict['beta_FI'] = dfactors[2]
-        replace_dict['beta_IF'] = dfactors[3]
-        replace_dict['beta_II'] = dfactors[4]
+        # check on overall_sector_info lenght
+        if len(overall_sector_info) != len(all_sector_list):
+            raise MadEvent7Error('WARNING, the list of sector-dictionary entries \
+                                    is not compatible with the total number of sectors!')
 
-        file = """ \
-          double precision alpha
-          double precision beta_FF,beta_FI
-          double precision beta_IF,beta_II
-          parameter (alpha = %(alpha)fd0)
-          parameter (beta_FF = %(beta_FF)dd0)
-          parameter (beta_FI = %(beta_FI)dd0)
-          parameter (beta_IF = %(beta_IF)dd0)
-          parameter (beta_II = %(beta_II)dd0)""" % replace_dict
-
-        filename = pjoin(dirpath, 'damping_factors.inc')
-        writer(filename).writelines(file)
-
-
-######### Write colored_partons.inc
-
-        # # Set replace_dict 
-        # replace_dict = {}
-        # colored_legs = list(colored_partons.get_colored_legs(defining_process).values())
-        # list_colored_legs = []
-        # isNLOQCDparton = ['.false.'] * (len(leglist))
-        # for i in range(0,len(colored_legs)):
-        #     list_colored_legs.append(colored_legs[i][0])
-        #     isNLOQCDparton[colored_legs[i][0]-1] = '.true.'
-        # replace_dict['len_leglist'] = len(leglist)
-        # replace_dict['isNLOQCDparton'] = str(isNLOQCDparton).replace('[','').replace(']','').replace(' ','').replace("'","")
-
-        # file = """ \
-        #   logical isNLOQCDparton(%(len_leglist)d)
-        #   data isNLOQCDparton/%(isNLOQCDparton)s/""" % replace_dict
-
-        # filename = pjoin(dirpath, 'colored_partons.inc')
-        # writer(filename).writelines(file)
-
-
-# ######### Write leg_PDGs.inc
-
-        # # Set replace_dict 
-        # replace_dict = {}
-        # leg_PDGs = []
-        # leg_PDGs.append(all_PDGs[0][0])
-        # leg_PDGs.append(all_PDGs[0][1])
-        # for i in range(0,len(final_state_PDGs)):
-        #     leg_PDGs.append(all_PDGs[1][i])
-
-        # replace_dict['len_legPDGs'] = len(leg_PDGs)
-        # replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
-
-        # file = """ \
-        #   integer leg_PDGs(%(len_legPDGs)d)
-        #   data leg_PDGs/%(leg_PDGs)s/""" % replace_dict
-
-        # filename = pjoin(dirpath, 'leg_PDGs.inc')
-        # writer(filename).writelines(file)
-
-########################################################################
-
-        #file_LO = glob.glob("%s/LO_*" % interface.user_dir_name[0])
-        #dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        # dirpathLO = pjoin(dirpathLO, 'SubProcesses', \
-        #                "P%s" % counterterms[0].current.shell_string())
-
-        # # Extract for each counterterm the respecitve underlying Born files (matrix_*.f, spin_correlations.inc) 
-        # Born_processes = []
-        # for i, ct in enumerate(counterterms):
-        #     new_proc = ct.current.shell_string(
-        #         schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)
-        #     if new_proc not in Born_processes:
-        #         Born_processes.append(new_proc)
-        
-        # print(Born_processes)
-
- 
-        # os.symlink( "%s/matrix_%s.f" % (dirpathLO, counterterms[0].current.shell_string(
-        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)), 
-        #     "%s/matrix_%s.f" % (dirpath, counterterms[0].current.shell_string(
-        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False)) )
-        # os.symlink(dirpathLO + '/spin_correlations.inc' , dirpath + '/spin_correlations.inc' )
-
-        # # #gl
-        # for i, ct in enumerate(counterterms):
-        #     # return ((S(3),),)
-        #     print(ct)
-        #     # return "1_epem_uux"
-        #     print(ct.current.shell_string())
-        #     # return "epem_uux"
-        #     print(ct.current.shell_string(
-        #     schannel=False, forbid=False, main=False, pdg_order=False, print_id = False))
-        #     # return ((-11, 11), (2, -2))
-        #     print(ct.get_reduced_flavors())
 
 ######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
-
-        dirpathLO = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
 
         replace_dict_limits = {}
         # List of necessary underlying Born strings and particle PDGs
         Born_processes = []
-        Born_PDGs = []
         # List of dirpathLO of the necessary underlying Born
         path_Born_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         for i in range(0,len(all_sector_list)):
-            tmp_Born_PDGs = []
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
+            iref = all_sector_recoilers[i]
 
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
@@ -767,7 +680,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                     if os.path.exists(dirpathLO):
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
-                        tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
+                        overall_sector_info[i]['Born_str'] = uB_proc[j]
+                        overall_sector_info[i]['path_to_Born'] = dirpathLO
                         if uB_proc[j] not in Born_processes:
                             Born_processes.append(uB_proc[j])
                             path_Born_processes.append(dirpathLO)
@@ -776,7 +690,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if j == len(uB_proc) - 1:
                         extra_uB_proc = uB_proc[0]
                         replace_dict_limits['proc_prefix_S'] = extra_uB_proc
-                        tmp_Born_PDGs.append((extra_uB_proc,isec,jsec))
+                        overall_sector_info[i]['Born_str'] = extra_uB_proc
 
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
@@ -798,7 +712,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                         if os.path.exists(dirpathLO):
                             replace_dict_limits[tmp_proc] = uB_proc[j]
-                            tmp_Born_PDGs.append((uB_proc[j],isec,jsec))
+                            overall_sector_info[i]['Born_str'] = uB_proc[j]
+                            overall_sector_info[i]['path_to_Born'] = dirpathLO
                             if uB_proc[j] not in Born_processes:
                                 Born_processes.append(uB_proc[j])
                                 path_Born_processes.append(dirpathLO)
@@ -806,89 +721,226 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if j == len(uB_proc) - 1:
                             extra_uB_proc = uB_proc[0]
                             replace_dict_limits[tmp_proc] = extra_uB_proc
-                            tmp_Born_PDGs.append((extra_uB_proc,isec,jsec))
+                            overall_sector_info[i]['Born_str'] = extra_uB_proc
                     
                 # Loop over sectors with at least one initial state particle
                 if isec <= 2 or jsec <= 2:
                     # TODO: look at Born string for initial state singularities
                     continue
 
-            # selection of underlying Born according to 
-            # 'def compute_matrix_element_event_weight' function in ME7_integrands
-            Born_PDGs.append(tmp_Born_PDGs[0])
+            # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
+            overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
+
             # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
 
-        # Link LO files to each real process directory
-        print('Born_processes')
-        print(Born_processes)
 
-        for i in range(0,len(Born_processes)):
-            os.symlink( "%s/matrix_%s.f" % (path_Born_processes[i], Born_processes[i]), 
-                        "%s/matrix_%s.f" % (dirpath, Born_processes[i]) )
-            os.symlink( path_Born_processes[i] + '/%s_spin_correlations.inc' % Born_processes[i], 
-                        dirpath + '/%s_spin_correlations.inc' % Born_processes[i] )
-            #include all necessary leg_PDGs_* files
-            for j in range(0,len(Born_PDGs)):
-                if j != 0 and Born_PDGs[j][0] == Born_PDGs[j-1][0]:
-                    continue
-                tmp = path_Born_processes[i] + '/leg_PDGs_%s.inc' % Born_PDGs[j][0]
-                if os.path.exists(tmp):
-                    os.symlink( path_Born_processes[i] + '/leg_PDGs_%s.inc' % Born_PDGs[j][0], 
-                        dirpath + '/leg_PDGs_%s.inc' % Born_PDGs[j][0] )
+######### Check on real and virtual recoiler flavour
 
+        leg_PDGs = []
+        leg_PDGs.append(all_PDGs[0][0])
+        leg_PDGs.append(all_PDGs[0][1])
+        for i in range(0,len(final_state_PDGs)):
+            leg_PDGs.append(all_PDGs[1][i])
 
-# Links to virtual dir
-        for i in range(0,len(Born_processes)):
-            dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
-            dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
-            #os.symlink(dirpath + '/virtual_recoilers.inc',dirpath_virtual + '/virtual_recoilers_%s.inc' % defining_process.shell_string(
-            #                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
-            
-            v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % Born_processes[i]))
-            data_v_rec = str(v_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-            file = """ \
-              integer, parameter :: len_iref = %d
-              integer iref(2,len_iref)
-              data iref/%s/ 
-            """ % (len(v_rec), data_v_rec)
-            filename = pjoin(dirpath_virtual, 'virtual_recoilers.inc')
-            writer(filename).writelines(file)
+        # add function for checking recoilers (apply get_collinear_mapped_labels, compare flavours)
 
 
 ######### Write get_Born_PDGs.f
 
-        if len(Born_PDGs) != len(all_sector_list):
-            raise MadEvent7Error('WARNING, the list of Born_PDGs is not compatible with the total number of sectors!')
+        self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
+
+
+######### Write makefile_npo_template
+
+        self.write_makefile_npo_file(writers.FileWriter, dirpath, dirmadnklo, defining_process, overall_sector_info)
+
+
+######### Link Born files to each real process directory
+
+        self.link_files_from_B_to_R_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
+
+
+######### Link Born files to each virtual process directory
+        #self.link_files_from_B_to_V_dir(dirpath, Born_processes, path_Born_processes, Born_PDGs)
+
+
+# Links to virtual dir
+
+        for i in range(0,len(Born_processes)):
+            dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
+            dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
+
+            if not glob.glob("%s/matrix.f" % dirpath_virtual):
+
+                os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_virtual )
+                os.symlink( path_Born_processes[i] + '/spin_correlations.inc', dirpath_virtual + '/spin_correlations.inc' )
+            
+                v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % Born_processes[i]))
+                data_v_rec = str(v_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+                file = """ \
+                  integer, parameter :: len_iref = %d
+                  integer iref(2,len_iref)
+                  data iref/%s/ 
+                """ % (len(v_rec), data_v_rec)
+                filename = pjoin(dirpath_virtual, 'virtual_recoilers.inc')
+                writer(filename).writelines(file)
+
+                os.symlink( '%s/virtual_recoilers.inc' % dirpath_virtual, '%s/virtual_recoilers.inc' % dirpath)
+
+
+        return all_sectors
+
+
+
+    #===========================================================================
+    # write all_sector_list include file
+    #===========================================================================
+
+    def write_all_sector_list_include(self, writer, dirpath, all_sector_list):
+
+        replace_dict = {}
+        replace_dict['len_sec_list'] = len(all_sector_list)
+        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+
+        file = """ \
+          integer, parameter :: lensectors = %(len_sec_list)d
+          integer all_sector_list(2,lensectors)
+          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+
+        filename = pjoin(dirpath, 'all_sector_list.inc')
+        writer(filename).writelines(file)
+
+        return True
+
+
+    #===========================================================================
+    # write driver_isec_jsec for real subprocess directory
+    #===========================================================================
+
+    def write_driver_npo_template(self, writer, dirpath, dirmadnklo, i , isec, jsec):
+        
+        replace_dict = {}
+        replace_dict['isec'] = isec
+        replace_dict['jsec'] = jsec
+
+        # write driver
+        filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+
+    #===========================================================================
+    # write file for testing limits, 'testR.f'
+    #===========================================================================
+
+    def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process, i, isec, jsec, necessary_ct_list, mapping_str):
+
+        replace_dict = {}
+        replace_dict['isec'] = isec
+        replace_dict['jsec'] = jsec
+
+        limit_str = ''
+        is_soft = False
+        is_coll = False
+        list_Zsum = []
+        if necessary_ct_list[i*5] == 1:
+            limit_str += """
+c
+c     soft limit
+      e1=1d0
+      e2=1d0
+      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+"""%(isec,jsec)
+            list_Zsum.append('c     call sector function ZsumSi\n')
+            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
+            is_soft = True
+        if necessary_ct_list[i*5+1] == 1:
+            limit_str += """
+c
+c     soft limit
+      e1=1d0
+      e2=1d0
+      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+"""%(isec,jsec)
+            list_Zsum.append('c     call sector function ZsumSj\n')
+            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
+            is_soft = True
+        # Loop over sectors with final state particles only
+        if isec > 2 and jsec > 2:
+            if necessary_ct_list[i*5+2] == 1:
+                limit_str += """
+c
+c     collinear limit
+      if((iU.eq.isec.and.iS.eq.jsec.and.iB.eq.iref).or.(iU.eq.jsec.and.iS.eq.isec.and.iB.eq.iref)) then
+        e1=0d0
+        e2=1d0
+      elseif((iU.eq.isec.and.iS.eq.iref.and.iB.eq.jsec).or.(iU.eq.jsec.and.iS.eq.iref.and.iB.eq.isec)) then
+        e1=1d0
+        e2=0d0
+      else
+        write(*,*) 'Wrong mapping for collinear limit'
+        write(*,*) 'iU, iS, iB = ', iU, iS, iB
+        write(*,*) 'isec, jsec = ', isec, jsec
+        stop
+      endif
+      call do_limit_R_%d_%d(iunit,'C       ',x0,e1,e2)
+"""%(isec,jsec)
+                is_coll = True
+            if is_soft and is_coll:
+                limit_str += """
+c
+c     soft-collinear limit
+      e1=e1+1d0
+      e2=e2+1d0
+      call do_limit_R_%d_%d(iunit,'SC      ',x0,e1,e2)
+"""%(isec,jsec)
+        elif isec > 2 and jsec <= 2:
+            limit_str += """Collinear limits still to be specified in sectors.py """
+
+        replace_dict['limit_str'] = limit_str
+        replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+        str_Zsum = " ".join(list_Zsum)
+        replace_dict['str_Zsum'] = str_Zsum  
+        replace_dict['mapping_str'] = mapping_str
+
+        # write testR             
+        filename = pjoin(dirpath, 'testR_%d_%d.f' %(isec,jsec) )
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testR_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+
+    #===========================================================================
+    # write 'get_Born_PDGs.f' to find labels/flavours of n-body kinematics
+    #===========================================================================
+
+    def write_get_Born_PDGs_file(self,writer, dirpath, overall_sector_info):
 
         file = ''
         file += """ \
           subroutine get_Born_PDGs(isec,jsec,nexternal_Born,Born_leg_PDGs)
           implicit none
-          """
-
-        for i in range(0,len(Born_PDGs)):
-            if i != 0 and Born_PDGs[i][0] == Born_PDGs[i-1][0]:
-                continue
-            file += """ \
-                include 'leg_PDGs_%s.inc'
-                """ % Born_PDGs[i][0]
-
-        file += """ \
           integer isec, jsec
           integer nexternal_Born
           integer Born_leg_PDGs(nexternal_Born)
           \n"""
 
+        for i in range(0,len(overall_sector_info)):
 
-        for i in range(0,len(Born_PDGs)):
             replace_dict_tmp = {}
-            replace_dict_tmp['isec'] = Born_PDGs[i][1]
-            replace_dict_tmp['jsec'] = Born_PDGs[i][2]
-            replace_dict_tmp['tmp_PDGs'] = 'leg_PDGS_%s' % Born_PDGs[i][0]
+            replace_dict_tmp['isec'] = overall_sector_info[i]['isec']
+            replace_dict_tmp['jsec'] = overall_sector_info[i]['jsec']
+            replace_dict_tmp['tmp_PDGs'] = overall_sector_info[i]['Born_PDGs']
 
             if i == 0:
                 replace_dict_tmp['if_elseif'] = 'if'
@@ -908,34 +960,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         filename = pjoin(dirpath, 'get_Born_PDGs.f')
         writer(filename).writelines(file)
 
+        return True
 
-######### Write driver_isec_jsec.f 
 
-        replace_dict = {}
-        for i in range(0,len(all_sector_list)):
-            isec = all_sector_list[i][0]
-            jsec = all_sector_list[i][1]
-            replace_dict['isec'] = isec
-            replace_dict['jsec'] = jsec
-            # write driver
-            filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_template.f")).read()
-            file = file % replace_dict
-            writer(filename).writelines(file)
+    #===========================================================================
+    # write 'makefile' for real subprocesses
+    #===========================================================================
 
-######### Symlink for *.inc  
-
-        os.mkdir(pjoin(dirpath, 'include'))
-
-        path_to_math = pjoin(dirmadnklo,"Template/Fortran_tmp/src_to_common/math.inc")
-        os.symlink( path_to_math, dirpath + '/include/math.inc' )
-
-        os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
-        os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
-        os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
-        os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
-
-######### Write makefile_npo_template 
+    def write_makefile_npo_file(self, writer, dirpath, dirmadnklo, defining_process, overall_sector_info):
 
         replace_dict = {}
         proc_str = ''
@@ -946,14 +978,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o""" % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
-        for i in range(0,len(Born_processes)):
-            proc_str += ' matrix_' + Born_processes[i] + '.o'
+        for i in range(0,len(overall_sector_info)):
+            if not overall_sector_info[i]['path_to_Born']:
+                continue
+            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+                continue
+            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
 
         replace_dict['proc_str'] = proc_str
  
-        for i in range(0,len(all_sector_list)):
-            isec = all_sector_list[i][0]
-            jsec = all_sector_list[i][1]
+        for i in range(0,len(overall_sector_info)):
+            isec = overall_sector_info[i]['isec']
+            jsec = overall_sector_info[i]['jsec']
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
             files_str += 'FILES_%d_%d= ' % (isec, jsec)
@@ -981,94 +1017,39 @@ sector_%d_%d: $(FILES_%d_%d)
         replace_dict['sector_str'] = sector_str
         replace_dict['all_str'] = all_str
         replace_dict['files_str'] = files_str
+
         # write makefile
         filename = pjoin(dirpath, 'makefile' )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
         file = file % replace_dict
-        writers.FileWriter(filename).write(file)
+        writer(filename).write(file)
+        #writers.FileWriter(filename).write(file)
 
+        return True
 
+    #===========================================================================
+    # function for linking files to Real subprocess directory
+    #===========================================================================
 
-######### Write testR_template 
+    def link_files_from_B_to_R_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
 
-        replace_dict = {}
-        for i in range(0,len(all_sector_list)):
-            isec = all_sector_list[i][0]
-            jsec = all_sector_list[i][1]
-            iref = all_sector_recoilers[i]
-            replace_dict['isec'] = isec
-            replace_dict['jsec'] = jsec
-            # replace_dict['iref'] = iref
-            limit_str = ''
-            is_soft = False
-            is_coll = False
-            list_Zsum = []
-            if necessary_ct_list[i*5] == 1:
-                limit_str += """
-c
-c     soft limit
-      e1=1d0
-      e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
-"""%(isec,jsec)
-                list_Zsum.append('c     call sector function ZsumSi\n')
-                list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
-                is_soft = True
-            if necessary_ct_list[i*5+1] == 1:
-                limit_str += """
-c
-c     soft limit
-      e1=1d0
-      e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
-"""%(isec,jsec)
-                list_Zsum.append('c     call sector function ZsumSj\n')
-                list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
-                is_soft = True
-            # Loop over sectors with final state particles only
-            if isec > 2 and jsec > 2:
-                if necessary_ct_list[i*5+2] == 1:
-                    limit_str += """
-c
-c     collinear limit
-      if((iU.eq.isec.and.iS.eq.jsec.and.iB.eq.iref).or.(iU.eq.jsec.and.iS.eq.isec.and.iB.eq.iref)) then
-        e1=0d0
-        e2=1d0
-      elseif((iU.eq.isec.and.iS.eq.iref.and.iB.eq.jsec).or.(iU.eq.jsec.and.iS.eq.iref.and.iB.eq.isec)) then
-        e1=1d0
-        e2=0d0
-      else
-        write(*,*) 'Wrong mapping for collinear limit'
-        write(*,*) 'iU, iS, iB = ', iU, iS, iB
-        write(*,*) 'isec, jsec = ', isec, jsec
-        stop
-      endif
-      call do_limit_R_%d_%d(iunit,'C       ',x0,e1,e2)
-"""%(isec,jsec)
-                    is_coll = True
-                if is_soft and is_coll:
-                    limit_str += """
-c
-c     soft-collinear limit
-      e1=e1+1d0
-      e2=e2+1d0
-      call do_limit_R_%d_%d(iunit,'SC      ',x0,e1,e2)
-"""%(isec,jsec)
-            elif isec > 2 and jsec <= 2:
-                limit_str += """Collinear limits still to be specified in sectors.py """
+        for i in range(0,len(overall_sector_info)):
 
-            replace_dict['limit_str'] = limit_str
-            replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
-                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
-            str_Zsum = " ".join(list_Zsum)
-            replace_dict['str_Zsum'] = str_Zsum  
-            replace_dict['mapping_str'] = mapping_str
-            # write testR             
-            filename = pjoin(dirpath, 'testR_%d_%d.f' %(isec,jsec) )
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testR_template.f")).read()
-            file = file % replace_dict
-            writer(filename).writelines(file)
+            if not overall_sector_info[i]['path_to_Born']:
+                continue
 
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']), 
+                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
+                os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
 
+            #include all necessary leg_PDGs_* files
+            # for j in range(0,len(overall_sector_info)):
+            #     if j != 0 and overall_sector_info[j]['Born_str'] == overall_sector_info[j-1]['Born_str']:
+            #         continue
+            #     tmp = path_Born_processes[i] + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str']
+            #     if os.path.exists(tmp):
+            #         os.symlink( path_Born_processes[i] + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str'], 
+            #             dirpath + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str'] )
 
-        return all_sectors

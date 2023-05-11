@@ -4,12 +4,10 @@ c     MSbar finite part of the integrated counterterm
       INCLUDE 'nexternal.inc'
       INCLUDE 'math.inc'
       INCLUDE 'damping_factors.inc'
-c     TODO: write  INCLUDE 'Born_PDGs.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'virtual_recoilers.inc'
-c     TODO: write this as link to Real directory
       INCLUDE 'leg_PDGs_epem_ddx.inc'
       INCLUDE 'colored_partons.inc'
       integer i,j,r
@@ -22,7 +20,7 @@ c     TODO: write this as link to Real directory
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
       INTEGER, PARAMETER :: HEL = - 1
-      DOUBLE PRECISION  EPEM_DDX_GET_CCBLO
+      DOUBLE PRECISION  GET_CCBLO
       integer iref1(nexternal)
 c
 c     initialise
@@ -33,7 +31,7 @@ c     initialise
       CCBLO = 0d0
       BLO = 0d0
 
-      CALL EPEM_DDX_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       BLO = ANS(0)
 c      TODO: modify ierr      
 c      if(ierr.eq.1)goto 999
@@ -49,12 +47,17 @@ c     Born contribution
             INLO=INLO+
      &           (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+
      &           CA*(6d0-7d0/2d0*zeta2)
+c           factor for conversion torino to ML, namely gamma[1-eps] to exp[- eps eulergamma]      
+            INLO = INLO + pi**2/12d0 * CA
          elseif(leg_pdgs_epem_ddx(i).ne.0 .and.
      &           abs(leg_pdgs_epem_ddx(i)).le.6) then
             INLO=INLO+
      &           (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
+c           factor for conversion torino to ML, namely gamma[1-eps] to exp[- eps eulergamma]  
+             INLO = INLO + pi**2/12d0 * CF
          endif
       enddo
+
 c
 c     Include damping factors
       A20a=A20(alpha)
@@ -67,14 +70,14 @@ c     Include damping factors
      &        abs(leg_pdgs_epem_ddx(i)).le.6)INLO=INLO+
      &   CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
-      write(33,*) 'BLO = ', BLO
+
       INLO=INLO*BLO
 c
 c     Colour-linked-Born contribution
       do i=1,nexternal
          do j=1,nexternal
             if(ISLOQCDPARTON(i) .and. ISLOQCDPARTON(j)) then
-               CCBLO = EPEM_DDX_GET_CCBLO(i,j)
+               CCBLO = GET_CCBLO(i,j)
             else
                cycle
             endif

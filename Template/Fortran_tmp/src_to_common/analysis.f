@@ -12,13 +12,9 @@ c
       end
 
 
-      subroutine histo_fill(p,xs,www)
+      subroutine histo_fill(p,xs,nexternal,www)
       implicit none
-      INCLUDE 'nexternal.inc'
-c      include 'dims.inc'
-c      include 'setup.inc'
-c      include 'jets.inc'
-      integer npart,i,j
+      integer nexternal,i,j
       double precision xs(nexternal,nexternal)
       double precision p(0:3,nexternal),www
       double precision xsec,thrust

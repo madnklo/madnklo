@@ -19,8 +19,8 @@ c     it returns 0 if i is not a gluon
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
       logical isLOQCDparton(nexternal-1)
 c     set logical doplot
-c     logical, save :: doplot=.false.
-c     common/cdoplot/doplot
+      logical doplot
+      common/cdoplot/doplot
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
@@ -111,8 +111,7 @@ c     TODO: check for DIS
 c
 c     plot
             wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
-c           TODO: look at histo_fill()
-c            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo
       enddo
@@ -155,15 +154,8 @@ c     for sectors (ia,ib)+(ib,ia)
       logical docut
       double precision %(proc_prefix_H_C_FgFg)s_GET_KKBLO
 c     set logical doplot
-c      logical, save :: doplot=.false.
-c      common/cdoplot/doplot
-c      logical, save :: ini=.false.
-c
-c
-c      if(ini)then
-c         doplot=.true.
-c         ini=.false.
-c      endif
+      logical doplot
+      common/cdoplot/doplot
 c
 c     initialise
       M2_H_C_FgFg=0d0
@@ -225,8 +217,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C_FgFg*xj*wgt/nit
-c     TODO: set doplot and look at histo_fill()
-c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C_FgFg).ge.huge(1d0).or.isnan(M2_H_C_FgFg))then
@@ -260,18 +251,11 @@ c     for sectors (ia,ib)+(ib,ia)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision ans(0:nsqso_born)
 c     set logical doplot
-c      logical, save :: doplot=.false.
-c      common/cdoplot/doplot
-c      logical, save :: ini=.false.
+      logical doplot
+      common/cdoplot/doplot
       double precision alphas,alpha_qcd
       logical docut
       integer,parameter :: HEL = - 1
-c
-c
-c      if(ini)then
-c         doplot=.true.
-c         ini=.false.
-c      endif
 c
 c     initialise
       M2_H_C_FgFq=0d0
@@ -320,8 +304,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C_FgFq*xj*wgt/nit
-c     TODO: set doplot and look at histo_fill()
-c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C_FgFq).ge.huge(1d0).or.isnan(M2_H_C_FgFq))then
@@ -358,18 +341,11 @@ c     for sectors (ia,ib)+(ib,ia)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
-c     logical, save :: doplot=.false.
-c     common/cdoplot/doplot
-c     logical, save :: ini=.false.
+      logical doplot
+      common/cdoplot/doplot
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
       logical docut
-      
-c
-c      if(ini)then
-c         doplot=.true.
-c         ini=.false.
-c      endif
 c
 c     initialise
       M2_H_C_FqFqx=0d0
@@ -431,8 +407,7 @@ c     recoiler position (ir)
 c
 c     plot
       wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
-c     TODO: set doplot and look at histo_fill()
-c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
       if(abs(M2_H_C_FqFqx).ge.huge(1d0).or.isnan(M2_H_C_FqFqx))then

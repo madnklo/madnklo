@@ -41,6 +41,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cxsave/xsave
       integer counter
       save counter
+      integer nitr
+      common/iterations/nitr
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -117,8 +119,8 @@ c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 
 c     plot real
-c      wgtpl=int_real_no_cnt*wgt/nitR
-c      if(doplot)call histo_fill(p,sNLO,npartNLO,wgtpl)
+      wgtpl=int_real_no_cnt*wgt/nitR
+      if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
 c 555  continue
 c
       %(str_int_real)s
@@ -130,7 +132,7 @@ c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
 c     add flux factor
-c     TODO: add the general case
+c     TODO: add the general case for the flux factor
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
 c
 c     print out current run progress

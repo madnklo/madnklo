@@ -22,6 +22,7 @@
       double precision rescale_plot_R
       character*100 line
       integer nitRth,nclRth,nitR,nclR
+      COMMON/iterations/NITR
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -82,13 +83,13 @@ c
       write(iu1,'(a)')' REAL_%(isec)d_%(jsec)d '
       write(iu1,'(a)')'============================='
       init=1
-c      doplot=.true.
-c      call histo_init
+      doplot=.true.
+      call histo_init
       call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c      rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
+      rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
       write(*,110)char(13),'...done     '
       write(*,*)
-c      call histo_final('plot_R_%(isec)d_%(jsec)d'.dat',rescale_plot_R)
+      call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
 c
       open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
       line='=================================================='

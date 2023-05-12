@@ -23,8 +23,6 @@ c
 c     observables
       xsec=1d0
       thrust=getthrust_3body(p,nexternal)
-      write(33,*)
-      write(33,*) www
 c
 c     fill histograms
       call mfill(1,xsec,www)

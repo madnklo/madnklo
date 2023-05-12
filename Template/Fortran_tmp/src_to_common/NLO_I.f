@@ -36,10 +36,11 @@ c     initialise
 c      TODO: modify ierr      
 c      if(ierr.eq.1)goto 999
 
+c     TODO: add check 
       do i=1,len_iref
          iref1(iref(1,i)) = iref(2,i)
       enddo
-      
+
 c
 c     Born contribution
       do i=1,nexternal
@@ -54,7 +55,7 @@ c           factor for conversion torino to ML, namely gamma[1-eps] to exp[- eps
             INLO=INLO+
      &           (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
 c           factor for conversion torino to ML, namely gamma[1-eps] to exp[- eps eulergamma]  
-             INLO = INLO + pi**2/12d0 * CF
+            INLO = INLO + pi**2/12d0 * CF
          endif
       enddo
 

@@ -38,6 +38,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision xjac,xjacB
       double precision xsave(3)
       double precision sCM
+      common/cscm/sCM
       common/cxsave/xsave
       integer counter
       save counter
@@ -119,7 +120,7 @@ c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 
 c     plot real
-      wgtpl=int_real_no_cnt*wgt/nitR
+      wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
 c 555  continue
 c

@@ -746,7 +746,29 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         for i in range(0,len(final_state_PDGs)):
             leg_PDGs.append(all_PDGs[1][i])
 
-        # add function for checking recoilers (apply get_collinear_mapped_labels, compare flavours)
+        # Function for checking recoilers (apply get_collinear_mapped_labels, compare flavours)
+        for i in range(0,len(overall_sector_info)):
+            info = overall_sector_info[i]
+            mapped_flavours, mapped_labels, parent_leg = recoiler_function.get_collinear_mapped_labels(
+                        info['mapping'][0], info['mapping'][1], info['mapping'][2], 
+                        info['isec'], info['jsec'], leg_PDGs, info['Born_PDGs']
+                        )
+            #print(mapped_flavours)
+            #print(mapped_labels)
+            #print(info['iref'])
+            v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % info['Born_str']))
+            for j in range(0,len(v_rec)):
+                Born_parent = v_rec[j][0]
+                Born_recoiler = v_rec[j][1]
+                #print(Born_parent)
+                #print(Born_recoiler)
+                #print(info['Born_PDGs'])
+                if mapped_labels[parent_leg-1] == Born_parent and mapped_labels[info['iref']-1] == Born_recoiler:
+                    if mapped_flavours[info['iref']-1] != info['Born_PDGs'][Born_recoiler-1]:
+                        raise MadEvent7Error('Recoiler flavours from (n+1) mapping (irec = (%d,%d))    \
+                                            and n virtual contribution (irec = (%d,%d)) do not match!'
+                                            ) % (info['iref'], mapped_flavours[info['iref']-1], 
+                                                    Born_recoiler, info['Born_PDGs'][Born_recoiler-1])
 
 
 ######### Write get_Born_PDGs.f
@@ -904,6 +926,7 @@ c     soft-collinear limit
 """%(isec,jsec)
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectors.py """
+            raise MadEvent7Error('Collinear limits still to be specified in sectors.py. ')
 
         replace_dict['limit_str'] = limit_str
         replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
@@ -1024,7 +1047,6 @@ sector_%d_%d: $(FILES_%d_%d)
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
         file = file % replace_dict
         writer(filename).write(file)
-        #writers.FileWriter(filename).write(file)
 
         return True
 
@@ -1045,12 +1067,4 @@ sector_%d_%d: $(FILES_%d_%d)
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
 
-            #include all necessary leg_PDGs_* files
-            # for j in range(0,len(overall_sector_info)):
-            #     if j != 0 and overall_sector_info[j]['Born_str'] == overall_sector_info[j-1]['Born_str']:
-            #         continue
-            #     tmp = path_Born_processes[i] + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str']
-            #     if os.path.exists(tmp):
-            #         os.symlink( path_Born_processes[i] + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str'], 
-            #             dirpath + '/leg_PDGs_%s.inc' % overall_sector_info[j]['Born_str'] )
 

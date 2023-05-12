@@ -106,47 +106,57 @@ def get_virtual_recoiler(leg_PDGs_proc_prefix):
     return virtual_recoiler
         
 
-# def get_collinear_mapped_labels(a,b,c,isec,jsec, R_leg_PDGs, B_leg_PDGs):
+def get_collinear_mapped_labels(a,b,c,isec,jsec, R_leg_PDGs, B_leg_PDGs):
 
-#     if a <= 2:
-#         raise MadEvent7Error('The first particle must be in the final state! (%d, %d, %d)' % (a,b,c))
+    mapped_labels = [0] * len(R_leg_PDGs)
 
-#     # Associate a,b,c to the collinear particles in the sector
-#     if a == isec:
-#         rm_leg = a
-#         if b == jsec:
-#             parent_leg = b
-#         elif c == jsec:
-#             parent_leg = b
-#     elif a == jsec:
-#         rm_leg = a
-#         if b == isec:
-#             parent_leg = b
-#         elif c == isec:
-#             parent_leg = b
-#     elif (rm_leg == 0 or parent_leg == 0 or rm_leg == parent_leg):
-#         raise MadEvent7Error('Mapping tuple (%d%d%d) does not include particles defining the singular sector (%d%d)!'
-#                                 % (a,b,c,isec,jsec))
+    if a <= 2:
+        raise MadEvent7Error('The first particle must be in the final state! (%d, %d, %d)' % (a,b,c))
 
-#     mapped_flavours = R_leg_PDGs
+    # Associate a,b,c to the collinear particles in the sector
+    if a == isec:
+        rm_leg = a
+        if b == jsec:
+            parent_leg = b
+        elif c == jsec:
+            parent_leg = b
+    elif a == jsec:
+        rm_leg = a
+        if b == isec:
+            parent_leg = b
+        elif c == isec:
+            parent_leg = b
+    elif (rm_leg == 0 or parent_leg == 0 or rm_leg == parent_leg):
+        raise MadEvent7Error('Mapping tuple (%d%d%d) does not include particles defining the singular sector (%d%d)!'
+                                % (a,b,c,isec,jsec))
 
-#     if jsec > 2:
-#         # q > q + g
-#         if R_leg_PDGs[rm_leg] != 21 and R_leg_PDGs[parent_leg] == 21:
-#             mapped_flavours[parent_leg] = R_leg_PDGs(rm_leg)
-#         # q > g + q
-#         elif R_leg_PDGs[rm_leg] == 21 and R_leg_PDGs[parent_leg] != 21:
-#             mapped_flavours[parent_leg] = R_leg_PDGs(parent_leg)
-#         # g > q + qx
-#         elif R_leg_PDGs[rm_leg] == (- R_leg_PDGs[parent_leg]):
-#             mapped_flavours[parent_leg] = 21
-#         # g > g + g
-#         elif R_leg_PDGs[rm_leg] == 21 and R_leg_PDGs[parent_leg] == 21:
-#             mapped_flavours[parent_leg] = 21
+    mapped_flavours = R_leg_PDGs
+    tmp_rm_leg = rm_leg -1
+    tmp_parent_leg = parent_leg -1
 
-#         mapped_flavours[rm_leg] = 0
+    if jsec > 2:
+        # q > q + g
+        if R_leg_PDGs[tmp_rm_leg] != 21 and R_leg_PDGs[tmp_parent_leg] == 21:
+            mapped_flavours[tmp_parent_leg] = R_leg_PDGs[tmp_rm_leg]
+        # q > g + q
+        elif R_leg_PDGs[tmp_rm_leg] == 21 and R_leg_PDGs[tmp_parent_leg] != 21:
+            mapped_flavours[tmp_parent_leg] = R_leg_PDGs[tmp_parent_leg]
+        # g > q + qx
+        elif R_leg_PDGs[tmp_rm_leg] == (- R_leg_PDGs[tmp_parent_leg]):
+            mapped_flavours[tmp_parent_leg] = 21
+        # g > g + g
+        elif R_leg_PDGs[tmp_rm_leg] == 21 and R_leg_PDGs[tmp_parent_leg] == 21:
+            mapped_flavours[tmp_parent_leg] = 21
 
-#         for i in range(1, len(R_leg_PDGs) - 1)
-#             for j in range(1, len(R_leg_PDGs))
-#                 if B_leg_PDGs[i] == mapped_flavours[j]:
-#                     if mapp
+        mapped_flavours[tmp_rm_leg] = 0
+
+        for i in range(0, len(R_leg_PDGs)-1):
+            for j in range(0, len(R_leg_PDGs)):
+                if B_leg_PDGs[i] == mapped_flavours[j]:
+                    if mapped_labels[j] == 0:
+                        mapped_labels[j] = i+1
+
+    elif jsec <= 2:
+        raise MadEvent7Error('Missing implementation!')
+        
+    return mapped_flavours, mapped_labels, parent_leg

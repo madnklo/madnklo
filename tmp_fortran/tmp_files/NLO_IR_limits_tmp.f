@@ -21,6 +21,8 @@ c     it returns 0 if i is not a gluon
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
+      double precision sCM
+      common/cscm/sCM
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
@@ -110,7 +112,7 @@ c     TODO: check for DIS
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
+            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit/2d0/sCM
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo
@@ -156,6 +158,8 @@ c     for sectors (ia,ib)+(ib,ia)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
+      double precision sCM
+      common/cscm/sCM
 c
 c     initialise
       M2_H_C_FgFg=0d0
@@ -216,7 +220,7 @@ c     recoiler position (ir)
       M2_H_C_FgFg=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C_FgFg*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -253,6 +257,8 @@ c     for sectors (ia,ib)+(ib,ia)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
+      double precision sCM
+      common/cscm/sCM
       double precision alphas,alpha_qcd
       logical docut
       integer,parameter :: HEL = - 1
@@ -303,7 +309,7 @@ c     recoiler position (ir)
       M2_H_C_FgFq=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C_FgFq*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -343,6 +349,8 @@ c     for sectors (ia,ib)+(ib,ia)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
+      double precision sCM
+      common/cscm/sCM
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
       logical docut
@@ -406,7 +414,7 @@ c     recoiler position (ir)
       M2_H_C_FqFqx=M2tmp*pref/sab*extra
 c
 c     plot
-      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
+      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

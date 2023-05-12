@@ -12,6 +12,8 @@ c     n-body NLO integrand for vegas
       INCLUDE 'nsquaredSO.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
+      integer nitV
+      common/niterationsv/nitV
       double precision int_virtual,VNLO,INLO,VNLO_MG
       double precision sLO(nexternal,nexternal)
 c     TODO: understand x(mxdim) definition by Vegas
@@ -125,8 +127,8 @@ c     subtraction
       int_virtual = int_virtual/2d0/sCM
 c
 c     plot
-c$$$      wgtpl=int_virtual*wgt/nitV
-c$$$      if(doplot)call histo_fill(p,sLO,npartLO,wgtpl)
+      wgtpl=int_virtual*wgt/nitV
+      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
 c$$$c
 c$$$c     print out current run progress
 c$$$ 999  ievt=ievt+1

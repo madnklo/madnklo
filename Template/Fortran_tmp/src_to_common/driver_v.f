@@ -18,9 +18,10 @@
       integer order
       logical doplot
       common/cdoplot/doplot
-      double precision rescale_plot_B
+      double precision rescale_plot_V
       character*100 line
       integer nitVth,nclVth,nitV,nclV
+      common/niterationsv/nitV
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -64,7 +65,7 @@ c     phase-space dimension, same for all contributions to this folder
 
       write(*,'(a)')'Warm up Virtual'
       write(iu1,'(a)')'============================='
-      write(iu1,'(a)')' BORN WARMUP                 '
+      write(iu1,'(a)')' VIRTUAL WARMUP                 '
       write(iu1,'(a)')'============================='
       init=0
       doplot=.false.
@@ -76,13 +77,13 @@ c
       write(iu1,'(a)')' VIRTUAL                        '
       write(iu1,'(a)')'============================='
       init=1
-c      doplot=.true.
-c      call histo_init
+      doplot=.true.
+      call histo_init
       call vegas(region,ndim,int_virtual,init,nclV,nitV,nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c      rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
+      rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
       write(*,110)char(13),'...done     '
       write(*,*)
-c      call histo_final('plot_B.dat',rescale_plot_B)
+      call histo_final('plot_V.dat',rescale_plot_V)
 c
       open(unit=iu,file='results_V.log')
       line='=================================================='

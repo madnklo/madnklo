@@ -142,8 +142,18 @@ TODO 14/04
 
 
 
-- write in export_v4 info about Born PDGs in tmp file  ok
-- write function get_virtual_recoiler in sectors.py (with tmp_file)  ok
-- write include file 'virtual_recoilers.inc' to be written in R and V dir
-- check in imap.f, in get_collinear_mapped_labels, the recoiler flavour (at sectors.py level maybe)
+- write in export_v4 info about Born PDGs in tmp file
+- write function get_virtual_recoiler in sectors.py (with tmp_file)
+- write include file with virtual recoilers in Real and Virtual dir
+- check in imap.f, in get_collinear_mapped_labels, the recoiler flavour
 - 
+
+
+TODO 12/05
+
+- test on ee>3j (phase space)
+- cut on pt (import docut function)
+- 
+
+
+

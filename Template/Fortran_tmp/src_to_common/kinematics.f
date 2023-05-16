@@ -354,20 +354,11 @@ c      pp(3)=-sth   *p1       +cth*    p3
       END
 
 
-      logical function dotechcut(s,ndim,tiny)
+
+
+
+      subroutine getpt(p,pt)
       implicit none
-      integer ndim,i,j
-      double precision s(ndim,ndim), tiny, smin
-      
-      dotechcut=.false.
-      smin=1d40
-
-      do i=1,ndim-1
-         do j=i+1,ndim
-            if(s(i,j).lt.smin) smin=s(i,j)
-         enddo
-      enddo
-
-      if(smin/s(1,2).lt.tiny) dotechcut=.true.
-      return
+      real * 8 p(0:3), pt
+      pt = dsqrt(p(1)**2+p(2)**2)
       end

@@ -1,11 +1,18 @@
-      function docut(p,npart)
+      logical function docut(p,npart)
       implicit none
+
+      include 'jets.inc'
+
       integer npart,i,j,nQCD
       double precision p(0:3,npart)
-      double precision rfj,sycut,palg,pQCD(0:3,npart)
+      double precision rfj,sycut,palg,pQCD(0:3,maxdim),etamax
       logical dojets
-c      parameter(dojets=.true.)
-      parameter(dojets=.false.)
+      parameter(dojets=.true.)
+      double precision dot
+      double precision, parameter :: tiny=1d-8
+c
+c     local variables
+      double precision x1,x2
 c     
 c     initialise
       docut=.true.
@@ -17,7 +24,7 @@ c
 c     cluster partons into jets
       if(dojets)then
          nQCD=0
-         do j=1,npart
+         do j=3,npart
             nQCD=nQCD+1
             do i=0,3
                pQCD(i,nQCD)=p(i,j)
@@ -27,7 +34,9 @@ c
 c     clustering parameters
          palg=-1d0
          rfj=0.4d0
-         sycut=10d0
+         sycut=20d0
+         etamax = 5d0
+
 c******************************************************************************
 c     call FASTJET to get all the jets
 c     
@@ -37,6 +46,7 @@ c     number of input momenta:     nQCD
 c     radius parameter:            rfj
 c     minumum jet pt:              sycut
 c     jet algorithm:               palg, 1.0=kt, 0.0=C/A, -1.0 = anti-kt
+c     maximum jet rapidity:        etamax    
 c     
 c     OUTPUT:
 c     jet momenta:                           pjet(0:3,n), E is 0th cmpnt
@@ -45,53 +55,48 @@ c     the jet for a given particle 'i':      jet(i),   note that this is the
 c     particle in pQCD, which doesn't
 c     necessarily correspond to the particle
 c     label in the process
-c     
-         call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
+c
+         call fastjetppgenkt_etamax(pQCD,nQCD,rfj,sycut,etamax,palg,pjet,njet,jet)
+
+         
+C     call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
+
 c     
 c******************************************************************************
          do i=1,njet
             ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
             if(i.gt.1)then
-               if (ptjet(i).gt.ptjet(i-1)) then
+               if (ptjet(i)-ptjet(i-1).gt.tiny) then
                   write (*,*) 'Error 1 in docut: jets unordered in pt'
                   stop
                endif
             endif
          enddo
       endif
-c     
+c
 c     user defined cuts
       docut=.false.
+c
+      if(njet.le.2)docut=.true.
 c
       return
       end
 
 
-      function dotechcut(x,npart,tiny)
+      logical function dotechcut(s,ndim,tiny)
       implicit none
-      include 'setup.inc'
-      integer mxdim
-      parameter(mxdim=30)
-      integer npart,i
-      double precision x(mxdim),tiny
-      logical dotechcut
-c
-c     initialise
+      integer ndim,i,j
+      double precision s(ndim,ndim), tiny, smin
+      
       dotechcut=.false.
-c
-      if(npart.eq.npartNLO)then
-         do i=1,2
-            if(x(i).le.tiny.or.x(i).ge.1d0-tiny)dotechcut=.true.
+      smin=1d40
+
+      do i=1,ndim-1
+         do j=i+1,ndim
+            if(s(i,j).lt.smin) smin=s(i,j)
          enddo
-      elseif(npart.eq.npartNNLO)then
-         do i=1,5
-            if(i.eq.3)cycle
-            if(x(i).le.tiny.or.x(i).ge.1d0-tiny)dotechcut=.true.
-         enddo
-      else
-         write(*,*)'Wrong npart in dotechcut',npart
-         stop
-      endif
-c
+      enddo
+
+      if(smin/s(1,2).lt.tiny) dotechcut=.true.
       return
       end

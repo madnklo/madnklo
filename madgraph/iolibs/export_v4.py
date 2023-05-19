@@ -2438,7 +2438,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             replace_dict['len_legPDGs'] = len(leg_PDGs)
             replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
 
-            if i == 0 and strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L' and strdirpath[-1][4] == 'R':
+            if i == 0: #and strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L' and strdirpath[-1][4] == 'R':
                 replace_dict['proc_prefix'] = processes[i].shell_string(
                             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 

@@ -21,6 +21,7 @@
       double precision rescale_plot_B
       character*100 line
       integer nitBth,nclBth,nitB,nclB
+      common/iterations/nitB
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -76,13 +77,13 @@ c
       write(iu1,'(a)')' BORN                        '
       write(iu1,'(a)')'============================='
       init=1
-c      doplot=.true.
-c      call histo_init
+      doplot=.true.
+      call histo_init
       call vegas(region,ndim,int_Born,init,nclB,nitB,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c      rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
+      rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
       write(*,110)char(13),'...done     '
       write(*,*)
-c      call histo_final('plot_B.dat',rescale_plot_B)
+      call histo_final('plot_B.dat',rescale_plot_B)
 c
       open(unit=iu,file='results_B.log')
       line='=================================================='

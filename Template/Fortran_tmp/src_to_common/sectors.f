@@ -2,6 +2,7 @@
       implicit none
       include 'nexternal.inc'
       include 'all_sector_list.inc'
+      include 'leg_PDGs.inc'
       integer i
       integer isec,jsec,ierr
       double precision alpha
@@ -42,10 +43,10 @@
          endif
       elseif(sector_type.eq.'S') then
          do i=1,lensectors
-            if(isec.lt.jsec) then
+            if(all_sector_list(1,i).eq.isec) then
                call getsectorwgt_S(xs,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
                sigma=sigma+wgt
-            else
+            elseif(all_sector_list(2,i).eq.isec) then
                call getsectorwgt_S(xs,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
                sigma=sigma+wgt
             endif

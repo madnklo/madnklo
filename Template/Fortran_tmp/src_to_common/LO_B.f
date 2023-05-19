@@ -18,6 +18,9 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision wgt,wgtpl
       logical doplot
       common/cdoplot/doplot
+      logical docut
+      integer nitB
+      common/iterations/nitB
       double precision p(0:3,nexternal)
       double precision xjac
       double precision sCM
@@ -44,7 +47,7 @@ c     phase space and invariants
       if(ierr.eq.1)goto 999
 c
 c     possible cuts
-c      if(docut(p,npartLO))goto 999
+c      if(docut(p,nexternal))goto 999
 c
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
@@ -55,8 +58,8 @@ c     add flux factor
       int_Born = int_Born/2d0/sCM
 c
 c     plot
-c      wgtpl=int_Born*wgt/nitB
-c      if(doplot)call histo_fill(p,sLO,npartLO,wgtpl)
+      wgtpl=int_Born*wgt/nitB
+      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
 c
 c     print out current run progress
 c 999  ievt=ievt+1

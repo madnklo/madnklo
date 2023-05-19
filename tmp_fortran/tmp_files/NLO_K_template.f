@@ -1,9 +1,6 @@
       subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,WsumSi,WsumSj,xj,KS,KHC,KNLO,ierr)
 c     local NLO counterterm for sector [isec,jsec]
       implicit none
-c
-c     TODO: pass nitR information
-c
       include 'nexternal.inc'
       integer isec,jsec,iref,ierr
       integer nitR

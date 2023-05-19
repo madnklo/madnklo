@@ -30,6 +30,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision tinycut
       logical doplot
       common/cdoplot/doplot
+      logical docut
       integer isec,jsec,iU,iS,iB,iA,iref
       common/cNLOsecindices/isec,jsec
       common/cNLOmaplabels/iU,iS,iB,iA,iref

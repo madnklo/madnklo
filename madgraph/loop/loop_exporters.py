@@ -765,14 +765,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
 
-        # #gl
-        # filename = 'leg_PDGs.inc'
-        # self.write_leg_PDGs_file(os.getcwd(), filename, 'tmp_leg_PDGs.inc', matrix_element.get('processes')[0])
-
-        # #gl
-        # filename = 'colored_partons.inc'
-        # self.write_colored_partons_file(writers.FortranWriter(filename), matrix_element.get('processes')[0])
-
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
         loop_diags = [loop_diag for loop_diag in\
@@ -806,8 +798,11 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                        matrix_element.get('processes')[0],group_number,proc_id))
 
         #gl
+        self.write_NLO_V_template(writers.FortranWriter, matrix_element, group_number = group_number, proc_id = proc_id)
+        self.write_NLO_I_template(writers.FortranWriter, matrix_element)
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
+        self.write_makefile_v_template(writers.FileWriter, matrix_element)
         os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
         
         # Return to original PWD
@@ -830,7 +825,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         for file in linkfiles:
             ln('../%s' % file)
         
-        ln('../%s'%self.madloop_makefile_name, name='makefile')
+        #ln('../%s'%self.madloop_makefile_name, name='makefile')
 
         # The mp module
         ln('../../lib/mpmodule.mod')
@@ -850,32 +845,99 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         owd = os.getcwd()
         os.chdir(dirpathBorn)
-        tmp_leg_PDGs = glob.glob("leg_PDGs_*.inc")
+        tmp_leg_PDGs = glob.glob("leg_PDGs*.inc")
         os.chdir(owd)
         for i in range(0,len(tmp_leg_PDGs)):
             os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
 
 
-        # dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
-        # dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
-        # owd = os.getcwd()
-        # os.chdir(dirpathBorn)
-        # matrix = glob.glob("matrix")[0]
-        # spin_corr = glob.glob("*_spin_correlations.inc")[0]
-        # os.chdir(owd)
-
-        # ln(dirpathBorn + '/%s' % matrix)
-        # ln(dirpathBorn + '/%s' % spin_corr)
-
     #gl
     def link_files_common_directory(self):
 
         cwd = os.getcwd()
-        user_linkfiles = ['driver_v.f','makefile_v'] #, 'NLO_V.f']
+        print(cwd)
+        print(self.dir_path)
+        user_linkfiles = ['driver_v.f'] #, 'makefile_v'] 
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             if file=='makefile_v':
                 mv(pjoin(cwd,'makefile_v'), pjoin(cwd,'makefile'))  
+
+    #===========================================================================
+    # write NLO_V : V + integrated cts
+    #===========================================================================
+    #gl
+    def write_NLO_V_template(self, writer, matrix_element, group_number = None, proc_id = None):
+        
+        replace_dict = {}
+        replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
+                       group_number = group_number, group_elem_number = proc_id)
+
+        # write driver
+        filename = pjoin(os.getcwd(), 'NLO_V_%s.f' % (matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NLO_V_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+    #===========================================================================
+    # write NLO_I : integrated counterterms
+    #===========================================================================
+    #gl
+    def write_NLO_I_template(self, writer, matrix_element):
+        
+        replace_dict = {}
+        replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+
+        # write driver
+        filename = pjoin(os.getcwd(), 'NLO_I_%s.f' % (matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NLO_I_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+    #===========================================================================
+    # write makefile v
+    #===========================================================================
+    #gl
+    def write_makefile_v_template(self, writer, matrix_element):
+        
+        replace_dict = {}
+        proc_prefix = matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        proc_str = """PROC_FILES= NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
+        print(proc_str)
+        replace_dict['proc_file_str'] = proc_str
+
+        object_str = """
+%.o: %.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+%.o: $(PATH_TO_COMMON_FILES)/%.cc
+\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
+"""
+        virtual_str = """
+virtual: $(FILES)
+\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) -o $@
+"""
+        replace_dict['object_str'] = object_str
+        replace_dict['virtual_str'] = virtual_str
+
+        # write makefile
+        filename = pjoin(os.getcwd(), 'makefile' )
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/makefile_v_template")).read()
+        file = file % replace_dict
+        writer(filename).write(file)
+
+        return True
 
 
     def generate_general_replace_dict(self,matrix_element,

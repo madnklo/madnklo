@@ -23,12 +23,12 @@ c     set logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
+      logical docut
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
-      logical docut
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S)s_GET_CCBLO
 c
@@ -55,7 +55,7 @@ c     TODO: check new get_mapped_labels()
             call get_soft_mapped_labels(i,l,m,nexternal,leg_PDGs,mapped_labels,mapped_flavours,isLOQCDparton)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-c     check on LO color labels 
+c     check LO color labels 
             if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
                write(*,*)'Wrong LO indices in soft kernel',lb,mb
                stop
@@ -153,13 +153,13 @@ c     for sectors (ia,ib)+(ib,ia)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      logical docut
       double precision %(proc_prefix_H_C_FgFg)s_GET_KKBLO
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
+      logical docut
 c
 c     initialise
       M2_H_C_FgFg=0d0
@@ -259,8 +259,8 @@ c     set logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
-      double precision alphas,alpha_qcd
       logical docut
+      double precision alphas,alpha_qcd
       integer,parameter :: HEL = - 1
 c
 c     initialise
@@ -269,6 +269,7 @@ c     initialise
       ierr=0
       damp=0d0
 c
+c     possible cuts
 c      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
@@ -351,9 +352,9 @@ c     set logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
+      logical docut
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
-      logical docut
 c
 c     initialise
       M2_H_C_FqFqx=0d0

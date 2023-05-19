@@ -75,14 +75,16 @@ c     exclude the mapped_flavours=0 value of the removed gluon
       subroutine get_collinear_mapped_labels(a,b,c,n,leg_pdgs,
      $           mapped_labels,mapped_flavours)
       implicit none
+      include 'virtual_recoilers.inc'
       integer i,j
       integer a,b,c,n
       integer isec,jsec
       common/cnlosecindices/isec,jsec
-      integer rm_leg,parent_leg
+      integer rm_leg,parent_leg,rec_leg
       integer leg_pdgs(n)
       integer mapped_labels(n),mapped_flavours(n)
       integer Born_leg_PDGs(n-1)
+      integer parent_from_v,rec_from_v
 c
 c     initialise
       j = 0
@@ -104,15 +106,19 @@ c     Associate a,b,c to the collinear particles in the sector
          rm_leg = a
          if(b.eq.jsec) then
             parent_leg = b
+            rec_leg = c
          elseif(c.eq.jsec) then
             parent_leg = c
+            rec_leg = b
          endif
       elseif(a.eq.jsec) then
          rm_leg = a
          if(b.eq.isec) then
             parent_leg = b
+            rec_leg = c
          elseif(c.eq.isec) then
             parent_leg = c
+            rec_leg = b
          endif
       elseif((rm_leg.eq.0).or.(parent_leg.eq.0).or.(rm_leg.eq.parent_leg)) then
          write(*,*) 'Mapping tuple (abc) does not include'
@@ -191,4 +197,22 @@ c        rescaling of mapped_labels
             endif
          enddo
       endif
+
+c     Check that the recoiler mapped_flavour matches the recoiler particle
+c     chosen for the virtual process (reported in virtual_recoilers.inc)
+      do i=1,LEN_IREF
+         parent_from_v = IREF(1,i)
+         rec_from_v = IREF(2,i)
+         if((mapped_labels(parent_leg).eq.parent_from_v)
+     &        .and.(mapped_labels(rec_leg).eq.rec_from_v)) then
+            if(mapped_flavours(rec_leg).ne.Born_leg_PDGs(rec_from_v))
+     &           then
+               write(*,*) 'Recoiler flavour from mapped_flavours'
+               write(*,*) 'and recoiler flavour from virtual process does not match!'
+               write(*,*) mapped_flavours(rec_leg), Born_leg_PDGs(rec_from_v)
+               stop
+            endif
+         endif
+      enddo
+      
       end

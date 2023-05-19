@@ -661,6 +661,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             isec = all_sector_list[i][0]
             jsec = all_sector_list[i][1]
             iref = all_sector_recoilers[i]
+            id_isec = all_sector_id_list[i][0]
+            id_jsec = all_sector_id_list[i][1]
 
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
@@ -753,16 +755,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         info['mapping'][0], info['mapping'][1], info['mapping'][2], 
                         info['isec'], info['jsec'], leg_PDGs, info['Born_PDGs']
                         )
-            #print(mapped_flavours)
-            #print(mapped_labels)
-            #print(info['iref'])
             v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % info['Born_str']))
             for j in range(0,len(v_rec)):
                 Born_parent = v_rec[j][0]
                 Born_recoiler = v_rec[j][1]
-                #print(Born_parent)
-                #print(Born_recoiler)
-                #print(info['Born_PDGs'])
                 if mapped_labels[parent_leg-1] == Born_parent and mapped_labels[info['iref']-1] == Born_recoiler:
                     if mapped_flavours[info['iref']-1] != info['Born_PDGs'][Born_recoiler-1]:
                         raise MadEvent7Error('Recoiler flavours from (n+1) mapping (irec = (%d,%d))    \
@@ -797,10 +793,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
 
             if not glob.glob("%s/matrix.f" % dirpath_virtual):
-
+                # symlink to Born ME
                 os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_virtual )
                 os.symlink( path_Born_processes[i] + '/spin_correlations.inc', dirpath_virtual + '/spin_correlations.inc' )
             
+                # writing virtual_recoilers.inc
                 v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % Born_processes[i]))
                 data_v_rec = str(v_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
                 file = """ \
@@ -811,6 +808,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 filename = pjoin(dirpath_virtual, 'virtual_recoilers.inc')
                 writer(filename).writelines(file)
 
+            if not glob.glob('%s/virtual_recoilers.inc' % dirpath):
                 os.symlink( '%s/virtual_recoilers.inc' % dirpath_virtual, '%s/virtual_recoilers.inc' % dirpath)
 
 
@@ -881,18 +879,18 @@ c     soft limit
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('c     call sector function ZsumSi\n')
+            list_Zsum.append('#     call sector function ZsumSi\n')
             list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
             is_soft = True
         if necessary_ct_list[i*5+1] == 1:
             limit_str += """
 c
 c     soft limit
-      e1=1d0
+      e1=0d0
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('c     call sector function ZsumSj\n')
+            list_Zsum.append('#     call sector function ZsumSj\n')
             list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
             is_soft = True
         # Loop over sectors with final state particles only
@@ -1027,7 +1025,7 @@ c     soft-collinear limit
 sector_%d_%d_libs: libs sector_%d_%d
 
 sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) -o $@ 
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
 """ %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
 
         object_str = """
@@ -1035,7 +1033,10 @@ sector_%d_%d: $(FILES_%d_%d)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
 %.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_COMMON_FILES)/%.cc
+\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 """
         replace_dict['object_str'] = object_str
         replace_dict['sector_str'] = sector_str
@@ -1049,6 +1050,7 @@ sector_%d_%d: $(FILES_%d_%d)
         writer(filename).write(file)
 
         return True
+
 
     #===========================================================================
     # function for linking files to Real subprocess directory

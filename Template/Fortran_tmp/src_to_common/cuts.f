@@ -83,20 +83,3 @@ c
       end
 
 
-      logical function dotechcut(s,ndim,tiny)
-      implicit none
-      integer ndim,i,j
-      double precision s(ndim,ndim), tiny, smin
-      
-      dotechcut=.false.
-      smin=1d40
-
-      do i=1,ndim-1
-         do j=i+1,ndim
-            if(s(i,j).lt.smin) smin=s(i,j)
-         enddo
-      enddo
-
-      if(smin/s(1,2).lt.tiny) dotechcut=.true.
-      return
-      end

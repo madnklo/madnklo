@@ -3,10 +3,22 @@ SHELL = /bin/bash
 
 PWD=$(shell pwd)
 
+OS=$(shell uname -s)
+
+
+# Set LCPP variable
+ifeq ("$(OS)","Linux")
+LCPP=lstdc++
+endif
+ifeq ("$(OS)","Darwin")
+LCPP=lc++
+endif
+
+
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
-	-lsiscone_spherical -lsiscone -lstdc++
+	-lsiscone_spherical -lsiscone -$(LCPP)
 INC=-I$(FJPATH)/include
 
 
@@ -44,7 +56,7 @@ FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
 %(object_str)s
 
-COMMON_FILES= alphaS.o imap.o kinematics.o phase_space.o phase_space_n.o sectors.o vegas.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
+COMMON_FILES= alphaS.o imap.o kinematics.o  phase_space.o phase_space_n.o sectors.o vegas.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
 
 %(proc_str)s
 

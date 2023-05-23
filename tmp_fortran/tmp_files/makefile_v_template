@@ -26,10 +26,21 @@ SHELL = /bin/bash
 
 PWD=$(shell pwd)
 
+OS=$(shell uname -s)
+
+
+# Set LCPP variable
+ifeq ("$(OS)","Linux")
+LCPP=lstdc++
+endif
+ifeq ("$(OS)","Darwin")
+LCPP=lc++
+endif
+
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
-	-lsiscone_spherical -lsiscone -lstdc++
+	-lsiscone_spherical -lsiscone -$(LCPP)
 INC=-I$(FJPATH)/include
 
 

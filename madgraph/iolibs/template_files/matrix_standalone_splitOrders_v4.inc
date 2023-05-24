@@ -983,6 +983,8 @@ C --------------------------------------------------------------
       CALL %(proc_prefix)sSMATRIX_SPLITORDERS(PB,MATELEMS)
       %(proc_prefix)sGET_KKBLO = MATELEMS(0)
 
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+
       return
       end function 
       

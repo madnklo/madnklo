@@ -616,10 +616,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 str_int_real = " ".join(list_int_real)
                 replace_dict_ct['str_defHC'] = str_defHC
                 replace_dict_ct['str_M2'] = str_M2
-                replace_dict_int_real['str_int_real'] = str_int_real        
+                replace_dict_int_real['str_int_real'] = str_int_real  
                 replace_dict_int_real['mapping_str'] = mapping_str       
                 replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+                
 
             overall_sector_info.append(sector_info)
 
@@ -666,7 +667,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
-
+            replace_dict_limits['proc_prefix_real'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_limits['proc_prefix_S'] = 'dummy'
             replace_dict_limits['proc_prefix_H_C_FgFg'] = 'dummy'
             replace_dict_limits['proc_prefix_H_C_FgFq'] = 'dummy'

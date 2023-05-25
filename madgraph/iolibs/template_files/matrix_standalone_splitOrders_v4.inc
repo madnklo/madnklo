@@ -24,6 +24,9 @@ CF2PY INTENT(OUT) :: ANS
 
       include 'coupl.inc'
 
+      INTEGER %(proc_prefix)sDEN
+      COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
+
 C ----------
 C BEGIN CODE
 C ----------
@@ -172,6 +175,9 @@ C     For a 1>N process, them BEAMTWO_HELAVGFACTOR would be set to 1.
       DATA GOODHEL/NCOMB*.FALSE./
       
       INTEGER HELICITIES(NEXTERNAL)
+
+      INTEGER %(proc_prefix)sDEN
+      COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
       
 %(den_factor_line)s
 C
@@ -228,6 +234,10 @@ C
 C ----------
 C BEGIN CODE
 C ----------
+
+   %(proc_prefix)sDEN = IDEN
+
+
 
 ## if (color_correlation) {
 C
@@ -445,6 +455,9 @@ C GLOBAL VARIABLES
 C
       INTEGER USERHEL
 	  COMMON/%(proc_prefix)sHELUSERCHOICE/USERHEL
+
+      INTEGER %(proc_prefix)sDEN
+      COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
 C ----------
 C BEGIN CODE
 C ----------

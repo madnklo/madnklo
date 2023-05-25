@@ -31,6 +31,11 @@ c     external
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S)s_GET_CCBLO
+      integer %(proc_prefix_real)s_den
+      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_S)s_den
+      common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+
 c
 c     initialise
       M2_S=0d0
@@ -76,7 +81,7 @@ c     check on leg_PDGs
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-c            if(docut(xpb,nexternal-1))cycle
+            if(docut(xpb,nexternal-1))cycle
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -96,6 +101,8 @@ c
 c     eikonal
 c     TODO: check for DIS
             M2tmp=ccBLO*2d0*slm/(sil*sim)
+c     Including correct multiplicity factor                  
+            M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
@@ -109,6 +116,7 @@ c     TODO: check for DIS
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp
+            
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
 c
 c     plot
@@ -160,6 +168,10 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      integer %(proc_prefix_real)s_den
+      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_H_C_FgFg)s_den
+      common/%(proc_prefix_H_C_FgFg)s_iden/%(proc_prefix_H_C_FgFg)s_den
 c
 c     initialise
       M2_H_C_FgFg=0d0
@@ -168,7 +180,7 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-c      if(docut(xpb,nexternal-1))return
+      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -209,6 +221,8 @@ c
       KKBLO = %(proc_prefix_H_C_FgFg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
+c     Including correct multiplicity factor      
+      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FgFg)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir) 
       if(ir.ge.2)then
@@ -262,6 +276,10 @@ c     set logical doplot
       logical docut
       double precision alphas,alpha_qcd
       integer,parameter :: HEL = - 1
+      integer %(proc_prefix_real)s_den
+      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_H_C_FgFq)s_den
+      common/%(proc_prefix_H_C_FgFq)s_iden/%(proc_prefix_H_C_FgFq)s_den
 c
 c     initialise
       M2_H_C_FgFq=0d0
@@ -270,7 +288,7 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-c      if(docut(xpb,nexternal-1))return
+      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -299,6 +317,8 @@ c     call Born
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
+c     Including correct multiplicity factor
+      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FgFq)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -355,6 +375,10 @@ c     set logical doplot
       logical docut
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
+      integer %(proc_prefix_real)s_den
+      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_H_C_FqFqx)s_den
+      common/%(proc_prefix_H_C_FqFqx)s_iden/%(proc_prefix_H_C_FqFqx)s_den
 c
 c     initialise
       M2_H_C_FqFqx=0d0
@@ -363,7 +387,7 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-c      if(docut(xpb,nexternal-1))return
+      if(docut(xpb,nexternal-1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -404,6 +428,8 @@ c
       KKBLO = %(proc_prefix_H_C_FqFqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(BLO-4d0/sab*KKBLO)
+c     Including correct multiplicity factor
+      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FqFqx)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then

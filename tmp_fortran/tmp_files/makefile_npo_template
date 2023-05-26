@@ -56,7 +56,7 @@ FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 
 %(object_str)s
 
-COMMON_FILES= alphaS.o imap.o kinematics.o  phase_space.o phase_space_n.o sectors.o vegas.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
+COMMON_FILES= alphaS.o CSmapping.o imap.o kinematics.o  gen_phase_space.o  gen_real_phase_space.o sectors.o vegas.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
 
 %(proc_str)s
 

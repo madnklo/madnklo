@@ -1,12 +1,27 @@
 include ../../Source/make_opts
 SHELL = /bin/bash
 
+
+
+OS=$(shell uname -s)
+
+
+# Set LCPP variable
+ifeq ("$(OS)","Linux")
+LCPP=lstdc++
+endif
+ifeq ("$(OS)","Darwin")
+LCPP=lc++
+endif
+
+
+
 PWD=$(shell pwd)
 
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
-	-lsiscone_spherical -lsiscone -lstdc++
+	-lsiscone_spherical -lsiscone -$(LCPP)
 INC=-I$(FJPATH)/include
 
 
@@ -51,7 +66,7 @@ FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
 %.o: $(PATH_TO_COMMON_FILES)/%.cc
 	$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 
-COMMON_FILES= alphaS.o kinematics.o phase_space_n.o vegas.o LO_B.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
+COMMON_FILES= alphaS.o kinematics.o gen_phase_space.o vegas.o LO_B.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
 
 PROC_FILES = matrix.o
 

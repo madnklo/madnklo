@@ -93,60 +93,68 @@ c
       end
 
 
-      function A10(w)
-c 
-c     A10(w) = Psi0(w+1) + eulergamma
-      implicit none
-      double precision A10,w
-c
-      if(w.ne.0d0.and.w.ne.1d0.and.w.ne.2d0.and.w.ne.3d0)then
-         write(*,*)'Value not coded in A10',w
-         stop
-      endif
-c
-      if(w.eq.0d0)A10=0d0
-      if(w.eq.1d0)A10=1d0
-      if(w.eq.2d0)A10=3d0/2d0
-      if(w.eq.3d0)A10=11d0/6d0
-c 
-      return
-      end
-
-      function A20(w)
-c 
-c     A20(w) = Psi0(w+2) - 1 + eulergamma
-      implicit none
-      double precision A20,w
-c
-      if(w.ne.0d0.and.w.ne.1d0.and.w.ne.2d0.and.w.ne.3d0)then
-         write(*,*)'Value not coded in A20',w
-         stop
-      endif
-c
-      if(w.eq.0d0)A20=0d0
-      if(w.eq.1d0)A20=1d0/2d0
-      if(w.eq.2d0)A20=5d0/6d0
-      if(w.eq.3d0)A20=13d0/12d0
-c 
-      return
-      end
+      FUNCTION A10(W)
+C                                                                                                                                                                                 
+C     A10(w) = Psi0(w+1) + eulergamma                                                                                                                                             
+      IMPLICIT NONE
+      DOUBLE PRECISION A10,W
+C                                                                                                                                                                                 
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                                                                                           
+        WRITE(*,*)'Value not coded in A10',W
+        STOP
+      ENDIF
+C                                                                                                                                                                                 
+      IF(W.EQ.0D0)A10=0D0
+      IF(W.EQ.1D0)A10=1D0
+      IF(W.EQ.2D0)A10=3D0/2D0
+      IF(W.EQ.3D0)A10=11D0/6D0
+      IF(W.EQ.4D0)A10=25D0/12D0
+      IF(W.EQ.5D0)A10=137/60D0
+C                                                                                                                                                                                 
+      RETURN
+      END
 
 
-      function A21(w)
-c 
-c     A21(w) = Psi1(w+2) + 1 - Zeta2
-      implicit none
-      double precision A21,w
-c
-      if(w.ne.0d0.and.w.ne.1d0.and.w.ne.2d0.and.w.ne.3d0)then
-         write(*,*)'Value not coded in A21',w
-         stop
-      endif
-c
-      if(w.eq.0d0)A21=0d0
-      if(w.eq.1d0)A21=-1d0/4d0
-      if(w.eq.2d0)A21=-13d0/36d0
-      if(w.eq.3d0)A21=-61d0/144d0
-c 
-      return
-      end
+      FUNCTION A20(W)
+C                                                                                                                                                                                 
+C     A20(w) = Psi0(w+2) - 1 + eulergamma                                                                                                                                         
+      IMPLICIT NONE
+      DOUBLE PRECISION A20,W
+C                                                                                                                                                                                 
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                                                                                           
+         WRITE(*,*)'Value not coded in A20',W
+        STOP
+      ENDIF
+C                                                                                                                                                                                 
+      IF(W.EQ.0D0)A20=0D0
+      IF(W.EQ.1D0)A20=1D0/2D0
+      IF(W.EQ.2D0)A20=5D0/6D0
+      IF(W.EQ.3D0)A20=13D0/12D0
+      IF(W.EQ.4D0)A20=77D0/60D0
+      IF(W.EQ.5D0)A20=29D0/20D0
+C                                                                                                                                                                                 
+      RETURN
+      END
+
+
+      FUNCTION A21(W)
+C                                                                                                                                                                                 
+C     A21(w) = Psi1(w+2) + 1 - Zeta2                                                                                                                                              
+      IMPLICIT NONE
+      DOUBLE PRECISION A21,W
+C                                                                                                                                                                                 
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                                                                                           
+        WRITE(*,*)'Value not coded in A21',W
+        STOP
+      ENDIF
+C                                                                                                                                                                                 
+      IF(W.EQ.0D0)A21=0D0
+      IF(W.EQ.1D0)A21=-1D0/4D0
+      IF(W.EQ.2D0)A21=-13D0/36D0
+      IF(W.EQ.3D0)A21=-61D0/144D0
+      IF(W.EQ.4D0)A21=-1669D0/3600D0
+      IF(W.EQ.5D0)A21=-1769D0/3600D0
+C                                                                                                                                                                                 
+      RETURN
+      END
+

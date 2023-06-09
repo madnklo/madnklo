@@ -3032,8 +3032,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     extra_proc_ME.append('REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)\n')
                     extra_proc_ME.append('INTEGER HEL\n')
                     extra_proc_ME.append('DOUBLE PRECISION USER_ALPHAS\n')
+                    extra_proc_ME.append('INTEGER %sDEN\n' % proc_prefix)
+                    extra_proc_ME.append('COMMON/%sIDEN/%sDEN\n' %(proc_prefix,proc_prefix))
+                    extra_proc_ME.append('INTEGER %sDEN\n' %item)
+                    extra_proc_ME.append('COMMON/%sIDEN/%sDEN\n' %(item,item))
                     extra_proc_ME.append('#\n')
                     extra_proc_ME.append('CALL %sME_ACCESSOR_HOOK(P,HEL,USER_ALPHAS,ANS)\n' % proc_prefix)
+                    extra_proc_ME.append('#\n')
+                    extra_proc_ME.append('%sDEN = %sDEN\n' %(item,proc_prefix))
                     extra_proc_ME.append('#\n')
                     extra_proc_ME.append('END\n')
                     extra_proc_ME.append('\n')
@@ -3654,6 +3660,7 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
         filename = pjoin(dirpath, 'auto_dsig.f')
         self.write_auto_dsig_file(writers.FortranWriter(filename),
                              matrix_element)
+        
 
         filename = pjoin(dirpath, 'configs.inc')
         mapconfigs, s_and_t_channels = self.write_configs_file(\

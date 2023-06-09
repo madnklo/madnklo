@@ -99,7 +99,7 @@ c     TODO: look at dotechcut
 c      if(dotechcut(x,nexternal,tinycut))goto 999
 c
 c     possible cuts
-c      if(docut(p,nexternal))goto 555
+      if(docut(p,nexternal))goto 999
 c
 c     test matrix elements
       if(ntested.le.ntest)then

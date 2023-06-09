@@ -101,7 +101,7 @@ c     phase space and invariants
       if(ierr.eq.1)goto 999
 c
 c     possible cuts
-c     if(docut(p,nexternal))goto 999
+      if(docut(p,nexternal))goto 999
 c
 c     virtual
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)

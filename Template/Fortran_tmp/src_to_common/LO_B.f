@@ -47,7 +47,7 @@ c     phase space and invariants
       if(ierr.eq.1)goto 999
 c
 c     possible cuts
-c      if(docut(p,nexternal))goto 999
+      if(docut(p,nexternal))goto 999
 c
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

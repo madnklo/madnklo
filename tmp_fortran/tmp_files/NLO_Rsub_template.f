@@ -108,7 +108,7 @@ c     possible cuts
       if(docut(p,nexternal))goto 555
 c
 c     test matrix elements
-      if(ntested.le.ntest)then
+      if(ntested.lt.ntest)then
          ntested=ntested+1
          call test_R_%(isec)d_%(jsec)d(iunit,x)
       endif
@@ -131,10 +131,10 @@ c     real sector function
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
-
-c     apply flavour factor
+c
+c     apply flavour multiplicity factor
       int_real_no_cnt = int_real_no_cnt * fl_factor
-
+c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
@@ -154,7 +154,6 @@ c     subtraction
 c     add flux factor
 c     TODO: add the general case for the flux factor
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
-
 c
 c     print out current run progress
 c     TODO: adapt progress bar

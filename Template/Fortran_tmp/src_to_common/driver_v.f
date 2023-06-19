@@ -10,7 +10,7 @@
       parameter(mxdim=30)
       integer ndim,i,j,idum
       double precision s_had
-      integer iu,iu1,iu7
+      integer iu,iu1,iu2,iu7
       common/cdim/ndim
       double precision int_virtual
       double precision res_V,err_V
@@ -47,6 +47,7 @@ c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
       iu1=44
+      iu2=50
       iu=55
       iu7=77
 c
@@ -61,6 +62,7 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 
       open(unit=iu1,file='integration_V.log')
+      open(unit=iu2,file='test_poles_V.log')
       open(unit=iu7,file='failures_V.log')
 
       write(*,'(a)')'Warm up Virtual'
@@ -102,6 +104,7 @@ c      write(iu,*)' '//line//line
       write(iu,*)
       close(iu)
       close(iu1)
+      close(iu2)
       close(iu7)
 c
 c

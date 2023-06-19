@@ -25,6 +25,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision xjac
       double precision sCM
+      integer fl_factor 
+      common/flavour_factor/fl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -124,9 +126,12 @@ c
 c     subtraction
       int_virtual=(VNLO+INLO)*xjac
       int_virtual = int_virtual/2d0/sCM
+c     apply flavour factor
+      int_virtual=int_virtual*fl_factor
 c
 c     plot
       wgtpl=int_virtual*wgt/nitV
+      wgtpl=wgtpl*fl_factor
       if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
 c
 c     print out current run progress

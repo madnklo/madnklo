@@ -24,6 +24,8 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      integer fl_factor
+      common/flavour_factor/fl_factor
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
@@ -118,13 +120,18 @@ c     Including correct multiplicity factor
             M2tmp=M2tmp*damp
             
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
+
 c
 c     plot
             wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit/2d0/sCM
+            wgtpl = wgtpl*fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
-         enddo
+         enddo 
       enddo
+
+c     apply flavour factor
+      M2_S = M2_s*fl_factor
 c
 c     sanity check
       if(abs(M2_S).ge.huge(1d0).or.isnan(M2_S))then
@@ -168,6 +175,8 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      integer fl_factor
+      common/flavour_factor/fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_H_C_FgFg)s_den
@@ -232,9 +241,12 @@ c     recoiler position (ir)
       endif
       M2tmp=M2tmp*damp
       M2_H_C_FgFg=M2tmp*pref/sab*extra
+c     apply flavour factor
+      M2_H_C_FgFg=M2_H_C_FgFg*fl_factor
 c
 c     plot
       wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
+      wgtpl = wgtpl*fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -274,6 +286,8 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      integer fl_factor
+      common/flavour_factor/fl_factor
       double precision alphas,alpha_qcd
       integer,parameter :: HEL = - 1
       integer %(proc_prefix_real)s_den
@@ -328,9 +342,12 @@ c     recoiler position (ir)
       endif
       M2tmp=M2tmp*damp
       M2_H_C_FgFq=M2tmp*pref/sab*extra
+c     apply flavour factor
+      M2_H_C_FgFq=M2_H_C_FgFq*fl_factor
 c
 c     plot
       wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
+      wgtpl = wgtpl*fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -373,6 +390,8 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      integer fl_factor
+      common/flavour_factor/fl_factor
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
       integer %(proc_prefix_real)s_den
@@ -439,9 +458,12 @@ c     recoiler position (ir)
       endif
       M2tmp=M2tmp*damp
       M2_H_C_FqFqx=M2tmp*pref/sab*extra
+c     apply flavour factor
+      M2_H_C_FqFqx=M2_H_C_FqFqx*fl_factor
 c
 c     plot
       wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
+      wgtpl=wgtpl*fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

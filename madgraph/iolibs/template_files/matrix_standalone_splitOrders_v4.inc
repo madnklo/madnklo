@@ -27,6 +27,8 @@ CF2PY INTENT(OUT) :: ANS
       INTEGER %(proc_prefix)sDEN
       COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
 
+%(flav_factor_line)s
+
 C ----------
 C BEGIN CODE
 C ----------

@@ -45,6 +45,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       save counter
       integer nitr
       common/iterations/nitr
+      integer fl_factor 
+      common/flavour_factor/fl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -130,6 +132,9 @@ c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 
+c     apply flavour factor
+      int_real_no_cnt = int_real_no_cnt * fl_factor
+
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
@@ -149,6 +154,7 @@ c     subtraction
 c     add flux factor
 c     TODO: add the general case for the flux factor
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
+
 c
 c     print out current run progress
 c     TODO: adapt progress bar

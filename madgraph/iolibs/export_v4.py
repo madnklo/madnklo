@@ -1062,6 +1062,15 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
 
         return "DATA IDEN/%2r/" % \
                matrix_element.get_denominator_factor()
+    
+    #gl
+    def get_flav_factor_line(self, matrix_element):
+        """Return the flavour factor line for this matrix element"""
+
+        return """ \
+        INTEGER FL_FACTOR 
+        COMMON/FLAVOUR_FACTOR/FL_FACTOR
+        FL_FACTOR = %d""" % len(matrix_element.get('processes'))
 
     def get_icolamp_lines(self, mapconfigs, matrix_element, num_matrix_element):
         """Return the ICOLAMP matrix, showing which JAMPs contribute to
@@ -2947,6 +2956,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Extract overall denominator
         # Averaging initial state color, spin, and identical FS particles
         replace_dict['den_factor_line'] = self.get_den_factor_line(matrix_element)
+
+        #gl
+        # Flavour multiplicative factor
+        replace_dict['flav_factor_line'] = self.get_flav_factor_line(matrix_element)
 
         # Extract ngraphs
         ngraphs = matrix_element.get_number_of_amplitudes()

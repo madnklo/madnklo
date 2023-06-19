@@ -21,6 +21,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical docut
       integer nitB
       common/iterations/nitB
+      integer fl_factor 
+      common/flavour_factor/fl_factor
       double precision p(0:3,nexternal)
       double precision xjac
       double precision sCM
@@ -56,9 +58,12 @@ c     Born
       int_Born=BLO*xjac
 c     add flux factor
       int_Born = int_Born/2d0/sCM
+c     apply flavour factor
+      int_Born = int_Born * fl_factor
 c
 c     plot
       wgtpl=int_Born*wgt/nitB
+      wgtpl=wgtpl*fl_factor
       if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
 c
 c     print out current run progress

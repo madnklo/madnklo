@@ -64,6 +64,7 @@ c     initialise
       ZsumSi=0d0
       ZsumSj=0d0
       Z_NLO=0d0
+      RNLO=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
@@ -82,24 +83,27 @@ c     phase space and invariants
          stop
       endif
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
-      if(xjac.eq.0d0.or.xjacB.eq.0d0)goto 999
+      if(xjac.eq.0d0.or.xjacB.eq.0d0) then
+         write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
+         goto 999
+      endif
       call invariants_from_p(p,nexternal,sNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.eq.1) then
+         write(77,*) 'Wrong NLO invariants ', sNLO
+         goto 999
+      endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
-      if(ierr.eq.1)goto 999
-c
-c     check that phase-space labels and x variables are as expected
-c      call check_phsp_consistency(x,npartNLO,sNLO,sLO,iU,iS,iB,iA,ierr)
-c      if(ierr.eq.1)goto 999
+      if(ierr.eq.1) then
+         write(77,*) 'Wrong LO invariants ', sLO
+         goto 999
+      endif
 c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
       if(dotechcut(snlo,nexternal,tinycut)) goto 999
-c     TODO: look at dotechcut
-c      if(dotechcut(x,nexternal,tinycut))goto 999
 c
 c     possible cuts
-      if(docut(p,nexternal))goto 999
+      if(docut(p,nexternal))goto 555
 c
 c     test matrix elements
       if(ntested.le.ntest)then
@@ -111,11 +115,17 @@ c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNLO = ANS(0)
-      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))goto 999
+      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
+         write(77,*) 'Wrong RNLO', RNLO
+         goto 999
+      endif
 c
 c     real sector function
       call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.eq.1)then
+         write(77,*) 'Wrong Z_NLO', Z_NLO
+         goto 999
+      endif
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
@@ -123,13 +133,16 @@ c     full real in the combination of sectors
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
-c 555  continue
+ 555  continue
 c
       %(str_int_real)s
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.eq.1)then
+         write(77,*) 'Something wrong in the counterterm', KNLO
+         goto 999
+      endif
 c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac

@@ -5,23 +5,12 @@ SHELL = /bin/bash
 
 OS=$(shell uname -s)
 
-
-# Set LCPP variable
-ifeq ("$(OS)","Linux")
-LCPP=lstdc++
-endif
-ifeq ("$(OS)","Darwin")
-LCPP=lc++
-endif
-
-
-
 PWD=$(shell pwd)
 
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
-	-lsiscone_spherical -lsiscone -$(LCPP)
+	-lsiscone_spherical -lsiscone $(STDLIB)
 INC=-I$(FJPATH)/include
 
 
@@ -56,6 +45,8 @@ INCLUDE1=$(PWD)
 INCLUDE =$(wildcard ./include/*.inc ./*.inc)
 
 FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
+
+VPATH = $(OBJ)
 
 %.o: %.f $(INCLUDE)
 	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 

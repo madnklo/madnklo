@@ -2,11 +2,17 @@
       implicit none
 c
       call inihist
-      call mbook(1,'total  ',1d0,0d0,2d0)
-      call mbook(2,'thrust ',0.02d0,0.68d0,1.02d0)
-c      call mbook(3,'pt j1  ',2d0,0d0,6d1)
-c      call mbook(4,'pt j2  ',2d0,0d0,6d1)
-c      call mbook(5,'pt j3  ',2d0,0d0,6d1)
+      call mbook(1 ,'total xs ',1d0,0d0,2d0)
+c$$$      call mbook(2 ,'thrust   ',0.02d0,0.68d0,1.02d0)
+      call mbook(3 ,'pt j1    ',2d0,0d0,6d1)
+      call mbook(4 ,'pt j2    ',2d0,0d0,6d1)
+      call mbook(5 ,'pt j3    ',2d0,0d0,6d1)
+      call mbook(6 ,'pt j4    ',2d0,0d0,6d1)
+      call mbook(7 ,'eta j1   ',0.2d0,-6d0,6d0)
+      call mbook(8 ,'eta j2   ',0.2d0,-6d0,6d0)
+      call mbook(9 ,'eta j3   ',0.2d0,-6d0,6d0)
+      call mbook(10,'eta j4   ',0.2d0,-6d0,6d0)
+      call mbook(11,'njet     ',1d0,0d0,5d0)
 c
       return
       end
@@ -14,6 +20,8 @@ c
 
       subroutine histo_fill(p,xs,nexternal,www)
       implicit none
+      include 'jets.inc'
+c
       integer nexternal,i,j
       double precision xs(nexternal,nexternal)
       double precision p(0:3,nexternal),www
@@ -22,14 +30,20 @@ c
 c
 c     observables
       xsec=1d0
-      thrust=getthrust_3body(p,nexternal)
+c$$$      thrust=getthrust_3body(p,nexternal)
 c
 c     fill histograms
       call mfill(1,xsec,www)
-      call mfill(2,thrust,www)
-c$$$      call mfill(3,ptjet(1),www)
-c$$$      call mfill(4,ptjet(2),www)
-c$$$      call mfill(5,ptjet(3),www)
+c$$$      call mfill(2,thrust,www)
+      call mfill(3 ,ptjet(1),www)
+      call mfill(4 ,ptjet(2),www)
+      call mfill(5 ,ptjet(3),www)
+      call mfill(6 ,ptjet(4),www)
+      call mfill(7 ,etajet(1),www)
+      call mfill(8 ,etajet(2),www)
+      call mfill(9 ,etajet(3),www)
+      call mfill(10,etajet(4),www)
+      call mfill(11,dble(njet),www)
 c
       return
       end
@@ -56,15 +70,12 @@ c
 
       function getthrust_3body(xp,n)
       implicit none
-c      include 'dims.inc'
-c      include 'setup.inc'
       integer n,i
       double precision xp(0:3,n)
       double precision getthrust_3body
       double precision tiny, sCM
       parameter(tiny=1d-5)
       double precision dot
-     
 c
       sCM = 2d0*dot(xp(:,1),xp(:,2))
       getthrust_3body=0d0

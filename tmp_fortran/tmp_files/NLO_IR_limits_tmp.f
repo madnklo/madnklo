@@ -37,6 +37,10 @@ c     external
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S)s_den
       common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+      INTEGER ISEC,JSEC
+      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+
 
 c
 c     initialise
@@ -83,7 +87,8 @@ c     check on leg_PDGs
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpb,nexternal-1))cycle
+            call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+            IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -181,6 +186,10 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_H_C_FgFg)s_den
       common/%(proc_prefix_H_C_FgFg)s_iden/%(proc_prefix_H_C_FgFg)s_den
+      INTEGER ISEC,JSEC
+      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+
 c
 c     initialise
       M2_H_C_FgFg=0d0
@@ -189,7 +198,9 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1))return
+      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
+      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -293,6 +304,10 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_H_C_FgFq)s_den
       common/%(proc_prefix_H_C_FgFq)s_iden/%(proc_prefix_H_C_FgFq)s_den
+      INTEGER ISEC,JSEC
+      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+
 c
 c     initialise
       M2_H_C_FgFq=0d0
@@ -301,7 +316,8 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1))return
+      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -396,6 +412,9 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_H_C_FqFqx)s_den
       common/%(proc_prefix_H_C_FqFqx)s_iden/%(proc_prefix_H_C_FqFqx)s_den
+      INTEGER ISEC,JSEC
+      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
 c
 c     initialise
       M2_H_C_FqFqx=0d0
@@ -404,7 +423,10 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1))return
+      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
+
+
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)

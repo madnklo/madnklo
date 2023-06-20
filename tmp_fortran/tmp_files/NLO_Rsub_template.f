@@ -7,6 +7,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'leg_pdgs.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -105,7 +106,7 @@ c     tiny technical phase-space cut to avoid fluctuations
       if(dotechcut(snlo,nexternal,tinycut)) goto 999
 c
 c     possible cuts
-      if(docut(p,nexternal))goto 555
+      IF(DOCUT(P,NEXTERNAL,leg_pdgs))GOTO 555
 c
 c     test matrix elements
       if(ntested.lt.ntest)then

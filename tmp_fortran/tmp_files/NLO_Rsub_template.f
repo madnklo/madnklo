@@ -116,7 +116,7 @@ c     TODO: implement flag 'test_only' to stop here
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNLO = ANS(0)
+      RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
       if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
          write(77,*) 'Wrong RNLO', RNLO
          goto 999
@@ -131,9 +131,6 @@ c     real sector function
 c
 c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
-c
-c     apply flavour multiplicity factor
-      int_real_no_cnt = int_real_no_cnt * %(NLO_proc_str)sfl_factor
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM

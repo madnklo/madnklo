@@ -246,7 +246,6 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
-      wgtpl = wgtpl * %(proc_prefix_real)s_fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -347,7 +346,6 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
-      wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -463,7 +461,6 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
-      wgtpl=wgtpl*%(proc_prefix_real)s_fl_factor
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

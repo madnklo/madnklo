@@ -45,8 +45,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       save counter
       integer nitr
       common/iterations/nitr
-      integer fl_factor 
-      common/flavour_factor/fl_factor
+      integer %(NLO_proc_str)sfl_factor 
+      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -133,7 +133,7 @@ c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 c
 c     apply flavour multiplicity factor
-      int_real_no_cnt = int_real_no_cnt * fl_factor
+      int_real_no_cnt = int_real_no_cnt * %(NLO_proc_str)sfl_factor
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM

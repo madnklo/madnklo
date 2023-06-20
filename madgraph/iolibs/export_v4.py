@@ -1064,13 +1064,14 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
                matrix_element.get_denominator_factor()
     
     #gl
-    def get_flav_factor_line(self, matrix_element):
+    def get_flav_factor_line(self, matrix_element,proc_prefix):
         """Return the flavour factor line for this matrix element"""
 
+        str = proc_prefix
         return """ \
-        INTEGER FL_FACTOR 
-        COMMON/FLAVOUR_FACTOR/FL_FACTOR
-        FL_FACTOR = %d""" % len(matrix_element.get('processes'))
+        INTEGER %sFL_FACTOR 
+        COMMON/%sFLAVOUR_FACTOR/%sFL_FACTOR
+        %sFL_FACTOR = %d""" % (str,str,str,str,len(matrix_element.get('processes')))
 
     def get_icolamp_lines(self, mapconfigs, matrix_element, num_matrix_element):
         """Return the ICOLAMP matrix, showing which JAMPs contribute to
@@ -2959,7 +2960,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         #gl
         # Flavour multiplicative factor
-        replace_dict['flav_factor_line'] = self.get_flav_factor_line(matrix_element)
+        replace_dict['flav_factor_line'] = self.get_flav_factor_line(matrix_element,proc_prefix)
 
         # Extract ngraphs
         ngraphs = matrix_element.get_number_of_amplitudes()

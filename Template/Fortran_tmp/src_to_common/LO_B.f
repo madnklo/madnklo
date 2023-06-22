@@ -7,7 +7,7 @@ c     n-body LO integrand for vegas
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      INCLUDE 'leg_pdgs.inc'
+      INCLUDE 'leg_PDGs.inc'
       integer ierr
       integer ievt,nthres
       save ievt,nthres

@@ -23,8 +23,12 @@ LIBDIR=../../lib/
 # TODO: compile libraries when generating process
 LINKLIBS= -L../../lib/ -ldhelas -lmodel -lpdf -lgeneric
 
+LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
+
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext)
+
+LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIR)R_libdhelas.$(libext)
 
 OPT=O3
 
@@ -60,11 +64,13 @@ COMMON_FILES= alphaS.o CSmapping.o imap.o kinematics.o  gen_phase_space.o  gen_r
 
 .PHONY: clean libs
 clean:
-	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a
+	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/R_libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:
 	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
+	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
+	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
 

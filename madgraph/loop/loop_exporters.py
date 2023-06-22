@@ -2403,6 +2403,11 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                            PARAMETER (VERTEXMAXCOEFS=%(vertex_max_coefs)d)"""\
                            %matrix_element.rep_dict)
             IncWriter.close()
+
+        #gl
+        if not os.path.isdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS')):
+            os.mkdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS'))
+        shutil.copy(pjoin(self.dir_path, 'Source', 'DHELAS', 'coef_specs.inc'), pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS'))
         
         # List of all subroutines to place there
         subroutines=[]

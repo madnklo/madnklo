@@ -50,8 +50,12 @@ lolibs:
 # TODO: compile libraries when generating process
 LINKLIBS+=  -lpdf -lgeneric
 
+LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
+
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext) $(LOOP_LIBS)
+
+LIBS+= $(LIBDIR)V_libdhelas.$(libext) $(LIBDIRBORN)B_libdhelas.$(libext)
 
 OPT=O3
 
@@ -110,11 +114,13 @@ all: libs virtual
 
 .PHONY: clean libs
 clean:
-	rm -rf ./*.o $(OBJ)/*.o ../../lib/libdhelas.a
+	rm -rf ./*.o $(OBJ)/*.o ../../lib/libdhelas.a  ../../lib/V_libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:
 	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
+	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
+	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
 

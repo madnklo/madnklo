@@ -86,7 +86,11 @@ class AbstractRoutine(object):
     def write(self, output_dir, language='Fortran', mode='self', combine=True,**opt):
         """ write the content of the object """
         writer = aloha_writers.WriterFactory(self, language, output_dir, self.tag)
+        print(writer)
         text = writer.write(mode=mode, **opt)
+        #gl
+        #print(language)
+        #print('AAAAAAAAAAAAAAAA')
         if combine:
             for grouped in self.combined:
                 if isinstance(text, tuple):
@@ -97,6 +101,30 @@ class AbstractRoutine(object):
         if aloha.mp_precision and 'MP' not in self.tag:
             self.tag.append('MP')
             text += self.write(output_dir, language, mode, **opt)
+            #gl 
+            self.tag.remove('MP')
+        return text
+    
+    #gl
+    def write_user(self, output_dir, language='Fortran', user_prefix='', mode='self', combine=True,**opt):
+        """ write the content of the object """
+        #writer = aloha_writers.ALOHAWriterForFortranUser(self, output_dir)
+
+        writer = aloha_writers.WriterFactoryUser(self, language, output_dir, self.tag, user_prefix)
+        text = writer.write(mode=mode, **opt)
+        #gl
+        #print(language)
+        #print('BBBBBBBBBBBBB')
+        if combine:
+            for grouped in self.combined:
+                if isinstance(text, tuple):
+                    text = tuple([old.__add__(new)  for old, new in zip(text, 
+                             writer.write_combined(grouped, mode=mode+'no_include', **opt))])
+                else:
+                    text += writer.write_combined(grouped, mode=mode+'no_include', **opt)        
+        if aloha.mp_precision and 'MP' not in self.tag:
+            self.tag.append('MP')
+            text += self.write_user(output_dir, language, user_prefix, mode, **opt)
         return text
     
     def get_info(self, info):
@@ -1033,6 +1061,15 @@ class AbstractALOHAModel(dict):
 
         
         #self.write_aloha_file_inc(output_dir)
+
+    #gl
+    def write_user(self, output_dir, language, user_prefix):
+        """ write the full set of Helicity Routine in output_dir"""
+        for abstract_routine in self.values():
+            abstract_routine.write_user(output_dir, language, user_prefix)
+
+        for routine in self.external_routines:
+            self.locate_external(routine, language, output_dir)
     
     def locate_external(self, name, language, output_dir=None):
         """search a valid external file and copy it to output_dir directory"""

@@ -64,7 +64,6 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=int_Born*wgt/nitB
-      wgtpl=wgtpl*fl_factor
       if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
 c
 c     print out current run progress

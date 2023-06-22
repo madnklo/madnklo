@@ -219,6 +219,45 @@ class HelasCallWriter(base_objects.PhysicsObject):
                 res.append(self.get_amplitude_call(amplitude))
 
         return res
+    
+    #gl
+    def get_matrix_element_calls_user(self, matrix_element,user_prefix):
+        """Return a list of strings, corresponding to the Helas calls
+        for the matrix element"""
+
+        assert isinstance(matrix_element, helas_objects.HelasMatrixElement), \
+                  "%s not valid argument for get_matrix_element_calls" % \
+                  type(matrix_element)
+
+        # Do not reuse the wavefunctions for loop matrix elements
+        if isinstance(matrix_element, loop_helas_objects.LoopHelasMatrixElement):
+            return self.get_loop_matrix_element_calls(matrix_element)
+        
+        me = matrix_element.get('diagrams')
+        matrix_element.reuse_outdated_wavefunctions(me)
+
+        res = []
+        for diagram in matrix_element.get('diagrams'):
+            res.extend([ self.proc_prefix_to_helas_call(self.get_wavefunction_call(wf), user_prefix) for \
+                         wf in diagram.get('wavefunctions') ])
+            res.append("# Amplitude(s) for diagram number %d" % \
+                       diagram.get('number'))
+            for amplitude in diagram.get('amplitudes'):
+                call = self.proc_prefix_to_helas_call(self.get_amplitude_call(amplitude), user_prefix)
+                res.append(call)
+        return res
+    
+    #gl
+    def proc_prefix_to_helas_call(self, str, user_prefix):
+
+        splitted = str.split(' ')
+        if splitted[1][0] != 'F':
+            return str
+        elif splitted[1][0] == 'F':
+            splitted[1] = user_prefix + splitted[1] 
+            call_tmp = splitted[0] + " " + splitted[1]
+        
+            return call_tmp
 
     def get_wavefunction_calls(self, wavefunctions):
         """Return a list of strings, corresponding to the Helas calls
@@ -1015,7 +1054,6 @@ class FortranUFOHelasCallWriter(UFOHelasCallWriter):
         
         return super(FortranUFOHelasCallWriter, self).get_amplitude_call(
                                                                amplitude,**opts)        
-        
 
 
     def generate_loop_amplitude_call(self, loopamp):

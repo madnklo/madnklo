@@ -890,20 +890,63 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         write_dir=pjoin(self.dir_path, 'Source', 'DHELAS')
         
         aloha_model.write(write_dir, 'Fortran')
+
+        #gl writing files in DHELAS
+        if not os.path.isdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS')):
+            os.mkdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS'))
+        write_dir_user=pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS')
+        #aloha_model.write_user(write_dir_user, 'Fortran')
+
+        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+            user_prefix = 'V_'
+        elif (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
+            user_prefix = 'R_'
+        elif (self.dir_path).split('/')[-1][0:2] == 'LO':
+            user_prefix = 'B_'
+
+        aloha_model.write_user(write_dir_user, 'Fortran', user_prefix)
+        
         
         # Revert the original aloha loop mode
         aloha.loop_mode = old_loop_mode
 
-        #copy Helas Template
+        # #copy Helas Template
+        # cp(MG5DIR + '/aloha/template_files/Makefile_F', write_dir+'/makefile')
+        # if any([any(['L' in tag for tag in d[1]]) for d in wanted_lorentz]):
+        #     cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
+        #                                          write_dir+'/aloha_functions.f')
+        #     aloha_model.loop_mode = False
+        # else:
+        #     cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
+        #                                          write_dir+'/aloha_functions.f')
+        # create_aloha.write_aloha_file_inc(write_dir, '.f', '.o')
+
+
+        #copy Helas Template in PROC_DHELAS
         cp(MG5DIR + '/aloha/template_files/Makefile_F', write_dir+'/makefile')
+
+        #write makefile template according to user_prefix
+        replace_dict = {}
+        replace_dict['user_prefix'] = user_prefix
+        filename = pjoin(write_dir_user, 'makefile' )
+        file = open(pjoin(MG5DIR, 'aloha/template_files/Makefile_F_user')).read()
+        file = file % replace_dict
+        writers.FortranWriter(filename).write(file)
+
+        #cp(MG5DIR + '/aloha/template_files/Makefile_F_user', write_dir_user+'/makefile')
         if any([any(['L' in tag for tag in d[1]]) for d in wanted_lorentz]):
             cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
-                                                 write_dir+'/aloha_functions.f')
+                                                  write_dir+'/aloha_functions.f')
+            cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
+                                                 write_dir_user+'/aloha_functions.f')
             aloha_model.loop_mode = False
         else:
             cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
-                                                 write_dir+'/aloha_functions.f')
+                                                  write_dir+'/aloha_functions.f')
+            cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
+                                                 write_dir_user+'/aloha_functions.f')
         create_aloha.write_aloha_file_inc(write_dir, '.f', '.o')
+        create_aloha.write_aloha_file_inc(write_dir_user, '.f', '.o')
 
         # Make final link in the Process
         self.make_model_symbolic_link()
@@ -2928,8 +2971,21 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                                        'proc_prefix':proc_prefix, 'proc_id':''}
 
         # Extract helas calls
-        helas_calls = fortran_model.get_matrix_element_calls(\
-                    matrix_element)
+        if proc_prefix:
+            if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+                user_prefix = 'V_'
+            elif (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
+                user_prefix = 'R_'
+            elif (self.dir_path).split('/')[-1][0:2] == 'LO':
+                user_prefix = 'B_'
+            helas_calls = fortran_model.get_matrix_element_calls_user(\
+                    matrix_element, user_prefix)
+        else:
+            helas_calls = fortran_model.get_matrix_element_calls(\
+                        matrix_element)
+        
+        #helas_calls = fortran_model.get_matrix_element_calls_user(\
+        #            matrix_element,proc_prefix)
 
         replace_dict['helas_calls'] = "\n".join(helas_calls)
 

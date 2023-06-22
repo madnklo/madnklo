@@ -10,7 +10,7 @@ c     n-body NLO integrand for vegas
       INCLUDE 'ngraphs.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
-      INCLUDE 'leg_pdgs.inc'
+      INCLUDE 'leg_PDGs.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       integer nitV

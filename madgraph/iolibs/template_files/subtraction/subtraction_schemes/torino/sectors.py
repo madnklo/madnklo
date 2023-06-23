@@ -998,8 +998,7 @@ c     soft-collinear limit
         files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-
-        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o""" % defining_process.shell_string(
+        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         for i in range(0,len(overall_sector_info)):

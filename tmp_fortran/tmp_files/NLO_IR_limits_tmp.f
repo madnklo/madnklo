@@ -88,7 +88,7 @@ c     check on leg_PDGs
 c
 c     possible cuts
             call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-            IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))CYCLE
+            IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -199,7 +199,7 @@ c     initialise
 c
 c     possible cuts
       call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
       
 c
 c     overall kernel prefix
@@ -317,7 +317,7 @@ c     initialise
 c
 c     possible cuts
       call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(as,nloop,mu_R)
@@ -424,7 +424,7 @@ c     initialise
 c
 c     possible cuts
       call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS))RETURN
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 
 
 c

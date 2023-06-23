@@ -106,7 +106,7 @@ c     tiny technical phase-space cut to avoid fluctuations
       if(dotechcut(snlo,nexternal,tinycut)) goto 999
 c
 c     possible cuts
-      IF(DOCUT(P,NEXTERNAL,leg_pdgs))GOTO 555
+      IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
 c
 c     test matrix elements
       if(ntested.lt.ntest)then

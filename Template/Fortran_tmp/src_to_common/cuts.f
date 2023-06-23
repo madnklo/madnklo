@@ -1,8 +1,8 @@
-      logical function docut(p,npart,part_pdgs)
+      logical function docut(p,npart,part_pdgs,nUnres)
       implicit none
       include 'jets.inc'
       include 'nexternal.inc'
-      integer npart,i,j,nQCD
+      integer npart,i,j,nQCD,nUnres
       double precision p(0:3,npart)
       double precision rfj,sycut,palg,pQCD(0:3,maxdim),etamax
       logical dojets
@@ -172,14 +172,14 @@ c     necessarily correspond to the particle
 c     label in the process
 c
          call fastjetppgenkt_etamax(pQCD,nQCD,rfj,sycut,etamax,palg,pjet,njet,jet)
-
          
-C     call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
+c         call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
 
 c     
 c******************************************************************************
          do i=1,njet
             ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
+            etajet(i)=eta(pjet(0,i))
             if(i.gt.1)then
                if (ptjet(i)-ptjet(i-1).gt.tiny) then
                   write (*,*) 'Error 1 in docut: jets unordered in pt'
@@ -189,23 +189,39 @@ c******************************************************************************
          enddo
       endif
 c
-      if(npart.eq.nexternal) then
-         if (njet .ne. nQCD .and. njet .ne. (nQCD-1)) then
-            docut=.true.
-            return
-         endif
-      elseif(npart.eq.(nexternal-1)) then
-         if (njet .ne. nQCD) then
-            docut=.true.
-            return
-         endif
-      else
-         write(*,*) 'Wrong value for npart'
-         write(*,*) 'npart = ', npart
-         write(*,*) 'nexternal = ', nexternal
-         write(*,*) 'Exit...'
+c
+c check
+      if(nQCD.gt.nexternal-nincoming) then
+         write(*,*)'Wrong nQCD in cuts.f ',nQCD,nexternal,nincoming
          stop
       endif
+      if (nUnres .ne. 0 .and. nUnres .ne. 1) then
+         write(*,*)'Wrong nUnres in cuts.f ',nUnres
+         stop
+      endif
+
+      if (njet.lt.nQCD-nUnres) then
+         docut = .true.
+         return
+      endif
+
+
+c$$$
+c$$$
+c$$$      if (nUnres.eq.0) then
+c$$$         if(njet.ne.nQCD) then
+c$$$            docut = .true.
+c$$$            return
+c$$$         endif
+c$$$      elseif(nUnres.eq.1) then
+c$$$         if(njet.ne.nQCD .and. njet.ne.nQCD-1) then
+c$$$            docut = .true.
+c$$$            return
+c$$$         endif
+c$$$      else
+c$$$         write(*,*)'Unknown number of unresolved particles',nUnres
+c$$$         stop
+c$$$      endif
 
 
 c PHOTON (ISOLATION) CUTS

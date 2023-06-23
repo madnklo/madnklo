@@ -104,7 +104,7 @@ c     phase space and invariants
       endif
 c
 c     possible cuts
-      if(docut(p,nexternal,leg_pdgs))goto 999
+      if(docut(p,nexternal,leg_pdgs,0))goto 999
 c
 c     call virtual
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)

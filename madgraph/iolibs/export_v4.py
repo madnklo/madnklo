@@ -2287,11 +2287,15 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
+        user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
-            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
-        else:
+            user_linkfiles += ['driver_n.f','makefile_n', 'LO_B.f']
+        elif strdirpath[-1][0] == 'N':
+            user_linkfiles += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+        # else:
+        #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

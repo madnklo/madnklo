@@ -102,7 +102,7 @@ VPATH = $(OBJ)
 
 %(object_str)s 
 
-COMMON_FILES= alphaS.o kinematics.o gen_phase_space.o vegas.o matrix.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
+COMMON_FILES= gen_phase_space.o vegas.o matrix.o fjcore.o fastjetfortran_core.o
 
 %(proc_file_str)s
 

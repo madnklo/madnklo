@@ -857,11 +857,12 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         cwd = os.getcwd()
         print(cwd)
         print(self.dir_path)
-        user_linkfiles = ['driver_v.f'] #, 'makefile_v'] 
+        user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','driver_v.f',] #, 'makefile_v'] 
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             if file=='makefile_v':
                 mv(pjoin(cwd,'makefile_v'), pjoin(cwd,'makefile'))  
+            
 
     #===========================================================================
     # write NLO_V : V + integrated cts
@@ -910,7 +911,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict = {}
         proc_prefix = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-        proc_str = """PROC_FILES= NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
+        proc_str = """PROC_FILES= alphaS.o kinematics.o analysis.o hbook.o cuts.o NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
         print(proc_str)
         replace_dict['proc_file_str'] = proc_str
 

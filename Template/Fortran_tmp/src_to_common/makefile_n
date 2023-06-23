@@ -57,9 +57,9 @@ VPATH = $(OBJ)
 %.o: $(PATH_TO_COMMON_FILES)/%.cc
 	$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 
-COMMON_FILES= alphaS.o kinematics.o gen_phase_space.o vegas.o LO_B.o analysis.o hbook.o cuts.o fjcore.o fastjetfortran_core.o
+COMMON_FILES=  gen_phase_space.o vegas.o fjcore.o fastjetfortran_core.o
 
-PROC_FILES = matrix.o
+PROC_FILES = matrix.o alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
 
 FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES)
 

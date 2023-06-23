@@ -19,7 +19,7 @@ c     Sort array of results: ismode>0 for real, isway=0 for ascending order
       double precision ptg
       logical is_a_lp(npart),is_a_lm(npart),is_a_ph(npart)
       double precision pgamma(0:3,npart),pem(0:3,npart),pt,eta
-      double precision drlist(npart)
+      real drlist(npart)
       double precision Etsum(0:npart)
       real * 8 chi_gamma_iso
       double precision r2,invm2,iso_getdrv
@@ -298,11 +298,10 @@ c Loop over all photons
                   return
                endif
             endif
-         
+
 c Isolate from hadronic energy
             do i=1,nQCD
-               !drlist(i)=sngl(iso_getdrv(pgamma(0,j),pQCD(0,i)))
-               drlist(i)=iso_getdrv(pgamma(0,j),pQCD(0,i))
+               drlist(i)=sngl(iso_getdrv(pgamma(0,j),pQCD(0,i)))
             enddo
             call sortzv(drlist,isorted,nQCD,ismode,isway,izero)
             Etsum(0)=0.d0
@@ -315,7 +314,7 @@ c Isolate from hadronic energy
             enddo
             do i=1,nin
                alliso=alliso .and.
-     $              Etsum(i).le.chi_gamma_iso(drlist(isorted(i)),
+     $              Etsum(i).le.chi_gamma_iso(dble(drlist(isorted(i))),
      $              R0gamma,xn,epsgamma,ptg)
             enddo
 
@@ -323,7 +322,7 @@ c$$$
 c$$$c Isolate from EM energy
             if(isoEM.and.nem.gt.1)then
                do i=1,nem
-                  drlist(i)=iso_getdrv(pgamma(0,j),pem(0,i))
+                  drlist(i)=sngl(iso_getdrv(pgamma(0,j),pem(0,i)))
                enddo
                call sortzv(drlist,isorted,nem,ismode,isway,izero)
 c First of list must be the photon: check this, and drop it
@@ -342,7 +341,7 @@ c First of list must be the photon: check this, and drop it
                enddo
                do i=1,nin
                   alliso=alliso .and.
-     $               Etsum(i).le.chi_gamma_iso(drlist(isorted(i)),
+     $               Etsum(i).le.chi_gamma_iso(dble(drlist(isorted(i))),
      $               R0gamma,xn,epsgamma,ptg)
                enddo
             endif

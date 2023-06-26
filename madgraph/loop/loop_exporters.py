@@ -912,8 +912,11 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         proc_prefix = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         proc_str = """PROC_FILES= alphaS.o kinematics.o analysis.o hbook.o cuts.o NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
-        print(proc_str)
+        obj_str = """%.o"""
+        fort_str = """%.f"""
         replace_dict['proc_file_str'] = proc_str
+        replace_dict['dotf_str'] = fort_str
+        replace_dict['doto_str'] = obj_str
 
         object_str = """
 %.o: %.f $(INCLUDE)

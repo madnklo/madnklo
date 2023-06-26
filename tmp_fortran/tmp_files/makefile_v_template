@@ -17,7 +17,18 @@ POLYNOMIAL_OPTIMIZATION = -O3
 POLYNOMIAL_BOUNDS_CHECK =
 
 include $(ROOT)/Source/make_opts
-include $(ROOT)/SubProcesses/MadLoop_makefile_definitions
+#include $(ROOT)/SubProcesses/MadLoop_makefile_definitions
+
+LINK_LOOP_LIBS = -L$(LIBDIR) -lcts -liregi -L/home/giovanni/Lavori/madnklo/HEPTools/lib/ -lninja -L/home/giovanni/Lavori/madnklo/HEPTools/lib/ -lavh_olo
+LOOP_LIBS = $(LIBDIR)libcts.$(libext) $(LIBDIR)libiregi.$(libext) /home/giovanni/Lavori/madnklo/HEPTools/lib/libninja.$(libext) /home/giovanni/Lavori/madnklo/HEPTools/lib/libavh_olo.$(libext)
+LOOP_INCLUDE = -I /home/giovanni/Lavori/madnklo/HEPTools/include
+LOOP_PREFIX = P
+DOTF=%(dotf_str)s
+DOTO=%(doto_str)s
+LINK_MADLOOP_LIB = -L$(LIBDIR) -lMadLoop
+MADLOOP_LIB = $(LIBDIR)libMadLoop.$(libext)
+
+
 
 SHELL = /bin/bash
 
@@ -41,11 +52,6 @@ DEBUG=
 LINKLIBS = -L$(LIBDIR) -ldhelas -lmodel $(LINK_LOOP_LIBS) $(LDFLAGS)
 #LIBS+=  $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LOOP_LIBS)
 
-.PHONY: lolibs
-lolibs:
-	echo $(LINKLIBS)
-
-#LIBDIR=../../lib/
 
 # TODO: compile libraries when generating process
 LINKLIBS+=  -lpdf -lgeneric

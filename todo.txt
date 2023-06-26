@@ -163,8 +163,9 @@ TODO 23/06
 
 - read MU_R from run_card.inc and not from param_card.inc
 - find out why the code stops running changing MU_R value to 3.50000e+01
-- copy a directory containing common files (as cuts.f, analysis.f, ...) in every process directory during output
-- fix 'make' command in virtual directory
+- copy a directory containing common files (as cuts.f, analysis.f, ...) in every process directory during output ---> done
+- fix 'make' command in virtual directory ---> done
 - check plots
 - remove prints from aloha
 - DHELAS libraries (ask Marco)
+- check the results of e e > a j j with MG

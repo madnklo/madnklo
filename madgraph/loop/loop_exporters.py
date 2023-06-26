@@ -857,7 +857,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         cwd = os.getcwd()
         print(cwd)
         print(self.dir_path)
-        user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','driver_v.f',] #, 'makefile_v'] 
+        user_linkfiles = ['driver_v.f',] #, 'makefile_v'] 
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             if file=='makefile_v':
@@ -911,7 +911,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict = {}
         proc_prefix = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-        proc_str = """PROC_FILES= alphaS.o kinematics.o analysis.o hbook.o cuts.o NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
+        proc_str = """PROC_FILES= NLO_I_%s.o NLO_V_%s.o""" % (proc_prefix, proc_prefix)
         obj_str = """%.o"""
         fort_str = """%.f"""
         replace_dict['proc_file_str'] = proc_str
@@ -922,10 +922,13 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 %.o: %.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+\t#$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-%.o: $(PATH_TO_COMMON_FILES)/%.cc
+%.o: $(PATH_TO_USR_FILES)/%.cc
 \t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 """
         virtual_str = """

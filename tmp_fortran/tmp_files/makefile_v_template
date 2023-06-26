@@ -73,6 +73,8 @@ FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
 
 PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
+PATH_TO_USR_FILES=../../../Common_Files
+
 INCLUDE0=$(PWD)/include
 
 INCLUDE1=$(PWD)
@@ -110,9 +112,11 @@ VPATH = $(OBJ)
 
 COMMON_FILES= gen_phase_space.o vegas.o matrix.o fjcore.o fastjetfortran_core.o
 
+USR_FILES=cuts.o analysis.o alphaS.o hbook.o kinematics.o
+
 %(proc_file_str)s
 
-FILES = driver_v.o  $(PROCESS) $(COMMON_FILES) $(PROC_FILES)
+FILES = driver_v.o  $(PROCESS) $(COMMON_FILES) $(PROC_FILES) $(USR_FILES)
 
 all: libs virtual
 

@@ -998,7 +998,7 @@ c     soft-collinear limit
         files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o """ % defining_process.shell_string(
+        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         for i in range(0,len(overall_sector_info)):
@@ -1020,7 +1020,7 @@ c     soft-collinear limit
             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) \n' % (isec, jsec)
+            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
             sector_str += """
 sector_%d_%d_libs: libs sector_%d_%d
@@ -1033,10 +1033,13 @@ sector_%d_%d: $(FILES_%d_%d)
 %.o: %.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
-%.o: $(PATH_TO_COMMON_FILES)/%.cc
+%.o: $(PATH_TO_USR_FILES)/%.cc
 \t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 """
         replace_dict['object_str'] = object_str

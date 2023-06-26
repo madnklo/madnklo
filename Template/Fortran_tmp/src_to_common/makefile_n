@@ -38,6 +38,8 @@ FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
 
 PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
+PATH_TO_USR_FILES=../../../Common_Files
+
 INCLUDE0=$(PWD)/include
 
 INCLUDE1=$(PWD)
@@ -51,17 +53,22 @@ VPATH = $(OBJ)
 %.o: %.f $(INCLUDE)
 	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
 	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
-%.o: $(PATH_TO_COMMON_FILES)/%.cc
+%.o: $(PATH_TO_USR_FILES)/%.cc
 	$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 
 COMMON_FILES=  gen_phase_space.o vegas.o fjcore.o fastjetfortran_core.o
 
-PROC_FILES = matrix.o alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
+USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
 
-FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES)
+PROC_FILES = matrix.o 
+
+FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)
 
 all: libs Born
 

@@ -2131,9 +2131,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         cwd = os.getcwd()
         # Create the directory PN_xx_xxxxx in the specified path
         
+        
         dirpath = pjoin(self.dir_path, 'SubProcesses', \
                        "P%s" % matrix_element.get('processes')[0].shell_string())
-
         #gl
         all_process_str = []
         all_process_str.append(matrix_element.get('processes')[0].shell_string(
@@ -2284,24 +2284,39 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
         os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')
         os.symlink(dirpath + '/../../../Source/cuts.inc',dirpath+'/include/cuts.inc')
+        path_to_create=dirpath+'/../../../'
+        try:
+            os.makedirs(pjoin(path_to_create,'Common_Files'))
+        except :
+            MadGraph5Error('The directory already exists')
+        
 
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
-        user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
+        common_files = []
+        common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f']
+        common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
+        common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
+        #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
-            user_linkfiles += ['driver_n.f','makefile_n', 'LO_B.f']
+            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
         elif strdirpath[-1][0] == 'N':
-            user_linkfiles += ['sectors.f']
+            common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
+        
+        for file in common_files:
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/%s' % file),pjoin(path_to_create,'Common_Files'))
+
+
 
         for file in user_linkfiles:
-            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/%s' % file), dirpath)
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/%s' % file),dirpath)
             if file=='makefile_n':
                 mv(pjoin(dirpath,'makefile_n'), pjoin(dirpath,'makefile'))    
 

@@ -2,17 +2,24 @@
       implicit none
 c
       call inihist
-      call mbook(1 ,'total xs ',1d0,0d0,2d0)
-c$$$      call mbook(2 ,'thrust   ',0.02d0,0.68d0,1.02d0)
-      call mbook(3 ,'pt j1        ',2d0,1d1,6d1)
-      call mbook(4 ,'pt j2        ',2d0,1d1,6d1)
-      call mbook(5 ,'pt j3        ',2d0,1d1,6d1)
-      call mbook(6 ,'pt j4        ',2d0,1d1,6d1)
-      call mbook(7 ,'Abs(eta j1)  ',0.2d0,-6d0,6d0)
-      call mbook(8 ,'Abs(eta j2)  ',0.2d0,-6d0,6d0)
-      call mbook(9 ,'Abs(eta j3)  ',0.2d0,-6d0,6d0)
-      call mbook(10,'Abs(eta j4)  ',0.2d0,-6d0,6d0)
-      call mbook(11,'njet         ',1d0,1d0,5d0)
+      call mbook(1,'total  ',1d0,0d0,2d0)
+c      call mbook(2,'thrust ',0.02d0,0.68d0,1.02d0)
+      call mbook(3,'pt j1  ',10d0,2d0,502d0)
+      call mbook(4,'pt j2  ',10d0,2d0,502d0)
+      call mbook(5,'pt j3  ',10d0,2d0,502d0)
+      call mbook(6,'pt j4  ',10d0,2d0,502d0)
+c
+      call mbook(7,'abs eta j1  ',0.2d0,0d0,6d0)
+      call mbook(8,'abs eta j2  ',0.2d0,0d0,6d0)
+      call mbook(9,'abs eta j3  ',0.2d0,0d0,6d0)
+      call mbook(10,'abs eta j4 ',0.2d0,0d0,6d0)
+c
+      call mbook(11,'abs y j1  ',0.2d0,0d0,6d0)
+      call mbook(12,'abs y j2  ',0.2d0,0d0,6d0)
+      call mbook(13,'abs y j3  ',0.2d0,0d0,6d0)
+      call mbook(14,'abs y j4  ',0.2d0,0d0,6d0)
+c
+      call mbook(15,'njet      ',1d0,0d0,4d0)
 c
       return
       end
@@ -21,37 +28,76 @@ c
       subroutine histo_fill(p,xs,nexternal,www)
       implicit none
       include 'jets.inc'
-c
-      integer nexternal,i,j
+      integer nexternal,i,j,nQCD
       double precision xs(nexternal,nexternal)
       double precision p(0:3,nexternal),www
       double precision xsec,thrust
-      double precision getthrust_3body,getrapidity
+      double precision getthrust_3body,getrapidity,getpseudorap
+      double precision rfj,sycut,palg,pQCD(0:3,nexternal)
 c
 c     observables
       xsec=1d0
 c$$$      thrust=getthrust_3body(p,nexternal)
+c$$$c     jets
+c$$$      pjet=0d0
+c$$$      jet=0
+c$$$      njet=0
+c$$$      ptjet=0d0
+c$$$      etajet=-100d0
+c$$$      yjet=-100d0
+c$$$c
+c$$$c     cluster partons into jets
+c$$$      nQCD=0
+c$$$      do j=3,nexternal
+c$$$         nQCD=nQCD+1
+c$$$         do i=0,3
+c$$$            pQCD(i,nQCD)=p(i,j)
+c$$$         enddo
+c$$$      enddo
+c$$$c     
+c$$$c     clustering parameters
+c$$$      palg=-1d0
+c$$$      rfj=0.4d0
+c$$$      sycut=10d0
+c$$$      call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
+c$$$c
+c$$$c     check on jet pt ordering
+c$$$      do i=1,njet
+c$$$         ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
+c$$$         etajet(i)=getpseudorap(pjet(0,i),pjet(1,i),pjet(2,i),pjet(3,i))
+c$$$         yjet(i)=getrapidity(pjet(0,i),pjet(3,i))
+c$$$         if(i.gt.1)then
+c$$$            if (ptjet(i).gt.ptjet(i-1)) then
+c$$$               write (*,*) 'Error 1 in docut: jets unordered in pt'
+c$$$               stop
+c$$$            endif
+c$$$         endif
+c$$$      enddo
 c
 c     fill histograms
       call mfill(1,xsec,www)
 c$$$      call mfill(2,thrust,www)
       if(njet.ge.1)then
-         call mfill(3 ,ptjet(1),www)
-         call mfill(7 ,dabs(etajet(1)),www)
+         call mfill(3,ptjet(1),www)
+         call mfill(7,abs(etajet(1)),www)
+         call mfill(11,abs(yjet(1)),www)
       endif
       if(njet.ge.2)then
-         call mfill(4 ,ptjet(2),www)
-         call mfill(8 ,dabs(etajet(2)),www)
+         call mfill(4,ptjet(2),www)
+         call mfill(8,abs(etajet(2)),www)
+         call mfill(12,abs(yjet(2)),www)
       endif
       if(njet.ge.3)then
-         call mfill(5 ,ptjet(3),www)
-         call mfill(9 ,dabs(etajet(3)),www)
+         call mfill(5,ptjet(3),www)
+         call mfill(9,abs(etajet(3)),www)
+         call mfill(13,abs(yjet(3)),www)
       endif
       if(njet.ge.4)then
-         call mfill(6 ,ptjet(4),www)
-         call mfill(10,dabs(etajet(4)),www)
+         call mfill(6,ptjet(4),www)
+         call mfill(10,abs(etajet(4)),www)
+         call mfill(14,abs(yjet(4)),www)
       endif
-      call mfill(11,dble(njet),www)
+      call mfill(15,dble(njet),www)
 c
       return
       end

@@ -35,14 +35,22 @@ c
 c     fill histograms
       call mfill(1,xsec,www)
 c$$$      call mfill(2,thrust,www)
-      call mfill(3 ,ptjet(1),www)
-      call mfill(4 ,ptjet(2),www)
-      call mfill(5 ,ptjet(3),www)
-      call mfill(6 ,ptjet(4),www)
-      call mfill(7 ,dabs(etajet(1)),www)
-      call mfill(8 ,dabs(etajet(2)),www)
-      call mfill(9 ,dabs(etajet(3)),www)
-      call mfill(10,dabs(etajet(4)),www)
+      if(njet.ge.1)then
+         call mfill(3 ,ptjet(1),www)
+         call mfill(7 ,dabs(etajet(1)),www)
+      endif
+      if(njet.ge.2)then
+         call mfill(4 ,ptjet(2),www)
+         call mfill(8 ,dabs(etajet(2)),www)
+      endif
+      if(njet.ge.3)then
+         call mfill(5 ,ptjet(3),www)
+         call mfill(9 ,dabs(etajet(3)),www)
+      endif
+      if(njet.ge.4)then
+         call mfill(6 ,ptjet(4),www)
+         call mfill(10,dabs(etajet(4)),www)
+      endif
       call mfill(11,dble(njet),www)
 c
       return

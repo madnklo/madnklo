@@ -59,7 +59,7 @@ FFLAGS+= -g -fno-automatic $(DEBUG)  -$(OPT)
 
 FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
 
-PATH_TO_USR_FILES=../../../Common_files
+PATH_TO_USR_FILES=../../../Common_Files
 
 INCLUDE0=$(PWD)/include
 

@@ -67,7 +67,7 @@ C
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
 c     initialise
       xjac = 0d0

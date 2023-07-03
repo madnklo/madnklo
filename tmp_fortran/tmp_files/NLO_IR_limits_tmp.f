@@ -10,6 +10,7 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
+      INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit
       double precision pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -50,7 +51,7 @@ c     initialise
       damp=0d0
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -162,6 +163,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'leg_PDGs.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
+      INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -203,7 +205,7 @@ c     possible cuts
       
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(as,nloop,mu_R)
+      alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -283,6 +285,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'leg_PDGs.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
+      INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -320,7 +323,7 @@ c     possible cuts
       IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(as,nloop,mu_R)
+      alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -388,6 +391,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'leg_PDGs.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
+      INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -429,7 +433,7 @@ c     possible cuts
 
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(as,nloop,mu_R)
+      alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
 c     invariant quantities

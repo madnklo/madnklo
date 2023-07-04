@@ -5,10 +5,10 @@ c     SINGLE_POLE = INLO(2)
 c     DOUBLE_POLE = INLO(3)
       implicit none
       INCLUDE 'nexternal.inc'
-      INCLUDE 'math.inc'
       INCLUDE 'damping_factors.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'coupl.inc'
+      INCLUDE 'math.inc'
       INCLUDE 'input.inc'
       INCLUDE 'virtual_recoilers.inc'
       INCLUDE 'leg_PDGs_%(proc_prefix)s.inc'

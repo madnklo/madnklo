@@ -4,11 +4,8 @@ c
       real * 8 zeta2,zeta3,eulergamma
       real * 8 dim,GeVtopb
       real * 8 CF,CA,TR,gamma_g,gamma_q
-      ! real * 8 Nf
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ
-      real * 8 alphaEM
-      ! real * 8 mur
 c     TODO: remove all unnecessary terms
 c     number of colors	
       integer Nc
@@ -17,14 +14,10 @@ c     number of colors
 c
 c     TODO: From parameters.f in local code
 c     couplings (read muR from input file in driver)
-      ! parameter (muR = 1d2)
       parameter (asMZ=0.118d0)
       parameter (nloop=2)
-!      parameter (alphaEM=1/137.036d0)
-      parameter (alphaEM=1d0/1.325070d2)
 c
-      ! parameter (Nf=5d0)
-      ! parameter (gamma_g=(11d0*CA-4d0*TR*Nf)/6d0)
+      parameter (gamma_g=(11d0*CA-4d0*TR*Nf)/6d0)
       parameter (gamma_q=3d0*CF/2d0)
 c
 c     mathematical constants

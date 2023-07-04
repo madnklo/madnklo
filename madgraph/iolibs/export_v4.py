@@ -2297,7 +2297,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         # Write include directory
         os.mkdir(pjoin(dirpath, 'include'))
-        os.symlink(dirpath + '/../../../../Template/Fortran_tmp/src_to_common/math.inc',dirpath+'/include/math.inc')
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/math.inc'),pjoin(dirpath,'include'))
+        #os.symlink(dirpath + '/../../../../Template/Fortran_tmp/src_to_common/math.inc',dirpath+'/include/math.inc')
         os.symlink(dirpath + '/../../../Source/MODEL/coupl.inc',dirpath+'/include/coupl.inc')
         os.symlink(dirpath + '/../../../Source/MODEL/input.inc',dirpath+'/include/input.inc')
         os.symlink(dirpath + '/../../../Source/run.inc',dirpath+'/include/run.inc')

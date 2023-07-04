@@ -1,9 +1,9 @@
       function int_virtual(x,wgt)
 c     n-body NLO integrand for vegas
       implicit none
-      include 'math.inc'
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
+      include 'math.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'

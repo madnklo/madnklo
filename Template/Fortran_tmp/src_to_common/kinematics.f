@@ -1,6 +1,5 @@
       subroutine invariants_from_p(p,nparticles,xs,ierr)
       implicit none
-      include 'math.inc'
       integer nparticles
 c     nparticles is the number of (inital+final)-state particles
       integer i,j,ierr

@@ -5,6 +5,10 @@ SHELL = /bin/bash
 
 OS=$(shell uname -s)
 
+ifeq ("$(OS)","Darwin")
+STDLIB= -lc++
+endif
+
 PWD=$(shell pwd)
 
 FJPATH=$(shell fastjet-config --prefix)
@@ -46,7 +50,9 @@ INCLUDE1=$(PWD)
 
 INCLUDE =$(wildcard ./include/*.inc ./*.inc)
 
-FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
+SOURCE= ../../Source
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(SOURCE)
 
 VPATH = $(OBJ)
 
@@ -62,7 +68,8 @@ VPATH = $(OBJ)
 %.o: $(PATH_TO_USR_FILES)/%.cc
 	$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 
-COMMON_FILES=  gen_phase_space.o vegas.o fjcore.o fastjetfortran_core.o
+#COMMON_FILES=  gen_phase_space.o vegas.o fjcore.o fastjetfortran_core.o
+COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o	
 
 USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
 

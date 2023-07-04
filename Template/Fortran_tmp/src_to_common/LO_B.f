@@ -30,13 +30,14 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+      integer iconfig,mincfig,maxcfig,invar
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
 c     initialise
-      xjac=0d0
+      xjac=Gevtopb
       int_Born=0d0
 c
 c     phase space and invariants
@@ -44,7 +45,13 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
-      call phase_space_n(x,sCM,p,nexternal,xjac)
+C     Hard coded settings for gen_mom
+      iconfig = 1
+      mincfig = 1
+      maxcfig = 1
+      invar = 2
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p)
+!      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1)goto 999
@@ -58,7 +65,7 @@ c     Born
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
       int_Born=BLO*xjac
 c     add flux factor
-      int_Born = int_Born/2d0/sCM
+C      int_Born = int_Born/2d0/sCM
 c     apply flavour factor
       int_Born = int_Born * fl_factor
 c

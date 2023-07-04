@@ -520,7 +520,6 @@ class ProcessExporterFortran(VirtualExporter):
     #===========================================================================
     def write_maxparticles_file(self, writer, matrix_elements):
         """Write the maxparticles.inc file for MadEvent"""
-
         if isinstance(matrix_elements, helas_objects.HelasMultiProcess):
             maxparticles = max([me.get_nexternal_ninitial()[0] for me in \
                               matrix_elements.get('matrix_elements')])
@@ -830,7 +829,6 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
     def write_maxamps_file(self, writer, maxamps, maxflows,
                            maxproc,maxsproc):
         """Write the maxamps.inc file for MG4."""
-
         file = "       integer    maxamps, maxflow, maxproc, maxsproc\n"
         file = file + "parameter (maxamps=%d, maxflow=%d)\n" % \
                (maxamps, maxflows)
@@ -2101,9 +2099,22 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         filename = pjoin(self.dir_path,'Source','maxparticles.inc')
         ProcessExporterFortran.write_maxparticles_file(self,writers.FortranWriter(filename),
                                      matrix_elements)
+        
+
+        filename = pjoin(self.dir_path,'Source','maxamps.inc')
+        ProcessExporterFortran.write_maxamps_file(self,writers.FortranWriter(filename),
+                                     max([len(me.get('diagrams')) for me in matrix_elements.get_matrix_elements()]),
+                                     1,
+                                     max([len(me.get('processes')) for me in matrix_elements.get_matrix_elements()]),
+                                     1)
+                                     
+        
+
         filename = pjoin(self.dir_path,'Source','maxconfigs.inc')
         self.write_maxconfigs_file(writers.FortranWriter(filename),
                                    matrix_elements)
+        
+        
         
         
         
@@ -2242,6 +2253,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         filename = pjoin(dirpath, 'nexternal.inc')
         self.write_nexternal_file(writers.FortranWriter(filename),
                              nexternal, ninitial)
+        
+        filename = pjoin(dirpath, 'configs.inc')
+        self.write_configs_file(writers.FortranWriter(filename),
+                             matrix_element)
+        
+        
+        
 
         filename = pjoin(dirpath, 'pmass.inc')
         self.write_pmass_file(writers.FortranWriter(filename),
@@ -2289,12 +2307,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             os.makedirs(pjoin(path_to_create,'Common_Files'))
         except :
             MadGraph5Error('The directory already exists')
-        
+
+
 
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
         common_files = []
-        common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f']
+        common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f','genps.f']
+        common_files+=['genps.inc','invarients.f','transpole.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
@@ -2306,6 +2326,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+
+       
+        
+
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)
@@ -5774,7 +5798,7 @@ class ProcessExporterFortranMEGroup(ProcessExporterFortranME):
                            max([len(me.get('processes')) for me in \
                                 matrix_elements]),
                            len(matrix_elements))
-
+        
         # Note that mg.sym is not relevant for this case
         filename = 'mg.sym'
         self.write_default_mg_sym_file(writers.FortranWriter(filename))
@@ -7717,6 +7741,8 @@ class ProcessExporterFortranMWGroup(ProcessExporterFortranMW):
                            max([len(me.get('processes')) for me in \
                                 matrix_elements]),
                            len(matrix_elements))
+        
+        
 
         filename = pjoin(Ppath, 'mirrorprocs.inc')
         self.write_mirrorprocs(writers.FortranWriter(filename),

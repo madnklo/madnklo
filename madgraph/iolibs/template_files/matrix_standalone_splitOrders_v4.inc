@@ -66,9 +66,11 @@ C VARIABLES
 C
       INTEGER I
 	  REAL*8 ANS(0:NSQAMPSO)
+
 C
 C BEGIN CODE
 C
+
 	  CALL %(proc_prefix)sSMATRIX_SPLITORDERS(P,ANS)
 	  ANS_SUMMED=ANS(0)
 
@@ -180,6 +182,9 @@ C     For a 1>N process, them BEAMTWO_HELAVGFACTOR would be set to 1.
 
       INTEGER %(proc_prefix)sDEN
       COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
+
+      	  DOUBLE PRECISION AMP2(%(ngraphs)d)
+	  COMMON/TO_AMP2/AMP2
       
 %(den_factor_line)s
 C
@@ -236,7 +241,7 @@ C
 C ----------
 C BEGIN CODE
 C ----------
-
+  	  AMP2=0d0	
    %(proc_prefix)sDEN = IDEN
 
 
@@ -447,7 +452,8 @@ C
 C ARGUMENTS 
 C  
       REAL*8 P(0:3,NEXTERNAL),ANS(0:NSQAMPSO)
-	  INTEGER HEL
+	  INTEGER HEL	
+
 CF2PY INTENT(IN)  :: P  
 CF2PY INTENT(IN)  :: HEL  
 CF2PY INTENT(OUT) :: ANS  
@@ -530,6 +536,8 @@ C
       COMPLEX*16 W(20,NWAVEFUNCS)
       COMPLEX*16 DUM0,DUM1
       DATA DUM0, DUM1/(0d0, 0d0), (1d0, 0d0)/
+      DOUBLE PRECISION AMP2(NGRAPHS)
+      COMMON/TO_AMP2/AMP2
 C
 C FUNCTION
 C
@@ -585,6 +593,10 @@ ENDIF
 
 %(helas_calls)s
 %(jamp_lines)s
+
+	DO I=1,NGRAPHS
+	AMP2(I)=AMP2(I)+AMP(I)*DCONJG(AMP(I))
+	ENDDO
 
       RES = 0.D0 
 	  DO M = 1, NAMPSO

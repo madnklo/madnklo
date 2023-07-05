@@ -4,6 +4,7 @@ c     iU is the unresolved parton associated
 c     with the soft singularity
 c     npart = n+1
       implicit none
+      include 'coupl.inc'
       include 'math.inc'
       double precision xx(3)
       integer i,j,iU,iS,iB,iA,npart,ierr
@@ -11,7 +12,7 @@ c     npart = n+1
       double precision zCS,yCS,phCS
       double precision cosphi,sinphi,cosphiA,sinphiA
       double precision cosphiU,sinphiU,costhUB,sinthUB
-      double precision Eu,pmod,pAtmod,G
+      double precision Eu,pmod,pAtmod,GG
       double precision nB(0:3),pbB(0:3),pbBsave(0:3)
       double precision pbS(0:3),pA(0:3),pboost(0:3)
       double precision pAr(0:3),pUr(0:3)
@@ -131,8 +132,8 @@ c     consistency check
       enddo
 c
 c     construct xjac
-      G=1d0/16d0/pi**3
-      xjac=G*(4d0*pmod**2)*pi*(1-yCS)
+      GG=1d0/16d0/pi**3
+      xjac=GG*(4d0*pmod**2)*pi*(1-yCS)
 c
       return
  999  xjac=0d0
@@ -149,11 +150,12 @@ c
 c     TODO: add mappings for initial state
 c
       implicit none
+      include 'coupl.inc'
       include 'math.inc'
       integer i,j,iU,iS,iB,npart
       double precision p(0:3,npart),pbar(0:3,npart-1)
       integer leg_PDGs(npart)
-      double precision yCS,xjac,G,Qsq,dot
+      double precision yCS,xjac,GG,Qsq,dot
       character*1 maptype
       integer mapped_labels(npart),mapped_flavours(npart)
 c     TODO: change name to isunderlyingqcdparton()
@@ -188,8 +190,8 @@ c     consistency check
       enddo
 c
 c     construct xjac
-      G=1d0/16d0/pi**3
-      xjac=G*Qsq*pi*(1-yCS)
+      GG=1d0/16d0/pi**3
+      xjac=GG*Qsq*pi*(1-yCS)
 c
       return
  999  xjac=0d0

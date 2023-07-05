@@ -1,9 +1,9 @@
       double precision function int_real_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       implicit none
+      include 'coupl.inc'
       include 'math.inc'
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'

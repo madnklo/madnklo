@@ -3,12 +3,12 @@ c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       implicit none
       include 'nexternal.inc'
+      INCLUDE 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit
@@ -157,11 +157,11 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      INCLUDE 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
@@ -279,11 +279,11 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      INCLUDE 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit
@@ -385,11 +385,11 @@ c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
       implicit none
       include 'nexternal.inc'
+      INCLUDE 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg

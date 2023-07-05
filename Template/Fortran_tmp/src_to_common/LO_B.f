@@ -1,9 +1,9 @@
       double precision function int_Born(x,wgt)
 c     n-body LO integrand for vegas
       implicit none
-      include 'math.inc'
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
+      include 'math.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
@@ -50,7 +50,7 @@ C     Hard coded settings for gen_mom
       mincfig = 1
       maxcfig = 1
       invar = 2
-      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p)
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
 !      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)

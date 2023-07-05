@@ -1,8 +1,8 @@
       subroutine test_R_%(isec)d_%(jsec)d(iunit,x0)
       implicit none
+      INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
@@ -44,9 +44,9 @@ c
 
       subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e1,e2)
       implicit none
+      INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
-      INCLUDE 'coupl.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'

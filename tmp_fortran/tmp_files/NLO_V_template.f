@@ -61,6 +61,7 @@ C
       CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
       LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
+      integer iconfig,mincfig,maxcfig,invar
 C
 C     EXTERNAL
 C
@@ -70,7 +71,7 @@ c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
 c     initialise
-      xjac = 0d0
+      xjac = Gevtopb
       int_virtual = 0d0
       sLO = 0d0
       VNLO = 0d0
@@ -92,7 +93,14 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
-      call phase_space_n(x,sCM,p,nexternal,xjac)
+C     Hard coded settings for gen_mom
+      iconfig = 1
+      mincfig = 1
+      maxcfig = 1
+      invar = 2
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
+
+!      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0) then
          write(*,*)'Wrong jacobian in NLO_V'
          goto 999
@@ -130,7 +138,7 @@ c     test coefficients of epsilon poles
 c
 c     subtracted vrtual
       int_virtual=(VNLO(1)+INLO(1))*xjac
-      int_virtual = int_virtual/2d0/sCM
+!      int_virtual = int_virtual/2d0/sCM
 c
 c     apply flavour multiplicity factor
       int_virtual=int_virtual*fl_factor

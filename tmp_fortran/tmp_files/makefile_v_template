@@ -25,6 +25,10 @@ PWD=$(shell pwd)
 
 OS=$(shell uname -s)
 
+ifeq ("$(OS)","Darwin")
+STDLIB= -lc++
+endif
+
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
@@ -69,7 +73,10 @@ INCLUDE2=../../../../HEPTools/include/
 
 INCLUDE+=$(wildcard ./include/*.inc ./*.inc)
 
-FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(INCLUDE2)
+
+SOURCE=../../Source
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(INCLUDE2) -I$(SOURCE)
 
 PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard polynomial.f)) \
@@ -96,7 +103,7 @@ VPATH = $(OBJ)
 
 %(object_str)s 
 
-COMMON_FILES= gen_phase_space.o vegas.o matrix.o fjcore.o fastjetfortran_core.o
+COMMON_FILES= vegas.o matrix.o fjcore.o fastjetfortran_core.o genps.o invarients.o transpole.o
 
 %(proc_file_str)s
 

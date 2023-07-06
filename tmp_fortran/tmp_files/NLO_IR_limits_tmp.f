@@ -129,7 +129,8 @@ c     Including correct multiplicity factor
 
 c
 c     plot
-            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit/2d0/sCM
+C            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit/2d0/sCM
+            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
@@ -258,7 +259,8 @@ c     apply flavour factor
       M2_H_C_FgFg=M2_H_C_FgFg*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
+c      wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
+      wgtpl=-M2_H_C_FgFg*xj*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -364,7 +366,8 @@ c     apply flavour factor
       M2_H_C_FgFq=M2_H_C_FgFq*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
+c      wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
+      wgtpl=-M2_H_C_FgFq*xj*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -486,7 +489,8 @@ c     apply flavour factor
       M2_H_C_FqFqx=M2_H_C_FqFqx*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
+c      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
+      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

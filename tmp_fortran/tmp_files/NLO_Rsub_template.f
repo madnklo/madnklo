@@ -135,7 +135,7 @@ c     full real in the combination of sectors
 c
 c     plot real
 c      wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
-      wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
+      wgtpl=int_real_no_cnt*wgt/nitR
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
  555  continue
 c

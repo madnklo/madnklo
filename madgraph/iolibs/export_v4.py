@@ -2322,9 +2322,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
+            cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
         elif strdirpath[-1][0] == 'N':
             common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+            os.remove(pjoin(dirpath,'configs.inc'))
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 

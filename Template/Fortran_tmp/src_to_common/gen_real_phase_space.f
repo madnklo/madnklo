@@ -21,7 +21,7 @@ C     Hard coded settings for gen_mom
       mincfig = 1
       maxcfig = 1
       invar = 2
-      call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar)
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar,nexternal-1)
 c$$$c
 c$$$c     call Born phase space
 c$$$      call phase_space_n(x(4),shat,pbar,nexternal-1,xjacB)

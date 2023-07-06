@@ -65,7 +65,7 @@ c$$$        call sample_get_discrete_x(wgt,hel_picked,iconfig,'Helicity')
 c$$$      endif
       end
 
-      subroutine gen_mom(iconfig,mincfig,maxcfig,invar,wgt,x,p1)
+      subroutine gen_mom(iconfig,mincfig,maxcfig,invar,wgt,x,p1,npart)
 c**************************************************************************
 c
 c     Routine to generate 4 momentum based on tree-level decomposition
@@ -97,13 +97,14 @@ c
       include 'maxconfigs.inc'
       include 'nexternal.inc'
       include 'maxamps.inc'
+      integer npart
       double precision pi
       parameter       (pi=3.1415926d0)
 c
 c     Arguments
 c
       integer iconfig,mincfig,maxcfig,invar
-      double precision p1(0:3,nexternal)
+      double precision p1(0:3,npart)
       double precision x(maxinvar)
       double precision wgt
 c
@@ -127,7 +128,7 @@ c
       integer          lwgt(0:maxconfigs,maxinvar)
       logical firsttime
 
-      double precision xprop(3,nexternal),tprop(3,nexternal)
+      double precision xprop(3,npart),tprop(3,npart)
       double precision maxwgt
       integer imatch
       save maxwgt
@@ -142,8 +143,8 @@ c
 c
 c     Global
 c
-      double precision pmass(nexternal)
-      common/to_mass/  pmass
+      double precision pmass(npart)
+!      common/to_mass/  pmass
 
       double precision SMIN
       common/to_smin/ smin
@@ -196,11 +197,16 @@ c      data isym /2,1,5,27,42,47,0,0,0,0,0/
 c-----
 c  Begin Code
 c----
+
+      m=0d0
+      pmass=0d0
+
+      
       this_config = iconfig             !Pass iconfig to amplitude routine
 c      write(*,*) 'using iconfig',iconfig
       if (firsttime) then
          firsttime=.false.
-         do i=1,nexternal
+         do i=1,npart
             m(i)=pmass(i)
          enddo
 c        Set stot
@@ -231,10 +237,10 @@ c        Start graph mapping
          nconfigs = 1
          mincfig=iconfig
          maxcfig=iconfig
-         call map_invarients(minvar,nconfigs,ninvar,mincfig,maxcfig,nexternal,nincoming)
+         call map_invarients(minvar,nconfigs,ninvar,mincfig,maxcfig,npart,nincoming)
          maxwgt=0d0
 c         write(*,'(a,12i4)') 'Summing configs',(isym(i),i=1,isym(0))
-         nparticles   = nexternal
+         nparticles   = npart
          nfinal       = nparticles-nincoming
          nbranch      = nparticles-2
          ndim         = 3*nfinal-4
@@ -316,7 +322,7 @@ c-----
 c tjs 5/24/2010 for 2->1 process
 c-------
          xtau = x(ndim-1)
-         if(nexternal .eq. 3) then
+         if(npart .eq. 3) then
             x(ndim-1) = pmass(3)*pmass(3)/stot
             sjac=1 / stot     !for delta function in d_tau
          endif
@@ -381,7 +387,7 @@ c
       pswgt = 1d0
       jac   = 1d0
       call one_tree(iforest(1,-max_branch,iconfig),mincfig,
-     &     nbranch,P,M,S,X,jac,pswgt)
+     &     nbranch,P,M,S,X,jac,pswgt,npart)
 c
 c     Add what I think are the essentials
 c
@@ -558,7 +564,7 @@ c$$$      endif
       end
 
 
-      subroutine one_tree(itree,iconfig,nbranch,P,M,S,X,jac,pswgt)
+      subroutine one_tree(itree,iconfig,nbranch,P,M,S,X,jac,pswgt,npart)
 c************************************************************************
 c     Calculates the momentum for everything below in the tree until
 c     it reaches the end.
@@ -577,6 +583,7 @@ c
 c
 c     Arguments
 c
+      integer npart
       integer itree(2,-max_branch:-1) !Structure of configuration
       integer iconfig                 !Which configuration working on
       double precision P(0:3,-max_branch:max_particles)
@@ -618,7 +625,7 @@ c-----
 c-----------
 c     Trap for trivial case 2->1
 c----------
-      if (nexternal .eq. 3 .and. nincoming.ne.1) then
+      if (npart .eq. 3 .and. nincoming.ne.1) then
          do i=0,3
             p(i,3) = p(i,1)+p(i,2)
          enddo

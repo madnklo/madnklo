@@ -5,6 +5,10 @@ PWD=$(shell pwd)
 
 OS=$(shell uname -s)
 
+ifeq ("$(OS)","Darwin")
+STDLIB= -lc++
+endif
+
 FJPATH=$(shell fastjet-config --prefix)
 LIBSC=-L$(FJPATH)/lib \
 	-lfastjettools -lfastjet -lfastjetplugins \
@@ -48,13 +52,17 @@ INCLUDE1=$(PWD)
 
 INCLUDE =$(wildcard ./include/*.inc ./*.inc)
 
-FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1)
+SOURCE=../../Source
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(SOURCE)
 
 VPATH = $(OBJ)
 
 %(object_str)s
 
-COMMON_FILES= CSmapping.o imap.o gen_phase_space.o  gen_real_phase_space.o  vegas.o  fjcore.o fastjetfortran_core.o
+COMMON_FILES= CSmapping.o imap.o  gen_real_phase_space.o  vegas.o  fjcore.o fastjetfortran_core.o
+
+COMMON_FILES+= genps.o invarients.o transpole.o
 
 USR_FILES=alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o
 

@@ -39,3 +39,4 @@ c     small constants
       parameter (tiny0=1d-6)
       parameter (tiny1=1d-8)
       parameter (tiny2=1d-10)
+      real * 8, parameter :: zero=0d0

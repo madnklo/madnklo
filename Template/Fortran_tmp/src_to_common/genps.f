@@ -93,10 +93,12 @@ c**************************************************************************
 c
 c     Constants
 c
+
       include 'genps.inc'
       include 'maxconfigs.inc'
       include 'nexternal.inc'
       include 'maxamps.inc'
+      
       integer npart
       double precision pi
       parameter       (pi=3.1415926d0)
@@ -161,6 +163,7 @@ c
       include 'run.inc'
 
 
+
       integer iforest(2,-max_branch:-1,lmaxconfigs)
       common/to_forest/ iforest
 
@@ -194,13 +197,15 @@ c
       integer isym(0:100)
 c      data isym /2,1,5,27,42,47,0,0,0,0,0/
       data jfig/1/
+
+      double precision, parameter :: ZERO=0d0
+      include 'coupl.inc'
+      include 'pmass.inc'
 c-----
 c  Begin Code
 c----
 
-      m=0d0
-      pmass=0d0
-
+ 
       
       this_config = iconfig             !Pass iconfig to amplitude routine
 c      write(*,*) 'using iconfig',iconfig

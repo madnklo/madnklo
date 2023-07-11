@@ -185,6 +185,7 @@ C     For a 1>N process, them BEAMTWO_HELAVGFACTOR would be set to 1.
 
       	  DOUBLE PRECISION AMP2(%(ngraphs)d)
 	  COMMON/TO_AMP2/AMP2
+	  DOUBLE PRECISION SUM_AMP2
       
 %(den_factor_line)s
 C
@@ -241,7 +242,7 @@ C
 C ----------
 C BEGIN CODE
 C ----------
-  	  AMP2=0d0	
+
    %(proc_prefix)sDEN = IDEN
 
 
@@ -536,7 +537,7 @@ C
       COMPLEX*16 W(20,NWAVEFUNCS)
       COMPLEX*16 DUM0,DUM1
       DATA DUM0, DUM1/(0d0, 0d0), (1d0, 0d0)/
-      DOUBLE PRECISION AMP2(NGRAPHS)
+      DOUBLE PRECISION AMP2(NGRAPHS),SUM_AMP2
       COMMON/TO_AMP2/AMP2
 C
 C FUNCTION
@@ -594,9 +595,15 @@ ENDIF
 %(helas_calls)s
 %(jamp_lines)s
 
+
+  	AMP2=0d0	
+	SUM_AMP2=0d0	
 	DO I=1,NGRAPHS
 	AMP2(I)=AMP2(I)+AMP(I)*DCONJG(AMP(I))
+	SUM_AMP2 = SUM_AMP2 + AMP2(I)
 	ENDDO
+C 	Normalization
+	AMP2(:)=AMP2(:)/SUM_AMP2	
 
       RES = 0.D0 
 	  DO M = 1, NAMPSO

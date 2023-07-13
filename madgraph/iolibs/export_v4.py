@@ -2132,6 +2132,81 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.set_compiler(compiler)
 
     #===========================================================================
+    # write_decayBW_file
+    #===========================================================================
+    def write_decayBW_file(self, writer, s_and_t_channels):
+        """Write the decayBW.inc file for MadEvent"""
+
+        lines = []
+
+        booldict = {None: "0", True: "1", False: "2"}
+
+        for iconf, config in enumerate(s_and_t_channels):
+            schannels = config[0]
+            for vertex in schannels:
+                # For the resulting leg, pick out whether it comes from
+                # decay or not, as given by the onshell flag
+                leg = vertex.get('legs')[-1]
+                lines.append("data gForceBW(%d,%d)/%s/" % \
+                             (leg.get('number'), iconf + 1,
+                              booldict[leg.get('onshell')]))
+
+        # Write the file
+        writer.writelines(lines)
+
+        return True
+
+    #===========================================================================
+    # write_props_file
+    #===========================================================================
+    def write_props_file(self, writer, matrix_element, s_and_t_channels):
+        """Write the props.inc file for MadEvent. Needs input from
+        write_configs_file."""
+
+        lines = []
+
+        particle_dict = matrix_element.get('processes')[0].get('model').\
+                        get('particle_dict')
+
+        for iconf, configs in enumerate(s_and_t_channels):
+            for vertex in configs[0] + configs[1][:-1]:
+                leg = vertex.get('legs')[-1]
+                if leg.get('id') not in particle_dict:
+                    # Fake propagator used in multiparticle vertices
+                    mass = 'zero'
+                    width = 'zero'
+                    pow_part = 0
+                else:
+                    particle = particle_dict[leg.get('id')]
+                    # Get mass
+                    if particle.get('mass').lower() == 'zero':
+                        mass = particle.get('mass')
+                    else:
+                        mass = "abs(%s)" % particle.get('mass')
+                    # Get width
+                    if particle.get('width').lower() == 'zero':
+                        width = particle.get('width')
+                    else:
+                        width = "abs(%s)" % particle.get('width')
+
+                    pow_part = 1 + int(particle.is_boson())
+
+                lines.append("prmass(%d,%d)  = %s" % \
+                             (leg.get('number'), iconf + 1, mass))
+                lines.append("prwidth(%d,%d) = %s" % \
+                             (leg.get('number'), iconf + 1, width))
+                lines.append("pow(%d,%d) = %d" % \
+                             (leg.get('number'), iconf + 1, pow_part))
+
+        # Write the file
+        writer.writelines(lines)
+
+        return True
+
+
+
+
+    #===========================================================================
     # generate_subprocess_directory
     #===========================================================================
     def generate_subprocess_directory(self, matrix_element,
@@ -2239,6 +2314,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_props_file(writers.FortranWriter(filename),
                              matrix_element,
                              s_and_t_channels)
+                             
 
             filename =  pjoin(dirpath,'nexternal_prod.inc')
             self.write_nexternal_madspin(writers.FortranWriter(filename),
@@ -2250,6 +2326,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_helamp_madspin(writers.FortranWriter(filename),
                              ncomb)
             
+
+        mapconfigs, s_and_t_channels = self.write_configs_file(\
+                writers.FortranWriter(filename),
+                matrix_element)    
         filename = pjoin(dirpath, 'nexternal.inc')
         self.write_nexternal_file(writers.FortranWriter(filename),
                              nexternal, ninitial)
@@ -2258,7 +2338,19 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_configs_file(writers.FortranWriter(filename),
                              matrix_element)
         
+        filename = pjoin(dirpath, 'props.inc')
+        self.write_props_file(writers.FortranWriter(filename),
+                         matrix_element,
+                         s_and_t_channels)
         
+        filename = pjoin(dirpath, 'leshouche.inc')
+        self.write_leshouche_file(writers.FortranWriter(filename),
+                             matrix_element)
+
+
+        filename = pjoin(dirpath, 'decayBW.inc')
+        self.write_decayBW_file(writers.FortranWriter(filename),
+                           s_and_t_channels)
         
 
         filename = pjoin(dirpath, 'pmass.inc')
@@ -4477,7 +4569,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(mapconfigs))
 
-
+        
         filename = pjoin(Ppath, 'pmass.inc')
         self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)

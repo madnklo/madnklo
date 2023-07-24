@@ -8,6 +8,7 @@ c     n-body LO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
+      INCLUDE 'ngraphs.inc'
       
       integer ich
       integer ierr
@@ -35,7 +36,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer iconfig,mincfig,maxcfig,invar
       double precision dot
       integer NGRAPHS2
-      double precision amp2(8)
+      double precision amp2(N_MAX_CG)
       COMMON/TO_AMP2/AMP2,NGRAPHS2
       common/comich/ich
       double precision mass2

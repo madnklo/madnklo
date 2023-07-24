@@ -93,7 +93,6 @@ c**************************************************************************
 c
 c     Constants
 c
-
       include 'genps.inc'
       include 'maxconfigs.inc'
       include 'nexternal.inc'
@@ -145,7 +144,7 @@ c
 c
 c     Global
 c
-      double precision pmass(npart)
+      double precision pmass(nexternal)
 !      common/to_mass/  pmass
 
       double precision SMIN
@@ -161,7 +160,6 @@ c
       common/to_mconfig2/psect            ,alpha
 
       include 'run.inc'
-
 
 
       integer iforest(2,-max_branch:-1,lmaxconfigs)
@@ -204,9 +202,6 @@ c      data isym /2,1,5,27,42,47,0,0,0,0,0/
 c-----
 c  Begin Code
 c----
-
- 
-      
       this_config = iconfig             !Pass iconfig to amplitude routine
 c      write(*,*) 'using iconfig',iconfig
       if (firsttime) then
@@ -252,22 +247,7 @@ c         write(*,'(a,12i4)') 'Summing configs',(isym(i),i=1,isym(0))
          if (ndim .lt. 0) ndim = 0   !For 2->1 processes  tjs 5/24/2010
          if (abs(lpp(1)) .ge. 1) ndim=ndim+1
          if (abs(lpp(2)) .ge. 1) ndim=ndim+1
-c     TO CHECK
-c     call set_peaks
-
-
-         
-c$$$         if (.false. ) then
-c$$$            call find_matches(iconfig,isym(0))
-c$$$            write(*,'(a,12i4)') 'Summing configs',(isym(i),i=1,isym(0))
-c$$$         endif
-c$$$         if (.false.) then
-c$$$            i=1
-c$$$            do while (mapconfig(i) .ne. iconfig
-c$$$     $          .and. i .lt. mapconfig(0))
-c$$$               i=i+1
-c$$$            enddo
-c$$$         endif
+         call set_peaks
 
          write(*,'(a,12e10.3)') ' Masses:',(m(i),i=1,nparticles)
          do j=1,invar
@@ -294,7 +274,7 @@ c            i = isym(k)
          enddo
 
 c     Initialize dsig (needed for subprocess group running mode)
-C         dum=dsig(0,0,1)
+c         dum=dsig(0,0,1)
 
       else
          do i=1,11
@@ -303,11 +283,7 @@ c            swidth(i)=-5d0         !tells us to use the same point over again
 c         swidth(10)=0d0
       endif                          !First_time
 
-      if (.false.) then
-         iconfig = isym(jfig)
-         jfig = jfig+1
-         if (jfig .gt. isym(0)) jfig=1      
-      endif
+
       this_config = iconfig             !Pass iconfig to amplitude routine
 C
 C     Get fraction of beam energy if pdf's are used
@@ -322,7 +298,7 @@ c     TODO: to implement xbj sampling for initial state hadrons 4/7/23
 
       
       if (abs(lpp(1)) .ge. 1 .and. abs(lpp(2)) .ge. 1) then
-c         call sample_get_x(sjac,x(ndim-1),ndim-1,mincfig,0d0,1d0)
+         call sample_get_x(sjac,x(ndim-1),ndim-1,mincfig,0d0,1d0)
 c-----
 c tjs 5/24/2010 for 2->1 process
 c-------
@@ -331,8 +307,8 @@ c-------
             x(ndim-1) = pmass(3)*pmass(3)/stot
             sjac=1 / stot     !for delta function in d_tau
          endif
-         
-c         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
+
+         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
          CALL GENCMS(STOT,Xbk(1),Xbk(2),X(ndim-1), SMIN,SJAC)
          x(ndim-1) = xtau                   !Fix for 2->1 process
 c        Set CM rapidity for use in the rap() function
@@ -341,7 +317,7 @@ c        Set CM rapidity for use in the rap() function
 c        Set shat
          s(-nbranch) = xbk(1)*xbk(2)*stot
       elseif (abs(lpp(1)) .ge. 1) then
-c         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
+         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
          xbk(1) = x(ndim)
 c        Set CM rapidity for use in the rap() function
          p0=xbk(1)*ebeam(1)+ebeam(2)
@@ -352,7 +328,7 @@ c        Set shat
          s(-nbranch) = m2**2+2*xbk(1)*ebeam(1) *
      $                 (ebeam(2)+sqrt(ebeam(2)**2-m2**2))
       elseif (abs(lpp(2)) .ge. 1) then
-c         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
+         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
          xbk(2) = x(ndim)
 c        Set CM rapidity for use in the rap() function
          p0=ebeam(1)+xbk(2)*ebeam(2)
@@ -446,6 +422,7 @@ c$$$c            write(*,'(A,5e14.4)') 'Orig',jac,pswgt,wgt,jac*pswgt*wgt
 c$$$
 c$$$            tprb=0d0
 c$$$c            write(*,'(a,12f6.2)') 'orig',(x(i),i=1,ndim)
+c$$$
 c$$$
 c$$$            do jconfig=mincfig,maxcfig
 c$$$
@@ -541,11 +518,11 @@ c$$$c         write(123,'(5e15.9)') (fprb(i,jpnt,jplace),i=1,invar)
 c$$$c         write(123,'(5e15.9)') (prb(i,jpnt,jplace),i=1,maxcfig) 
 c$$$
 c$$$c
-c$$$c     Return the 4 momentum if things worked.
-c$$$c
-c$$$
-c$$$c         write(*,'(11f7.4)')(x(i),i=1,invar)
-c$$$
+c     Return the 4 momentum if things worked.
+c
+
+c         write(*,'(11f7.4)')(x(i),i=1,invar)
+
 c$$$         if (jac .gt. 0d0 ) then
 c$$$            wgt = jac*flux
 c$$$            do i=1,nparticles
@@ -687,16 +664,10 @@ c     Check for NAN - ja 3/11
 c         write(*,*) ibranch,sqrt(smin),sqrt(smax)
 c
 c        Choose the appropriate s given our constraints smin,smax
-c
-
-
-         xdum = smin + (smax - smin) * x(-ibranch)
-         xdum = xdum/stot
-         
-c$$$         call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
-c$$$     &        smin/stot,smax/stot)
-c$$$         s(ibranch) = x(-ibranch)*stot
-         s(ibranch) = xdum*stot
+c     
+         call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
+     &        smin/stot,smax/stot)
+         s(ibranch) = x(-ibranch)*stot
 
 c         write(*,*) 'using s',-ibranch
 
@@ -760,16 +731,11 @@ c
             jac=-3d0
             return
          endif
+         call sample_get_x(wgt,x(nbranch-1+(-ibranch)*2),
+     &        nbranch-1+(-ibranch)*2,iconfig,
+     &        smin/stot,smax/stot)
 
-         xdum = smin + (smax-smin)*x(nbranch-1+(-ibranch)*2)
-         xdum = xdum/stot
-         wgt = wgt * (smax-smin)/stot
-         
-c$$$         call sample_get_x(wgt,x(nbranch-1+(-ibranch)*2),
-c$$$     &        nbranch-1+(-ibranch)*2,iconfig,
-c$$$     &        smin/stot,smax/stot)
-
-         m(ibranch-1)=dsqrt(max(stot*xdum, 0d0))
+         m(ibranch-1)=dsqrt(max(stot*x(nbranch-1+(-ibranch)*2), 0d0))
 c         write(*,*) 'Using s',nbranch-1+(-ibranch)*2
 
          if (m(ibranch-1)**2.lt.smin.or.m(ibranch-1)**2.gt.smax
@@ -811,28 +777,22 @@ c
 
 c         write(*,*) 'tmin, tmax',tmin,tmax
 
-         
          tmax = max(tmax,0d0) !This line if want really t freedom
 
-         
-         xdum = tmax + (tmin-tmax)*x(-ibranch)
-         xdum = -xdum/stot
-         wgt = wgt * abs((tmin-tmax)/stot)
-         
-c$$$         call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
-c$$$     $        -tmax/stot, -tmin/stot)
-c         t = stot*(-x(-ibranch))
-         t = stot*(-xdum)
+         call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
+     $        -tmax/stot, -tmin/stot)
+         t = stot*(-x(-ibranch))
 c
 c     now reset tmax if messed it up for t freedom 3 lines above
 c
          call yminmax(s1,t,m12,ma2,mb2,mn2,tmin,tmax) 
 
 c         write(*,*) tmin,t,tmax
-c         if (t .eq. 0d0) then
-c            jac = -3
-c            return
-c         endif
+         if (t .eq. 0d0) then
+            jac = -3
+            return
+         endif
+         
          if (t .lt. tmin .or. t .gt. tmax) then
             jac=-3d0
             return
@@ -891,9 +851,8 @@ c      if (nt_channel .eq. 0) ix=-1
          ix = nbranch+(-i-1)*2+(2-nincoming)
          if (nt_channel .eq. 0) ix=ix-1
 
-c         write(*,*) 'using costh,phi',ix,ix+1
-
-c         call sample_get_x(wgt,x(ix),ix,iconfig,0d0,1d0)
+c     write(*,*) 'using costh,phi',ix,ix+1
+c     call sample_get_x(wgt,x(ix),ix,iconfig,0d0,1d0)
          costh= 2d0*x(ix)-1d0
 c         call sample_get_x(wgt,x(ix+1),ix+1,iconfig,0d0,1d0)
          phi  = 2d0*pi*x(ix+1)

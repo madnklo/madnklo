@@ -2408,6 +2408,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files = []
         common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f','genps.f']
         common_files+=['genps.inc','invarients.f','transpole.f']
+        common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']

@@ -8,6 +8,8 @@ c     n-body LO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
+      
+      integer ich
       integer ierr
       integer ievt,nthres
       save ievt,nthres
@@ -31,6 +33,20 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
       integer iconfig,mincfig,maxcfig,invar
+      double precision dot
+      integer NGRAPHS2
+      double precision amp2(8)
+      COMMON/TO_AMP2/AMP2,NGRAPHS2
+      common/comich/ich
+      double precision mass2
+      double precision sumext(0:3)
+      integer i
+
+      double precision pmass(nexternal)
+      include 'pmass.inc'
+
+
+      
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
@@ -46,12 +62,27 @@ c     phase space and invariants
          stop
       endif
 C     Hard coded settings for gen_mom
-      iconfig = 1
+c     TODO: At the moment the variables mincfig,maxcfig,invar seem no to be used
+c      Check if we actually need them!
+      iconfig = ich
+c      iconfig = 1
       mincfig = 1
       maxcfig = 1
-      invar = 2
+      invar = 1
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
-!      call phase_space_n(x,sCM,p,nexternal,xjac)
+!     Check Momentum conservation
+      sumext=0d0
+      do i=3, nexternal
+         sumext(:) = sumext(:) + p(:,i)
+      enddo
+
+      
+      if((sumext(0)-p(0,1)-p(0,2)).gt.1d-8) then
+c         write(*,*) sumext(0),p(0,1),p(0,2)
+c         write(*,*) 'LO_B: momentum conservation violated'
+         goto 999
+      endif
+      
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1)goto 999
@@ -59,16 +90,15 @@ c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
 c
+      
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      BLO = ANS(0)
+      BLO = ANS(0)*AMP2(ich)
+
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
       int_Born=BLO*xjac
-c     add flux factor
-C      int_Born = int_Born/2d0/sCM
 c     apply flavour factor
-      int_Born = int_Born * fl_factor
-c
+      int_Born=int_Born * fl_factor
 c     plot
       wgtpl=int_Born*wgt/nitB
       if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)

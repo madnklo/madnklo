@@ -69,7 +69,10 @@ VPATH = $(OBJ)
 	$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
 
 #COMMON_FILES=  gen_phase_space.o vegas.o fjcore.o fastjetfortran_core.o
-COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o	
+COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o myamp.o idenparts.o dsample.o
+
+
+COMMON_FILES+=ranmar.o
 
 USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
 

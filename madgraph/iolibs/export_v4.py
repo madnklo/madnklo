@@ -2336,8 +2336,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         mapconfigs, s_and_t_channels = self.write_configs_file(\
                 writers.FortranWriter(filename),
                 matrix_element)
-        self.write_configs_file(writers.FortranWriter(filename),
-                             matrix_element)
         
         filename = pjoin(dirpath, 'props.inc')
         self.write_props_file(writers.FortranWriter(filename),

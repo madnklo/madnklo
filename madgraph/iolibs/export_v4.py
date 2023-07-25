@@ -2326,15 +2326,16 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_helamp_madspin(writers.FortranWriter(filename),
                              ncomb)
             
-
-        mapconfigs, s_and_t_channels = self.write_configs_file(\
-                writers.FortranWriter(filename),
-                matrix_element)    
+        
+            
         filename = pjoin(dirpath, 'nexternal.inc')
         self.write_nexternal_file(writers.FortranWriter(filename),
                              nexternal, ninitial)
         
         filename = pjoin(dirpath, 'configs.inc')
+        mapconfigs, s_and_t_channels = self.write_configs_file(\
+                writers.FortranWriter(filename),
+                matrix_element)
         self.write_configs_file(writers.FortranWriter(filename),
                              matrix_element)
         

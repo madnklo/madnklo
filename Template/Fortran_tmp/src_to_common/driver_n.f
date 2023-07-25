@@ -68,6 +68,9 @@ c     phase-space dimension, same for all contributions to this folder
          region(i+ndim)=1d0
       enddo
 
+
+      call histo_init
+
       do i=1,N_MAX_CG
          ich=i
       
@@ -89,15 +92,14 @@ c     phase-space dimension, same for all contributions to this folder
          write(iu1,'(a)')'============================='
          init=1
          doplot=.true.
-         call histo_init
          call vegas(region,ndim,int_Born,init,nclB,nitB,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          write(*,110)char(13),'...done     '
          write(*,*)
 
          sum_b = sum_b + res_b
-         write(*,*) 'res_b = ', res_b, err_b
-         write(*,*)
+c         write(*,*) 'res_b = ', res_b, err_b
+c         write(*,*)
          sum_errb = sum_errb + err_b**2
 c         call histo_final('plot_B.dat',rescale_plot_B)
 c     
@@ -106,24 +108,24 @@ c
 
       call histo_final('plot_B.dat',rescale_plot_B)
       open(unit=iu,file='results_B.log')
-         line='=================================================='
-         write(iu,*)' B '
-         write(iu,*)
-         write(iu,*)' itns and calls for B warmup  = ',nitBth,nclBth
-         write(iu,*)' itns and calls for B integration = ',nitB,nclB
-         write(iu,*)
+      line='=================================================='
+      write(iu,*)' B '
+      write(iu,*)
+      write(iu,*)' itns and calls for B warmup  = ',nitBth,nclBth
+      write(iu,*)' itns and calls for B integration = ',nitB,nclB
+      write(iu,*)
 c     write(iu,*)' '//line//line
-         write(iu,*)' '//line
-         write(iu,*)' '//line
-C         write(iu,*)' sigma B [pb]  = ',res_b,' +-',err_b
-         write(iu,*)' sigma B [pb]  = ',sum_b,' +-',dsqrt(sum_errb)
-         write(iu,*)' '//line
-         write(iu,*)' '//line
+      write(iu,*)' '//line
+      write(iu,*)' '//line
+C     write(iu,*)' sigma B [pb]  = ',res_b,' +-',err_b
+      write(iu,*)' sigma B [pb]  = ',sum_b,' +-',dsqrt(sum_errb)
+      write(iu,*)' '//line
+      write(iu,*)' '//line
 c     write(iu,*)' '//line//line
-         write(iu,*)
-         close(iu)
-         close(iu1)
-         close(iu7)
+      write(iu,*)
+      close(iu)
+      close(iu1)
+      close(iu7)
 c     
 c     
  110     format(a1,a12,$)

@@ -169,3 +169,11 @@ TODO 23/06
 - remove prints from aloha
 - DHELAS libraries (ask Marco)
 - check the results of e e > a j j with MG
+
+
+**********************
+TODO 26/07
+
+- To check the multi channeling at NLO for some processes;
+- Do we always use the configs.inc file of the Born diagrams, even for the real and virtual?
+- To fix the filling of the istograms for the real contributions when the multi channeling is on;

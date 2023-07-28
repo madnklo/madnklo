@@ -62,7 +62,8 @@ VPATH = $(OBJ)
 
 COMMON_FILES= CSmapping.o imap.o  gen_real_phase_space.o  vegas.o  fjcore.o fastjetfortran_core.o
 
-COMMON_FILES+= genps.o invarients.o transpole.o
+COMMON_FILES+= genps.o invarients.o transpole.o myamp.o idenparts.o dsample.o ranmar.o
+
 
 USR_FILES=alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o
 

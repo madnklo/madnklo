@@ -6,6 +6,7 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'ngraphs.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -23,6 +24,8 @@
       character*100 line
       integer nitRth,nclRth,nitR,nclR
       COMMON/iterations/NITR
+      integer ich
+      common/comich/ich
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -31,6 +34,12 @@ c     vegas declarations
       double precision region(2*mxdim),xi(ndmx,mxdim)
       parameter(acc=1d-10)
       common/rand/idum
+      double precision sum_r,sum_err
+
+
+      sum_r=0d0
+      sum_err=0d0
+      
 c
       call SETPARA('param_card.dat')
       call SETRUN('run_card.dat')
@@ -64,11 +73,17 @@ c     phase-space dimension, same for all contributions to this folder
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
+      call histo_init
+            
 c
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')
       open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
 c
+
+      do i=1,n_max_cg
+         ich=i
+      
       write(*,'(a)')'Warm up Rsub_%(isec)d_%(jsec)d'
       write(iu1,'(a)')'============================='
       write(iu1,'(a)')' REAL_%(isec)d_%(jsec)d WARMUP '
@@ -84,11 +99,20 @@ c
       write(iu1,'(a)')'============================='
       init=1
       doplot=.true.
-      call histo_init
       call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
       rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
       write(*,110)char(13),'...done     '
       write(*,*)
+
+      sum_r = sum_r + res_r
+      sum_err = sum_err + err_r**2
+
+
+
+      enddo
+
+
+      
       call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
 c
       open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
@@ -101,7 +125,7 @@ c
 c      write(iu,*)' '//line//line
       write(iu,*)' '//line
       write(iu,*)' '//line
-      write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',res_r,' +-',err_r
+      write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',sum_r,' +-',dsqrt(sum_err)
       write(iu,*)' '//line
       write(iu,*)' '//line
 c      write(iu,*)' '//line//line

@@ -10,6 +10,8 @@ c     iU is the unresolved parton associated with the soft singularity
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
       integer iconfig,mincfig,maxcfig,invar
+      integer ich
+      common/comich/ich
 c
 c     initialise
       p=0d0
@@ -17,7 +19,7 @@ c     initialise
       xjacB=Gevtopb
 c
 C     Hard coded settings for gen_mom
-      iconfig = 1
+      iconfig = ich
       mincfig = 1
       maxcfig = 1
       invar = 2

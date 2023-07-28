@@ -8,6 +8,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
+      INCLUDE 'ngraphs.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -51,6 +52,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+      integer ich
+      common/comich/ich
+      double precision  amp2(n_max_cg)
+      common/to_amp2/amp2
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
@@ -150,6 +155,7 @@ c     counterterm
 c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
+      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
 c     add flux factor
 c     TODO: add the general case for the flux factor
 c      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM

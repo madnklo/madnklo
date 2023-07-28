@@ -172,8 +172,9 @@ TODO 23/06
 
 
 **********************
-TODO 26/07
+TODO 28/07
 
 - To check the multi channeling at NLO for some processes;
 - Do we always use the configs.inc file of the Born diagrams, even for the real and virtual?
 - To fix the filling of the istograms for the real contributions when the multi channeling is on;
+- Check leshouche.inc to consider identical particles factors, with the new phase space generation

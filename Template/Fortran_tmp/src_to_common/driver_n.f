@@ -103,8 +103,9 @@ c         write(*,*)
          sum_errb = sum_errb + err_b**2
 c         call histo_final('plot_B.dat',rescale_plot_B)
 c     
-c     
       enddo
+
+      sum_errb = dsqrt(sum_errb)
 
       call histo_final('plot_B.dat',rescale_plot_B)
       open(unit=iu,file='results_B.log')
@@ -118,7 +119,7 @@ c     write(iu,*)' '//line//line
       write(iu,*)' '//line
       write(iu,*)' '//line
 C     write(iu,*)' sigma B [pb]  = ',res_b,' +-',err_b
-      write(iu,*)' sigma B [pb]  = ',sum_b,' +-',dsqrt(sum_errb)
+      write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_errb
       write(iu,*)' '//line
       write(iu,*)' '//line
 c     write(iu,*)' '//line//line

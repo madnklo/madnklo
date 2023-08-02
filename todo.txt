@@ -178,3 +178,11 @@ TODO 28/07
 - Do we always use the configs.inc file of the Born diagrams, even for the real and virtual?
 - To fix the filling of the istograms for the real contributions when the multi channeling is on;
 - Check leshouche.inc to consider identical particles factors, with the new phase space generation
+
+TODO 2/08
+
+- uniform AMP2 definition in Born matrix element! 
+- the ngraphs.inc file in the real directories has to be the one from the Born, 
+  containing the Born number of diagrams for correct multichanneling!
+
+

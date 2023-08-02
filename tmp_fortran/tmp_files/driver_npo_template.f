@@ -107,11 +107,9 @@ c
       sum_r = sum_r + res_r
       sum_err = sum_err + err_r**2
 
-
-
       enddo
 
-
+      sum_err = dsqrt(sum_err)
       
       call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
 c
@@ -125,7 +123,7 @@ c
 c      write(iu,*)' '//line//line
       write(iu,*)' '//line
       write(iu,*)' '//line
-      write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',sum_r,' +-',dsqrt(sum_err)
+      write(iu,*)' sigma Rsub_%(isec)d_%(jsec)d [pb]  = ',sum_r,' +-',sum_err
       write(iu,*)' '//line
       write(iu,*)' '//line
 c      write(iu,*)' '//line//line

@@ -533,13 +533,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
-            replace_dict_int_real['isec'] = isec
-            replace_dict_int_real['jsec'] = jsec
+            #replace_dict_int_real['isec'] = isec
+            #replace_dict_int_real['jsec'] = jsec
 
             # Extract the reference particle leg from recoiler_function.py
             iref = all_sector_recoilers[i]
             replace_dict_ct['iref'] = iref
-            replace_dict_int_real['iref'] = iref
+            #replace_dict_int_real['iref'] = iref
 
             # Update sector_info dictionary
             sector_info = {
@@ -555,6 +555,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             sector_info['jsec'] = jsec
             sector_info['iref'] = iref
             
+
+
+
+
             if necessary_ct_list[i*5] == 1:
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
@@ -629,12 +633,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
-
-            # write NLO_Rsub
-            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
-            file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
-            file_int_real = file_int_real % replace_dict_int_real
-            writer(filename_int_real).writelines(file_int_real)
 
             # write driver_npo_template
             self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
@@ -740,6 +738,29 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
+
+            #giovanni
+            # write NLO_Rsub
+
+
+            replace_dict_int_real['isec'] = isec
+            replace_dict_int_real['jsec'] = jsec
+            replace_dict_int_real['iref'] = iref
+            proc_strusr=''
+
+            for i in range(0,len(overall_sector_info)):
+                
+                if not overall_sector_info[i]['path_to_Born']:
+                    continue
+                if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+                    continue
+                proc_strusr =  overall_sector_info[i]['Born_str']   
+            replace_dict_int_real['strUB'] = proc_strusr
+            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
+            file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
+            file_int_real = file_int_real % replace_dict_int_real
+            writer(filename_int_real).writelines(file_int_real)
+            #giovanni
 
 
 ######### Check on real and virtual recoiler flavour

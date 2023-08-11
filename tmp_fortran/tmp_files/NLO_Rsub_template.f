@@ -155,6 +155,12 @@ c     counterterm
 c
 c     subtraction
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
+
+
+c     Call the Underlying Born matrix element to fill the amp2 array,
+c     in order to implement the multi channel
+      
+      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,ANS)
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
 c     add flux factor
 c     TODO: add the general case for the flux factor

@@ -2416,6 +2416,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
             cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files'))
+            cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
+            cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
+            cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
         elif strdirpath[-1][0] == 'N':
             common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')

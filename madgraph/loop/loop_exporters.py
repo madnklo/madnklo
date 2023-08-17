@@ -761,9 +761,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)
 
-        filename = 'ngraphs.inc'
-        self.write_ngraphs_file(writers.FortranWriter(filename),
-                           len(matrix_element.get_all_amplitudes()))
+#        filename = 'ngraphs.inc'
+#        self.write_ngraphs_file(writers.FortranWriter(filename),
+#                           len(matrix_element.get_all_amplitudes()))
 
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
@@ -804,7 +804,11 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_common_directory()
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
         os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-        
+        os.symlink(dirpath + '/../../../Common_Files/ngraphs.inc',dirpath+'/ngraphs.inc')
+        os.symlink(dirpath + '/../../../Common_Files/decayBW.inc',dirpath+'/decayBW.inc')
+        os.symlink(dirpath + '/../../../Common_Files/leshouche.inc',dirpath+'/leshouche.inc')
+        os.symlink(dirpath + '/../../../Common_Files/props.inc',dirpath+'/props.inc')
+
         # Return to original PWD
         os.chdir(cwd)
 

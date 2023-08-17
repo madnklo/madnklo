@@ -6,6 +6,7 @@
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'colored_partons.inc'
+      INCLUDE 'ngraphs.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -22,6 +23,9 @@
       character*100 line
       integer nitVth,nclVth,nitV,nclV
       common/niterationsv/nitV
+      integer ich
+      common/comich/ich
+      double precision sum_v, sum_err_v
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -31,6 +35,14 @@ c     vegas declarations
       parameter(acc=1d-10)
       common/rand/idum
 c
+
+
+      sum_v=0d0
+      sum_err_v=0d0
+      res_v=0d0
+      err_v=0d0
+
+      
       call SETPARA('param_card.dat')
       call SETRUN('run_card.dat')
 c
@@ -61,6 +73,10 @@ c     phase-space dimension, same for all contributions to this folder
          region(i+ndim)=1d0
       enddo
 
+      call histo_init
+
+
+      
       open(unit=iu1,file='integration_V.log')
       open(unit=iu2,file='test_poles_V.log')
       open(unit=iu7,file='failures_V.log')
@@ -69,24 +85,36 @@ c     phase-space dimension, same for all contributions to this folder
       write(iu1,'(a)')'============================='
       write(iu1,'(a)')' VIRTUAL WARMUP                 '
       write(iu1,'(a)')'============================='
-      init=0
-      doplot=.false.
-      call vegas(region,ndim,int_virtual,init,nclVth,nitVth,nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c
-      write(*,'(a)')'Integrating Virtual'
-      write(iu1,'(a)')
-      write(iu1,'(a)')'============================='
-      write(iu1,'(a)')' VIRTUAL                        '
-      write(iu1,'(a)')'============================='
-      init=1
-      doplot=.true.
-      call histo_init
-      call vegas(region,ndim,int_virtual,init,nclV,nitV,nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-      rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
-      write(*,110)char(13),'...done     '
-      write(*,*)
+
+
+      do i=1,N_MAX_CG
+         ich=i
+      
+         init=0
+         doplot=.false.
+         call vegas(region,ndim,int_virtual,init,nclVth,nitVth,nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c     
+         write(*,'(a)')'Integrating Virtual'
+         write(iu1,'(a)')
+         write(iu1,'(a)')'============================='
+         write(iu1,'(a)')' VIRTUAL                        '
+         write(iu1,'(a)')'============================='
+         init=1
+         doplot=.true.
+         call vegas(region,ndim,int_virtual,init,nclV,nitV,nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
+         write(*,110)char(13),'...done     '
+         write(*,*)
+
+         sum_v = sum_v + res_v
+         sum_err_v = sum_err_v + err_v**2
+         
+      enddo
+
+      sum_err_v = dsqrt(sum_err_v)
+      
       call histo_final('plot_V.dat',rescale_plot_V)
-c
+c     
       open(unit=iu,file='results_V.log')
       line='=================================================='
       write(iu,*)' V '
@@ -94,21 +122,21 @@ c
       write(iu,*)' itns and calls for V warmup  = ',nitVth,nclVth
       write(iu,*)' itns and calls for V integration = ',nitV,nclV
       write(iu,*)
-c      write(iu,*)' '//line//line
+c     write(iu,*)' '//line//line
       write(iu,*)' '//line
       write(iu,*)' '//line
-      write(iu,*)' sigma V [pb]  = ',res_v,' +-',err_v
+      write(iu,*)' sigma V [pb]  = ',sum_v,' +-',sum_err_v
       write(iu,*)' '//line
       write(iu,*)' '//line
-c      write(iu,*)' '//line//line
+c     write(iu,*)' '//line//line
       write(iu,*)
       close(iu)
       close(iu1)
       close(iu2)
       close(iu7)
-c
-c
+c     
+c     
  110  format(a1,a12,$)
-c
+c     
       stop
       end

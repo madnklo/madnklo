@@ -62,6 +62,19 @@ C
       LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
       integer iconfig,mincfig,maxcfig,invar
+
+
+      integer NGRAPHS2
+      double precision amp2(N_MAX_CG)
+      COMMON/TO_AMP2/AMP2,NGRAPHS2
+      integer ich
+      common/comich/ich
+      double precision sumext(0:3)
+      double precision pmass(nexternal)
+      INCLUDE 'pmass.inc'
+
+
+      
 C
 C     EXTERNAL
 C
@@ -94,7 +107,7 @@ c     phase space and invariants
          stop
       endif
 C     Hard coded settings for gen_mom
-      iconfig = 1
+      iconfig = ich
       mincfig = 1
       maxcfig = 1
       invar = 2
@@ -105,6 +118,18 @@ C     Hard coded settings for gen_mom
          write(*,*)'Wrong jacobian in NLO_V'
          goto 999
       endif
+
+!     Check Momentum conservation
+      sumext=0d0
+      do i=3, nexternal
+         sumext(:) = sumext(:) + p(:,i)
+      enddo
+      if((sumext(0)-p(0,1)-p(0,2)).gt.1d-8) then
+c     write(*,*) sumext(0),p(0,1),p(0,2)
+c     write(*,*) 'LO_B: momentum conservation violated'
+         goto 999
+      endif
+
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1) then
          write(*,*)'Wrong invariants in NLO_V', sLO
@@ -142,6 +167,12 @@ c     subtracted vrtual
 c
 c     apply flavour multiplicity factor
       int_virtual=int_virtual*fl_factor
+
+
+c     Multi channeling
+
+      int_virtual = int_virtual * amp2(ich)
+      
 c
 c     plot
       wgtpl=int_virtual*wgt/nitV

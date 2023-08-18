@@ -391,6 +391,8 @@ c$$$            p1(0,nparticles+1)=xbk(1)
 c$$$            p1(1,nparticles+1)=xbk(2)
          else
             p1(0,1)=-99
+            wgt=0d0
+            return
          endif
 
 c

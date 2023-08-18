@@ -69,7 +69,6 @@ C
       COMMON/TO_AMP2/AMP2,NGRAPHS2
       integer ich
       common/comich/ich
-      double precision sumext(0:3)
       double precision pmass(nexternal)
       INCLUDE 'pmass.inc'
 
@@ -115,24 +114,13 @@ C     Hard coded settings for gen_mom
 
 !      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0) then
-         write(*,*)'Wrong jacobian in NLO_V'
-         goto 999
-      endif
-
-!     Check Momentum conservation
-      sumext=0d0
-      do i=3, nexternal
-         sumext(:) = sumext(:) + p(:,i)
-      enddo
-      if((sumext(0)-p(0,1)-p(0,2)).gt.1d-8) then
-c     write(*,*) sumext(0),p(0,1),p(0,2)
-c     write(*,*) 'LO_B: momentum conservation violated'
+         write(77,*)'Wrong jacobian in NLO_V'
          goto 999
       endif
 
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1) then
-         write(*,*)'Wrong invariants in NLO_V', sLO
+         write(77,*)'Wrong invariants in NLO_V', sLO
          goto 999
       endif
 c

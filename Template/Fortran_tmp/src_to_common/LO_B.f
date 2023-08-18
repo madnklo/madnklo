@@ -40,9 +40,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       COMMON/TO_AMP2/AMP2,NGRAPHS2
       common/comich/ich
       double precision mass2
-      double precision sumext(0:3)
-      integer i
-
       double precision pmass(nexternal)
       include 'pmass.inc'
 
@@ -71,19 +68,6 @@ c      iconfig = 1
       maxcfig = 1
       invar = 1
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
-!     Check Momentum conservation
-      sumext=0d0
-      do i=3, nexternal
-         sumext(:) = sumext(:) + p(:,i)
-      enddo
-
-      
-      if((sumext(0)-p(0,1)-p(0,2)).gt.1d-8) then
-c         write(*,*) sumext(0),p(0,1),p(0,2)
-c         write(*,*) 'LO_B: momentum conservation violated'
-         goto 999
-      endif
-      
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)
       if(ierr.eq.1)goto 999

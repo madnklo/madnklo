@@ -133,7 +133,6 @@ c     call virtual
 c
 c     call Born
       CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      BLO = ANS(0)
 c
 c     call counterterm
       call int_counter_NLO(p,sLO,INLO,ierr)
@@ -151,7 +150,6 @@ c     test coefficients of epsilon poles
 c
 c     subtracted vrtual
       int_virtual=(VNLO(1)+INLO(1))*xjac
-!      int_virtual = int_virtual/2d0/sCM
 c
 c     apply flavour multiplicity factor
       int_virtual=int_virtual*fl_factor

@@ -162,9 +162,6 @@ c     in order to implement the multi channel
       
       call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,ANS)
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
-c     add flux factor
-c     TODO: add the general case for the flux factor
-c      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d/2d0/sCM
 c
 c     print out current run progress
 c     TODO: adapt progress bar

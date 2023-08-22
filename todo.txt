@@ -181,8 +181,17 @@ TODO 28/07
 
 TODO 2/08
 
-- uniform AMP2 definition in Born matrix element! 
+- uniform AMP2 definition in Born matrix element! ---> done
 - the ngraphs.inc file in the real directories has to be the one from the Born, 
-  containing the Born number of diagrams for correct multichanneling!
+  containing the Born number of diagrams for correct multichanneling! ---> done
 
 
+**********************
+
+TODO 22/08
+
+- try to optimize the Multi channel integration: monte carlo over the channels, use of symmetries;
+- new generatio of sof counterterms to avoid a different mapping for each eikonal term;
+- overpass fastjet;
+- script to automathize integration;
+- start the NNLO.

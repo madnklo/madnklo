@@ -22,6 +22,7 @@
       double precision rescale_plot_B
       character*100 line
       integer nitBth,nclBth,nitB,nclB
+      integer nitBth0,nclBth0,nclB0,nclBth1,nclB1
       common/iterations/nitB
 c
 c     vegas declarations
@@ -34,6 +35,8 @@ c     vegas declarations
       integer ich
       common/comich/ich
       double precision sum_b,sum_errb
+      double precision sum_err_b_a,err_b_a(N_MAX_CG)
+c
       sum_b=0d0
       sum_errb=0d0
       res_b=0d0
@@ -67,70 +70,82 @@ c     phase-space dimension, same for all contributions to this folder
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
-
-
+c
+c     initialise histograms and open output files
       call histo_init
-
+      open(unit=iu1,file='integration_B.log')
+      open(unit=iu7,file='failures_B.log')
+      open(unit=iu ,file='results_B.log')
+      line='=================================================='
+      write(iu,*)' Born contribution '
+      write(iu,*)
+c
+c     quickly get integration error per channel so to modulate
+c     number of points thrown per channel in the main loop
+      nclBth0=10000
+      nitBth0=5
+      sum_err_b_a=0d0
       do i=1,N_MAX_CG
          ich=i
-      
-         open(unit=iu1,file='integration_B.log')
-         open(unit=iu7,file='failures_B.log')
-
-         write(*,'(a)')'Warm up Born'
-         write(iu1,'(a)')'============================='
-         write(iu1,'(a)')' BORN WARMUP                 '
-         write(iu1,'(a)')'============================='
          init=0
          doplot=.false.
-         call vegas(region,ndim,int_Born,init,nclBth,nitBth,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-
-         write(*,'(a)')'Integrating Born'
-         write(iu1,'(a)')
-         write(iu1,'(a)')'============================='
-         write(iu1,'(a)')' BORN                        '
-         write(iu1,'(a)')'============================='
+         call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
+     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         err_b_a(ich) = dsqrt(err_b) ! err_b
+         sum_err_b_a = sum_err_b_a + err_b_a(ich)
+      enddo
+c
+c     main loop over channels
+      do i=1,N_MAX_CG
+         ich=i
+         write(*,*)'Born warmup for channel',ich
+         write(iu7,*)'Failures for Born warmup, channel',ich
+         write(iu1,*)
+         write(iu1,*)'============================='
+         write(iu1,*)' BORN WARMUP, CHANNEL',ich
+         write(iu1,*)'============================='
+         init=0
+         doplot=.false.
+         nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
+         call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
+     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         write(iu,*)' # B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
+c
+         write(*,*)'Born for channel',ich
+         write(iu7,*)'Failures for Born, channel',ich
+         write(iu1,*)
+         write(iu1,*)'============================='
+         write(iu1,*)' BORN, CHANNEL',ich
+         write(iu1,*)'============================='
          init=1
          doplot=.true.
-         call vegas(region,ndim,int_Born,init,nclB,nitB,nprn,res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
+         call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
+     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         write(iu,*)' # B: channel, itns, calls = ',ich,nitB,nclB1
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
-         write(*,110)char(13),'...done     '
-         write(*,*)
-
          sum_b = sum_b + res_b
-c         write(*,*) 'res_b = ', res_b, err_b
-c         write(*,*)
          sum_errb = sum_errb + err_b**2
-c         call histo_final('plot_B.dat',rescale_plot_B)
+         write(iu,*)' sigma B [pb], channel',ich,' = ',
+     &   res_b,' +-',err_b
+         write(iu,*)
 c     
+         write(*,*)'...done'
       enddo
-
+c
+c     finalise histograms and output files
       sum_errb = dsqrt(sum_errb)
-
       call histo_final('plot_B.dat',rescale_plot_B)
-      open(unit=iu,file='results_B.log')
-      line='=================================================='
-      write(iu,*)' B '
       write(iu,*)
-      write(iu,*)' itns and calls for B warmup  = ',nitBth,nclBth
-      write(iu,*)' itns and calls for B integration = ',nitB,nclB
+      write(iu,*)' '//line
       write(iu,*)
-c     write(iu,*)' '//line//line
-      write(iu,*)' '//line
-      write(iu,*)' '//line
-C     write(iu,*)' sigma B [pb]  = ',res_b,' +-',err_b
       write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_errb
+      write(iu,*)
       write(iu,*)' '//line
-      write(iu,*)' '//line
-c     write(iu,*)' '//line//line
       write(iu,*)
       close(iu)
       close(iu1)
       close(iu7)
 c     
-c     
- 110     format(a1,a12,$)
-
-      
       stop
       end

@@ -148,7 +148,7 @@ c
 c     counterterm
 %(str_Zsum)s
 
-         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,KS,KHC,KNLO,ierr)
+         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNLO

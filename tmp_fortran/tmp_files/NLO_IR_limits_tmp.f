@@ -51,11 +51,9 @@ c     initialise
 c
 c     get PDGs
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS
-     $,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),
-     &   NEXTERNAL
+         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
          STOP
       ENDIF
 c
@@ -152,8 +150,7 @@ c
 
 
 
-      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT
-     $ ,WSOFT,XJ,NIT,EXTRA,IERR)
+      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,WSOFT,XJ,NIT,EXTRA,IERR)
 C     single-soft limit S_(i) * Wsoft, mapped as the collinear one
 C     it returns 0 if i is not a gluon
       IMPLICIT NONE
@@ -168,8 +165,7 @@ C     it returns 0 if i is not a gluon
       INCLUDE 'run.inc'
       INTEGER I,L,M,IB,IR,LB,MB,NIT,IERR,PARENT_LEG,idum
       DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,WSOFT,XJ,EXTRA
-      DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1
-     $ ,NEXTERNAL-1)
+      DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1)
       DOUBLE PRECISION BLO,CCBLO
       DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
       DOUBLE PRECISION SIL,SIM,SLM,X,Y,Z,DAMP
@@ -209,11 +205,9 @@ c     possible cuts
 C     
 C     get PDGs and possible cuts
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,IB,IR,NEXTERNAL,LEG_PDGS
-     $ ,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,IB,IR,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),
-     &   NEXTERNAL
+         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
          STOP
       ENDIF
 C
@@ -296,8 +290,7 @@ C
 
 
 
-      DOUBLE PRECISION FUNCTION M2_S_DIFF(I,IB,IR,XS,XP,XSB,XPB,WGT
-     $ ,WSOFT,XJ,XJB,XX,NIT,EXTRA,IERR)
+      DOUBLE PRECISION FUNCTION M2_S_DIFF(I,IB,IR,XS,XP,XSB,XPB,WGT,WSOFT,XJ,XJB,XX,NIT,EXTRA,IERR)
 C     difference from the soft counterterm mapped according to (ilm)
 C     and the soft couterterm mapped according to (ijr), multiplied
 C     by Wsoft
@@ -313,10 +306,9 @@ C     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INTEGER I,L,M,iB,iR,iA,LB,MB,IERR,NIT,idum
-      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,WSOFT
+      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,WSOFT,WSOFT_ilm,ddum
       DOUBLE PRECISION XJ,XJB,XJCS_ILM
-      DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1
-     $ ,NEXTERNAL-1),XS_ilm(NEXTERNAL,NEXTERNAL),XX(3)
+      DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1),XS_ilm(NEXTERNAL,NEXTERNAL),XX(3)
       DOUBLE PRECISION BLO,CCBLO,EXTRA
       DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
       DOUBLE PRECISION XP_ilm(0:3,NEXTERNAL)
@@ -354,17 +346,16 @@ C     initialise
       IERR=0
       DAMP=0D0
       idum=0
+      ddum=1d0
 C
 C     possible cuts
       IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 c
 c     get PDGs
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS
-     $,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),
-     &   NEXTERNAL
+         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
          STOP
       ENDIF
 C
@@ -397,10 +388,11 @@ c         invariant quantities with mapping (ijr), at fixed Born kinematics
           SLM=XS(L,M)
 c         invariant quantities with mapping (ilm), at fixed Born kinematics
           iA = 1  ! default azimuth for NLO
-          CALL PHASE_SPACE_CS(XX,I,L,M,IA,XP_ILM,XPB,NEXTERNAL,
-     $    LEG_PDGS,'S',XJCS_ILM)
+          CALL PHASE_SPACE_CS(XX,I,L,M,IA,XP_ILM,XPB,NEXTERNAL,LEG_PDGS,'S',XJCS_ILM)
           IF(XJCS_ILM.EQ.0D0)GOTO 999
           CALL INVARIANTS_FROM_P(XP_ilm,NEXTERNAL,XS_ilm,IERR)
+          IF(IERR.EQ.1)GOTO 999
+          call get_Z_NLO(xs_ilm,ddum,ddum,I,IB,Wsoft_ilm,'S',ierr)
           IF(IERR.EQ.1)GOTO 999
           SIL_ilm=XS_ilm(I,L)
           SIM_ilm=XS_ilm(I,M)
@@ -415,8 +407,10 @@ C         safety check
 C         
 C         eikonal difference
           ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
-          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * XJB * XJCS_ILM
-          M2TMP = M2TMP - SLM/(SIL*SIM) * XJ
+c          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT_ilm * XJB * XJCS_ILM
+c TODO: make the line above WORK, right now it is not correct
+          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT * XJB * XJCS_ILM
+          M2TMP = M2TMP - SLM/(SIL*SIM) * WSOFT * XJ
           M2TMP = M2TMP * CCBLO*2D0
 c
 C         Including correct multiplicity factor
@@ -440,7 +434,7 @@ c         Damping factors
             DAMP=X**ALPHA
           ENDIF
           M2TMP=M2TMP*DAMP
-          M2_S_DIFF=M2_S_DIFF+PREF*M2TMP*WSOFT*EXTRA
+          M2_S_DIFF=M2_S_DIFF+PREF*M2TMP*EXTRA
         ENDDO
       ENDDO
 C     apply flavour factor

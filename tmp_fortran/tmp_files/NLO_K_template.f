@@ -1,4 +1,4 @@
-      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,WsumSi,WsumSj,xj,xjB,KS,KHC,KNLO,ierr)
+      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,WsumSi,WsumSj,xj,xjB,x,KS,KHC,KNLO,ierr)
 c     local NLO counterterm for sector [isec,jsec]
       implicit none
       include 'nexternal.inc'

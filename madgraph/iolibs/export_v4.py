@@ -2422,8 +2422,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         elif strdirpath[-1][0] == 'N':
             common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-            os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
+            #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
             os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
+            cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
             os.remove(pjoin(dirpath,'configs.inc'))
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')

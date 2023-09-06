@@ -77,13 +77,13 @@ c
             lb=mapped_labels(l)
             mb=mapped_labels(m)
 c
-c         check LO labels 
+c         check labels and pdgs
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            WRITE(*,*)'Wrong indices 1 in M2_S',LB,MB
             STOP
           ENDIF
-          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
+          IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong indices 2 in M2_S',L,M,LB,MB
             STOP
           ENDIF
 c
@@ -218,8 +218,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS)
-     $   ,NEXTERNAL
+        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
         STOP
       ENDIF
 C     
@@ -248,13 +247,13 @@ c
           LB=MAPPED_LABELS(L)
           MB=MAPPED_LABELS(M)
 c
-c         check LO labels 
+c         check labels and pdgs
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            WRITE(*,*)'Wrong indices 1 in M2_S_ALT',LB,MB
             STOP
           ENDIF
-          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
+          IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong indices 2 in M2_S_ALT',L,M,LB,MB
             STOP
           ENDIF
 C         
@@ -376,8 +375,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS)
-     $   ,NEXTERNAL
+        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
         STOP
       ENDIF
 C
@@ -409,13 +407,13 @@ c
           LB=MAPPED_LABELS(L)
           MB=MAPPED_LABELS(M)
 c
-c         check LO labels 
+c         check labels and pdgs 
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            WRITE(*,*)'Wrong indices 1 in M2_S_DIFF',LB,MB
             STOP
           ENDIF
-          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
+          IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong indices 2 in M2_S_DIFF',L,M,LB,MB
             STOP
           ENDIF
 c

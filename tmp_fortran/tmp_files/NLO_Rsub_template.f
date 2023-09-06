@@ -20,7 +20,7 @@ c     (n+1)-body NLO integrand for vegas
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
-      double precision Z_NLO,ZsumSi,ZsumSj
+      double precision Z_NLO,ZSi,ZSj
       double precision alpha
       parameter(alpha=1d0)
       double precision RNLO,KNLO,KS,KHC
@@ -69,8 +69,8 @@ c     initialise
       iref = %(iref)d
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
-      ZsumSi=0d0
-      ZsumSj=0d0
+      ZSi=0d0
+      ZSj=0d0
       Z_NLO=0d0
       RNLO=0d0
       do i=1,3
@@ -139,7 +139,6 @@ c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 c
 c     plot real
-c      wgtpl=int_real_no_cnt*wgt/nitR/2D0/SCM
       wgtpl=int_real_no_cnt*wgt/nitR
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
  555  continue
@@ -147,19 +146,18 @@ c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
+      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
       if(ierr.eq.1)then
          write(77,*) 'Something wrong in the counterterm', KNLO
          goto 999
       endif
 c
-c     subtraction
-      int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO*xjac
+c     subtraction (phase-space jacobian included in counterterm definition)
+      int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO
 
 
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-      
       call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,ANS)
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
 c

@@ -152,7 +152,7 @@ c     counterterm
          if(ierr.eq.1)cycle
          
          lim=KNLO
-         single_real=RNLO*Z_NLO
+         single_real=RNLO*Z_NLO*xjac
          
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)

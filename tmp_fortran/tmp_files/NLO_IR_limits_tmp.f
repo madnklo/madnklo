@@ -1,5 +1,5 @@
-      double precision function M2_S(i,xs,xp,wgt,Wsoft,xj,nit,extra,ierr)
-c     single-soft limit S_(i) * Wsoft
+      double precision function M2_S(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,ierr)
+c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       implicit none
       include 'nexternal.inc'
@@ -12,7 +12,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,Wsoft,xj,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,Zsoft,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -133,20 +133,20 @@ c     damping factors
                x=1d0 - (sil+sim)/slm
                damp=x**alpha
             endif
-            M2tmp=M2tmp*damp
-            M2_S=M2_S+pref*M2tmp*Wsoft*extra
+            M2tmp=M2tmp*damp*xj
+            M2_S=M2_S+pref*M2tmp*Zsoft*extra
 c
 c     plot
 c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
 c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
 c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
-            wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
+            wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo 
       enddo
-
+c
 c     apply flavour factor
       M2_S = M2_s * %(proc_prefix_real)s_fl_factor
 c
@@ -162,9 +162,8 @@ c
       end
 
 
-
-      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,WSOFT,XJ,NIT,EXTRA,IERR)
-C     single-soft limit S_(i) * Wsoft, mapped as the collinear one
+      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,NIT,EXTRA,IERR)
+C     single-soft limit S_(i) * Zsoft, mapped as the collinear one
 C     it returns 0 if i is not a gluon
       IMPLICIT NONE
       INCLUDE 'nexternal.inc'
@@ -177,7 +176,7 @@ C     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INTEGER I,L,M,IB,IR,LB,MB,NIT,IERR,PARENT_LEG,idum
-      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,WSOFT,XJ,EXTRA
+      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,ZSOFT,XJ,XJB,EXTRA
       DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1)
       DOUBLE PRECISION BLO,CCBLO
       DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
@@ -289,14 +288,14 @@ c         Damping factors
             DAMP=X**ALPHA
           ENDIF
           M2TMP=M2TMP*DAMP
-          M2_S_ALT=M2_S_ALT+PREF*M2TMP*WSOFT*EXTRA
+          M2_S_ALT=M2_S_ALT+PREF*M2TMP*ZSOFT*XJ*EXTRA
         ENDDO
       ENDDO
 C     apply flavour factor
       M2_S_ALT=M2_S_ALT*%(proc_prefix_real)s_fl_factor
 C         
 C     plot
-      WGTPL=-M2_S_ALT*XJ*WGT/NIT
+      WGTPL=-M2_S_ALT*WGT/NIT
       IF(DOPLOT)CALL HISTO_FILL(XPB,XSB,NEXTERNAL-1,WGTPL)
 C     
 C     sanity check
@@ -312,10 +311,10 @@ C
 
 
 
-      DOUBLE PRECISION FUNCTION M2_S_DIFF(I,IB,IR,XS,XP,XSB,XPB,WGT,WSOFT,XJ,XJB,XX,NIT,EXTRA,IERR)
+      DOUBLE PRECISION FUNCTION M2_S_DIFF(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,XX,NIT,EXTRA,IERR)
 C     difference from the soft counterterm mapped according to (ilm)
 C     and the soft couterterm mapped according to (ijr), multiplied
-C     by Wsoft
+C     by Zsoft
 C     it returns 0 if i is not a gluon
       IMPLICIT NONE
       INCLUDE 'nexternal.inc'
@@ -328,7 +327,7 @@ C     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INTEGER I,L,M,iB,iR,iA,LB,MB,IERR,NIT,idum
-      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,WSOFT,WSOFT_ilm,ddum
+      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,ZSOFT,ZSOFT_ilm,ddum
       DOUBLE PRECISION XJ,XJB,XJCS_ILM
       DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1),XS_ilm(NEXTERNAL,NEXTERNAL),XX(3)
       DOUBLE PRECISION BLO,CCBLO,EXTRA
@@ -423,11 +422,12 @@ c         invariant quantities with mapping (ijr), at fixed Born kinematics
           SLM=XS(L,M)
 c         invariant quantities with mapping (ilm), at fixed Born kinematics
           iA = 1  ! default azimuth for NLO
-          CALL PHASE_SPACE_CS(XX,I,L,M,IA,XP_ILM,XPB,NEXTERNAL,LEG_PDGS,'S',XJCS_ILM)
+c TODO: understand below I,M,L assignment
+          CALL PHASE_SPACE_CS(XX,I,M,L,IA,XP_ILM,XPB,NEXTERNAL,LEG_PDGS,'S',XJCS_ILM)
           IF(XJCS_ILM.EQ.0D0)GOTO 999
           CALL INVARIANTS_FROM_P(XP_ilm,NEXTERNAL,XS_ilm,IERR)
           IF(IERR.EQ.1)GOTO 999
-          call get_Z_NLO(xs_ilm,ddum,ddum,I,IB,Wsoft_ilm,'S',ierr)
+          call get_Z_NLO(xs_ilm,ddum,ddum,ISEC,JSEC,Zsoft_ilm,'S',ierr)
           IF(IERR.EQ.1)GOTO 999
           SIL_ilm=XS_ilm(I,L)
           SIM_ilm=XS_ilm(I,M)
@@ -442,11 +442,9 @@ C         safety check
 C         
 C         eikonal difference
           ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
-c          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT_ilm * XJB * XJCS_ILM
-c TODO: make the line above WORK, right now it is not correct
-C TODO: WRONG: we have twice xjac (one here, one outside)!!
-          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT * XJB * XJCS_ILM
-          M2TMP = M2TMP - SLM/(SIL*SIM) * WSOFT * XJ
+          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * ZSOFT_ilm * XJB * XJCS_ILM
+c          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * ZSOFT * XJB * XJCS_ILM
+          M2TMP = M2TMP - SLM/(SIL*SIM) * ZSOFT * XJ
           M2TMP = M2TMP * CCBLO*2D0
 c
 C         Including correct multiplicity factor
@@ -594,13 +592,12 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FgFg=M2tmp*pref/sab*extra
+      M2_H_C_FgFg=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
       M2_H_C_FgFg=M2_H_C_FgFg*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-c      wgtpl=-M2_H_C_FgFg*xj*wgt/nit/2d0/sCM
-      wgtpl=-M2_H_C_FgFg*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFg*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -701,13 +698,12 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FgFq=M2tmp*pref/sab*extra
+      M2_H_C_FgFq=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
       M2_H_C_FgFq=M2_H_C_FgFq*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-c      wgtpl=-M2_H_C_FgFq*xj*wgt/nit/2d0/sCM
-      wgtpl=-M2_H_C_FgFq*xj*wgt/nit
+      wgtpl=-M2_H_C_FgFq*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -824,13 +820,12 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FqFqx=M2tmp*pref/sab*extra
+      M2_H_C_FqFqx=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
       M2_H_C_FqFqx=M2_H_C_FqFqx*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-c      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit/2d0/sCM
-      wgtpl=-M2_H_C_FqFqx*xj*wgt/nit
+      wgtpl=-M2_H_C_FqFqx*wgt/nit
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

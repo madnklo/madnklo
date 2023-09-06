@@ -559,33 +559,33 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('if(default_soft)then\n')
-                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,nitR,1d0,ierr)\n')
+                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,WsumSi,xj,xjB,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('else\n')
-                list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,XJB,NITR,1D0,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('KS=KS+M2_S_DIFF(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,XJB,X(1:3),NITR,1D0,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('endif\n')
 
-                list_int_real.append('# call sector function ZsumSi\n')
-                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZsumSi,"S",ierr)\n')
+                list_int_real.append('# call sector function ZSi\n')
+                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZSi,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+1] == 1:
                 if id_jsec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('if(default_soft)then\n')
-                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,nitR,1d0,ierr)\n')
+                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,WsumSj,xj,xjB,nitR,1d0,ierr)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('else\n')
-                list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,XJB,NITR,1D0,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('KS=KS+M2_S_DIFF(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,WSUMSI,XJ,XJB,X(1:3),NITR,1D0,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('endif\n')
 
-                list_int_real.append('# call sector function ZsumSj\n')
-                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZsumSj,"S",ierr)\n')
+                list_int_real.append('# call sector function ZSj\n')
+                list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZSj,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
             if necessary_ct_list[i*5+2] == 1:
                 # Loop over sectors with final state particles only
@@ -914,8 +914,8 @@ c     soft limit
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('#     call sector function ZsumSi\n')
-            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSi,"S",ierr)\n'%(isec,jsec))
+            list_Zsum.append('#     call sector function ZSi\n')
+            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZSi,"S",ierr)\n'%(isec,jsec))
             is_soft = True
         if necessary_ct_list[i*5+1] == 1:
             limit_str += """
@@ -925,8 +925,8 @@ c     soft limit
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('#     call sector function ZsumSj\n')
-            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZsumSj,"S",ierr)\n'%(jsec,isec))
+            list_Zsum.append('#     call sector function ZSj\n')
+            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZSj,"S",ierr)\n'%(jsec,isec))
             is_soft = True
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:

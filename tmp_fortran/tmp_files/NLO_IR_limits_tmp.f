@@ -49,13 +49,18 @@ c     initialise
       damp=0d0
       idum=0
 c
+c     return if not gluon
+      if(leg_pdgs(I).ne.21)return
+c
+c     safety check on PDGs
+      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
+        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
+        STOP
+      ENDIF
+c
 c     get PDGs
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-         STOP
-      ENDIF
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -71,11 +76,16 @@ c     eikonal double sum
 c
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-c     check LO color labels 
-            if(.not.(isLOQCDparton(lb).and.isLOQCDparton(mb)))then
-               write(*,*)'Wrong LO indices in soft kernel',lb,mb
-               stop
-            endif
+c
+c         check LO labels 
+          IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
+            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            STOP
+          ENDIF
+          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
+            STOP
+          ENDIF
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -127,6 +137,9 @@ c     damping factors
             M2_S=M2_S+pref*M2tmp*Wsoft*extra
 c
 c     plot
+c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
+c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
+c TODO: WHY xj AND NOT one Born jacobiar per underlying Born configuration?????? 
             wgtpl=-pref*M2tmp*Wsoft*extra*xj*wgt/nit
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
@@ -200,16 +213,22 @@ C     initialise
       DAMP=0D0
       idum=0
 c
-c     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
+c     return if not gluon
+      if(leg_pdgs(I).ne.21)return
+c
+c     safety check on PDGs
+      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
+        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS)
+     $   ,NEXTERNAL
+        STOP
+      ENDIF
 C     
 C     get PDGs and possible cuts
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       CALL GET_SOFT_MAPPED_LABELS(I,IB,IR,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-         STOP
-      ENDIF
+C     
+C     possible cuts
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 C
 C     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -228,9 +247,14 @@ C     eikonal double sum
 c
           LB=MAPPED_LABELS(L)
           MB=MAPPED_LABELS(M)
-C         check LO color labels 
+c
+c         check LO labels 
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong LO indices in soft kernel',LB,MB
+            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            STOP
+          ENDIF
+          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
             STOP
           ENDIF
 C         
@@ -246,7 +270,6 @@ C         safety check
           ENDIF
 C
 C         eikonal
-c         TODO: add check that flavour(L)=flavour(LB) and so for M, MB
           CCBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
           M2TMP=CCBLO*2D0*SLM/(SIL*SIM)
 c
@@ -347,6 +370,16 @@ C     initialise
       DAMP=0D0
       idum=0
       ddum=1d0
+c
+c     return if not gluon
+      if(leg_pdgs(I).ne.21)return
+c
+c     safety check on PDGs
+      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
+        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS)
+     $   ,NEXTERNAL
+        STOP
+      ENDIF
 C
 C     possible cuts
       IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
@@ -354,10 +387,9 @@ c
 c     get PDGs
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-         STOP
-      ENDIF
+C     
+C     possible cuts
+      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
 C
 C     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -376,9 +408,14 @@ C     eikonal double sum
 c
           LB=MAPPED_LABELS(L)
           MB=MAPPED_LABELS(M)
-C         check LO color labels 
+c
+c         check LO labels 
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong LO indices in DIFF soft kernel',LB,MB
+            WRITE(*,*)'Wrong LO indices 1 in M2_S',LB,MB
+            STOP
+          ENDIF
+          IF(leg_pdgs(l).ne.leg_pdgs(lb).or.leg_pdgs(m).ne.leg_pdgs(mb))THEN
+            WRITE(*,*)'Wrong LO indices 2 in M2_S',L,M,LB,MB
             STOP
           ENDIF
 c
@@ -409,6 +446,7 @@ C         eikonal difference
           ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
 c          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT_ilm * XJB * XJCS_ILM
 c TODO: make the line above WORK, right now it is not correct
+C TODO: WRONG: we have twice xjac (one here, one outside)!!
           M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * WSOFT * XJB * XJCS_ILM
           M2TMP = M2TMP - SLM/(SIL*SIM) * WSOFT * XJ
           M2TMP = M2TMP * CCBLO*2D0

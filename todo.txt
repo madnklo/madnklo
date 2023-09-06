@@ -195,3 +195,20 @@ TODO 22/08
 - overpass fastjet;
 - script to automathize integration;
 - start the NNLO.
+
+
+
+**********************
+
+TODO 6/9
+
+[ ] check M2_S and multiple XJACB
+[ ] try M2_S fixing Born point
+[ ] apply jacobians in the various counterterms and not in R_Sub outside!!!
+[ ] maybe in the python (sectors.py, look at list_M2.append) one could avoid reiterating twice the same ‘if’
+[ ] W function in soft diff counterterm
+[ ] W functions do not depend on sCM in the end…
+[ ] insert damping factors in M2_S_diff
+
+
+

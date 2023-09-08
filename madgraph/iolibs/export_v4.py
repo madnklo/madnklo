@@ -28,7 +28,6 @@ import shutil
 import subprocess
 import sys
 import traceback
-import touch
 
 
 import aloha

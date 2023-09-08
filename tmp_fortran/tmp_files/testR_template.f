@@ -61,7 +61,6 @@ c
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision KS,KHC,KNLO
-      double precision Wsum,WsumSi,WsumSj
       double precision lam,lim,RNLO,single_real
       double precision e1,e2
       character*5 str5
@@ -132,7 +131,7 @@ c     more and more singular kinematics
 c
 c     recompute momenta after rescaling
          call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
-         if(xjac.eq.0d0)cycle
+         if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle
          call invariants_from_p(pb,nexternal-1,sLO,ierr)

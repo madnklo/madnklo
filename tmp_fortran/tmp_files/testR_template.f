@@ -73,7 +73,7 @@ c
       double precision xsave(3)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-      DOUBLE PRECISION Z_NLO,ZSUMSI,ZSUMSJ
+      DOUBLE PRECISION Z_NLO,ZSI,ZSJ
       DOUBLE PRECISION WGT,WGTPL
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
@@ -92,8 +92,8 @@ c     initialise
       xjac=0d0
       sNLO=0d0
       sLO=0d0
-      ZSUMSI=0d0
-      ZSUMSJ=0d0
+      ZSI=0d0
+      ZSJ=0d0
       Z_NLO=0d0
 c
 c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
@@ -148,7 +148,7 @@ c
 c     counterterm
 %(str_Zsum)s
 
-         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZsumSi,ZsumSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
+         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNLO

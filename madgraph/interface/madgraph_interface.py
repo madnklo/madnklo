@@ -8944,7 +8944,8 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         if self._export_format == 'ME7':
             self._curr_exporter.finalize(flaglist, self.history)
             # Create configuration file [path to executable] for MadEvent7
-            filename = os.path.join(self._export_dir, 'Cards', 'me7_configuration.txt')
+            #filename = os.path.join(self._export_dir, 'Cards', 'me7_configuration.txt')
+            filename = os.path.join(self._export_dir, 'Cards', 'amcatnlo_configuration.txt') #GIOVANNI
             self.do_save('options %s' % filename.replace(' ', '\ '), check=False,
                                                         to_keep={'mg5_path':MG5DIR})
             return

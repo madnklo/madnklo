@@ -111,72 +111,17 @@ def compile_dir(*arguments):
         raise aMCatNLOError, 'not correct number of argument'
     logger.info(' Compiling %s...' % p_dir)
 
-    this_dir = pjoin(me_dir, 'SubProcesses', p_dir) 
+    this_dir = pjoin(me_dir, 'SubProcesses', p_dir)  # Da aggiornare con i nuovi argomenti
 
     try:
         #compile everything
-        # compile and run tests
-        for test in tests:
-            # skip check_poles for LOonly dirs
-            if test == 'check_poles' and os.path.exists(pjoin(this_dir, 'parton_lum_0.f')):
-                continue
-            misc.compile([test], cwd = this_dir, job_specs = False)
-            input = pjoin(me_dir, '%s_input.txt' % test)
-            #this can be improved/better written to handle the output
-            misc.call(['./%s' % (test)], cwd=this_dir, 
-                    stdin = open(input), stdout=open(pjoin(this_dir, '%s.log' % test), 'w'),
-                    close_fds=True)
-            if test == 'check_poles' and os.path.exists(pjoin(this_dir,'MadLoop5_resources')) :
-                tf=tarfile.open(pjoin(this_dir,'MadLoop5_resources.tar.gz'),'w:gz',
-                                                                 dereference=True)
-                tf.add(pjoin(this_dir,'MadLoop5_resources'),arcname='MadLoop5_resources')
-                tf.close()
-            
-        if not options['reweightonly']:
-            misc.compile(['gensym'], cwd=this_dir, job_specs = False)
-            open(pjoin(this_dir, 'gensym_input.txt'), 'w').write('%s\n' % run_mode)
-            misc.call(['./gensym'],cwd= this_dir,
-                     stdin=open(pjoin(this_dir, 'gensym_input.txt')),
-                     stdout=open(pjoin(this_dir, 'gensym.log'), 'w'),
-                     close_fds=True) 
-            #compile madevent_mintMC/mintFO
-            misc.compile([exe], cwd=this_dir, job_specs = False)
-        if mode in ['aMC@NLO', 'aMC@LO', 'noshower', 'noshowerLO']:
-            misc.compile(['reweight_xsec_events'], cwd=this_dir, job_specs = False)
-
+        misc.compile(cwd=this_dir, job_specs = False) # che argomenti passare? 
         logger.info('    %s done.' % p_dir) 
         return 0
     except MadGraph5Error, msg:
         return msg
 
 
-def check_compiler(options, block=False):
-    """check that the current fortran compiler is gfortran 4.6 or later.
-    If block, stops the execution, otherwise just print a warning"""
-
-    msg = 'In order to be able to run at NLO MadGraph5_aMC@NLO, you need to have ' + \
-            'gfortran 4.6 or later installed.\n%s has been detected\n'+\
-            'Note that You can still run all MadEvent run without any problem!'
-    #first check that gfortran is installed
-    if options['fortran_compiler']:
-        compiler = options['fortran_compiler']
-    elif misc.which('gfortran'):
-        compiler = 'gfortran'
-    else: 
-        compiler = ''
-        
-    if 'gfortran' not in compiler:
-        if block:
-            raise aMCatNLOError(msg % compiler)
-        else:
-            logger.warning(msg % compiler)
-    else:
-        curr_version = misc.get_gfortran_version(compiler)
-        if not ''.join(curr_version.split('.')) >= '46':
-            if block:
-                raise aMCatNLOError(msg % (compiler + ' ' + curr_version))
-            else:
-                logger.warning(msg % (compiler + ' ' + curr_version))
             
 
 
@@ -214,7 +159,10 @@ class CmdExtended(common_run.CommonRunCmd):
         
         # If possible, build an info line with current version number 
         # and date, from the VERSION text file
-        info = misc.get_pkg_info()
+        try:
+            info = misc.get_pkg_info()
+        except IOError:
+            info = None
         info_line = ""
         if info and info.has_key('version') and  info.has_key('date'):
             len_version = len(info['version'])
@@ -224,10 +172,10 @@ class CmdExtended(common_run.CommonRunCmd):
                             (info['version'],
                             (30 - len_version - len_date) * ' ',
                             info['date'])
-        else:
-            version = open(pjoin(root_path,'MGMEVersion.txt')).readline().strip()
-            info_line = "#*         VERSION %s %s                *\n" % \
-                            (version, (24 - len(version)) * ' ')    
+#        else:
+#            version = open(pjoin(root_path,'MGMEVersion.txt')).readline().strip()
+#            info_line = "#*         VERSION %s %s                *\n" % \
+#                            (version, (24 - len(version)) * ' ')    
 
         # Create a header for the history file.
         # Remember to fill in time at writeout time!
@@ -956,8 +904,8 @@ class aMCatNLOCmd(CmdExtended, HelpToCmd, CompleteForCmd, common_run.CommonRunCm
         # check that compiler is gfortran 4.6 or later if virtuals have been exported
         proc_card = open(pjoin(self.me_dir, 'Cards', 'proc_card_mg5.dat')).read()
 
-        if not '[real=QCD]' in proc_card:
-            check_compiler(self.options, block=True)
+
+
 
         
     ############################################################################      
@@ -4504,67 +4452,6 @@ RESTART = %(mint_mode)s
                 open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
         # create param_card.inc and run_card.inc
         self.do_treatcards('', amcatnlo=True, mode=mode)
-        # if --nocompile option is specified, check here that all exes exists. 
-        # If they exists, return
-        if all([os.path.exists(pjoin(self.me_dir, 'SubProcesses', p_dir, exe)) \
-                for p_dir in p_dirs]) and options['nocompile']:
-            return
-
-        # rm links to lhapdflib/ PDFsets if exist
-        if os.path.exists(pjoin(libdir, 'PDFsets')):
-            files.rm(pjoin(libdir, 'PDFsets'))
-
-        # read the run_card to find if lhapdf is used or not
-        if self.run_card['pdlabel'] == 'lhapdf' and \
-                (self.banner.get_detail('run_card', 'lpp1') != 0 or \
-                 self.banner.get_detail('run_card', 'lpp2') != 0):
-
-            self.link_lhapdf(libdir, [pjoin('SubProcesses', p) for p in p_dirs])
-            pdfsetsdir = self.get_lhapdf_pdfsetsdir()
-            lhaid_list = self.run_card['lhaid']
-            self.copy_lhapdf_set(lhaid_list, pdfsetsdir)
-
-        else:
-            if self.run_card['lpp1'] == 1 == self.run_card['lpp2']:
-                logger.info('Using built-in libraries for PDFs')
-            if self.run_card['lpp1'] == 0 == self.run_card['lpp2']:
-                logger.info('Lepton-Lepton collision: Ignoring \'pdlabel\' and \'lhaid\' in the run_card.')
-            self.make_opts_var['lhapdf'] = ""
-
-        # read the run_card to find if applgrid is used or not
-        if self.run_card['iappl'] != 0:
-            self.make_opts_var['applgrid'] = 'True'
-            # check versions of applgrid and amcfast
-            for code in ['applgrid','amcfast']:
-                try:
-                    p = subprocess.Popen([self.options[code], '--version'], \
-                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                except OSError:
-                    raise aMCatNLOError(('No valid %s installation found. \n' + \
-                       'Please set the path to %s-config by using \n' + \
-                       'MG5_aMC> set <absolute-path-to-%s>/bin/%s-config \n') % (code,code,code,code))
-                else:
-                    output, _ = p.communicate()
-                    if code is 'applgrid' and output < '1.4.63':
-                        raise aMCatNLOError('Version of APPLgrid is too old. Use 1.4.69 or later.'\
-                                             +' You are using %s',output)
-                    if code is 'amcfast' and output < '1.1.1':
-                        raise aMCatNLOError('Version of aMCfast is too old. Use 1.1.1 or later.'\
-                                             +' You are using %s',output)
-
-            # set-up the Source/make_opts with the correct applgrid-config file
-            appllibs="  APPLLIBS=$(shell %s --ldflags) $(shell %s --ldcflags) \n" \
-                             % (self.options['amcfast'],self.options['applgrid'])
-            text=open(pjoin(self.me_dir,'Source','make_opts'),'r').readlines()
-            text_out=[]
-            for line in text:
-                if line.strip().startswith('APPLLIBS=$'):
-                    line=appllibs
-                text_out.append(line)
-            with open(pjoin(self.me_dir,'Source','make_opts'),'w') as fsock:
-                fsock.writelines(text_out)
-        else:
-            self.make_opts_var['applgrid'] = ""
 
         if 'fastjet' in self.options.keys() and self.options['fastjet']:
             self.make_opts_var['fastjet_config'] = self.options['fastjet']
@@ -4584,87 +4471,6 @@ RESTART = %(mint_mode)s
         else:
             raise aMCatNLOError('Compilation failed')
         
-        # make StdHep (only necessary with MG option output_dependencies='internal')
-        MCatNLO_libdir = pjoin(self.me_dir, 'MCatNLO', 'lib')
-        if not os.path.exists(os.path.realpath(pjoin(MCatNLO_libdir, 'libstdhep.a'))) or \
-            not os.path.exists(os.path.realpath(pjoin(MCatNLO_libdir, 'libFmcfio.a'))):  
-            if  os.path.exists(pjoin(sourcedir,'StdHEP')):
-                logger.info('Compiling StdHEP (can take a couple of minutes) ...')
-                misc.compile(['StdHEP'], cwd = sourcedir)
-                logger.info('          ...done.')      
-            else:
-                raise aMCatNLOError('Could not compile StdHEP because its'+\
-                   ' source directory could not be found in the SOURCE folder.\n'+\
-                             " Check the MG5_aMC option 'output_dependencies.'")
-
-        # make CutTools (only necessary with MG option output_dependencies='internal')
-        if not os.path.exists(os.path.realpath(pjoin(libdir, 'libcts.a'))) or \
-            not os.path.exists(os.path.realpath(pjoin(libdir, 'mpmodule.mod'))):
-            if  os.path.exists(pjoin(sourcedir,'CutTools')):
-                logger.info('Compiling CutTools (can take a couple of minutes) ...')
-                misc.compile(['CutTools','-j1'], cwd = sourcedir, nb_core=1)
-                logger.info('          ...done.')
-            else:
-                raise aMCatNLOError('Could not compile CutTools because its'+\
-                   ' source directory could not be found in the SOURCE folder.\n'+\
-                             " Check the MG5_aMC option 'output_dependencies.'")
-        if not os.path.exists(os.path.realpath(pjoin(libdir, 'libcts.a'))) or \
-            not os.path.exists(os.path.realpath(pjoin(libdir, 'mpmodule.mod'))):
-            raise aMCatNLOError('CutTools compilation failed.')            
-
-        # Verify compatibility between current compiler and the one which was
-        # used when last compiling CutTools (if specified).
-        compiler_log_path = pjoin(os.path.dirname((os.path.realpath(pjoin(
-                                  libdir, 'libcts.a')))),'compiler_version.log')
-        if os.path.exists(compiler_log_path):
-            compiler_version_used = open(compiler_log_path,'r').read()
-            if not str(misc.get_gfortran_version(misc.detect_current_compiler(\
-                       pjoin(sourcedir,'make_opts')))) in compiler_version_used:
-                if os.path.exists(pjoin(sourcedir,'CutTools')):
-                    logger.info('CutTools was compiled with a different fortran'+\
-                                            ' compiler. Re-compiling it now...')
-                    misc.compile(['cleanCT'], cwd = sourcedir)
-                    misc.compile(['CutTools','-j1'], cwd = sourcedir, nb_core=1)
-                    logger.info('          ...done.')
-                else:
-                    raise aMCatNLOError("CutTools installation in %s"\
-                                 %os.path.realpath(pjoin(libdir, 'libcts.a'))+\
-                 " seems to have been compiled with a different compiler than"+\
-                    " the one specified in MG5_aMC. Please recompile CutTools.")
-
-        # make IREGI (only necessary with MG option output_dependencies='internal')
-        if not os.path.exists(os.path.realpath(pjoin(libdir, 'libiregi.a'))) \
-           and os.path.exists(pjoin(sourcedir,'IREGI')):
-                logger.info('Compiling IREGI (can take a couple of minutes) ...')
-                misc.compile(['IREGI'], cwd = sourcedir)
-                logger.info('          ...done.')
-
-        if os.path.exists(pjoin(libdir, 'libiregi.a')):
-            # Verify compatibility between current compiler and the one which was
-            # used when last compiling IREGI (if specified).
-            compiler_log_path = pjoin(os.path.dirname((os.path.realpath(pjoin(
-                                libdir, 'libiregi.a')))),'compiler_version.log')
-            if os.path.exists(compiler_log_path):
-                compiler_version_used = open(compiler_log_path,'r').read()
-                if not str(misc.get_gfortran_version(misc.detect_current_compiler(\
-                       pjoin(sourcedir,'make_opts')))) in compiler_version_used:
-                    if os.path.exists(pjoin(sourcedir,'IREGI')):
-                        logger.info('IREGI was compiled with a different fortran'+\
-                                            ' compiler. Re-compiling it now...')
-                        misc.compile(['cleanIR'], cwd = sourcedir)
-                        misc.compile(['IREGI'], cwd = sourcedir)
-                        logger.info('          ...done.')
-                    else:
-                        raise aMCatNLOError("IREGI installation in %s"\
-                                %os.path.realpath(pjoin(libdir, 'libiregi.a'))+\
-                 " seems to have been compiled with a different compiler than"+\
-                    " the one specified in MG5_aMC. Please recompile IREGI.")
-
-        # check if MadLoop virtuals have been generated
-        if self.proc_characteristics['has_loops'] and \
-                          not os.path.exists(pjoin(self.me_dir,'OLP_virtuals')):
-            if mode in ['NLO', 'aMC@NLO', 'noshower']:
-                tests.append('check_poles')
 
         # make and run tests (if asked for), gensym and make madevent in each dir
         self.update_status('Compiling directories...', level=None)

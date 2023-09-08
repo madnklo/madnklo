@@ -28,6 +28,8 @@ import shutil
 import subprocess
 import sys
 import traceback
+import touch
+
 
 import aloha
 
@@ -1945,16 +1947,31 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         os.mkdir(pjoin(self.dir_path, 'bin', 'internal'))
         os.mkdir(pjoin(self.dir_path, 'lib'))
         os.mkdir(pjoin(self.dir_path, 'Cards'))
+        #GIOVANNI
+        #print('GIOVANNIIIIIIIIIIII')
+        tmp_dir=pjoin(self.dir_path,'../')
+        if os.path.exists(pjoin(tmp_dir,'Events')):
+            return
+        else:
+            os.mkdir(pjoin(tmp_dir, 'Events'))
         
+        #print(self.dir_path)
+        
+        
+
         # Information at top-level
         #Write version info
         shutil.copy(pjoin(temp_dir, 'TemplateVersion.txt'), self.dir_path)
         try:
-            shutil.copy(pjoin(self.mgme_dir, 'MGMEVersion.txt'), self.dir_path)
+            #shutil.copy(pjoin(self.mgme_dir, 'MGMEVersion.txt'), self.dir_path)
+            shutil.copy(pjoin(self.mgme_dir, 'MGMEVersion.txt'), pjoin(self.dir_path,'../')) #GIOVANNI
         except IOError:
             MG5_version = misc.get_pkg_info()
-            open(pjoin(self.dir_path, 'MGMEVersion.txt'), 'w').write( \
+            # GIOVANNI: The file MGMEVersion.txt is now created in the output directory 
+            open(pjoin(pjoin(self.dir_path,'../'), 'MGMEVersion.txt'), 'w').write( \
                 "5." + MG5_version['version'])
+            #GIOVANNI
+            open(pjoin(pjoin(self.dir_path,'../SubProcesses/', 'proc_characteristics')),'w')
         
         
         # Add file in SubProcesses
@@ -2049,6 +2066,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         self.compiler_choice(compiler)
 
+    
         #gl
         #import pdb
         #pdb.set_trace()
@@ -3414,6 +3432,16 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
             writer.writelines(check_sa_content % replace_dict, context=self.get_tree_context())
         else:
             return replace_dict
+
+
+
+
+    
+
+    
+    
+
+
 
 
     def get_tree_context(self):

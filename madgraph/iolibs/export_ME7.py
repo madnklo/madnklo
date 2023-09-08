@@ -1123,6 +1123,43 @@ class ME7ExporterTorino(ME7Exporter):
         # Forward the request for copying the template to each contribution
         self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
 
+        self.copy_python_files()
+
+
+    #===========================================================================
+    # copy_python_files 
+    #===========================================================================        
+    def copy_python_files(self):
+        """copy python files required for the Template"""
+
+        files_to_copy = [ \
+          pjoin('interface','amcatnlo_run_interface.py'),
+          pjoin('interface','extended_cmd.py'),
+          pjoin('interface','common_run_interface.py'),
+          pjoin('interface','coloring_logging.py'),
+          pjoin('various','misc.py'),
+          pjoin('various','shower_card.py'),
+          pjoin('various','FO_analyse_card.py'),
+          pjoin('various','histograms.py'),      
+          pjoin('various','banner.py'),          
+          pjoin('various','cluster.py'),
+          pjoin('various','systematics.py'),          
+          pjoin('various','lhe_parser.py'),
+          pjoin('madevent','sum_html.py'),
+          pjoin('madevent','gen_crossxhtml.py'),          
+          pjoin('iolibs','files.py'),
+          pjoin('iolibs','save_load_object.py'),
+          pjoin('iolibs','file_writers.py'),
+          pjoin('..','models','check_param_card.py'),
+          pjoin('__init__.py')
+        ]
+        cp(_file_path+'/interface/.mg5_logging.conf', 
+                                 self.export_dir+'/bin/internal/me5_logging.conf')
+        
+        for cp_file in files_to_copy:
+            cp(pjoin(_file_path,cp_file),
+                pjoin(self.export_dir,'bin','internal',os.path.basename(cp_file)))
+
     def create_NLO_run_card(self):
         """ Create the run card."""
         

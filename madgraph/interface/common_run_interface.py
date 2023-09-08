@@ -3655,7 +3655,7 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
     def get_characteristics(self, path=None):
         """reads the proc_characteristics file and initialises the correspondant
         dictionary"""
-        
+
         if not path:
             path = os.path.join(self.me_dir, 'SubProcesses', 'proc_characteristics')
         

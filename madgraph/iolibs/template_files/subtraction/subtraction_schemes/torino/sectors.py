@@ -760,16 +760,34 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_int_real['isec'] = isec
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
-            proc_strusr=''
+            
 
-            for i in range(0,len(overall_sector_info)):
+            
+            for j in range(0,len(uB_proc)):
+                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                        if os.path.exists(dirpathLO):
+                            replace_dict_int_real['strUB'] = uB_proc[j]
+                            #overall_sector_info[i]['Born_str'] = uB_proc[j]
+                            #overall_sector_info[i]['path_to_Born'] = dirpathLO
+                            #if uB_proc[j] not in Born_processes:
+                            #    Born_processes.append(uB_proc[j])
+                            #    path_Born_processes.append(dirpathLO)
+                            #break
+                        if j == len(uB_proc) - 1:
+                            extra_uB_proc = uB_proc[0]
+                            replace_dict_int_real['strUB'] = extra_uB_proc
+                            #overall_sector_info[i]['Born_str'] = extra_uB_proc
+                            
+
+
+            #for i in range(0,len(overall_sector_info)):
                 
-                if not overall_sector_info[i]['path_to_Born']:
-                    continue
-                if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-                    continue
-                proc_strusr =  overall_sector_info[i]['Born_str']   
-            replace_dict_int_real['strUB'] = proc_strusr
+            #    if not overall_sector_info[i]['path_to_Born']:
+            #        continue
+            #    if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+            #        continue
+            #    proc_strusr =  overall_sector_info[i]['Born_str']   
+            #replace_dict_int_real['strUB'] = proc_strusr
             filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real

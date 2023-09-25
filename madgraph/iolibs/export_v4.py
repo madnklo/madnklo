@@ -2318,8 +2318,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             True,
             proc_prefix = matrix_element.get('processes')[0].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False) + '_',
-            extra_proc=all_process_str
-            )
+            extra_proc=all_process_str)
+        
+
+
 
         if self.opt['export_format'] == 'standalone_msP':
             filename =  pjoin(dirpath,'configs_production.inc')
@@ -3101,6 +3103,82 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         
 #         return True
 
+   #===========================================================================
+    # write_matrix_element_v4  SA
+    #===========================================================================
+    def write_contribs(self, writer, matrix_element, fortran_model,
+                                write=True, proc_prefix='', extra_proc=''):
+        
+
+        # Obtain the general contextual variables for steering the output
+        tree_context = self.get_tree_context()
+
+        if not matrix_element.get('processes') or \
+               not matrix_element.get('diagrams'):
+            return 0
+        
+        if writer:
+            if not isinstance(writer, writers.FortranWriter):
+                raise writers.FortranWriter.FortranWriterError(\
+                "writer not FortranWriter but %s" % type(writer))
+            # Set lowercase/uppercase Fortran code
+            writers.FortranWriter.downcase = False
+
+            
+        if not self.opt.has_key('sa_symmetry'):
+            self.opt['sa_symmetry']=False
+
+
+        # The proc_id is for MadEvent grouping which is never used in SA.
+        replace_dict = {'global_variable':'', 'amp2_lines':'',
+                                       'proc_prefix':proc_prefix, 'proc_id':''}
+
+
+        tmp_proc_dir = pjoin(self.dir_path,'../')
+        filename = pjoin(tmp_proc_dir,'contributions.mg')
+
+        # Extract helas calls
+        if proc_prefix:
+            # if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+            #     files.append_to_file(filename,self.write_contributions,(self.dir_path))
+            #     self.write_contributions,(self.dir_path)                  
+            #     user_prefix = 'V_'
+            if (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
+                files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                user_prefix = 'R_'
+            elif (self.dir_path).split('/')[-1][0:2] == 'LO':
+                files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                user_prefix = 'B_'
+            helas_calls = fortran_model.get_matrix_element_calls_user(\
+                    matrix_element, user_prefix)
+        else:
+            helas_calls = fortran_model.get_matrix_element_calls(\
+                        matrix_element)
+        
+        proc_prefix=False
+
+        #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+
+        
+
+        #os.chdir(path)
+        # Create the directory PN_xx_xxxxx in the specified path
+        subprocdir = "P%s" % matrix_element.get('processes')[0].shell_string()
+        #try:
+        #    os.mkdir(pjoin(path,subprocdir))
+        #    #os.mkdir(pjoin(self.dir_path,subprocdir))
+        #except os.error as error:
+        #    logger.warning(error.strerror + " " + subprocdir)
+
+        # Add subprocess to subproc.mg
+        filename = pjoin(pjoin(self.dir_path,'SubProcesses/'), 'subproc.mg')
+        files.append_to_file(filename,
+                             self.write_subproc,
+                             subprocdir)
+
+
+
+
     #===========================================================================
     # write_matrix_element_v4  SA
     #===========================================================================
@@ -3132,20 +3210,39 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         replace_dict = {'global_variable':'', 'amp2_lines':'',
                                        'proc_prefix':proc_prefix, 'proc_id':''}
 
-        # Extract helas calls
+
+        tmp_proc_dir = pjoin(self.dir_path,'../')
+        filename = pjoin(tmp_proc_dir,'contributions.mg')
+
+
+
         if proc_prefix:
             if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+                # subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                # #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                # files.append_to_file(filename,self.write_contributions,subprocdir)
+                # self.write_contributions,(self.dir_path)                  
                 user_prefix = 'V_'
             elif (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                files.append_to_file(filename,self.write_contributions,subprocdir)
                 user_prefix = 'R_'
             elif (self.dir_path).split('/')[-1][0:2] == 'LO':
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                files.append_to_file(filename,self.write_contributions,subprocdir)
                 user_prefix = 'B_'
             helas_calls = fortran_model.get_matrix_element_calls_user(\
                     matrix_element, user_prefix)
         else:
             helas_calls = fortran_model.get_matrix_element_calls(\
                         matrix_element)
+
         
+                
+
+
         #helas_calls = fortran_model.get_matrix_element_calls_user(\
         #            matrix_element,proc_prefix)
 
@@ -3401,6 +3498,30 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
         else:
             replace_dict['return_value'] = len(filter(lambda call: call.find('#') != 0, helas_calls))
             return replace_dict # for subclass update
+    #===========================================================================
+    # write_subproc
+    #===========================================================================
+    def write_subproc(self, writer, subprocdir):
+        """Append this subprocess to the subproc.mg file for MG4"""
+
+        # Write line to file
+        writer.write(subprocdir + "\n")
+
+        return True    
+    
+
+
+    #===========================================================================
+    # write_controbutions
+    #===========================================================================
+    def write_contributions(self, writer, procdir):
+        """Append this subprocess to the contributions.mg file for MG4"""
+
+        # Write line to file
+
+        writer.write(procdir + "\n")
+
+        return True    
 
     def write_check_sa_splitOrders(self,squared_orders, split_orders, nexternal,
                                      nincoming, proc_prefix, writer, global_replace_dict):
@@ -4504,7 +4625,7 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         if not self.model:
             self.model = matrix_element.get('processes')[0].get('model')
 
-
+        
 
         #os.chdir(path)
         # Create the directory PN_xx_xxxxx in the specified path
@@ -4646,10 +4767,10 @@ class ProcessExporterFortranME(ProcessExporterFortran):
         #os.chdir(os.path.pardir)
 
         # Add subprocess to subproc.mg
-        filename = pjoin(path, 'subproc.mg')
-        files.append_to_file(filename,
-                             self.write_subproc,
-                             subprocdir)
+        #filename = pjoin(path, 'subproc.mg')
+        #files.append_to_file(filename,
+        #                     self.write_subproc,
+        #                     subprocdir)
 
         # Return to original dir
         #os.chdir(cwd)

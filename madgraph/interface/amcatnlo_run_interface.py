@@ -104,15 +104,21 @@ def compile_dir(*arguments):
     the compilation on multicore"""
 
     if len(arguments) == 1:
-        (me_dir, p_dir, mode, options, tests, exe, run_mode) = arguments[0]
-    elif len(arguments)==7:
-        (me_dir, p_dir, mode, options, tests, exe, run_mode) = arguments
+    #    (me_dir, p_dir, mode, options, tests, exe, run_mode) = arguments[0]
+        (me_dir, p_dir, mode, options, tests, run_mode) = arguments[0]
+    #elif len(arguments)==7:
+    elif len(arguments)==6:
+        #(me_dir, p_dir, mode, options, tests, exe, run_mode) = arguments
+        (me_dir, p_dir, mode, options, tests, run_mode) = arguments
     else:
         raise aMCatNLOError, 'not correct number of argument'
     logger.info(' Compiling %s...' % p_dir)
 
-    this_dir = pjoin(me_dir, 'SubProcesses', p_dir)  # Da aggiornare con i nuovi argomenti
-
+    #this_dir = pjoin(me_dir, 'SubProcesses', p_dir)  # Da aggiornare con i nuovi argomenti
+    #giovanni
+    this_dir = pjoin(me_dir, p_dir)  # Da aggiornare con i nuovi argomenti
+    #import pdb
+    #pdb.set_trace()
     try:
         #compile everything
         misc.compile(cwd=this_dir, job_specs = False) # che argomenti passare? 
@@ -1295,6 +1301,11 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
                     'aMC@LO': ['GB*'], 'aMC@NLO': ['GF*']}
         folder_names['noshower'] = folder_names['aMC@NLO']
         folder_names['noshowerLO'] = folder_names['aMC@LO']
+
+
+        contr_dir = [d for d in \
+                open(pjoin(self.me_dir, 'SubProcesses', 'contributions.mg')).read().split('\n') if d]
+
         p_dirs = [d for d in \
                 open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
         #Clean previous results
@@ -4429,6 +4440,7 @@ RESTART = %(mint_mode)s
         self.update_status('Compiling the code', level=None, update_results=True)
 
         libdir = pjoin(self.me_dir, 'lib')
+        
         sourcedir = pjoin(self.me_dir, 'Source')
 
         #clean files
@@ -4448,35 +4460,48 @@ RESTART = %(mint_mode)s
                 fsock.write('FO_ANALYSE=analysis_dummy.o dbook.o open_output_files_dummy.o HwU_dummy.o\n')
 
         #directory where to compile exe
-        p_dirs = [d for d in \
-                open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
-        # create param_card.inc and run_card.inc
-        self.do_treatcards('', amcatnlo=True, mode=mode)
+        
+        contr_dirs = []
+        contr_dirs = [d for d in \
+                open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
 
-        if 'fastjet' in self.options.keys() and self.options['fastjet']:
-            self.make_opts_var['fastjet_config'] = self.options['fastjet']
+        # import pdb  
+        # pdb.set_trace()
+
+        
+
+        #p_dirs = [d for d in \
+        #        open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
+        # create param_card.inc and run_card.inc
+        #self.do_treatcards('', amcatnlo=True, mode=mode)
+
+        #if 'fastjet' in self.options.keys() and self.options['fastjet']:
+        #    self.make_opts_var['fastjet_config'] = self.options['fastjet']
         
         # add the make_opts_var to make_opts
         self.update_make_opts()
         
-        # make Source
+        #make Source
         self.update_status('Compiling source...', level=None)
         misc.compile(['clean4pdf'], cwd = sourcedir)
         misc.compile(cwd = sourcedir)
-        if os.path.exists(pjoin(libdir, 'libdhelas.a')) \
-          and os.path.exists(pjoin(libdir, 'libgeneric.a')) \
-          and os.path.exists(pjoin(libdir, 'libmodel.a')) \
-          and os.path.exists(pjoin(libdir, 'libpdf.a')):
-            logger.info('          ...done, continuing with P* directories')
-        else:
-            raise aMCatNLOError('Compilation failed')
+        #if os.path.exists(pjoin(libdir, 'libdhelas.a')) :
+            #and os.path.exists(pjoin(libdir, 'libgeneric.a')) \
+            #and os.path.exists(pjoin(libdir, 'libmodel.a')) \
+            #and os.path.exists(pjoin(libdir, 'libpdf.a')):
+        #    logger.info('          ...done, continuing with P* directories')
+        #else:
+        #      raise aMCatNLOError('Compilation failed')
         
 
         # make and run tests (if asked for), gensym and make madevent in each dir
         self.update_status('Compiling directories...', level=None)
 
-        for test in tests:
-            self.write_test_input(test)
+
+        
+
+        # for test in tests:
+        #     self.write_test_input(test)
 
         try:
             import multiprocessing
@@ -4494,28 +4519,67 @@ RESTART = %(mint_mode)s
         logger.info('Compiling on %d cores' % self.nb_core)
 
         update_status = lambda i, r, f: self.donothing(i,r,f)
-        for p_dir in p_dirs:
+        subproc_dirs=[]
+        subprocs=[]
+          
+
+        for contribution in contr_dirs:
             compile_cluster.submit(prog = compile_dir, 
-                               argument = [self.me_dir, p_dir, mode, options, 
-                    tests, exe, self.options['run_mode']])
-        try:
-            compile_cluster.wait(self.me_dir, update_status)
-        except Exception, error:
-            logger.warning("Fail to compile the Subprocesses")
-            if __debug__:
-                raise
-            compile_cluster.remove()
-            self.do_quit('')
+                               argument = [contribution
+                                           , '', mode, options, 
+                    #tests, exe, self.options['run_mode']])
+                    tests,self.options['run_mode']])
 
-        logger.info('Checking test output:')
-        for p_dir in p_dirs:
-            logger.info(p_dir)
-            for test in tests:
-                logger.info(' Result for %s:' % test)
 
-                this_dir = pjoin(self.me_dir, 'SubProcesses', p_dir) 
-                #check that none of the tests failed
-                self.check_tests(test, this_dir)
+        # for contribution in contr_dirs:
+        #     subprocs = [d for d in \
+        #             open(pjoin(contribution, 'SubProcesses/subproc.mg')).read().split('\n') if d]
+        #     for sub in subprocs:
+        #         dir_to_compile=pjoin(contribution,'SubProcesses')
+        #         compile_cluster.submit(prog = compile_dir, 
+        #                        argument = [dir_to_compile
+        #                                    , sub, mode, options, 
+        #             #tests, exe, self.options['run_mode']])
+        #             tests,self.options['run_mode']])
+        
+            # try:
+            #     compile_cluster.wait(self.me_dir, update_status)
+            # except Exception, error:
+            #     logger.warning("Fail to compile the Subprocesses")
+            #     if __debug__:
+            #         raise
+            #     compile_cluster.remove()
+            #     self.do_quit('')
+
+        # logger.info('Checking test output:')
+
+        # for p_dir in p_dirs:
+        #     compile_cluster.submit(prog = compile_dir, 
+        #                        argument = [self.me_dir, p_dir, mode, options, 
+        #             tests, exe, self.options['run_mode']])
+        # try:
+        #     compile_cluster.wait(self.me_dir, update_status)
+        # except Exception, error:
+        #     logger.warning("Fail to compile the Subprocesses")
+        #     if __debug__:
+        #         raise
+        #     compile_cluster.remove()
+        #     self.do_quit('')
+
+        # logger.info('Checking test output:')
+
+        
+
+
+
+        # for p_dir in p_dirs:
+        #     logger.info(p_dir)
+        #     for test in tests:
+        #         logger.info(' Result for %s:' % test)
+
+        #         this_dir = pjoin(self.me_dir, 'SubProcesses', p_dir) 
+        #         #check that none of the tests failed
+        #         self.check_tests(test, this_dir)
 
 
     def donothing(*args):

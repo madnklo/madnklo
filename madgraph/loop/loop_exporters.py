@@ -716,7 +716,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         proc_dir_name = self.get_SubProc_folder_name(
                         matrix_element.get('processes')[0],group_number,proc_id)
         dirpath = os.path.join(self.dir_path, 'SubProcesses', proc_dir_name)
-        
+
         try:
             os.mkdir(dirpath)
         except os.error as error:
@@ -744,6 +744,17 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         calls=self.write_loop_matrix_element_v4(None,matrix_element,
                          fortran_model, group_number = group_number, 
                                      proc_id = proc_id, config_map = config_map)
+        
+
+        tmp_proc_dir = pjoin(self.dir_path,'../')
+        filename = pjoin(tmp_proc_dir,'contributions.mg')
+
+#        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+        subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/', proc_dir_name)
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+        files.append_to_file(filename,self.write_contributions,subprocdir)
+        self.write_contributions,(self.dir_path)                  
+                
 
         # We assume here that all processes must share the same property of 
         # having a born or not, which must be true anyway since these are two
@@ -796,6 +807,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
                        matrix_element.get('processes')[0],group_number,proc_id))
+
+
+        
 
         #gl
         self.write_NLO_V_template(writers.FortranWriter, matrix_element, group_number = group_number, proc_id = proc_id)
@@ -921,6 +935,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict['proc_file_str'] = proc_str
         replace_dict['dotf_str'] = fort_str
         replace_dict['doto_str'] = obj_str
+
+        
+
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -1177,7 +1194,6 @@ PARAMETER(MAX_SPIN_EXTERNAL_PARTICLE=%(max_spin_external_particle)d)
     def generate_subprocess_directory(self, matrix_element, fortran_model):
         """ To overload the default name for this function such that the correct
         function is used when called from the command interface """
-        
         self.unique_id +=1
         return self.generate_loop_subprocess(matrix_element,fortran_model,
                                                             unique_id=self.unique_id)

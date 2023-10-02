@@ -113,10 +113,11 @@ def compile_dir(*arguments):
     else:
         raise aMCatNLOError, 'not correct number of argument'
     logger.info(' Compiling %s...' % p_dir)
-
     #this_dir = pjoin(me_dir, 'SubProcesses', p_dir)  # Da aggiornare con i nuovi argomenti
+    
+    #this_dir = pjoin(me_dir, p_dir)  # Da aggiornare con i nuovi argomenti
     #giovanni
-    this_dir = pjoin(me_dir, p_dir)  # Da aggiornare con i nuovi argomenti
+    this_dir = p_dir  # Da aggiornare con i nuovi argomenti
     #import pdb
     #pdb.set_trace()
     try:
@@ -4442,6 +4443,7 @@ RESTART = %(mint_mode)s
         libdir = pjoin(self.me_dir, 'lib')
         
         sourcedir = pjoin(self.me_dir, 'Source')
+        
 
         #clean files
         files.rm([amcatnlo_log, madloop_log, reweight_log, test_log])
@@ -4465,33 +4467,29 @@ RESTART = %(mint_mode)s
         contr_dirs = [d for d in \
                 open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
 
-        # import pdb  
-        # pdb.set_trace()
-
         
-
         #p_dirs = [d for d in \
         #        open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
         # create param_card.inc and run_card.inc
         #self.do_treatcards('', amcatnlo=True, mode=mode)
 
-        #if 'fastjet' in self.options.keys() and self.options['fastjet']:
-        #    self.make_opts_var['fastjet_config'] = self.options['fastjet']
+        if 'fastjet' in self.options.keys() and self.options['fastjet']:
+            self.make_opts_var['fastjet_config'] = self.options['fastjet']
         
         # add the make_opts_var to make_opts
         self.update_make_opts()
         
         #make Source
-        self.update_status('Compiling source...', level=None)
-        misc.compile(['clean4pdf'], cwd = sourcedir)
-        misc.compile(cwd = sourcedir)
-        #if os.path.exists(pjoin(libdir, 'libdhelas.a')) :
-            #and os.path.exists(pjoin(libdir, 'libgeneric.a')) \
-            #and os.path.exists(pjoin(libdir, 'libmodel.a')) \
-            #and os.path.exists(pjoin(libdir, 'libpdf.a')):
-        #    logger.info('          ...done, continuing with P* directories')
-        #else:
-        #      raise aMCatNLOError('Compilation failed')
+        #self.update_status('Compiling source...', level=None)
+        #misc.compile(['clean4pdf'], cwd = sourcedir)
+        #misc.compile(cwd = sourcedir)
+        # if os.path.exists(pjoin(libdir, 'libdhelas.a')) \
+        #     and os.path.exists(pjoin(libdir, 'libgeneric.a')) \
+        #     and os.path.exists(pjoin(libdir, 'libmodel.a')) \
+        #     and os.path.exists(pjoin(libdir, 'libpdf.a')):
+        #        logger.info('          ...done, continuing with P* directories')
+        # else:
+        #       raise aMCatNLOError('Compilation failed')
         
 
         # make and run tests (if asked for), gensym and make madevent in each dir
@@ -4513,6 +4511,8 @@ RESTART = %(mint_mode)s
         except ImportError: 
             self.nb_core = 1
 
+
+#        self.nb_core=7 #GIOVANNI DEBUG
         compile_options = copy.copy(self.options)
         compile_options['nb_core'] = self.nb_core
         compile_cluster = cluster.MultiCore(**compile_options)
@@ -4522,13 +4522,27 @@ RESTART = %(mint_mode)s
         subproc_dirs=[]
         subprocs=[]
           
-
+        misc.compile(cwd = sourcedir)
+        
         for contribution in contr_dirs:
+            #misc.compile(['clean'], cwd = contribution)
+            misc.compile(['libs'], cwd = contribution)
+            #misc.compile(['clean4pdf'], cwd = sourcedir)
+            misc.compile(cwd = pjoin(contribution,'../../Source/DHELAS'))
             compile_cluster.submit(prog = compile_dir, 
-                               argument = [contribution
-                                           , '', mode, options, 
+                               argument = [contribution,contribution, mode, options, 
                     #tests, exe, self.options['run_mode']])
                     tests,self.options['run_mode']])
+            
+
+        try:
+             compile_cluster.wait(self.me_dir, update_status)
+        except Exception, error:
+             logger.warning("Fail to compile the Subprocesses")
+             if __debug__:
+                 raise
+             compile_cluster.remove()
+             self.do_quit('')
 
 
         # for contribution in contr_dirs:

@@ -817,7 +817,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
-        os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+        if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
+            os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
         os.symlink(dirpath + '/../../../Common_Files/ngraphs.inc',dirpath+'/ngraphs.inc')
         os.symlink(dirpath + '/../../../Common_Files/decayBW.inc',dirpath+'/decayBW.inc')
         os.symlink(dirpath + '/../../../Common_Files/leshouche.inc',dirpath+'/leshouche.inc')
@@ -854,8 +855,21 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     #gl
     def link_files_from_Born_directory(self,process):
 
-        dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
-        dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+            dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+            dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
+            dirpathBorn = glob.glob("%s/../NLO_R*" % self.dir_path)[0]
+            #print('AAAA' + dirpathBorn)
+            #print('BBBB' + process.shell_string())
+            #print('CCCC' + ' ' + dirpathBorn + "/SubProcesses/P" + process.shell_string())
+            dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        #dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+        #print('AAAA' + dirpathBorn)
+        #print('BBBB' + process.shell_string())
+        #print('CCCC' + ' ' + dirpathBorn + "/SubProcesses/P" + process.shell_string())
+        #dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        #dirpathBorn = dirpathBorn + "/SubProcesses/P" + process.shell_string()
 
         linkfiles = ['colored_partons.inc', 'include']
         for file in linkfiles:

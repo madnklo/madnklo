@@ -477,6 +477,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
+        if len(glob.glob(dirpath)) == 0:
+            #dirpath = ''
+            #dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
+            #dirpath = pjoin(dirpath, 'SubProcesses', \
+            #           "P%s" % defining_process.shell_string())
+            return
+            #if len(glob.glob(dirpath)) == 0:
+            #    dirpath = ''
+            #    dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RV_x_R_*" % interface.user_dir_name[0])[0])
+            #    dirpath = pjoin(dirpath, 'SubProcesses', \
+            #           "P%s" % defining_process.shell_string())
+            #    return
 
 
 ######### Import Born-level PDGs from proc/SupProcesses directory
@@ -745,6 +757,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     continue
 
             # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
+            print(dirpath)
+            print(overall_sector_info)
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
 
             # write NLO_IR_limits
@@ -850,7 +864,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if not glob.glob("%s/matrix.f" % dirpath_virtual):
                 # symlink to Born ME
                 os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_virtual )
-                os.symlink( path_Born_processes[i] + '/spin_correlations.inc', dirpath_virtual + '/spin_correlations.inc' )
+                if len(glob.glob(dirpath_virtual + '/spin_correlations.inc')) == 0 :
+                    os.symlink( path_Born_processes[i] + '/spin_correlations.inc', dirpath_virtual + '/spin_correlations.inc' )
             
                 # writing virtual_recoilers.inc
                 v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % Born_processes[i]))

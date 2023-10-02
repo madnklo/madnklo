@@ -902,6 +902,13 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
             user_prefix = 'R_'
         elif (self.dir_path).split('/')[-1][0:2] == 'LO':
             user_prefix = 'B_'
+        #gl
+        elif (self.dir_path).split('/')[-1][0:12] == 'NNLO_RR_x_RR':
+            user_prefix = 'RR_'
+        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
+            user_prefix = 'VV_'
+        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
+            user_prefix = 'RV_'
 
         aloha_model.write_user(write_dir_user, 'Fortran', user_prefix)
         
@@ -3233,6 +3240,21 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
                 user_prefix = 'B_'
+            elif (self.dir_path).split('/')[-1][0:12] == 'NNLO_RR_x_RR':
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                files.append_to_file(filename,self.write_contributions,subprocdir)
+                user_prefix = 'RR_'
+            elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                files.append_to_file(filename,self.write_contributions,subprocdir)
+                user_prefix = 'RV_'
+            elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+                files.append_to_file(filename,self.write_contributions,subprocdir)
+                user_prefix = 'VV_'
             helas_calls = fortran_model.get_matrix_element_calls_user(\
                     matrix_element, user_prefix)
         else:

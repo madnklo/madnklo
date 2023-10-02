@@ -4522,13 +4522,13 @@ RESTART = %(mint_mode)s
         subproc_dirs=[]
         subprocs=[]
           
-        misc.compile(cwd = sourcedir)
+        #misc.compile(cwd = sourcedir)
         
         for contribution in contr_dirs:
             #misc.compile(['clean'], cwd = contribution)
-            misc.compile(['libs'], cwd = contribution)
             #misc.compile(['clean4pdf'], cwd = sourcedir)
-            misc.compile(cwd = pjoin(contribution,'../../Source/DHELAS'))
+            misc.compile(['libs'], cwd = contribution)
+            #misc.compile(cwd = pjoin(contribution,'../../Source/DHELAS'))
             compile_cluster.submit(prog = compile_dir, 
                                argument = [contribution,contribution, mode, options, 
                     #tests, exe, self.options['run_mode']])

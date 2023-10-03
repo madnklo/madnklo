@@ -757,8 +757,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     continue
 
             # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
-            print(dirpath)
-            print(overall_sector_info)
+            #print(dirpath)
+            #print(overall_sector_info)
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
 
             # write NLO_IR_limits

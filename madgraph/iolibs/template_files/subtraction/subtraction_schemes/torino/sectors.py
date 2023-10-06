@@ -29,6 +29,7 @@ from madgraph.iolibs.files import cp, ln, mv
 import madgraph.iolibs.export_v4 as export_v4
 import madgraph.iolibs.export_ME7 as export_ME7
 import madgraph.interface.madgraph_interface as interface
+#import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
 
 
 class MadEvent7Error(Exception):
@@ -478,17 +479,30 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
         if len(glob.glob(dirpath)) == 0:
-            #dirpath = ''
-            #dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
-            #dirpath = pjoin(dirpath, 'SubProcesses', \
-            #           "P%s" % defining_process.shell_string())
-            return
-            #if len(glob.glob(dirpath)) == 0:
-            #    dirpath = ''
-            #    dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RV_x_R_*" % interface.user_dir_name[0])[0])
-            #    dirpath = pjoin(dirpath, 'SubProcesses', \
-            #           "P%s" % defining_process.shell_string())
-            #    return
+            dirpath = ''
+            dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
+            dirpath = pjoin(dirpath, 'SubProcesses', \
+                       "P%s" % defining_process.shell_string())
+            #return
+            if glob.glob(dirpath):
+                import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
+                all_sectors = sectors_for_RR.SectorGeneratorRR().write_RR_templates(
+                                                    model, initial_state_PDGs, final_state_PDGs, all_PDGs, leglist,
+                                                    all_sectors, all_sector_legs, all_sector_id_legs, all_sector_recoilers,
+                                                    all_sector_list, all_sector_mass_list, all_sector_id_list,
+                                                    all_local_counterterms_list, necessary_ct_list, necessary_ct,
+                                                    dirmadnklo, dirpath, defining_process
+                                                    )
+                return all_sectors
+            else:
+                return
+                #dirpath = ''
+                #dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RV_x_R_*" % interface.user_dir_name[0])[0])
+                #dirpath = pjoin(dirpath, 'SubProcesses', \
+                #       "P%s" % defining_process.shell_string())
+                #if glob.glob(dirpath):
+                #    return
+
 
 
 ######### Import Born-level PDGs from proc/SupProcesses directory

@@ -801,9 +801,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             #    Born_processes.append(uB_proc[j])
                             #    path_Born_processes.append(dirpathLO)
                             #break
-                        if j == len(uB_proc) - 1:
-                            extra_uB_proc = uB_proc[0]
-                            replace_dict_int_real['strUB'] = extra_uB_proc
+                        #if j == len(uB_proc) - 1:
+                            #extra_uB_proc = uB_proc[0]
+                            #replace_dict_int_real['strUB'] = extra_uB_proc
                             #overall_sector_info[i]['Born_str'] = extra_uB_proc
                             
 

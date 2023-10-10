@@ -2676,8 +2676,16 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 
             if strdirpath[-1][0] == 'L':
                 #if i != 0:
-                replace_dict['proc_prefix'] = processes[i].shell_string_user(
-                                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)[0]
+                replace_dict['proc_prefix'] = processes[i].shell_string(
+                                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                
+                #replace_dict['proc_prefix'] = processes[i].shell_string_user(
+                #                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)[0]
+                #gl
+                #print(processes[i].shell_string_user(
+                #                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+                #print(processes[i].shell_string(
+                #                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
 
                 filename = pjoin(dirpath, 'leg_PDGs_%(proc_prefix)s.inc' % replace_dict)
 

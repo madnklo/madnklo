@@ -721,6 +721,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                     if os.path.exists(dirpathLO):
+
+                        replace_dict_int_real['strUB'] = uB_proc[j]
+
+
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
                         overall_sector_info[i]['path_to_Born'] = dirpathLO
@@ -731,6 +735,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # grouped subprocesses have no a specific LO directory
                     if j == len(uB_proc) - 1:
                         extra_uB_proc = uB_proc[0]
+                        replace_dict_int_real['strUB'] = extra_uB_proc
                         replace_dict_limits['proc_prefix_S'] = extra_uB_proc
                         overall_sector_info[i]['Born_str'] = extra_uB_proc
 
@@ -753,6 +758,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                         if os.path.exists(dirpathLO):
+                            replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
                             overall_sector_info[i]['path_to_Born'] = dirpathLO
@@ -762,6 +768,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             break
                         if j == len(uB_proc) - 1:
                             extra_uB_proc = uB_proc[0]
+                            replace_dict_int_real['strUB'] = extra_uB_proc
                             replace_dict_limits[tmp_proc] = extra_uB_proc
                             overall_sector_info[i]['Born_str'] = extra_uB_proc
                     
@@ -789,21 +796,20 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
             
-
             
-            for j in range(0,len(uB_proc)):
-                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
-                        if os.path.exists(dirpathLO):
-                            replace_dict_int_real['strUB'] = uB_proc[j]
-                            #overall_sector_info[i]['Born_str'] = uB_proc[j]
-                            #overall_sector_info[i]['path_to_Born'] = dirpathLO
-                            #if uB_proc[j] not in Born_processes:
-                            #    Born_processes.append(uB_proc[j])
-                            #    path_Born_processes.append(dirpathLO)
-                            #break
-                        #if j == len(uB_proc) - 1:
-                            #extra_uB_proc = uB_proc[0]
-                            #replace_dict_int_real['strUB'] = extra_uB_proc
+            # for j in range(0,len(uB_proc)):
+            #             dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+            #             if os.path.exists(dirpathLO):
+            #                 replace_dict_int_real['strUB'] = uB_proc[j]
+            #                 #overall_sector_info[i]['Born_str'] = uB_proc[j]
+            #                 #overall_sector_info[i]['path_to_Born'] = dirpathLO
+            #                 #if uB_proc[j] not in Born_processes:
+            #                 #    Born_processes.append(uB_proc[j])
+            #                 #    path_Born_processes.append(dirpathLO)
+            #                 #break
+            #             if j == len(uB_proc) - 1:
+            #                 extra_uB_proc = uB_proc[0]
+            #                 replace_dict_int_real['strUB'] = extra_uB_proc
                             #overall_sector_info[i]['Born_str'] = extra_uB_proc
                             
 

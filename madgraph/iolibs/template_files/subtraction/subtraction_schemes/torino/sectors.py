@@ -675,7 +675,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             writer(filename).writelines(file)
 
             # write driver_npo_template
-            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
+            #self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
 
             # write testR
             self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
@@ -722,7 +722,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                     
                     if os.path.exists(dirpathLO):
-                        replace_dict_int_real['UBgraphs'] = uB_proc_str_1[j]
                         replace_dict_int_real['strUB'] = uB_proc[j]
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
@@ -758,7 +757,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                         
                         if os.path.exists(dirpathLO):
-                            replace_dict_int_real['UBgraphs'] = uB_proc_str_1[j]
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
@@ -822,7 +820,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             
             
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-
+            UBgraphs = overall_sector_info[i]['Born_str']
+            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
 
 
                 
@@ -941,11 +940,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write driver_isec_jsec for real subprocess directory
     #===========================================================================
 
-    def write_driver_npo_template(self, writer, dirpath, dirmadnklo, i , isec, jsec):
+    def write_driver_npo_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs):
         
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
+        replace_dict['UBgraphs'] = UBgraphs
 
         # write driver
         filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))

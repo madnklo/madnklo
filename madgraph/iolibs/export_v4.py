@@ -792,32 +792,32 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
 
             # Here goes the color connections corresponding to the JAMPs
             # Only one output, for the first subproc!
-            if iproc == 0:
-                # If no color basis, just output trivial color flow
-                if not matrix_element.get('color_basis'):
-                    for i in [1, 2]:
-                        lines.append("DATA (ICOLUP(%d,i,1,%d),i=1,%2r)/%s/" % \
-                                 (i, numproc+1,nexternal,
-                                  ",".join([ "%3r" % 0 ] * nexternal)))
+            # if iproc == 0:
+            #     # If no color basis, just output trivial color flow
+            #     if not matrix_element.get('color_basis'):
+            #         for i in [1, 2]:
+            #             lines.append("DATA (ICOLUP(%d,i,1,%d),i=1,%2r)/%s/" % \
+            #                      (i, numproc+1,nexternal,
+            #                       ",".join([ "%3r" % 0 ] * nexternal)))
 
-                else:
-                    # First build a color representation dictionnary
-                    repr_dict = {}
-                    for l in legs:
-                        repr_dict[l.get('number')] = \
-                            proc.get('model').get_particle(l.get('id')).get_color()\
-                            * (-1)**(1+l.get('state'))
-                    # Get the list of color flows
-                    color_flow_list = \
-                        matrix_element.get('color_basis').color_flow_decomposition(repr_dict,
-                                                                                   ninitial)
-                    # And output them properly
-                    for cf_i, color_flow_dict in enumerate(color_flow_list):
-                        for i in [0, 1]:
-                            lines.append("DATA (ICOLUP(%d,i,%d,%d),i=1,%2r)/%s/" % \
-                                 (i + 1, cf_i + 1, numproc+1, nexternal,
-                                  ",".join(["%3r" % color_flow_dict[l.get('number')][i] \
-                                            for l in legs])))
+            #     else:
+            #         # First build a color representation dictionnary
+            #         repr_dict = {}
+            #         for l in legs:
+            #             repr_dict[l.get('number')] = \
+            #                 proc.get('model').get_particle(l.get('id')).get_color()\
+            #                 * (-1)**(1+l.get('state'))
+            #         # Get the list of color flows
+            #         color_flow_list = \
+            #             matrix_element.get('color_basis').color_flow_decomposition(repr_dict,
+            #                                                                        ninitial)
+            #         # And output them properly
+            #         for cf_i, color_flow_dict in enumerate(color_flow_list):
+            #             for i in [0, 1]:
+            #                 lines.append("DATA (ICOLUP(%d,i,%d,%d),i=1,%2r)/%s/" % \
+            #                      (i + 1, cf_i + 1, numproc+1, nexternal,
+            #                       ",".join(["%3r" % color_flow_dict[l.get('number')][i] \
+            #                                 for l in legs])))
 
         return lines
 
@@ -2382,9 +2382,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)
 
-        filename = pjoin(dirpath, 'ngraphs.inc')
-        self.write_ngraphs_file(writers.FortranWriter(filename),
-                           len(matrix_element.get_all_amplitudes()))
+        
 
         #gl
         filename = pjoin(dirpath, 'colored_partons.inc')
@@ -2426,8 +2424,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         except :
             MadGraph5Error('The directory already exists')
 
-
-
+        proc_prefix_born=matrix_element.get('processes')[0].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        
+        
+        
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
         common_files = []
@@ -2439,9 +2440,16 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
+            filename = pjoin(dirpath, 'ngraphs.inc')
+            self.write_ngraphs_file(writers.FortranWriter(filename),
+                           len(matrix_element.get_all_amplitudes()))
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
             cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
-            cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files'))
+            cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs.inc'))
+            for i in range(0,len(matrix_element.get('processes'))):
+                cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs_%s.inc' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
             cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
@@ -2449,8 +2457,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
             #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
-            os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
-            cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
+            #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
+            #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
             os.remove(pjoin(dirpath,'configs.inc'))
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')

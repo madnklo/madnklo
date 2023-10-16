@@ -158,18 +158,6 @@ c        remove the first particle in the mapping
 
          call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
 
-         j = 1
-         do i=1,n-1
-            if(mapped_flavours(j).eq.0) then
-               j = j + 1
-            endif
-            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
-               mapped_labels(j) = i
-               j = j + 1
-            endif
-         enddo
-
-
          
 c     Identify mapped_labels
 c     TODO: check for more involved cases
@@ -180,7 +168,19 @@ c$$$                  if(mapped_labels(j).eq.0) mapped_labels(j) = i
 c$$$                  exit
 c$$$               endif
 c$$$            enddo
-c$$$         enddo
+c$$$  enddo
+         do i=1,n-1
+            do j=1,n
+c               write(*,*) 'i,j', i, j
+               if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+                  if(mapped_labels(j).eq.0) then
+                     mapped_labels(j) = i
+c                     write(*,*) 'mapped_labels', mapped_labels
+                     exit
+                  endif
+               endif
+            enddo
+         enddo
                
 c
 c     FaIb mapping : isec is always > 2, jsec < 2

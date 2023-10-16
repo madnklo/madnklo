@@ -18,6 +18,7 @@
       ierr=0d0
 
       if(isec.le.2) then
+         write(*,*) 'get_Z_NLO:'
          write(*,*) 'The first particle sector must be in 
      $           the final state!'
          write(*,*) 'isec= ', isec

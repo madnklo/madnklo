@@ -54,6 +54,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
+        WRITE(*,*) 'M2_S:'
         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
         STOP
       ENDIF
@@ -394,6 +395,7 @@ c
       call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
+         write(*,*) 'M2_H_C_FgFg: '
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
          stop
       endif

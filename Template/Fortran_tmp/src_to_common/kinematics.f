@@ -18,7 +18,8 @@ c     build invariants from p
             xs(j,i)=xs(i,j)
 c     safety measure
             if(xs(i,j).lt.0d0)then
-               write(77,*)'negative invariants in invariants_from_p'
+               write(77,*)'invariants_from_p: '
+               write(77,*) 'negative invariants in invariants_from_p'
                write(77,*)i,j,xs(i,j)
                goto 999
             endif
@@ -56,6 +57,7 @@ c     input check
       nsqred=n(1)**2+n(2)**2
       nmod=sqrt(nsqred+n(3)**2)
       if(abs(nmod-1d0).gt.1d-8)then
+         write(*,*) 'rotate_to_z: '
          write(*,*)'Wrong unit vector in rotate_to_z',n(1),n(2),n(3)
          stop
       endif
@@ -83,6 +85,7 @@ c     input check
       nsqred=n(1)**2+n(2)**2
       nmod=sqrt(nsqred+n(3)**2)
       if(abs(nmod-1d0).gt.1d-8)then
+         write(*,*) 'rotate_to_z_inv: '
          write(*,*)'Wrong unit vector in rotate_to_z',n(1),n(2),n(3)
          stop
       endif
@@ -252,7 +255,7 @@ c  perform the rotation
       qmod=sqrt(qmod)
 
       if (qmod.eq.0.d0) then
-        print*, ' ERROR in subroutine rot '
+        print*, ' ERROR in subroutine rotinv '
         print*, ' spatial q components are 0.d0 ! '
         stop
       endif

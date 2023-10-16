@@ -15,6 +15,7 @@
          call get_collinear_mapped_labels(a,b,c,n,leg_pdgs,
      $           mapped_labels,mapped_flavours)
       else
+         write(*,*) 'get_mapped_labels: '
          write(*,*) 'Invalid maptype, must be S or C!', maptype
          stop
       endif
@@ -42,6 +43,7 @@ c     TODO: consistency check on (a,b,c) PDGs
 c
 c     check mapping structure
       if(a.le.2)then
+         write(*,*) 'get_soft_mapped_labels: '
          write(*,*) 'The first particle must be in the final state!'
          write(*,*) a,b,c
          write(*,*) 'Exit...'
@@ -95,6 +97,7 @@ c     initialise
 
 c     check mapping structure
       if(a.le.2)then
+         write(*,*) 'get_collinear_mapped_labels: '
          write(*,*) 'The first particle must be in the final state!'
          write(*,*) a,b,c
          write(*,*) 'Exit...'
@@ -121,6 +124,7 @@ c     Associate a,b,c to the collinear particles in the sector
             rec_leg = b
          endif
       elseif((rm_leg.eq.0).or.(parent_leg.eq.0).or.(rm_leg.eq.parent_leg)) then
+         write(*,*) 'get_collinear_mapped_labels: '
          write(*,*) 'Mapping tuple (abc) does not include'
          write(*,*) 'particles defining the singular sector (ij) !'
          write(*,*) 'a, b, c = ', a, b, c
@@ -153,17 +157,30 @@ c        remove the first particle in the mapping
          mapped_flavours(rm_leg) = 0
 
          call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+
+         j = 1
+         do i=1,n-1
+            if(mapped_flavours(j).eq.0) then
+               j = j + 1
+            endif
+            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+               mapped_labels(j) = i
+               j = j + 1
+            endif
+         enddo
+
+
          
 c     Identify mapped_labels
 c     TODO: check for more involved cases
-         do i=1,n-1
-            do j=1,n
-               if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
-                  if(mapped_labels(j).eq.0) mapped_labels(j) = i
-                  exit
-               endif
-            enddo
-         enddo
+c$$$         do i=1,n-1
+c$$$            do j=1,n
+c$$$               if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+c$$$                  if(mapped_labels(j).eq.0) mapped_labels(j) = i
+c$$$                  exit
+c$$$               endif
+c$$$            enddo
+c$$$         enddo
                
 c
 c     FaIb mapping : isec is always > 2, jsec < 2
@@ -192,11 +209,12 @@ c        rescaling of mapped_labels
                j = j + 1
             endif
             if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
-               mapped_labels(j) = i 
+               mapped_labels(j) = i
                j = j + 1
             endif
          enddo
       endif
+
 
 c     Check that the recoiler mapped_flavour matches the recoiler particle
 c     chosen for the virtual process (reported in virtual_recoilers.inc)
@@ -207,6 +225,7 @@ c     chosen for the virtual process (reported in virtual_recoilers.inc)
      &        .and.(mapped_labels(rec_leg).eq.rec_from_v)) then
             if(mapped_flavours(rec_leg).ne.Born_leg_PDGs(rec_from_v))
      &           then
+               write(*,*) 'get_collinear_mapped_labels: '
                write(*,*) 'Recoiler flavour from mapped_flavours'
                write(*,*) 'and recoiler flavour from virtual process does not match!'
                write(*,*) mapped_flavours(rec_leg), Born_leg_PDGs(rec_from_v)

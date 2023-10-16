@@ -8,7 +8,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
-      INCLUDE 'ngraphs.inc'
+      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -92,16 +92,19 @@ c     phase space and invariants
       endif
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
+         write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNLO,ierr)
       if(ierr.eq.1) then
+         write(77,*) 'int_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
       if(ierr.eq.1) then
+         write(77,*) 'int_real: '
          write(77,*) 'Wrong LO invariants ', sLO
          goto 999
       endif
@@ -124,6 +127,7 @@ c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
       if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
+         write(77,*) 'int_real: '
          write(77,*) 'Wrong RNLO', RNLO
          goto 999
       endif
@@ -131,6 +135,7 @@ c
 c     real sector function
       call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
       if(ierr.eq.1)then
+         write(77,*) 'int_real: '
          write(77,*) 'Wrong Z_NLO', Z_NLO
          goto 999
       endif
@@ -148,6 +153,7 @@ c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
       if(ierr.eq.1)then
+         write(77,*) 'int_real: '
          write(77,*) 'Something wrong in the counterterm', KNLO
          goto 999
       endif

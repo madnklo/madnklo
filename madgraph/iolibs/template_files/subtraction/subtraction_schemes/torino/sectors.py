@@ -720,11 +720,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                    
                     if os.path.exists(dirpathLO):
-
+                        replace_dict_int_real['UBgraphs'] = uB_proc_str_1[j]
                         replace_dict_int_real['strUB'] = uB_proc[j]
-
-
                         replace_dict_limits['proc_prefix_S'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
                         overall_sector_info[i]['path_to_Born'] = dirpathLO
@@ -757,7 +756,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                        
                         if os.path.exists(dirpathLO):
+                            replace_dict_int_real['UBgraphs'] = uB_proc_str_1[j]
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
@@ -781,6 +782,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #print(dirpath)
             #print(overall_sector_info)
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
+
+            
+            
+
 
             # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
@@ -814,7 +819,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             
 
 
-            #for i in range(0,len(overall_sector_info)):
+            
+            
+            replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+
+
+
                 
             #    if not overall_sector_info[i]['path_to_Born']:
             #        continue
@@ -1151,14 +1161,26 @@ sector_%d_%d: $(FILES_%d_%d)
     def link_files_from_B_to_R_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
 
         for i in range(0,len(overall_sector_info)):
-
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
             if not overall_sector_info[i]['path_to_Born']:
                 continue
+
+
+           
 
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']), 
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
+                #os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
+                #           dirpath + 'ngraphs_%s.inc' % overall_sector_info[i]['Born_str'])
+                #os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
+                #           dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'])    
+                
+                
+                
 
 

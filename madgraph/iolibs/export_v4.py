@@ -1599,6 +1599,26 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
 
         return True
 
+
+    #===========================================================================
+    # write_configs_file_proc_prefix
+    #===========================================================================
+    def write_configs_file_proc_prefix(self, writer, matrix_element,proc_prefix):
+        """Write the configs.inc file for MadEvent"""
+
+        # Extract number of external particles
+        (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
+
+        configs = [(i+1, d) for i,d in enumerate(matrix_element.get('diagrams'))]
+        mapconfigs = [c[0] for c in configs]
+        model = matrix_element.get('processes')[0].get('model')
+        return self.write_configs_file_from_diagrams_proc(writer,
+                                                            [[c[1]] for c in configs],
+                                                            mapconfigs,
+                                                            nexternal, ninitial,
+                                                            model,proc_prefix)
+
+
     #===========================================================================
     # write_configs_file
     #===========================================================================
@@ -1616,6 +1636,149 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
                                                             mapconfigs,
                                                             nexternal, ninitial,
                                                             model)
+                                        
+    #===========================================================================
+    # write_configs_file_from_diagrams
+    #===========================================================================
+    def write_configs_file_from_diagrams_proc(self, writer, configs, mapconfigs,
+                                         nexternal, ninitial, model,proc_prefix):
+        """Write the actual configs.inc file.
+        
+        configs is the diagrams corresponding to configs (each
+        diagrams is a list of corresponding diagrams for all
+        subprocesses, with None if there is no corresponding diagrams
+        for a given process).
+        mapconfigs gives the diagram number for each config.
+
+        For s-channels, we need to output one PDG for each subprocess in
+        the subprocess group, in order to be able to pick the right
+        one for multiprocesses."""
+
+        lines = []
+
+        s_and_t_channels = []
+
+        vert_list = [max([d for d in config if d][0].get_vertex_leg_numbers()) \
+            for config in configs if [d for d in config if d][0].\
+                                             get_vertex_leg_numbers()!=[]]
+        minvert = min(vert_list) if vert_list!=[] else 0
+
+        # Number of subprocesses
+        nsubprocs = len(configs[0])
+
+        nconfigs = 0
+
+        new_pdg = model.get_first_non_pdg()
+
+
+
+
+
+
+        lines.append("subroutine configs_%s" %proc_prefix)
+        lines.append("implicit none")
+        lines.append("include 'maxconfigs.inc'")
+        lines.append("include 'maxamps.inc'")
+        lines.append("include 'genps.inc'")
+        lines.append("integer iforest(2,-max_branch:-1,lmaxconfigs)")
+        lines.append("common/to_forest/ iforest")
+        lines.append("integer mapconfig(0:lmaxconfigs), this_config")
+        lines.append("common/to_mconfigs/mapconfig, this_config")
+        lines.append("integer sprop(maxsproc,-max_branch:-1,lmaxconfigs)")
+        lines.append("integer tprid(-max_branch:-1,lmaxconfigs)")
+        lines.append("common/to_sprop/sprop,tprid")
+
+
+        for iconfig, helas_diags in enumerate(configs):
+            if any(vert > minvert for vert in [d for d in helas_diags if d]\
+              [0].get_vertex_leg_numbers()) :
+                # Only 3-vertices allowed in configs.inc except for vertices
+                # which originate from a shrunk loop.
+                continue
+            nconfigs += 1
+
+            # Need s- and t-channels for all subprocesses, including
+            # those that don't contribute to this config
+            empty_verts = []
+            stchannels = []
+            for h in helas_diags:
+                if h:
+                    # get_s_and_t_channels gives vertices starting from
+                    # final state external particles and working inwards
+                    stchannels.append(h.get('amplitudes')[0].\
+                                      get_s_and_t_channels(ninitial, model, new_pdg))
+                else:
+                    stchannels.append((empty_verts, None))
+
+            # For t-channels, just need the first non-empty one
+            tchannels = [t for s,t in stchannels if t != None][0]
+
+            # For s_and_t_channels (to be used later) use only first config
+            s_and_t_channels.append([[s for s,t in stchannels if t != None][0],
+                                     tchannels])
+
+            # Make sure empty_verts is same length as real vertices
+            if any([s for s,t in stchannels]):
+                empty_verts[:] = [None]*max([len(s) for s,t in stchannels])
+
+                # Reorganize s-channel vertices to get a list of all
+                # subprocesses for each vertex
+                schannels = zip(*[s for s,t in stchannels])
+            else:
+                schannels = []
+
+            allchannels = schannels
+            if len(tchannels) > 1:
+                # Write out tchannels only if there are any non-trivial ones
+                allchannels = schannels + tchannels
+
+            # Write out propagators for s-channel and t-channel vertices
+
+            lines.append("# Diagram %d" % (mapconfigs[iconfig]))
+            # Correspondance between the config and the diagram = amp2
+            lines.append("mapconfig(%d)=%d" % (nconfigs,
+                                                     mapconfigs[iconfig]))
+
+            for verts in allchannels:
+                if verts in schannels:
+                    vert = [v for v in verts if v][0]
+                else:
+                    vert = verts
+                daughters = [leg.get('number') for leg in vert.get('legs')[:-1]]
+                last_leg = vert.get('legs')[-1]
+                lines.append("iforest(1:%d,%d,%d)=[%s]" % \
+                             (len(daughters),last_leg.get('number'), nconfigs,
+                              ",".join([str(d) for d in daughters])))
+                if verts in schannels:
+                    pdgs = []
+                    for v in verts:
+                        if v:
+                            pdgs.append(v.get('legs')[-1].get('id'))
+                        else:
+                            pdgs.append(0)
+                    lines.append("sprop(1:%d,%d,%d)=%s" % \
+                                 (nsubprocs,last_leg.get('number'), nconfigs, 
+                                  ",".join([str(d) for d in pdgs])))
+                    lines.append("tprid(%d,%d)=0" % \
+                                 (last_leg.get('number'), nconfigs))
+                elif verts in tchannels[:-1]:
+                    lines.append("tprid(%d,%d)=%d" % \
+                                 (last_leg.get('number'), nconfigs,
+                                  abs(last_leg.get('id'))))
+                    lines.append("sprop(1:%d,%d,%d)=%s" % \
+                                 (nsubprocs,last_leg.get('number'), nconfigs, 
+                                  ",".join(['0'] * nsubprocs)))
+
+
+        # Write out number of configs
+        lines.append("# Number of configs")
+        lines.append("mapconfig(0)=%d" % nconfigs)
+        lines.append("return\n")
+        lines.append("end\n")
+        # Write the file
+        writer.writelines(lines)
+
+        return s_and_t_channels
 
     #===========================================================================
     # write_configs_file_from_diagrams
@@ -2363,6 +2526,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 writers.FortranWriter(filename),
                 matrix_element)
         
+
+        usr_born_prefix=matrix_element.get('processes')[0].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
+        self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
+        
+        
         filename = pjoin(dirpath, 'props.inc')
         self.write_props_file(writers.FortranWriter(filename),
                          matrix_element,
@@ -2444,15 +2614,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
-            cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
+            #cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs.inc'))
             for i in range(0,len(matrix_element.get('processes'))):
                 cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs_%s.inc' 
                                                       %matrix_element.get('processes')[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-            cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
-            cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
-            cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
+                cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files/configs_%s.inc' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+            #cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
+            #cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
+            #cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
         elif strdirpath[-1][0] == 'N':
             common_files += ['sectors.f']
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')

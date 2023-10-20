@@ -73,7 +73,7 @@ COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o trans
 
 USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
 
-PROC_FILES = matrix.o 
+PROC_FILES = matrix.o configs.o
 
 FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)
 

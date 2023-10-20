@@ -190,7 +190,7 @@ c     External function
 c
 c     data
 c
-      include 'configs.inc'
+c      include 'configs.inc'
       data firsttime/.true./
       integer isym(0:100)
 c      data isym /2,1,5,27,42,47,0,0,0,0,0/

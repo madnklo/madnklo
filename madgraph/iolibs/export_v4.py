@@ -2532,7 +2532,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
         self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
         filename = pjoin(dirpath,'configs.f')  
-        self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
+        self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,'Born')
         
         
         filename = pjoin(dirpath, 'props.inc')
@@ -2605,7 +2605,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         user_linkfiles = [] 
         common_files = []
         common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f','genps.f']
-        common_files+=['genps.inc','invarients.f','transpole.f']
+        common_files+=['invarients.f','transpole.f']
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
@@ -2616,8 +2616,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
             user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
-            #cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
-            cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs.inc'))
+            cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             for i in range(0,len(matrix_element.get('processes'))):
                 cp(pjoin(dirpath,'ngraphs.inc'),pjoin(dirpath,'../../../Common_Files/ngraphs_%s.inc' 
                                                       %matrix_element.get('processes')[i].shell_string(
@@ -2630,6 +2630,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             #cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
         elif strdirpath[-1][0] == 'N':
             common_files += ['sectors.f']
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
             #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
             #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni

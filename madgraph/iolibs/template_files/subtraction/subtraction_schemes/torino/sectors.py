@@ -1117,6 +1117,8 @@ c     soft-collinear limit
             files_str += 'driver_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
@@ -1164,6 +1166,8 @@ sector_%d_%d: $(FILES_%d_%d)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
                            dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
+                os.symlink(overall_sector_info[i]['path_to_Born'] + '/configs_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/configs_%s.f' % overall_sector_info[i]['Born_str'])
             if not overall_sector_info[i]['path_to_Born']:
                 continue
 

@@ -2531,6 +2531,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
         self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
+
+
         filename = pjoin(dirpath,'configs.f')  
         self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,'Born')
         

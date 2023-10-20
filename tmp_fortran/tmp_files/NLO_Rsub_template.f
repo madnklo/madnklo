@@ -90,6 +90,9 @@ c     phase space and invariants
          write(*,*) 'Wrong sCM', sCM
          stop
       endif
+
+      call configs_%(strUB)s
+      
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real: '

@@ -1163,11 +1163,13 @@ sector_%d_%d: $(FILES_%d_%d)
     def link_files_from_B_to_R_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
 
         for i in range(0,len(overall_sector_info)):
+            
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
                            dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
-                os.symlink(overall_sector_info[i]['path_to_Born'] + '/configs_%s.f' % overall_sector_info[i]['Born_str'],
+                os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % overall_sector_info[i]['Born_str'],
                            dirpath + '/configs_%s.f' % overall_sector_info[i]['Born_str'])
+                
             if not overall_sector_info[i]['path_to_Born']:
                 continue
 
@@ -1179,6 +1181,7 @@ sector_%d_%d: $(FILES_%d_%d)
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
+            
                 #os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
                 #           dirpath + 'ngraphs_%s.inc' % overall_sector_info[i]['Born_str'])
                 #os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],

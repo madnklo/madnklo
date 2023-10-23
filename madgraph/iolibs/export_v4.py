@@ -1612,6 +1612,7 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         configs = [(i+1, d) for i,d in enumerate(matrix_element.get('diagrams'))]
         mapconfigs = [c[0] for c in configs]
         model = matrix_element.get('processes')[0].get('model')
+        
         return self.write_configs_file_from_diagrams_proc(writer,
                                                             [[c[1]] for c in configs],
                                                             mapconfigs,
@@ -2527,12 +2528,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 matrix_element)
         
 
-        usr_born_prefix=matrix_element.get('processes')[0].shell_string(
+        processes = matrix_element.get('processes')
+        for i in range(0,len(processes)):
+            usr_born_prefix=processes[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-        filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
-        self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
-
-
+            filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
+            self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
+        
+        
         filename = pjoin(dirpath,'configs.f')  
         self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,'Born')
         
@@ -2627,6 +2630,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files/configs_%s.inc' 
                                                       %matrix_element.get('processes')[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+                cp(pjoin(dirpath,'configs_%s.f' %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/configs_%s.f' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+
+
             #cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
             #cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
             #cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))

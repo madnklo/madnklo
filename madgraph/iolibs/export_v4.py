@@ -757,6 +757,84 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
 
         return True
 
+
+    #===========================================================================
+    # write_leshouche_file_proc_prefix
+    #===========================================================================
+    def write_leshouche_file_proc_prefix(self, writer, matrix_element,proc_prefix):
+        """Write the leshouche.inc file for MG4"""
+
+        # Write the file
+        writer.writelines(self.get_leshouche_lines_proc_prefix(matrix_element, 0, proc_prefix))
+
+        return True
+
+    #===========================================================================
+    # get_leshouche_lines_proc_prefix
+    #===========================================================================
+    def get_leshouche_lines_proc_prefix(self, matrix_element, numproc,proc_prefix):
+        """Write the leshouche.inc file for MG4"""
+
+        # Extract number of external particles
+        (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
+
+        lines = []
+
+
+
+        lines.append("subroutine getleshouche_%s" %proc_prefix)
+        lines.append("implicit none")
+        lines.append("")
+        lines.append("")
+        lines.append("")
+
+
+        for iproc, proc in enumerate(matrix_element.get('processes')):
+            legs = proc.get_legs_with_decays()
+            lines.append("DATA (IDUP(i,%d,%d),i=1,%d)/%s/" % \
+                         (iproc + 1, numproc+1, nexternal,
+                          ",".join([str(l.get('id')) for l in legs])))
+            if iproc == 0 and numproc == 0:
+                for i in [1, 2]:
+                    lines.append("DATA (MOTHUP(%d,i),i=1,%2r)/%s/" % \
+                             (i, nexternal,
+                              ",".join([ "%3r" % 0 ] * ninitial + \
+                                       [ "%3r" % i ] * (nexternal - ninitial))))
+        lines.append("return")
+        lines.append("end")
+            # Here goes the color connections corresponding to the JAMPs
+            # Only one output, for the first subproc!
+            # if iproc == 0:
+            #     # If no color basis, just output trivial color flow
+            #     if not matrix_element.get('color_basis'):
+            #         for i in [1, 2]:
+            #             lines.append("DATA (ICOLUP(%d,i,1,%d),i=1,%2r)/%s/" % \
+            #                      (i, numproc+1,nexternal,
+            #                       ",".join([ "%3r" % 0 ] * nexternal)))
+
+            #     else:
+            #         # First build a color representation dictionnary
+            #         repr_dict = {}
+            #         for l in legs:
+            #             repr_dict[l.get('number')] = \
+            #                 proc.get('model').get_particle(l.get('id')).get_color()\
+            #                 * (-1)**(1+l.get('state'))
+            #         # Get the list of color flows
+            #         color_flow_list = \
+            #             matrix_element.get('color_basis').color_flow_decomposition(repr_dict,
+            #                                                                        ninitial)
+            #         # And output them properly
+            #         for cf_i, color_flow_dict in enumerate(color_flow_list):
+            #             for i in [0, 1]:
+            #                 lines.append("DATA (ICOLUP(%d,i,%d,%d),i=1,%2r)/%s/" % \
+            #                      (i + 1, cf_i + 1, numproc+1, nexternal,
+            #                       ",".join(["%3r" % color_flow_dict[l.get('number')][i] \
+            #                                 for l in legs])))
+
+        return lines
+
+
+
     #===========================================================================
     # write_leshouche_file
     #===========================================================================
@@ -2319,6 +2397,40 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         
         self.set_compiler(compiler)
 
+
+    #===========================================================================
+    # write_decayBW_file_proc_prefix
+    #===========================================================================
+    def write_decayBW_file_proc_prefix(self, writer, s_and_t_channels,proc_prefix):
+        """Write the decayBW.inc file for MadEvent"""
+
+        lines = []
+
+        booldict = {None: "0", True: "1", False: "2"}
+
+        lines.append("subroutine decaybw_%s" %proc_prefix)
+        lines.append("implicit none")
+        lines.append("include 'maxconfigs.inc'")
+        lines.append("include 'genps.inc'")
+        lines.append("integer gForceBW(-max_branch:-1,lmaxconfigs)")
+        lines.append("common/inc_bw/gforceBW") 
+
+        for iconf, config in enumerate(s_and_t_channels):
+            schannels = config[0]
+            for vertex in schannels:
+                # For the resulting leg, pick out whether it comes from
+                # decay or not, as given by the onshell flag
+                leg = vertex.get('legs')[-1]
+                lines.append("gForceBW(%d,%d)=%s" % \
+                             (leg.get('number'), iconf + 1,
+                              booldict[leg.get('onshell')]))
+        lines.append("return")
+        lines.append("end")
+        # Write the file
+        writer.writelines(lines)
+
+        return True
+
     #===========================================================================
     # write_decayBW_file
     #===========================================================================
@@ -2385,6 +2497,71 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                              (leg.get('number'), iconf + 1, width))
                 lines.append("pow(%d,%d) = %d" % \
                              (leg.get('number'), iconf + 1, pow_part))
+
+        # Write the file
+        writer.writelines(lines)
+
+        return True
+
+#===========================================================================
+    # write_props_file
+    #===========================================================================
+    def write_props_file_proc_prefix(self, writer, matrix_element, s_and_t_channels,proc_prefix):
+        """Write the props.inc file for MadEvent. Needs input from
+        write_configs_file."""
+
+        lines = []
+
+        particle_dict = matrix_element.get('processes')[0].get('model').\
+                        get('particle_dict')
+        
+
+        lines.append("subroutine props_%s" %proc_prefix)
+        lines.append("implicit none")
+        lines.append("include 'nexternal.inc'")
+        lines.append("include 'genps.inc'")
+        lines.append("include 'maxconfigs.inc'")
+        lines.append("include 'run.inc'")
+        lines.append("include 'coupl.inc'")
+        lines.append("double precision prmass(-nexternal:0,lmaxconfigs)")
+        lines.append("double precision prwidth(-nexternal:0,lmaxconfigs)")
+        lines.append("integer pow(-nexternal:0,lmaxconfigs)")
+        lines.append("double precision, parameter :: ZERO = 0d0")
+        lines.append("common/props/prmass,prwidth,pow")
+
+        for iconf, configs in enumerate(s_and_t_channels):
+            for vertex in configs[0] + configs[1][:-1]:
+                leg = vertex.get('legs')[-1]
+                if leg.get('id') not in particle_dict:
+                    # Fake propagator used in multiparticle vertices
+                    mass = 'zero'
+                    width = 'zero'
+                    pow_part = 0
+                else:
+                    particle = particle_dict[leg.get('id')]
+                    # Get mass
+                    if particle.get('mass').lower() == 'zero':
+                        mass = particle.get('mass')
+                    else:
+                        mass = "abs(%s)" % particle.get('mass')
+                    # Get width
+                    if particle.get('width').lower() == 'zero':
+                        width = particle.get('width')
+                    else:
+                        width = "abs(%s)" % particle.get('width')
+
+                    pow_part = 1 + int(particle.is_boson())
+
+                lines.append("prmass(%d,%d)  = %s" % \
+                             (leg.get('number'), iconf + 1, mass))
+                lines.append("prwidth(%d,%d) = %s" % \
+                             (leg.get('number'), iconf + 1, width))
+                lines.append("pow(%d,%d) = %d" % \
+                             (leg.get('number'), iconf + 1, pow_part))
+                
+
+        lines.append("return")
+        lines.append("end")
 
         # Write the file
         writer.writelines(lines)
@@ -2534,16 +2711,40 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
             filename = pjoin(dirpath,'configs_%s.f' %usr_born_prefix)    
             self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,usr_born_prefix)
+            filename = pjoin(dirpath,'props_%s.f' %usr_born_prefix)  
+            self.write_props_file_proc_prefix(writers.FortranWriter(filename),
+                         matrix_element,
+                         s_and_t_channels,usr_born_prefix)
+            filename = pjoin(dirpath, 'decayBW.f')
+            self.write_decayBW_file_proc_prefix(writers.FortranWriter(filename),
+                           s_and_t_channels,usr_born_prefix)
         
         
         filename = pjoin(dirpath,'configs.f')  
         self.write_configs_file_proc_prefix(writers.FortranWriter(filename), matrix_element,'Born')
+        filename = pjoin(dirpath,'props.f')  
+        self.write_props_file_proc_prefix(writers.FortranWriter(filename),
+                         matrix_element,
+                         s_and_t_channels,'Born')
+        filename = pjoin(dirpath, 'decayBW.f')
+        self.write_decayBW_file_proc_prefix(writers.FortranWriter(filename),
+                           s_and_t_channels,'Born')
+        filename = pjoin(dirpath, 'leshouche.f')
+        self.write_leshouche_file_proc_prefix(writers.FortranWriter(filename),
+                             matrix_element,'Born')
+        
+
         
         
         filename = pjoin(dirpath, 'props.inc')
         self.write_props_file(writers.FortranWriter(filename),
                          matrix_element,
                          s_and_t_channels)
+        
+
+
+        
+                        
         
         filename = pjoin(dirpath, 'leshouche.inc')
         self.write_leshouche_file(writers.FortranWriter(filename),

@@ -41,7 +41,7 @@ c     External
 c
       double precision dot
 
-      save prmass,prwidth,pow
+      common/props/prmass,prwidth,pow
       data first_time /.true./
 c-----
 c  Begin Code
@@ -146,13 +146,13 @@ c
       include 'leshouche.inc'
 
       integer gForceBW(-max_branch:-1,lmaxconfigs)  ! Forced BW
-      include 'decayBW.inc'
+      common/inc_bw/gforcebw
 c
 c     External
 c
       double precision dot
 
-      save prmass,prwidth,pow
+      common/props/prmass,prwidth,pow
       data first_time /.true./
 c-----
 c  Begin Code
@@ -160,7 +160,7 @@ c-----
       cut_bw = .false.    !Default is we passed the cut
       iconfig = this_config
       if (first_time) then
-         include 'props.inc'
+c         include 'props.inc'
          nbw = 0
          do i=-1,-(nexternal-3),-1
             if (iforest(1,i,iconfig) .eq. 1 .or. prwidth(i,iconfig).le.0) then
@@ -321,7 +321,7 @@ c
       include 'leshouche.inc'
 
       integer gForceBW(-max_branch:-1,lmaxconfigs)  ! Forced BW
-      include 'decayBW.inc'
+      common/inc_bw/gforcebw
 
 c
 c     Global
@@ -361,6 +361,7 @@ c
 
       double precision stot,m1,m2
       common/to_stot/stot,m1,m2
+      common/props/prmass,prwidth,pow
 
       include 'coupl.inc'
       include 'cuts.inc'
@@ -383,7 +384,7 @@ c
 c-----
 c  Begin Code
 c-----      
-      include 'props.inc'
+c      include 'props.inc'
 c      etmin = 10
       nt = 0
       iconfig = this_config

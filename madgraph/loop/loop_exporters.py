@@ -772,9 +772,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)
 
-#        filename = 'ngraphs.inc'
-#        self.write_ngraphs_file(writers.FortranWriter(filename),
-#                           len(matrix_element.get_all_amplitudes()))
+        #filename = 'ngraphs.inc'
+        #self.write_ngraphs_file(writers.FortranWriter(filename),
+        #                   len(matrix_element.get_all_amplitudes()))
 
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
@@ -819,10 +819,10 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
         if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-        os.symlink(dirpath + '/../../../Common_Files/ngraphs.inc',dirpath+'/ngraphs.inc')
-        os.symlink(dirpath + '/../../../Common_Files/decayBW.inc',dirpath+'/decayBW.inc')
-        os.symlink(dirpath + '/../../../Common_Files/leshouche.inc',dirpath+'/leshouche.inc')
-        os.symlink(dirpath + '/../../../Common_Files/props.inc',dirpath+'/props.inc')
+        #os.symlink(dirpath + '/../../../Common_Files/ngraphs.inc',dirpath+'/ngraphs.inc')
+        #os.symlink(dirpath + '/../../../Common_Files/decayBW.inc',dirpath+'/decayBW.inc')
+        #os.symlink(dirpath + '/../../../Common_Files/leshouche.inc',dirpath+'/leshouche.inc')
+        #os.symlink(dirpath + '/../../../Common_Files/props.inc',dirpath+'/props.inc')
 
         # Return to original PWD
         os.chdir(cwd)
@@ -860,9 +860,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
             dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
         elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
             dirpathBorn = glob.glob("%s/../NLO_R*" % self.dir_path)[0]
-            #print('AAAA' + dirpathBorn)
-            #print('BBBB' + process.shell_string())
-            #print('CCCC' + ' ' + dirpathBorn + "/SubProcesses/P" + process.shell_string())
             dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
         #dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
         #print('AAAA' + dirpathBorn)
@@ -878,11 +875,22 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         owd = os.getcwd()
         os.chdir(dirpathBorn)
         tmp_leg_PDGs = glob.glob("leg_PDGs*.inc")
+        tmp_ngraphs = "ngraphs.inc"
+        tmp_configs = "configs.f"
+        tmp_props = "props.f"
+        tmp_genps = "genps.inc"
+        tmp_decayBW = "decayBW.f"
+        tmp_leshouche = "leshouche.f"
         os.chdir(owd)
         for i in range(0,len(tmp_leg_PDGs)):
             os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
 
-
+        os.symlink(dirpathBorn + '/%s' % tmp_ngraphs, os.getcwd() + '/%s' % tmp_ngraphs)
+        os.symlink(dirpathBorn + '/%s' % tmp_configs, os.getcwd() + '/%s' % tmp_configs)
+        os.symlink(dirpathBorn + '/%s' % tmp_props, os.getcwd() + '/%s' % tmp_props)
+        os.symlink(dirpathBorn + '/%s' % tmp_genps, os.getcwd() + '/%s' % tmp_genps)
+        os.symlink(dirpathBorn + '/%s' % tmp_decayBW, os.getcwd() + '/%s' % tmp_decayBW)
+        os.symlink(dirpathBorn + '/%s' % tmp_leshouche, os.getcwd() + '/%s' % tmp_leshouche)
     #gl
     def link_files_common_directory(self):
 

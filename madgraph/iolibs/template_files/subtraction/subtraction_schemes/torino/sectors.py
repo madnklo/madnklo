@@ -426,7 +426,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             necessary_ct_list[i] = 1
                             necessary_ct[i] = ct
 # # # gl                        
-                        if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "j"
+                        if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
+                            
+                            #if singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
+                            #and all_legs[0].n == s['sector'].leg_numbers[1]: # should match to "j"
+                            
                             s['counterterms'].append(i_ct)
                             necessary_ct_list[i+1] = 1
                             necessary_ct[i+1] = ct
@@ -542,7 +546,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict_ct = {}
         # Set replace_dict for NLO_Rsub_isec_jsec.f
         replace_dict_int_real = {}
+
+        replace_dict_limits = {}
+        # List of necessary underlying Born strings and particle PDGs
+        Born_processes = []
+        # List of dirpathLO of the necessary underlying Born
+        path_Born_processes = []
+        # Link LO files to each real process directory
+        dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         
+
         for i in range(0,len(all_sector_list)):
             list_M2 = []
             list_str_defHC = []
@@ -553,18 +566,26 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             jsec = all_sector_list[i][1]
             id_isec = all_sector_id_list[i][0]
             id_jsec = all_sector_id_list[i][1]
-
+            # Extract the reference particle leg from recoiler_function.py
+            iref = all_sector_recoilers[i]
+            replace_dict_ct['iref'] = iref
             # Check isec != jsec
             if isec == jsec:
                 raise MadEvent7Error('Wrong sector indices %d,%d!' % (isec,jsec))
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
+            replace_dict_limits['isec'] = isec
+            replace_dict_limits['jsec'] = jsec
+            replace_dict_limits['proc_prefix_real'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
+            replace_dict_limits['proc_prefix_S'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FgFg'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FgFq'] = 'dummy'
+            replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
             #replace_dict_int_real['isec'] = isec
             #replace_dict_int_real['jsec'] = jsec
 
-            # Extract the reference particle leg from recoiler_function.py
-            iref = all_sector_recoilers[i]
-            replace_dict_ct['iref'] = iref
+            
             #replace_dict_int_real['iref'] = iref
 
             # Update sector_info dictionary
@@ -580,6 +601,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
             sector_info['iref'] = iref
+
+            
+
 
             if necessary_ct_list[i*5] == 1:
                 if id_isec != 21:
@@ -611,7 +635,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 #                list_M2.append('KS=KS+M2_S_DIFF(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,X(1:3),NITR,1D0,IERR)\n')
 #                list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('endif\n')
-
                 list_int_real.append('# call sector function ZSj\n')
                 list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZSj,"S",ierr)\n')
                 list_int_real.append('if(ierr.eq.1)goto 999\n')
@@ -648,70 +671,27 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #    str_M2.append('')
 
                 #specify (abc) mapping choice
-                mapping_str = """ \
-                    iU = %s
-                    iS = %s
-                    iB = %s
-                    iA = 1 ! default azimuth for NLO
-                """ % (mapping[0][0], mapping[1][0], mapping[2][0])
-
-                str_defHC = " ".join(list_str_defHC)
-                str_M2 = " ".join(list_M2)
-                str_int_real = " ".join(list_int_real)
-                replace_dict_ct['str_defHC'] = str_defHC
-                replace_dict_ct['str_M2'] = str_M2
-                replace_dict_int_real['str_int_real'] = str_int_real  
-                replace_dict_int_real['mapping_str'] = mapping_str       
-                replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
-                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+            mapping_str = """ \
+                iU = %s
+                iS = %s
+                iB = %s
+                iA = 1 ! default azimuth for NLO
+            """ % (mapping[0][0], mapping[1][0], mapping[2][0])
+            overall_sector_info.append(sector_info)
                 
 
-            overall_sector_info.append(sector_info)
-
-            # write NLO_K
-            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
-            file = file % replace_dict_ct
-            writer(filename).writelines(file)
-
-            # write driver_npo_template
-            #self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
-
-            # write testR
-            self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
-                                                    i, isec, jsec, necessary_ct_list, mapping_str)
-
-        # check on overall_sector_info lenght
-        if len(overall_sector_info) != len(all_sector_list):
-            raise MadEvent7Error('WARNING, the list of sector-dictionary entries \
-                                    is not compatible with the total number of sectors!')
-
-
-######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
-
-        replace_dict_limits = {}
-        # List of necessary underlying Born strings and particle PDGs
-        Born_processes = []
-        # List of dirpathLO of the necessary underlying Born
-        path_Born_processes = []
-        # Link LO files to each real process directory
-        dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        for i in range(0,len(all_sector_list)):
-            isec = all_sector_list[i][0]
-            jsec = all_sector_list[i][1]
-            iref = all_sector_recoilers[i]
-            id_isec = all_sector_id_list[i][0]
-            id_jsec = all_sector_id_list[i][1]
-
-            replace_dict_limits['isec'] = isec
-            replace_dict_limits['jsec'] = jsec
-            replace_dict_limits['proc_prefix_real'] = str(defining_process.shell_string(schannel=True, 
+            str_defHC = " ".join(list_str_defHC)
+            str_M2 = " ".join(list_M2)
+            str_int_real = " ".join(list_int_real)
+            replace_dict_ct['str_defHC'] = str_defHC
+            replace_dict_ct['str_M2'] = str_M2
+            replace_dict_int_real['str_int_real'] = str_int_real 
+            replace_dict_int_real['NLO_process'] =  str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
-            replace_dict_limits['proc_prefix_S'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FgFg'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FgFq'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
-
+            replace_dict_int_real['mapping_str'] = mapping_str       
+            replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+                
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
                 # list of proc str permutations 'epem_ddx' for template
                 uB_proc = necessary_ct[i*5].current.shell_string_user(
@@ -771,33 +751,74 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             replace_dict_limits[tmp_proc] = extra_uB_proc
                             overall_sector_info[i]['Born_str'] = extra_uB_proc
                     
-                # Loop over sectors with at least one initial state particle
-                if isec <= 2 or jsec <= 2:
-                    # TODO: look at Born string for initial state singularities
-                    continue
 
-            # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
-            #print(dirpath)
-            #print(overall_sector_info)
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
-
-            
-            
-
-
             # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
 
-            #giovanni
-            # write NLO_Rsub
+            
+
+
 
 
             replace_dict_int_real['isec'] = isec
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
+            replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
+            file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
+            file_int_real = file_int_real % replace_dict_int_real
+            writer(filename_int_real).writelines(file_int_real)
+            UBgraphs = overall_sector_info[i]['Born_str']
+            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
+
+
+            # write NLO_K
+            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
+            file = file % replace_dict_ct
+            writer(filename).writelines(file)
+
+            # write driver_npo_template
+            #self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
+
+            # write testR
+            self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                                                    i, isec, jsec, necessary_ct_list, mapping_str)
+
+        # check on overall_sector_info lenght
+        if len(overall_sector_info) != len(all_sector_list):
+            raise MadEvent7Error('WARNING, the list of sector-dictionary entries \
+                                    is not compatible with the total number of sectors!')
+
+
+######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
+
+        
+        
+            
+
+            
+
+            
+                
+
+            # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
+            #print(dirpath)
+            #print(overall_sector_info)
+            
+            
+            
+
+
+           
+
+            #giovanni
+            # write NLO_Rsub
+
             
             
             # for j in range(0,len(uB_proc)):
@@ -819,11 +840,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             
             
-            replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            UBgraphs = overall_sector_info[i]['Born_str']
-            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
-
-
+            
+            
                 
             #    if not overall_sector_info[i]['path_to_Born']:
             #        continue
@@ -831,10 +849,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #        continue
             #    proc_strusr =  overall_sector_info[i]['Born_str']   
             #replace_dict_int_real['strUB'] = proc_strusr
-            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
-            file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
-            file_int_real = file_int_real % replace_dict_int_real
-            writer(filename_int_real).writelines(file_int_real)
+            
             #giovanni
 
 
@@ -1098,7 +1113,7 @@ c     soft-collinear limit
         all_str = 'all: libs'
         proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-
+        
         for i in range(0,len(overall_sector_info)):
             if not overall_sector_info[i]['path_to_Born']:
                 continue
@@ -1119,6 +1134,10 @@ c     soft-collinear limit
             files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
+
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
@@ -1169,6 +1188,12 @@ sector_%d_%d: $(FILES_%d_%d)
                            dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
                 os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % overall_sector_info[i]['Born_str'],
                            dirpath + '/configs_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/props_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/decayBW_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/leshouche_%s.f' % overall_sector_info[i]['Born_str'])
                 
             if not overall_sector_info[i]['path_to_Born']:
                 continue

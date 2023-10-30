@@ -784,19 +784,23 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
 
         lines.append("subroutine getleshouche_%s" %proc_prefix)
         lines.append("implicit none")
-        lines.append("")
-        lines.append("")
-        lines.append("")
+        lines.append("include 'nexternal.inc'")
+        lines.append("include 'maxamps.inc'")
+        lines.append("integer idup(nexternal,maxproc,maxsproc)")
+        lines.append("integer mothup(2,nexternal)")
+        lines.append("integer icolup(2,nexternal,maxflow,maxsproc)")
+        lines.append("common/leshouche/idup,mothup,icolup")
+        
 
 
         for iproc, proc in enumerate(matrix_element.get('processes')):
             legs = proc.get_legs_with_decays()
-            lines.append("DATA (IDUP(i,%d,%d),i=1,%d)/%s/" % \
-                         (iproc + 1, numproc+1, nexternal,
+            lines.append("IDUP(1:%d,%d,%d)=[%s]" % \
+                         (nexternal,iproc + 1, numproc+1, 
                           ",".join([str(l.get('id')) for l in legs])))
             if iproc == 0 and numproc == 0:
                 for i in [1, 2]:
-                    lines.append("DATA (MOTHUP(%d,i),i=1,%2r)/%s/" % \
+                    lines.append("MOTHUP(%d,1:%2r)=[%s]" % \
                              (i, nexternal,
                               ",".join([ "%3r" % 0 ] * ninitial + \
                                        [ "%3r" % i ] * (nexternal - ninitial))))
@@ -2715,9 +2719,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             self.write_props_file_proc_prefix(writers.FortranWriter(filename),
                          matrix_element,
                          s_and_t_channels,usr_born_prefix)
-            filename = pjoin(dirpath, 'decayBW.f')
+            filename = pjoin(dirpath, 'decayBW_%s.f' %usr_born_prefix)
             self.write_decayBW_file_proc_prefix(writers.FortranWriter(filename),
                            s_and_t_channels,usr_born_prefix)
+            filename = pjoin(dirpath, 'leshouche_%s.f' %usr_born_prefix)
+            self.write_leshouche_file_proc_prefix(writers.FortranWriter(filename),
+                             matrix_element,usr_born_prefix)
         
         
         filename = pjoin(dirpath,'configs.f')  
@@ -2835,6 +2842,20 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/configs_%s.f' 
                                                       %matrix_element.get('processes')[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+                cp(pjoin(dirpath,'props_%s.f' %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/props_%s.f' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+                cp(pjoin(dirpath,'decayBW_%s.f' %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/decayBW_%s.f' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+                cp(pjoin(dirpath,'leshouche_%s.f' %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/leshouche_%s.f' 
+                                                      %matrix_element.get('processes')[i].shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+
+
 
 
             #cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))

@@ -92,6 +92,9 @@ c     phase space and invariants
       endif
 
       call configs_%(strUB)s
+      call props_%(strUB)s
+      call decaybw_%(strUB)s
+      call getleshouche_%(strUB)s
       
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
@@ -169,6 +172,7 @@ c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
       call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,ANS)
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
+
 c
 c     print out current run progress
 c     TODO: adapt progress bar

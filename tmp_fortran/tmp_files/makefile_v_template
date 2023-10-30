@@ -108,7 +108,7 @@ COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o trans
 
 %(proc_file_str)s
 
-USR_FILES = cuts.o analysis.o alphaS.o hbook.o kinematics.o
+USR_FILES = cuts.o analysis.o alphaS.o hbook.o kinematics.o configs.o props.o decayBW.o leshouche.o
 
 FILES = driver_v.o  $(PROCESS) $(COMMON_FILES) $(PROC_FILES) $(USR_FILES)
 

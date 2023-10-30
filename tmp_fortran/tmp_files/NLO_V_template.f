@@ -110,6 +110,10 @@ C     Hard coded settings for gen_mom
       mincfig = 1
       maxcfig = 1
       invar = 2
+      call configs_born
+      call props_born
+      call decaybw_born
+      call getleshouche_born
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
 
 !      call phase_space_n(x,sCM,p,nexternal,xjac)

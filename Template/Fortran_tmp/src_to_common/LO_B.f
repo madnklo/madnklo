@@ -70,6 +70,7 @@ c      iconfig = 1
       call configs_born
       call props_born
       call decaybw_born
+      call getleshouche_born
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)

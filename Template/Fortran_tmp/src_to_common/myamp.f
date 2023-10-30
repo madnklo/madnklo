@@ -143,7 +143,8 @@ c
       integer idup(nexternal,maxproc,maxsproc)
       integer mothup(2,nexternal)
       integer icolup(2,nexternal,maxflow,maxsproc)
-      include 'leshouche.inc'
+      common/leshouche/idup,mothup,icolup
+c      include 'leshouche.inc'
 
       integer gForceBW(-max_branch:-1,lmaxconfigs)  ! Forced BW
       common/inc_bw/gforcebw
@@ -318,7 +319,9 @@ c
       integer idup(nexternal,maxproc,maxsproc)
       integer mothup(2,nexternal)
       integer icolup(2,nexternal,maxflow,maxsproc)
-      include 'leshouche.inc'
+      common/leshouche/idup,mothup,icolup
+      
+c      include 'leshouche.inc'
 
       integer gForceBW(-max_branch:-1,lmaxconfigs)  ! Forced BW
       common/inc_bw/gforcebw

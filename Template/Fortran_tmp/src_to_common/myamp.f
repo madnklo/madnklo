@@ -376,9 +376,6 @@ C
       LOGICAL  IS_A_NU(NEXTERNAL),IS_HEAVY(NEXTERNAL), DO_CUTS(NEXTERNAL)
       COMMON /TO_SPECISA/IS_A_J,IS_A_A,IS_A_L,IS_A_B,IS_A_NU,IS_HEAVY,
      . IS_A_ONIUM,DO_CUTS
-      integer njet
-
-
 
 c
 c     External

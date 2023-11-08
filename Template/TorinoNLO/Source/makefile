@@ -64,7 +64,7 @@ $(LIBDIR)libmodel.a: MODEL param_card.inc
 genps.inc: nexternal.inc
 	touch genps.inc
 
-run_card.inc: ../Cards/run_card.dat
+run_card.inc: ../Cards/NLO_run_card.dat
 	../bin/treatcards run
 
 param_card.inc: ../Cards/param_card.dat

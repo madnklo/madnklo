@@ -1,10 +1,11 @@
       logical function docut(p,npart,part_pdgs,nUnres)
       implicit none
-      include 'jets.inc'
       include 'nexternal.inc'
+      include 'run.inc'
+      include 'cuts.inc'
       integer npart,i,j,nQCD,nUnres
       double precision p(0:3,npart)
-      double precision rfj,sycut,palg,pQCD(0:3,maxdim),etamax
+      double precision rfj,sycut,palg,pQCD(0:3,max_jet_number),etamax
       logical dojets
       parameter(dojets=.true.)
       double precision dot
@@ -27,7 +28,7 @@ c     Sort array of results: ismode>0 for real, isway=0 for ascending order
 c
 c     local variables
       double precision x1,x2
-c     
+c
 c     initialise
       docut=.false.
       pjet=0d0
@@ -36,9 +37,6 @@ c     initialise
       ptjet=0d0
       ptg=0d0
       pgamma=0d0
-
-
-
 c     
 
 
@@ -48,19 +46,6 @@ C     Cuts from the run_card.dat
 C***************************************************************
 C***************************************************************
 c     
-
-c     TODO:
-c     leptons cuts must be read from the run_card
-
-
-      ptl=10d0                  ! minimum pt for the charged leptons 
-      etal=2.5d0                ! max rap for the charged leptons 
-      drll=0.4d0                ! min distance between leptons 
-!      drlal=0.4d0                ! min distance between gamma and lepton 
-      mll=30d0
-      drll_sf=0.4d0
-      mll_sf=30d0
-      maxjetflavor=4
 c     CHARGED LEPTON CUTS
 c     
 c     find the charged leptons (also used in the photon isolation cuts below)
@@ -145,12 +130,12 @@ c     cluster partons into jets
                enddo
             endif
          enddo
-c     
+c
 c     clustering parameters
-         palg=-1d0
-         rfj=0.4d0
-         sycut=20d0
-         etamax = 5d0
+         palg = jetalgo
+         rfj = jetradius
+         sycut = ptj
+         etamax = etaj
 
 c******************************************************************************
 c     call FASTJET to get all the jets
@@ -226,23 +211,6 @@ c$$$      endif
 
 c PHOTON (ISOLATION) CUTS
 c
-
-
-!     TODO: These parameters must be read in the run_card.dat
-
-c$$$   ptgmin    ! Min photon transverse momentum
-c$$$   etagamma  ! Max photon abs(pseudo-rap)
-c$$$   R0gamma   ! Radius of isolation code
-c$$$   xn        ! n parameter of eq.(3.4) in hep-ph/9801442
-c$$$   epsgamma  ! epsilon_gamma parameter of eq.(3.4) in hep-ph/9801442
-c$$$   isoEM  ! isolate photons from EM energy (photons and leptons)
-      ptgmin = 20d0
-      etagamma = -1d0
-      R0gamma = 0.4d0
-      xn = 1d0
-      epsgamma = 1d0
-      isoEM = .true.
-
 c find the photons
       do i=nincoming+1,npart
          if (part_pdgs(i).eq.22) then

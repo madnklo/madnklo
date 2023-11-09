@@ -11,6 +11,11 @@ c
      $                fixed_fac_scale,fixed_couplings,ickkw,nhmult,hmult,
      $                dynamical_scale_choice
 
+c    Integrators parameters
+      real * 8 req_acc_fo
+      integer npoints_fo_grid,npoints_fo,niters_fo_grid,niters_fo
+      common/integ_param/req_acc_fo,npoints_fo_grid,npoints_fo,
+     $			niters_fo_grid,niters_fo
 c
 c New stuff for scales (NLO)
 c

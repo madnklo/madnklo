@@ -50,11 +50,11 @@ c     read inputs
       region=0d0
       order=0
       s_had = (EBEAM(1)+EBEAM(2))**2
-C     TODO: read from run_card.inc
-      NITVTH = 10
-      NCLVTH = 10000
-      NITV = 10 
-      NCLV = 10000
+      NITVTH =  NITERS_FO_GRID 
+      NCLVTH = NPOINTS_FO_GRID
+      NITV = NITERS_FO
+      NCLV = NPOINTS_FO
+
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters

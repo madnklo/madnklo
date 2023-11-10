@@ -894,7 +894,6 @@ class CommonRunCmd(HelpToCmd, CheckValidForCmd, cmd.Cmd):
         question = """Do you want to edit a card (press enter to bypass editing)?\n"""
         possible_answer = ['0', 'done']
         card = {0:'done'}
-        
         indent = max(len(path2name(card_name)) for card_name in cards)
         question += '/'+'-'*60+'\\\n'
         for i, card_name in enumerate(cards):
@@ -4000,7 +3999,9 @@ class AskforEditCard(cmd.OneLinePathCompletion):
         #define paths
         self.paths['param'] = pjoin(self.me_dir,'Cards','param_card.dat')
         self.paths['param_default'] = pjoin(self.me_dir,'Cards','param_card_default.dat')
-        self.paths['run'] = pjoin(self.me_dir,'Cards','run_card.dat')
+        #self.paths['run'] = pjoin(self.me_dir,'Cards','run_card.dat')
+        #GIOVANNI
+        self.paths['run'] = pjoin(self.me_dir,'Cards','NLO_run_card.dat')
         self.paths['run_default'] = pjoin(self.me_dir,'Cards','run_card_default.dat')
         self.paths['transfer'] =pjoin(self.me_dir,'Cards','transfer_card.dat')
         self.paths['MadWeight'] =pjoin(self.me_dir,'Cards','MadWeight_card.dat')
@@ -5832,6 +5833,7 @@ class AskforEditCard(cmd.OneLinePathCompletion):
                 if not os.path.exists(path):
                     logger.info('Path in MW_card not existing')
                     path = pjoin(me_dir, 'Events', answer)
+
         #security
         path = path.replace('_card_card','_card')
         try:

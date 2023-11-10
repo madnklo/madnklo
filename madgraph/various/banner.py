@@ -2339,7 +2339,6 @@ class RunCard(ConfigFile):
                 #gl
                 if flag:
                     break
-                
             fsock = file_writers.FortranWriter(pjoin(output_dir,pathinc))  
             for key in self.includepath[incname]:                
                 #define the fortran name
@@ -3474,11 +3473,11 @@ class RunCardNLO(RunCard):
         self.add_param('nevt_job', -1, include=False)
         self.add_param('event_norm', 'average')
         #FO parameter
-        self.add_param('req_acc_fo', 0.01, include=False)        
-        self.add_param('npoints_fo_grid', 5000, include=False)
-        self.add_param('niters_fo_grid', 4, include=False)
-        self.add_param('npoints_fo', 10000, include=False)        
-        self.add_param('niters_fo', 6, include=False)
+        self.add_param('req_acc_fo', 0.01, include=True)        
+        self.add_param('npoints_fo_grid', 5000, include=True)
+        self.add_param('niters_fo_grid', 4, include=True)
+        self.add_param('npoints_fo', 10000, include=True)        
+        self.add_param('niters_fo', 6, include=True)
         #seed and collider
         self.add_param('iseed', 0)
         self.add_param('lpp1', 1, fortran_name='lpp(1)')        

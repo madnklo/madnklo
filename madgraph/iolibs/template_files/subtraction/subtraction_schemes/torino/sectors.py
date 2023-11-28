@@ -279,10 +279,23 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         """
 
+
         # return None if there are zero unresolved particles (virtual)
 
         if contrib_definition.n_unresolved_particles == 0:
             return None
+        
+        # Point to the proper sector generation routine: NLO R / NNLO RR / NNLO RV
+        str_contrib = contrib_definition.get_shell_name().split('_')
+        if str_contrib[0] == 'NLO':
+            pass
+        elif str_contrib[0] == 'NNLO' and str_contrib[1] == 'RR':
+            import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
+            all_sectors = sectors_for_RR.SectorGeneratorRR().write_RR_templates(
+                                contrib_definition, defining_process, counterterms, integrated_counterterms)
+            return
+        elif str_contrib[0] == 'NNLO' and str_contrib[1] == 'RV':
+            return #TODO RV case
 
         model = defining_process.get('model')
         initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()
@@ -290,8 +303,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         leglist = defining_process.get('legs')
         #gl
-        #print(defining_process.shell_string())
-        #print(contrib_definition.get_shell_name())
+        print('Print from sectors.py')
+        print(defining_process.shell_string())
+        print(contrib_definition.get_shell_name())
         #print(contrib_definition.process_definition.get('id'))
 
         all_sectors = []
@@ -301,6 +315,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
         colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
+
+        #print('leglist : ' + str(leglist))
+        #print('colorlist : ' + str(colorlist))
 
 ## Ez
 #        logger.info("sectors.py: SectorGenerator,__call__")
@@ -342,6 +359,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
+                
+                # print('list of ij : ' + str(ijlist))
 
                 for ij in ijlist:
                     # copy the defining process, remove i and j
@@ -398,6 +417,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         all_sector_mass_list = [s['sector'].masses for s in all_sectors]
         # gl
         all_sector_id_list = [s['sector'].id for s in all_sectors]
+
+        print('all sector list : ' + str(all_sector_list))
 
         #gl
         all_local_counterterms_list = []
@@ -482,24 +503,29 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
-        if len(glob.glob(dirpath)) == 0:
-            dirpath = ''
-            dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
-            dirpath = pjoin(dirpath, 'SubProcesses', \
-                       "P%s" % defining_process.shell_string())
+#        if len(glob.glob(dirpath)) == 0:
+#            dirpath = ''
+#            dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
+#            dirpath = pjoin(dirpath, 'SubProcesses', \
+#                       "P%s" % defining_process.shell_string())
             #return
-            if glob.glob(dirpath):
-                import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
-                all_sectors = sectors_for_RR.SectorGeneratorRR().write_RR_templates(
-                                                    model, initial_state_PDGs, final_state_PDGs, all_PDGs, leglist,
-                                                    all_sectors, all_sector_legs, all_sector_id_legs, all_sector_recoilers,
-                                                    all_sector_list, all_sector_mass_list, all_sector_id_list,
-                                                    all_local_counterterms_list, necessary_ct_list, necessary_ct,
-                                                    dirmadnklo, dirpath, defining_process
-                                                    )
-                return all_sectors
-            else:
-                return
+#            if glob.glob(dirpath):
+                #import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
+                #all_sectors = sectors_for_RR.SectorGeneratorRR().write_RR_templates(
+                #    contrib_definition, defining_process, counterterms, integrated_counterterms,
+                #            all_sectors, all_sector_legs, all_sector_id_legs, all_sector_recoilers,
+                #            all_sector_list, all_sector_mass_list, all_sector_id_list,
+                #            all_local_counterterms_list, necessary_ct_list, necessary_ct,
+                #            dirmadnklo, dirpath)
+                                                    #model, initial_state_PDGs, final_state_PDGs, all_PDGs, leglist,
+                                                    #all_sectors, all_sector_legs, all_sector_id_legs, all_sector_recoilers,
+                                                    #all_sector_list, all_sector_mass_list, all_sector_id_list,
+                                                    #all_local_counterterms_list, necessary_ct_list, necessary_ct,
+                                                    #dirmadnklo, dirpath, defining_process
+                                                    #)
+#                return 
+#            else:
+#                return
                 #dirpath = ''
                 #dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RV_x_R_*" % interface.user_dir_name[0])[0])
                 #dirpath = pjoin(dirpath, 'SubProcesses', \

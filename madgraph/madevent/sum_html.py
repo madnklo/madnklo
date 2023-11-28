@@ -669,11 +669,11 @@ def collect_result(cmd, folder_names, jobs=None):
     run = cmd.results.current['run_name']
     all = Combine_results(run)
     
-    for Pdir in open(pjoin(cmd.me_dir, 'SubProcesses','subproc.mg')):
+    for Pdir in open(pjoin(cmd.me_dir,'contributions.mg')):
         Pdir = Pdir.strip()
         P_comb = Combine_results(Pdir)
         
-        P_path = pjoin(cmd.me_dir, 'SubProcesses', Pdir)
+        P_path = pjoin(cmd.me_dir, Pdir)
         G_dir = [G for G in os.listdir(P_path) if G.startswith('G') and 
                                                 os.path.isdir(pjoin(P_path,G))]
 

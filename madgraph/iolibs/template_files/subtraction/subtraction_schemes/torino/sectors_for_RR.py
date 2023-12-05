@@ -100,15 +100,17 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         ####################################################
         # 3-particle sectors
-        fks_k_j_i = {}
+        fks_j_i = {}
+        fks_k_ij = {}
         threep_sectors = []
         threep_sectors_id = []
+        combs = []
         for i, col_i in zip(leglist, colorlist):
             if col_i == 1:
                 continue
             if not i.get('state'):
                 continue
-            fks_k_j_i[i.get('number')] = [] # not strictly needed
+            fks_j_i[i.get('number')] = [] # not strictly needed
 
             for j, col_j in zip(leglist, colorlist):
                 if col_j == 1:
@@ -129,14 +131,168 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if j['id'] < 0:
                         continue
 
-                for k, col_k in zip(leglist, colorlist):
-                    if col_k == 1:
-                        continue
-                    if k.get('number') == i.get('number') or k.get('number') == j.get('number'):
-                        continue
+                ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
+                                               fks_common.to_fks_leg(j, model),
+                                               model, pert_dict)
+
+                if len(ijlist)==0:
+                    continue 
+
+                #print('i, j : ' + str(i['id']) + ', ' + str(j['id']))
+                #print('3P ijlist : ' + str(ijlist))
+                
+                for ij in ijlist:
+                    # copy the defining process, remove i and j
+                    # and replace them by ij.
+                    new_process = copy.copy(defining_process)
+                    # this is a temporary hack waiting that squared_orders for
+                    #  defining_process are correctly passed
+                    ##if set(new_process['squared_orders'].values()) == set([0,]):
+                    # MZ this may not be optimal, but keep for the moment
+                    new_process['squared_orders'] = {}
+
+                    new_leglist = copy.copy(leglist)
+                    new_leglist[min([leglist.index(i), leglist.index(j)])] = ij
+                    new_leglist.pop(max([leglist.index(i), leglist.index(j)]))
+                    new_process['legs'] = new_leglist
+                    #print('new_leglist ij: ' + str(new_leglist))
+                    leglist_ij = new_leglist
+                    if diagram_generation.Amplitude(new_process).get('diagrams'):
+                        fks_j_i[i.get('number')].append(j.get('number'))
+                        a_sector = {
+                            'sector': None,
+                            'counterterms': None,
+                            'integrated_counterterms': None,
+                            'recoiler' : None
+                        }
+                        a_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'), j.get('number')))
+                        # TODO: define recoiler 
+                        a_sector['recoiler'] = None
+                        #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
+                        #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                        #print('Leg number : ' + str(a_sector['sector']))
+                        #gl
+                        all_sector_legs.append(i.get('number'))
+                        all_sector_legs.append(j.get('number'))
+                        # keep track of the masses
+                        a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
+                                                     model.get('particle_dict')[j.get('id')]['mass'])
+                        #print('Masses : ' + str(a_sector['sector'].masses))
+# gl
+                        # keep track of the particles' identity
+                        a_sector['sector'].id = (i.get('id'), j.get('id'))
+                        all_sector_id_legs.append(i.get('id'))
+                        all_sector_id_legs.append(j.get('id'))
+                        #print('Identities : ' + str(a_sector['sector'].id))
+
+                        all_sectors.append(a_sector)
+
+                    for k, col_k in zip(leglist, colorlist):
+                        if k.get('number') == i.get('number') or k.get('number') == j.get('number'):
+                            continue
+                        if col_k == 1:
+                            continue
+                        if not k.get('state'):
+                            continue                 
+# gl
+                        # if both i and j are gluons, then keep just the case in which i (number) < j (number)
+                        if ij['id'] == 21 and k['id'] == 21 and k['state']:
+                            if k.get('number') < ij.get('number') :
+                                continue
+
+                        # if j and i are quarks and antiquark in the final state, let j be the quark
+                        #   this is needed in order to comply with the fct combine_ij inside fks_common
+                        if ij['id'] == -k['id'] and k['state']:
+                            if k['id'] < 0:
+                                continue
+
+                        fks_k_ij[ij.get('number')] = []
+
+                        ijklist = fks_common.combine_ij(fks_common.to_fks_leg(ij, model),
+                                                    fks_common.to_fks_leg(k, model),
+                                                    model, pert_dict)
+
+                        if len(ijklist)==0:
+                            continue 
+
+                        #print('ij, k : ' + str(ij['id']) + ', ' + str(k['id']))
+                        #print('3P ijklist : ' + str(ijklist))
+
+                        for ijk in ijklist:
+                            # copy the defining process, remove i and j
+                            # and replace them by ij.
+                            new_process = copy.copy(defining_process)
+                            # this is a temporary hack waiting that squared_orders for
+                            #  defining_process are correctly passed
+                            ##if set(new_process['squared_orders'].values()) == set([0,]):
+                            # MZ this may not be optimal, but keep for the moment
+                            new_process['squared_orders'] = {}
+                            #print('1 : ' + str(leglist))
+                            new_leglist = copy.copy(leglist_ij)
+                            #print('2 : ' + str(new_leglist))
+                            new_leglist[min([leglist_ij.index(ij), leglist_ij.index(k)])] = ijk
+                            #print('3 : ' + str(new_leglist))
+                            new_leglist.pop(max([leglist_ij.index(ij), leglist_ij.index(k)]))
+                            #print('4 : ' + str(new_leglist))
+                            new_process['legs'] = new_leglist
+                            #print('new_leglist from ijk: ' + str(new_leglist))
+                            if diagram_generation.Amplitude(new_process).get('diagrams'):
+                                fks_k_ij[ij.get('number')].append(k.get('number'))
+                                a_sector = {
+                                    'sector': None,
+                                    'counterterms': None,
+                                    'integrated_counterterms': None,
+                                    'recoiler' : None
+                                }
+                                a_sector['sector'] = sectors.Sector(leg_numbers=(ij.get('number'), k.get('number')))
+                                # TODO: define recoiler 
+                                a_sector['recoiler'] = None
+                                #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
+                                #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                                #print('Leg number : ' + str(a_sector['sector']))
+                                #gl
+                                all_sector_legs.append(ij.get('number'))
+                                all_sector_legs.append(k.get('number'))
+                                # keep track of the masses
+                                a_sector['sector'].masses = (model.get('particle_dict')[ij.get('id')]['mass'],
+                                                     model.get('particle_dict')[k.get('id')]['mass'])
+                                #print('Masses : ' + str(a_sector['sector'].masses))
+# gl
+                                # keep track of the particles' identity
+                                a_sector['sector'].id = (ij.get('id'), k.get('id'))
+                                all_sector_id_legs.append(ij.get('id'))
+                                all_sector_id_legs.append(k.get('id'))
+                                #print('Identities : ' + str(a_sector['sector'].id))
+
+                                all_sectors.append(a_sector)
+
+                        #threep_sectors.append([i.get('number'),j.get('number'),k.get('number')])
+                        #threep_sectors_id.append([i.get('id'),j.get('id'),k.get('id')])
+
+                        # TODO: remove redundant sectors; in the symmetrised case
+                        # Zijkl = ijkl + ijlk + jikl + jilk + klij + klji + lkij + lkji
+                        tmp_sector = [i.get('number'),j.get('number'),k.get('number')]
+                        tmp_sector_id = [i.get('id'),j.get('id'),k.get('id')]
+
+                        if len(threep_sectors) == 0 or tmp_sector not in combs:
+                            threep_sectors.append(tmp_sector)
+                            threep_sectors_id.append(tmp_sector_id)
+                            combs.append([i.get('number'),j.get('number'),k.get('number')])     #ijk
+                            combs.append([i.get('number'),k.get('number'),j.get('number')])     #ikj
+                            combs.append([j.get('number'),i.get('number'),k.get('number')])     #jik
+                            combs.append([j.get('number'),k.get('number'),i.get('number')])     #jki
+                            combs.append([k.get('number'),i.get('number'),j.get('number')])     #kij
+                            combs.append([k.get('number'),j.get('number'),i.get('number')])     #kji
+                                
+                        elif tmp_sector in combs:
+                            continue
+
+        print('3p sectors : ' + str(threep_sectors))
+        print('3p sectors id. : ' + str(threep_sectors_id))
+
+
 
         ####################################################
-
 
         # 4-particle sectors: NLO x NLO case
         fks_j_from_i = {}
@@ -258,6 +414,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                                fks_common.to_fks_leg(l, model),
                                                model, pert_dict)
 
+                        if len(kllist)==0:
+                            continue
+
                         for kl in kllist:
                             # copy the defining process, remove i and j
                             # and replace them by ij.
@@ -302,9 +461,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                                 all_sectors.append(a_sector)
                                 logger.info('Second part of 4p NNLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
-
-                        if len(kllist)==0:
-                            continue 
+ 
 
                         # TODO: remove redundant sectors; in the symmetrised case
                         # Zijkl = ijkl + ijlk + jikl + jilk + klij + klji + lkij + lkji

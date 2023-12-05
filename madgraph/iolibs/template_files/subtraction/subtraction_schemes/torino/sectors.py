@@ -376,6 +376,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     new_leglist[min([leglist.index(i), leglist.index(j)])] = ij
                     new_leglist.pop(max([leglist.index(i), leglist.index(j)]))
                     new_process['legs'] = new_leglist
+                    #print('new_leglist NLO : ' + str(new_leglist))
                     if diagram_generation.Amplitude(new_process).get('diagrams'):
                         fks_j_from_i[i.get('number')].append(j.get('number'))
                         a_sector = {

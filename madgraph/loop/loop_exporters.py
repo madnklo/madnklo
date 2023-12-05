@@ -881,6 +881,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         tmp_genps = "genps.inc"
         tmp_decayBW = "decayBW.f"
         tmp_leshouche = "leshouche.f"
+        tmp_channels = "channels.txt"
         os.chdir(owd)
         for i in range(0,len(tmp_leg_PDGs)):
             os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
@@ -891,6 +892,12 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         os.symlink(dirpathBorn + '/%s' % tmp_genps, os.getcwd() + '/%s' % tmp_genps)
         os.symlink(dirpathBorn + '/%s' % tmp_decayBW, os.getcwd() + '/%s' % tmp_decayBW)
         os.symlink(dirpathBorn + '/%s' % tmp_leshouche, os.getcwd() + '/%s' % tmp_leshouche)
+        os.symlink(dirpathBorn + '/%s' % tmp_channels, os.getcwd() + '/%s' % tmp_channels)
+
+        # Copy ajob_template_v into the proc_dir
+        cp(pjoin(os.getcwd(),'../../../../Template/Fortran_tmp/src_to_common/ajob_template_virtual'),pjoin(os.getcwd(),'ajob1'))
+
+
     #gl
     def link_files_common_directory(self):
 

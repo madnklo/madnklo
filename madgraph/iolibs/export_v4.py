@@ -756,6 +756,26 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         writer.writelines(file)
 
         return True
+    
+
+
+
+    #===========================================================================
+    # write_channels.txt_file
+    #===========================================================================
+    def write_nchannels_file(self, writer, nconfigs):
+        """Write the channels.txt file for MG4. Needs input from
+        write_configs_file."""
+        file = " "
+        
+        for i in range(nconfigs):
+            i=i+1
+            file = file + " %d" % i
+        
+        # Write the file
+        writer.writelines(file)
+
+        return True
 
 
     #===========================================================================
@@ -2812,7 +2832,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         proc_prefix_born=matrix_element.get('processes')[0].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         
+
+        filename = pjoin(dirpath,'channels.txt')
+        self.write_nchannels_file(writers.FortranWriter(filename),
+                           len(matrix_element.get_all_amplitudes()))
         
+
+
         
         linkfiles = ['check_sa.f']
         user_linkfiles = [] 
@@ -2825,6 +2851,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
             filename = pjoin(dirpath, 'ngraphs.inc')
             self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
@@ -4497,6 +4524,7 @@ class ProcessExporterFortranMW(ProcessExporterFortran):
         filename = pjoin(dirpath, 'ngraphs.inc')
         self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
+                           
 
         filename = pjoin(dirpath, 'maxamps.inc')
         self.write_maxamps_file(writers.FortranWriter(filename),

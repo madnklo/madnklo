@@ -1305,10 +1305,10 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
 
 
         contr_dir = [d for d in \
-                open(pjoin(self.me_dir, 'SubProcesses', 'contributions.mg')).read().split('\n') if d]
+                open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
 
         p_dirs = [d for d in \
-                open(pjoin(self.me_dir, 'SubProcesses', 'subproc.mg')).read().split('\n') if d]
+                open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
         #Clean previous results
         self.clean_previous_results(options,p_dirs,folder_names[mode])
 
@@ -1336,6 +1336,7 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
             integration_step=-1
             jobs_to_run,jobs_to_collect,integration_step = self.create_jobs_to_run(options,p_dirs, \
                                 req_acc,mode_dict[mode],integration_step,mode,fixed_order=True)
+            
             self.prepare_directories(jobs_to_run,mode)
 
             # loop over the integration steps. After every step, check
@@ -1344,7 +1345,9 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
             while True:
                 integration_step=integration_step+1
                 self.run_all_jobs(jobs_to_run,integration_step)
+                #print(jobs_to_run['dirname'],'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
                 self.collect_log_files(jobs_to_run,integration_step)
+                
                 jobs_to_run,jobs_to_collect=self.collect_the_results(options,req_acc,jobs_to_run, \
                                   jobs_to_collect,integration_step,mode,mode_dict[mode])
                 if not jobs_to_run:
@@ -1443,7 +1446,8 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
             niters = self.run_card['niters_FO_grid']
             for p_dir in p_dirs:
                 try:
-                    with open(pjoin(self.me_dir,'SubProcesses',p_dir,'channels.txt')) as chan_file:
+                    #with open(pjoin(self.me_dir,'SubProcesses',p_dir,'channels.txt')) as chan_file:
+                    with open(pjoin(self.me_dir,p_dir,'channels.txt')) as chan_file:
                         channels=chan_file.readline().split()
                 except IOError:
                     logger.warning('No integration channels found for contribution %s' % p_dir)
@@ -1497,12 +1501,14 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
         else:
             # if options['only_generation'] is true, just read the current jobs from file
             try:
-                with open(pjoin(self.me_dir,"SubProcesses","job_status.pkl"),'rb') as f:
+                #with open(pjoin(self.me_dir,"SubProcesses","job_status.pkl"),'rb') as f:
+                with open(pjoin(self.me_dir,p_dir,"job_status.pkl"),'rb') as f:
                     jobs_to_collect=pickle.load(f)
                 jobs_to_run=copy.copy(jobs_to_collect)
             except:
                 raise aMCatNLOError('Cannot reconstruct saved job status in %s' % \
-                                    pjoin(self.me_dir,'SubProcesses','job_status.pkl'))
+                                    #pjoin(self.me_dir,'SubProcesses','job_status.pkl'))
+                                    pjoin(self.me_dir,p_dir,'job_status.pkl'))
             # Update cross sections and determine which jobs to run next
             if fixed_order:
                 jobs_to_run,jobs_to_collect=self.collect_the_results(options,req_acc,jobs_to_run,
@@ -1610,7 +1616,8 @@ RESTART = %(mint_mode)s
                 arguments=[job['channel'],name_suffix[job['run_mode']], \
                                     str(job['split']),str(integration_step)]
             self.run_exe(executable,arguments,run_type,
-                         cwd=pjoin(self.me_dir,'SubProcesses',job['p_dir']))
+                         #cwd=pjoin(self.me_dir,'SubProcesses',job['p_dir']))
+                         cwd=pjoin(self.me_dir,job['p_dir']))
 
         if self.cluster_mode == 2:
             time.sleep(1) # security to allow all jobs to be launched
@@ -1939,6 +1946,7 @@ RESTART = %(mint_mode)s
         """
         err=self.cross_sect_dict['errt']
         tot=self.cross_sect_dict['xsect']
+        tot = tot+1e-8
         errABS=self.cross_sect_dict['erra']
         totABS=self.cross_sect_dict['xseca']
         jobs_new=[]
@@ -1958,7 +1966,7 @@ RESTART = %(mint_mode)s
                     raise aMCatNLOError('Cannot determine number of iterations and PS points '+
                                         'for integration step %i' % step )
             elif ( req_acc > 0 and err/tot > req_acc*1.2 ) or step <= 0:
-                req_accABS=req_acc*abs(tot)/totABS # overal relative required accuracy on ABS Xsec.
+                req_accABS=req_acc*abs(tot)/(totABS+1e-8) # overal relative required accuracy on ABS Xsec.
                 for job in jobs:
                     job['mint_mode']=-1
                     # Determine relative required accuracy on the ABS for this job
@@ -2370,22 +2378,25 @@ RESTART = %(mint_mode)s
     def collect_log_files(self, jobs, integration_step):
         """collect the log files and put them in a single, html-friendly file
         inside the Events/run_.../ directory"""
+        
         log_file = pjoin(self.me_dir, 'Events', self.run_name, 
                          'alllogs_%d.html' % integration_step)
+        
         outfile = open(log_file, 'w')
 
         content = ''
         content += '<HTML><BODY>\n<font face="courier" size=2>'
         for job in jobs:
             # put an anchor
-            log=pjoin(job['dirname'],'log_MINT%s.txt' % integration_step)
+            
+            log=pjoin(job['p_dir'],'log_MINT%s.txt' % integration_step)
             content += '<a name=%s></a>\n' % (os.path.dirname(log).replace(
                                           pjoin(self.me_dir,'SubProcesses'),''))
             # and put some nice header
             content += '<font color="red">\n'
             content += '<br>LOG file for integration channel %s, %s <br>' % \
                     (os.path.dirname(log).replace(pjoin(self.me_dir,
-                                                           'SubProcesses'), ''), 
+                                                           ), ''), 
                      integration_step)
             content += '</font>\n'
             #then just flush the content of the small log inside the big log
@@ -2487,17 +2498,17 @@ RESTART = %(mint_mode)s
             for obj in folder_name:
                 # list all the G* (or all_G* or born_G*) directories
                 to_rm = [file for file in \
-                             os.listdir(pjoin(self.me_dir, 'SubProcesses', dir)) \
+                             os.listdir(pjoin(self.me_dir, dir)) \
                              if file.startswith(obj[:-1]) and \
-                            (os.path.isdir(pjoin(self.me_dir, 'SubProcesses', dir, file)) or \
-                             os.path.exists(pjoin(self.me_dir, 'SubProcesses', dir, file)))] 
+                            (os.path.isdir(pjoin(self.me_dir, dir, file)) or \
+                             os.path.exists(pjoin(self.me_dir, dir, file)))] 
                 # list all the G*_* directories (from split event generation)
                 to_always_rm = [file for file in \
-                             os.listdir(pjoin(self.me_dir, 'SubProcesses', dir)) \
+                             os.listdir(pjoin(self.me_dir, dir)) \
                              if file.startswith(obj[:-1]) and
                              '_' in file and not '_G' in file and \
-                            (os.path.isdir(pjoin(self.me_dir, 'SubProcesses', dir, file)) or \
-                             os.path.exists(pjoin(self.me_dir, 'SubProcesses', dir, file)))]
+                            (os.path.isdir(pjoin(self.me_dir, dir, file)) or \
+                             os.path.exists(pjoin(self.me_dir, dir, file)))]
 
                 if not options['only_generation']:
                     to_always_rm.extend(to_rm)

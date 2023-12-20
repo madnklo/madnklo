@@ -761,6 +761,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    flag=False
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                         
@@ -773,13 +774,32 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                 Born_processes.append(uB_proc[j])
                                 path_Born_processes.append(dirpathLO)
                             break
-                        if j == len(uB_proc) - 1:
-                            extra_uB_proc = uB_proc[0]
-                            replace_dict_int_real['strUB'] = extra_uB_proc
-                            replace_dict_limits[tmp_proc] = extra_uB_proc
-                            overall_sector_info[i]['Born_str'] = extra_uB_proc
+                        else:
+                            list_proc=[]
+                            filepdg=pjoin(dirpathLO_head,'../SubProcesses/Born_PDGs.py')
+                            f=open(filepdg,"r")
+                            while(True):
+                                line=f.readline()
+                                if(line != ''):
+                                    list_proc.append(line)
+                                else:
+                                    break 
+                            f.close()
+                            for k in range(len(list_proc)):
+                                if(uB_proc[j] in list_proc[k]):
+                                    extra_uB_proc=uB_proc[j]    
+                            #extra_uB_proc = uB_proc[0]
+                                    replace_dict_int_real['strUB'] = extra_uB_proc
+                                    replace_dict_limits[tmp_proc] = extra_uB_proc
+                                    overall_sector_info[i]['Born_str'] = extra_uB_proc
+                                    flag=True 
+                                    break
+                            if(flag == True):
+                                break           
+                                  
+                            
                     
-
+            
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
             # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))

@@ -12,7 +12,7 @@
       integer ndim,i,j,idum
       integer isec,jsec
       double precision s_had
-      integer iu,iu1,iu7,iu8
+      integer iu,iu1,iu7,iu8,iu9
       common/cdim/ndim
       double precision int_real_%(isec)d_%(jsec)d
       double precision err_r,res_r
@@ -63,6 +63,7 @@ c     initialise physics parameters and set sector parametrisation
       iu=55
       iu7=77
       iu8=88
+      iu9=99
 c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
@@ -81,10 +82,11 @@ c     initialise histograms and open output files
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')
       open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
+      open(unit=iu9,file='chan_R_%(isec)d_%(jsec)d.log')
       open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
       line='=================================================='
-      write(iu,*)' Real contribution '
-      write(iu,*)
+      write(iu9,*)' Real contribution '
+c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
@@ -113,7 +115,7 @@ c     main loop over channels
          doplot=.false.
          nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth1
+         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth1
 c
          write(*,*)'Real %(isec)d%(jsec)d for channel',ich
          write(iu7,*)'Failures for R%(isec)d%(jsec)d, channel',ich
@@ -128,8 +130,8 @@ c
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
-         write(iu,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
-         write(iu,*)
+         write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
+         write(iu9,*)
 c     
          write(*,*)'...done'
       enddo
@@ -137,17 +139,18 @@ c
 c     finalise histograms and output files
       sum_err_r = dsqrt(sum_err_r)      
       call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       write(iu,*)' sigma R%(isec)d%(jsec)d [pb]  = ',sum_r,' +-',sum_err_r
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       close(iu)
       close(iu1)
       close(iu7)
       close(iu8)
+      close(iu9)
 c
       stop
       end

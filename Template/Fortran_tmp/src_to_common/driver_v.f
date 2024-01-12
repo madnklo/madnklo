@@ -11,7 +11,7 @@
       parameter(mxdim=30)
       integer ndim,i,j,idum
       double precision s_had
-      integer iu,iu1,iu2,iu7
+      integer iu,iu1,iu2,iu7,iu8
       common/cdim/ndim
       double precision int_virtual
       double precision res_V,err_V
@@ -62,6 +62,7 @@ c     initialise physics parameters
       iu2=50
       iu=55
       iu7=77
+      iu8=88
 c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
@@ -78,10 +79,11 @@ c     initialise histograms and open output files
       open(unit=iu1,file='integration_V.log')
       open(unit=iu2,file='test_poles_V.log')
       open(unit=iu7,file='failures_V.log')
+      open(unit=iu8,file='V_chan.log')
       open(unit=iu,file='results_V.log')
       line='=================================================='
-      write(iu,*)' Virtual contribution '
-      write(iu,*)
+c      write(iu,*)' Virtual contribution '
+c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
@@ -112,7 +114,7 @@ c     main loop over channels
          nclVth1=max(1000,int(nclVth*err_v_a(ich)/sum_err_v_a))
          call vegas(region,ndim,int_virtual,init,nclVth1,nitVth,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu,*)'V warmup: channel, itns, calls = ',ich,nitVth,nclVth1
+c         write(iu,*)'V warmup: channel, itns, calls = ',ich,nitVth,nclVth1
 c
          write(*,*)'Virtual for channel',ich
          write(iu7,*)'Failures for virtual, channel',ich
@@ -125,13 +127,13 @@ c
          nclV1=max(1000,int(nclV*err_v_a(ich)/sum_err_v_a))
          call vegas(region,ndim,int_virtual,init,nclV1,nitV,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu,*)'V: channel, itns, calls = ',ich,nitV,nclV1
+         write(iu8,*)'V: channel, itns, calls = ',ich,nitV,nclV1
          rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
          sum_v = sum_v + res_v
          sum_err_v = sum_err_v + err_v**2
-         write(iu,*)' sigma V [pb], channel',ich,' = ',
+         write(iu8,*)' sigma V [pb], channel',ich,' = ',
      &   res_v,' +-',err_v
-         write(iu,*)
+c         write(iu,*)
 c     
          write(*,*)'...done'
       enddo
@@ -139,17 +141,18 @@ c
 c     finalise histograms and output files
       sum_err_v = dsqrt(sum_err_v)      
       call histo_final('plot_V.dat',rescale_plot_V)
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       write(iu,*)' sigma V [pb]  = ',sum_v,' +-',sum_err_v
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       close(iu)
       close(iu1)
       close(iu2)
       close(iu7)
+      close(iu8)
 c
       stop
       end

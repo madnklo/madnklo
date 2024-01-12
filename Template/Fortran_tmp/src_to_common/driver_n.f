@@ -11,7 +11,7 @@
       parameter(mxdim=30)
       integer ndim,i,j,idum
       double precision s_had
-      integer iu,iu1,iu7
+      integer iu,iu1,iu7,iu8
       common/cdim/ndim
       double precision int_Born
       double precision res_B,err_B
@@ -61,6 +61,7 @@ c     initialise physics parameters
       iu1=44
       iu=55
       iu7=77
+      iu8=88
 c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
@@ -76,10 +77,11 @@ c     initialise histograms and open output files
       call histo_init
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log')
+      open(unit=iu8 ,file='B_chan.log')
       open(unit=iu ,file='results_B.log')
       line='=================================================='
-      write(iu,*)' Born contribution '
-      write(iu,*)
+c      write(iu,*)' Born contribution '
+c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
@@ -110,7 +112,7 @@ c     main loop over channels
          nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
          call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
+         write(iu8,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
 c
          write(*,*)'Born for channel',ich
          write(iu7,*)'Failures for Born, channel',ich
@@ -123,13 +125,13 @@ c
          nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu,*)'B: channel, itns, calls = ',ich,nitB,nclB1
+         write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          sum_b = sum_b + res_b
          sum_err_b = sum_err_b + err_b**2
-         write(iu,*)' sigma B [pb], channel',ich,' = ',
+         write(iu8,*)' sigma B [pb], channel',ich,' = ',
      &   res_b,' +-',err_b
-         write(iu,*)
+         write(iu8,*)
 c     
          write(*,*)'...done'
       enddo
@@ -137,13 +139,13 @@ c
 c     finalise histograms and output files
       sum_err_b = dsqrt(sum_err_b)
       call histo_final('plot_B.dat',rescale_plot_B)
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_err_b
-      write(iu,*)
-      write(iu,*)' '//line
-      write(iu,*)
+c      write(iu,*)
+c      write(iu,*)' '//line
+c      write(iu,*)
       close(iu)
       close(iu1)
       close(iu7)

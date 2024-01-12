@@ -1347,7 +1347,7 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
                 self.run_all_jobs(jobs_to_run,integration_step)
                 #print(jobs_to_run['dirname'],'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
                 self.collect_log_files(jobs_to_run,integration_step)
-                
+                #print('GIOVANNIQUIIII', jobs_to_collect)
                 jobs_to_run,jobs_to_collect=self.collect_the_results(options,req_acc,jobs_to_run, \
                                   jobs_to_collect,integration_step,mode,mode_dict[mode])
                 if not jobs_to_run:
@@ -1646,20 +1646,27 @@ RESTART = %(mint_mode)s
 # Combine grids from split fixed order jobs
         if fixed_order:
             jobs_to_run=self.combine_split_order_run(jobs_to_run)
+
+
 # Set-up jobs for the next iteration/MINT step
         jobs_to_run_new=self.update_jobs_to_run(req_acc,integration_step,jobs_to_run,fixed_order)
+
+    #GIOVANNI 
+        jobs_to_run_new=[]
         # IF THERE ARE NO MORE JOBS, WE ARE DONE!!!
         if fixed_order:
             # Write the jobs_to_collect directory to file so that we
             # can restart them later (with only-generation option)
             with open(pjoin(self.me_dir,"SubProcesses","job_status.pkl"),'wb') as f:
                 pickle.dump(jobs_to_collect,f)
+            return jobs_to_run_new,jobs_to_collect    
 # Print summary
         if (not jobs_to_run_new) and fixed_order:
             # print final summary of results (for fixed order)
-            scale_pdf_info=self.collect_scale_pdf_info(options,jobs_to_collect)
-            self.print_summary(options,integration_step,mode,scale_pdf_info,done=True)
+            # scale_pdf_info=self.collect_scale_pdf_info(options,jobs_to_collect)
+            # self.print_summary(options,integration_step,mode,scale_pdf_info,done=True)
             return jobs_to_run_new,jobs_to_collect
+        
         elif jobs_to_run_new:
             # print intermediate summary of results
             scale_pdf_info=[]
@@ -1682,10 +1689,10 @@ RESTART = %(mint_mode)s
             self.write_nevents_unweighted_file(jobs_to_collect_new,jobs_to_collect)
             self.write_nevts_files(jobs_to_run_new)
         else:
-            if fixed_order and self.run_card['iappl'] == 0 \
-               and self.run_card['req_acc_FO'] > 0:
-                jobs_to_run_new,jobs_to_collect= \
-                    self.split_jobs_fixed_order(jobs_to_run_new,jobs_to_collect)
+            # if fixed_order and self.run_card['iappl'] == 0 \
+            #    and self.run_card['req_acc_FO'] > 0:
+                #jobs_to_run_new,jobs_to_collect= \
+                #    self.split_jobs_fixed_order(jobs_to_run_new,jobs_to_collect)
             self.prepare_directories(jobs_to_run_new,mode,fixed_order)
             jobs_to_collect_new=jobs_to_collect
         return jobs_to_run_new,jobs_to_collect_new
@@ -1853,7 +1860,10 @@ RESTART = %(mint_mode)s
             nb_submit =1 
         # total expected aggregated running time
         time_expected=0
+        #TO DO GIOVANNI
         for job in jobs_to_run:
+            
+            
             time_expected+=job['time_spend']*(job['niters']*job['npoints'])/  \
                            (job['niters_done']*job['npoints_done'])
         # this means that we must expect the following per job (in
@@ -1868,13 +1878,15 @@ RESTART = %(mint_mode)s
             for j in filter(lambda j: j['p_dir'] == job['p_dir'] and \
                                 j['channel'] == job['channel'], jobs_to_collect_new):
                 jobs_to_collect_new.remove(j)
+            # TO DO GIOVANNI    
             time_expected=job['time_spend']*(job['niters']*job['npoints'])/  \
                            (job['niters_done']*job['npoints_done'])
             # if the time expected for this job is (much) larger than
             # the time spend in the previous iteration, and larger
             # than the expected time per job, split it
+            # TO DO GIOVANNI    
             if time_expected > max(2*job['time_spend']/job['combined'],time_per_job):
-                # determine the number of splits needed
+            #     # determine the number of splits needed
                 nsplit=min(max(int(time_expected/max(2*job['time_spend']/job['combined'],time_per_job)),2),nb_submit)
                 for i in range(1,nsplit+1):
                     job_new=copy.copy(job)
@@ -1970,26 +1982,28 @@ RESTART = %(mint_mode)s
                 for job in jobs:
                     job['mint_mode']=-1
                     # Determine relative required accuracy on the ABS for this job
-                    job['accuracy']=req_accABS*math.sqrt(totABS/job['resultABS'])
+                    #TO DO
+                    #job['accuracy']=req_accABS*math.sqrt(totABS/job['resultABS'])
                     # If already accurate enough, skip the job (except when doing the first
                     # step for the iappl=2 run: we need to fill all the applgrid grids!)
-                    if (job['accuracy'] > job['errorABS']/job['resultABS'] and step != 0) \
-                       and not (step==-1 and self.run_card['iappl'] == 2):
-                            continue
+                    # TO DO
+                    #if (job['accuracy'] > job['errorABS']/job['resultABS'] and step != 0) \
+                    #   and not (step==-1 and self.run_card['iappl'] == 2):
+                    #        continue
                     # Update the number of PS points based on errorABS, ncall and accuracy
-                    itmax_fl=job['niters_done']*math.pow(job['errorABS']/
-                                                         (job['accuracy']*job['resultABS']),2)
-                    if itmax_fl <= 4.0 :
-                        job['niters']=max(int(round(itmax_fl)),2)
-                        job['npoints']=job['npoints_done']*2
-                    elif itmax_fl > 4.0 and itmax_fl <= 16.0 :
-                        job['niters']=4
-                        job['npoints']=int(round(job['npoints_done']*itmax_fl/4.0))*2
-                    else:
-                        if itmax_fl > 100.0 : itmax_fl=50.0
-                        job['niters']=int(round(math.sqrt(itmax_fl)))
-                        job['npoints']=int(round(job['npoints_done']*itmax_fl/
-                                                 round(math.sqrt(itmax_fl))))*2
+                    # itmax_fl=job['niters_done']*math.pow(job['errorABS']/
+                    #                                      (job['accuracy']*job['resultABS']),2)
+                    # if itmax_fl <= 4.0 :
+                    #     job['niters']=max(int(round(itmax_fl)),2)
+                    #     job['npoints']=job['npoints_done']*2
+                    # elif itmax_fl > 4.0 and itmax_fl <= 16.0 :
+                    #     job['niters']=4
+                    #     job['npoints']=int(round(job['npoints_done']*itmax_fl/4.0))*2
+                    # else:
+                    #     if itmax_fl > 100.0 : itmax_fl=50.0
+                    #     job['niters']=int(round(math.sqrt(itmax_fl)))
+                    #     job['npoints']=int(round(job['npoints_done']*itmax_fl/
+                    #                              round(math.sqrt(itmax_fl))))*2
                     # Add the job to the list of jobs that need to be run
                     jobs_new.append(job)
             return jobs_new
@@ -2042,11 +2056,34 @@ RESTART = %(mint_mode)s
     def append_the_results(self,jobs,integration_step):
         """Appends the results for each of the jobs in the job list"""
         error_found=False
+        
+        
         for job in jobs:
+            res=[]
+            tmp_res=0
+            tmp_err=0
             try:
                 if integration_step >= 0 :
-                    with open(pjoin(job['dirname'],'res_%s.dat' % integration_step)) as res_file:
-                        results=res_file.readline().split()
+                    #GIOOOOOOOOOOOOOOOOOOOOO
+                    list_files=os.listdir(job['p_dir'])
+                    for files in list_files:
+                        if('result' in files):
+                            res.append(files)
+                    for files in res:
+                        
+                        with open(pjoin(job['p_dir'],files)) as res_file:
+                    #with open(pjoin(job['dirname'],'res_%s.dat' % integration_step)) as res_file:
+                                
+                            results=res_file.readline().split()
+                            
+                            #if(len(res)>1):
+                            tmp_res=tmp_res+float(results[-3])
+                            #else:
+                            #    tmp_res=float(results[-3])
+                            tmp_err=tmp_err+math.pow(float(results[-1]),2)
+                    
+                        
+                                
                 else:
                 # should only be here when doing fixed order with the 'only_generation'
                 # option equal to True. Take the results from the final run done.
@@ -2056,17 +2093,23 @@ RESTART = %(mint_mode)s
                 if not error_found:
                     error_found=True
                     error_log=[]
-                error_log.append(pjoin(job['dirname'],'log.txt'))
-                continue
-            job['resultABS']=float(results[0])
-            job['errorABS']=float(results[1])
-            job['result']=float(results[2])
-            job['error']=float(results[3])
-            job['niters_done']=int(results[4])
-            job['npoints_done']=int(results[5])
-            job['time_spend']=float(results[6])
-            job['err_percABS'] = job['errorABS']/job['resultABS']*100.
-            job['err_perc'] = job['error']/job['result']*100.
+                #error_log.append(pjoin(job['dirname'],'log.txt'))
+                error_log.append(pjoin(job['p_dir'],'log.txt'))
+                continue        
+            
+            # job['resultABS']=float(results[0])
+            # job['errorABS']=float(results[1])
+            # job['result']=float(results[2])
+            # job['error']=float(results[3])
+            # job['niters_done']=int(results[4])
+            # job['npoints_done']=int(results[5])
+            # job['time_spend']=float(results[6])
+            # job['err_percABS'] = job['errorABS']/job['resultABS']*100.
+            # job['err_perc'] = job['error']/job['result']*100.
+            job['result']=tmp_res
+            job['error']=math.sqrt(tmp_err)
+            
+            
         if error_found:
             raise aMCatNLOError('An error occurred during the collection of results.\n' + 
                    'Please check the .log files inside the directories which failed:\n' +
@@ -2076,23 +2119,36 @@ RESTART = %(mint_mode)s
 
     def write_res_txt_file(self,jobs,integration_step):
         """writes the res.txt files in the SubProcess dir"""
-        jobs.sort(key = lambda job: -job['errorABS'])
+        #jobs.sort(key = lambda job: -job['errorABS'])
         content=[]
         content.append('\n\nCross section per integration channel:')
         for job in jobs:
-            content.append('%(p_dir)20s  %(channel)15s   %(result)10.8e    %(error)6.4e       %(err_perc)6.4f%%  ' %  job)
+            #content.append('%(p_dir)20s  %(channel)15s   %(result)10.8e    %(error)6.4e       %(err_perc)6.4f%%  ' %  job)
+            content.append('%(p_dir)20s  %(channel)15s   %(result)10.8e    %(error)6.4e' %  job)
         content.append('\n\nABS cross section per integration channel:')
-        for job in jobs:
-            content.append('%(p_dir)20s  %(channel)15s   %(resultABS)10.8e    %(errorABS)6.4e       %(err_percABS)6.4f%%  ' %  job)
+
+        
+       
+        #for job in jobs:
+        #    content.append('%(p_dir)20s  %(channel)15s   %(resultABS)10.8e    %(errorABS)6.4e       %(err_percABS)6.4f%%  ' %  job)
         totABS=0
         errABS=0
         tot=0
         err=0
         for job in jobs:
-            totABS+= job['resultABS']*job['wgt_frac']
-            errABS+= math.pow(job['errorABS'],2)*job['wgt_frac']
+            #totABS+= job['resultABS']*job['wgt_frac']
+            #errABS+= math.pow(job['errorABS'],2)*job['wgt_frac']
             tot+= job['result']*job['wgt_frac']
             err+= math.pow(job['error'],2)*job['wgt_frac']
+            
+            
+            
+            # totABS+= job['resultABS']*job['wgt_frac']
+            # errABS+= math.pow(job['errorABS'],2)*job['wgt_frac']
+            # tot+= job['result']*job['wgt_frac']
+            # err+= math.pow(job['error'],2)*job['wgt_frac']
+        totABS=tot
+        errABS=err    
         if jobs:
             content.append('\nTotal ABS and \nTotal: \n                      %10.8e +- %6.4e  (%6.4e%%)\n                      %10.8e +- %6.4e  (%6.4e%%) \n' %\
                            (totABS, math.sqrt(errABS), math.sqrt(errABS)/totABS *100.,\
@@ -2100,6 +2156,7 @@ RESTART = %(mint_mode)s
         with open(pjoin(self.me_dir,'SubProcesses','res_%s.txt' % integration_step),'w') as res_file:
             res_file.write('\n'.join(content))
         randinit=self.get_randinit_seed()
+
         return {'xsect':tot,'xseca':totABS,'errt':math.sqrt(err),\
                 'erra':math.sqrt(errABS),'randinit':randinit}
         
@@ -2272,10 +2329,16 @@ RESTART = %(mint_mode)s
         command =  []
         command.append(pjoin(self.me_dir, 'bin', 'internal','histograms.py'))
         for job in jobs:
-            if job['dirname'].endswith('.HwU'):
+            #if job['dirname'].endswith('.HwU'): GIOVANNI
+            if job['p_dir'].endswith('.dat'):
                 command.append(job['dirname'])
             else:
-                command.append(pjoin(job['dirname'],'MADatNLO.HwU'))
+                #command.append(pjoin(job['dirname'],'MADatNLO.HwU'))
+                #command.append(pjoin(job['p_dir'],'MADatNLO.HwU'))
+                lsfiles=os.listdir(job['p_dir'])
+                for files in lsfiles:
+                    if('plot_R' in files):
+                        command.append(pjoin(job['p_dir'],files))
         command.append("--out="+out)
         command.append("--gnuplot")
         command.append("--band=[]")
@@ -2382,31 +2445,55 @@ RESTART = %(mint_mode)s
         log_file = pjoin(self.me_dir, 'Events', self.run_name, 
                          'alllogs_%d.html' % integration_step)
         
+        p_dirs = [d for d in \
+                open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
+        list_log = []
+        list_files=[]
+        res=[]
+        for dir in p_dirs:
+            list_files=os.listdir(dir)
+            for files in list_files:
+                if('result' in files):
+                    str_res=files
+                    res.append(str_res)
+
+
+        
+            
+               
         outfile = open(log_file, 'w')
 
         content = ''
         content += '<HTML><BODY>\n<font face="courier" size=2>'
         for job in jobs:
             # put an anchor
+            list_files=os.listdir(job['p_dir'])
+            for files in list_files:
+                if('result' in files):
+                    res.append(files)
+                    log=pjoin(job['p_dir'],files)
+                #log=pjoin(job['p_dir'],res[files])
+                
+                
+                #log=pjoin(job['p_dir'],'log_MINT%s.txt' % integration_step)
             
-            log=pjoin(job['p_dir'],'log_MINT%s.txt' % integration_step)
-            content += '<a name=%s></a>\n' % (os.path.dirname(log).replace(
+                    content += '<a name=%s></a>\n' % (os.path.dirname(log).replace(
                                           pjoin(self.me_dir,'SubProcesses'),''))
             # and put some nice header
-            content += '<font color="red">\n'
-            content += '<br>LOG file for integration channel %s, %s <br>' % \
-                    (os.path.dirname(log).replace(pjoin(self.me_dir,
+                    content += '<font color="red">\n'
+                    content += '<br>LOG file for integration channel %s, %s <br>' % \
+                        (os.path.dirname(log).replace(pjoin(self.me_dir,
                                                            ), ''), 
-                     integration_step)
-            content += '</font>\n'
+                        integration_step)
+                    content += '</font>\n'
             #then just flush the content of the small log inside the big log
             #the PRE tag prints everything verbatim
-            with open(log) as l:
-                content += '<PRE>\n' + l.read() + '\n</PRE>'
-            content +='<br>\n'
-            outfile.write(content)
-            content=''
-
+                    with open(log) as l:
+                        content += '<PRE>\n' + l.read() + '\n</PRE>'
+                    content +='<br>\n'
+                    outfile.write(content)
+                    content=''
+        
         outfile.write('</font>\n</BODY></HTML>\n')
         outfile.close()
 

@@ -86,7 +86,7 @@ class AbstractRoutine(object):
     def write(self, output_dir, language='Fortran', mode='self', combine=True,**opt):
         """ write the content of the object """
         writer = aloha_writers.WriterFactory(self, language, output_dir, self.tag)
-        print(writer)
+        #print(writer)
         text = writer.write(mode=mode, **opt)
         #gl
         #print(language)

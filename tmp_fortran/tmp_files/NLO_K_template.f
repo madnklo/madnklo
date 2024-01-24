@@ -1,4 +1,4 @@
-      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,ZSi,ZSj,xj,xjB,x,KS,KHC,KNLO,ierr)
+      subroutine local_counter_NLO_%(isec)d_%(jsec)d(xs,xp,xsb,xpb,wgt,ZSi,ZSj,xj,xjB,x,KS,KHC,KNLO,wgt_chan,ierr)
 c     local NLO counterterm for sector [isec,jsec]
       implicit none
       include 'nexternal.inc'
@@ -13,7 +13,7 @@ c     local NLO counterterm for sector [isec,jsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision M2_S,M2_S_ALT
-      double precision KS,KHC,KNLO
+      double precision KS,KHC,KNLO,wgt_chan
       logical default_soft
       parameter(default_soft=.true.)
       %(str_defHC)s

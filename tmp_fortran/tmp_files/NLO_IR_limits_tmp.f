@@ -1,4 +1,4 @@
-      double precision function M2_S(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,ierr)
+      double precision function M2_S(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       implicit none
@@ -12,7 +12,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,Zsoft,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,Zsoft,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -138,7 +138,7 @@ c     damping factors
             M2_S=M2_S+pref*M2tmp*Zsoft*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit
+            wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
@@ -162,7 +162,7 @@ c
 
 
       
-      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,NIT,EXTRA,IERR)
+      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,NIT,EXTRA,wgt_chan,IERR)
 C     single-soft limit S_(i) * Zsoft, mapped as the collinear one
 C     it returns 0 if i is not a gluon
       IMPLICIT NONE
@@ -176,7 +176,7 @@ C     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INTEGER I,L,M,IB,IR,LB,MB,NIT,IERR,PARENT_LEG,idum
-      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,ZSOFT,XJ,XJB,EXTRA
+      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,wgt_chan,ZSOFT,XJ,XJB,EXTRA
       DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1)
       DOUBLE PRECISION BLO,CCBLO
       DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
@@ -295,7 +295,7 @@ C     apply flavour factor
       M2_S_ALT=M2_S_ALT*%(proc_prefix_real)s_fl_factor
 C         
 C     plot
-      WGTPL=-M2_S_ALT*WGT/NIT
+      WGTPL=-M2_S_ALT*WGT/NIT*wgt_chan
       IF(DOPLOT)CALL HISTO_FILL(XPB,XSB,NEXTERNAL-1,WGTPL)
 C     
 C     sanity check
@@ -310,7 +310,7 @@ C
       END
 
 
-      double precision function M2_H_C_FgFg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FgFg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib) - S_(ib)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -324,7 +324,7 @@ c     for sectors (ia,ib)+(ib,ia)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgtpl,xj,extra
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -418,7 +418,7 @@ c     apply flavour factor
       M2_H_C_FgFg=M2_H_C_FgFg*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFg*wgt/nit
+      wgtpl=-M2_H_C_FgFg*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -433,7 +433,7 @@ c
       end
   
                   
-      double precision function M2_H_C_FgFq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FgFq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -447,7 +447,7 @@ c     for sectors (ia,ib)+(ib,ia)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit
-      double precision pref,M2tmp,wgt,wgtpl,xj,extra
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -524,7 +524,7 @@ c     apply flavour factor
       M2_H_C_FgFq=M2_H_C_FgFq*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFq*wgt/nit
+      wgtpl=-M2_H_C_FgFq*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
@@ -539,7 +539,7 @@ c
       end
 
 
-      double precision function M2_H_C_FqFqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,ierr)
+      double precision function M2_H_C_FqFqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -553,7 +553,7 @@ c     for sectors (ia,ib)+(ib,ia)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgtpl,xj,extra
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -646,7 +646,7 @@ c     apply flavour factor
       M2_H_C_FqFqx=M2_H_C_FqFqx*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FqFqx*wgt/nit
+      wgtpl=-M2_H_C_FqFqx*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

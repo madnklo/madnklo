@@ -639,13 +639,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('if(default_soft)then\n')
-                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,ZSi,xj,xjB,nitR,1d0,ierr)\n')
-# ! KS=KS+M2_S2(ISEC,XS,XP,WGT,ZSI,XJ,XJB,x(1:3),NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S(isec,xs,xp,wgt,ZSi,xj,xjB,nitR,1d0,wgt_chan,ierr)\n')
+# ! KS=KS+M2_S2(ISEC,XS,XP,WGT,ZSI,XJ,XJB,x(1:3),NITR,1D0,wgt_chan,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('else\n')
-                list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-#                list_M2.append('KS=KS+M2_S_DIFF(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,X(1:3),NITR,1D0,IERR)\n')
+#                list_M2.append('KS=KS+M2_S_DIFF(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,X(1:3),NITR,1D0,wgt_chan,IERR)\n')
 #                list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('endif\n')
 
@@ -656,13 +656,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if id_jsec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % jsec)
                 list_M2.append('if(default_soft)then\n')
-                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,ierr)\n')
-# ! KS=KS+M2_S2(JSEC,XS,XP,WGT,ZSJ,XJ,XJB,x(1:3),NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n')
+# ! KS=KS+M2_S2(JSEC,XS,XP,WGT,ZSJ,XJ,XJB,x(1:3),NITR,1D0,wgt_chan,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('else\n')
-                list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,NITR,1D0,IERR)\n')
+                list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
                 list_M2.append('if(ierr.eq.1)goto 999\n')
-#                list_M2.append('KS=KS+M2_S_DIFF(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,X(1:3),NITR,1D0,IERR)\n')
+#                list_M2.append('KS=KS+M2_S_DIFF(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,X(1:3),NITR,1D0,wgt_chan,IERR)\n')
 #                list_M2.append('if(ierr.eq.1)goto 999\n')
                 list_M2.append('endif\n')
                 list_int_real.append('# call sector function ZSj\n')
@@ -676,13 +676,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     # Write an identified M2_H_C_F*F* for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
-                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
+                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFg')
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
+                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFq')
                     else:
-                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,ierr)\n')
+                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
                         list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
                     list_M2.append('if(ierr.eq.1)goto 999\n')
 

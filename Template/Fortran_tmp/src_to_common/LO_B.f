@@ -19,7 +19,7 @@ c     n-body LO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl
+      double precision wgt,wgts(1),wgtpl
       logical doplot
       common/cdoplot/doplot
       logical docut
@@ -90,7 +90,9 @@ c     apply flavour factor
       int_Born=int_Born * fl_factor
 c     plot
       wgtpl=int_Born*wgt/nitB
-      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
+      wgts(1)=wgtpl
+c      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
+      if(doplot)call analysis_fill(p,sLO,nexternal,wgts)
 c
 c     print out current run progress
 c 999  ievt=ievt+1

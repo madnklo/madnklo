@@ -444,15 +444,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 a_sector['recoiler'] = None
                                 #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                                 #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
-                                #print('Leg number : ' + str(a_sector['sector']))
-                                #gl
+ 
                                 all_sector_legs.append(k.get('number'))
                                 all_sector_legs.append(l.get('number'))
                                 # keep track of the masses
                                 a_sector['sector'].masses = (model.get('particle_dict')[k.get('id')]['mass'],
                                                      model.get('particle_dict')[l.get('id')]['mass'])
-                                #print('Masses : ' + str(a_sector['sector'].masses))
-# gl
                                 # keep track of the particles' identity
                                 a_sector['sector'].id = (k.get('id'), l.get('id'))
                                 all_sector_id_legs.append(k.get('id'))
@@ -489,8 +486,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         if not all_sectors:
             logger.critical('WARNING, no sectors found for %s' % defining_process.nice_string())
    
-        print('All sectors for NNLO : ' + str(fourp_sectors))
-        print('All sectors id for NNLO : ' + str(fourp_sectors_id))
+        print('All sectors for RR NNLO : ' + str(fourp_sectors))
+        print('All sectors id for RR NNLO : ' + str(fourp_sectors_id))
 
 
         # Now for each sector we need to find the corresponding counterterms

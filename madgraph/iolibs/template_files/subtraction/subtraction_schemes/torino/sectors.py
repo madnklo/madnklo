@@ -296,7 +296,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                 contrib_definition, defining_process, counterterms, integrated_counterterms)
             return
         elif str_contrib[0] == 'NNLO' and str_contrib[1] == 'RV':
-            return #TODO RV case
+            import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RV as sectors_for_RV
+            all_sectors = sectors_for_RV.SectorGeneratorRV().write_RV_templates(
+                                contrib_definition, defining_process, counterterms, integrated_counterterms)
+            return 
 
         model = defining_process.get('model')
         initial_state_PDGs, final_state_PDGs = defining_process.get_cached_initial_final_pdgs()

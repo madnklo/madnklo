@@ -27,7 +27,7 @@ c     (n+1)-body NLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl
+      double precision wgt,wgtpl,wgt_chan
       logical dotechcut
       double precision tinycut
       logical doplot
@@ -49,7 +49,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/iterations/nitr
       integer %(NLO_proc_str)sfl_factor 
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
-      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
+      double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
       integer ich
@@ -118,6 +118,11 @@ c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
       if(dotechcut(snlo,nexternal,tinycut)) goto 999
+C
+c     Call the Underlying Born matrix element to fill the amp2 array,
+c     in order to implement the multi channel
+      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
+      WGT_CHAN=AMP2(ICH)
 c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
@@ -150,14 +155,14 @@ c     full real in the combination of sectors
       int_real_no_cnt=RNLO*Z_NLO*xjac
 c
 c     plot real
-      wgtpl=int_real_no_cnt*wgt/nitR
+      wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan
       if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
  555  continue
 c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,ierr)
+      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
          write(77,*) 'Something wrong in the counterterm', KNLO
@@ -166,13 +171,7 @@ c     counterterm
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO
-
-
-c     Call the Underlying Born matrix element to fill the amp2 array,
-c     in order to implement the multi channel
-      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,ANS)
-      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*AMP2(ich)
-
+      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

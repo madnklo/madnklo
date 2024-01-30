@@ -2848,6 +2848,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
+        common_files+=['analysis_new.f', 'HwU.f']
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
                                      # For the NLO_XXXX we have a makefile for each Subprocess

@@ -74,7 +74,8 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      call histo_init
+c      call histo_init
+      call analysis_begin(1,'central')
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log')
       open(unit=iu8 ,file='B_chan.log')
@@ -138,7 +139,7 @@ c
 c
 c     finalise histograms and output files
       sum_err_b = dsqrt(sum_err_b)
-      call histo_final('plot_B.dat',rescale_plot_B)
+      call analysis_end('plot_B.dat',rescale_plot_B)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

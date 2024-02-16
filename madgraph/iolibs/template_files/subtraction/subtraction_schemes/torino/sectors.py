@@ -443,6 +443,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 s['counterterms'] = []
                 for i_ct, ct in enumerate(counterterms):
                     #print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
+                    #print('ct : ' + str(ct))
+                    #print('masses : ' + str(all_sector_mass_list))
                     current = ct.nodes[0].current
                     singular_structure = current.get('singular_structure').substructures[0]
                     all_legs = singular_structure.get_all_legs()
@@ -462,6 +464,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             necessary_ct[i+1] = ct
 
                     if singular_structure.name()=='C':
+                        if s['sector'].all_sector_mass_list[1] > 0:
+                            break
+
                         if not singular_structure.substructures:
                             # pure-collinear CT: include if the legs match those of the sector
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
@@ -486,6 +491,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
                 all_local_counterterms_list.append(s['counterterms'])
 
+            
+
             # index of necessary_ct_list    
             i += 5 
 
@@ -497,6 +504,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # is interpreted as all input mappings contributing, but for the sake of example here
                     # we list explicitly each index.
                     s['integrated_counterterms'][i_ct] = range(len(ct['input_mappings']))
+
+        print('necessary cts : ' + str(necessary_ct_list))  
 
 ######################################### Write fortran template files for n+1 body #############################################  
 
@@ -635,10 +644,22 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             sector_info['jsec'] = jsec
             sector_info['iref'] = iref
 
+
+            # default mapping for final-state collinear kernels (abc) == (ijr)
+            mapping = [('isec', isec), ('jsec', jsec), ('iref', iref)] 
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1]]
             
+            #specify (abc) mapping choice
+            mapping_str = """ \
+                iU = %s
+                iS = %s
+                iB = %s
+                iA = 1 ! default azimuth for NLO
+            """ % (mapping[0][0], mapping[1][0], mapping[2][0])
+            overall_sector_info.append(sector_info)
 
 
-            if necessary_ct_list[i*5] == 1:
+            if necessary_ct_list[i*5] == 1:   
                 if id_isec != 21:
                     raise MadEvent7Error('%d is not a gluon!' % isec)
                 list_M2.append('if(default_soft)then\n')
@@ -713,16 +734,17 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 overall_sector_info.append(sector_info)
                 
 
-                str_defHC = " ".join(list_str_defHC)
-                str_M2 = " ".join(list_M2)
-                str_int_real = " ".join(list_int_real)
-                replace_dict_ct['str_defHC'] = str_defHC
-                replace_dict_ct['str_M2'] = str_M2
-                replace_dict_int_real['str_int_real'] = str_int_real 
-                replace_dict_int_real['NLO_process'] =  str(defining_process.shell_string(schannel=True, 
+            # outside loop on necessary_ct_list   
+            str_defHC = " ".join(list_str_defHC)
+            replace_dict_ct['str_defHC'] = str_defHC 
+            str_M2 = " ".join(list_M2)
+            str_int_real = " ".join(list_int_real)
+            replace_dict_ct['str_M2'] = str_M2
+            replace_dict_int_real['str_int_real'] = str_int_real 
+            replace_dict_int_real['NLO_process'] =  str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
-                replace_dict_int_real['mapping_str'] = mapping_str       
-                replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+            replace_dict_int_real['mapping_str'] = mapping_str       
+            replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
                 
             if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:

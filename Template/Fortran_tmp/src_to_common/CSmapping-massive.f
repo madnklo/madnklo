@@ -143,8 +143,8 @@ c     Boost back
       if(ierr.eq.1)goto 999
 c
 c     construct p from pbar
-      p(:,iB)=(1d0-yCS)*pbBsave(:)
-      p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
+c      p(:,iB)=(1d0-yCS)*pbBsave(:)
+c      p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
 
 c      lam2=(2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2
       lam2 = lambda(Q2,mb2+sdip*yCS,mc2)

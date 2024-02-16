@@ -199,7 +199,7 @@ c
       integer mapped_labels(npart),mapped_flavours(npart)
 c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
-      double precision lam1,lam2,mS2,mB2
+      double precision lam1,lam2,mS2,mB2,miUiS
       double precision lambda
 
 c
@@ -217,7 +217,10 @@ c     &         dot(p(0,iS),p(0,iB))) + mS2 + mB2
       yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
 
       lam1 = lambda(Qsq,mB2,mS2)
-      lam2 = lambda(Qsq,dot(p(0,iU)+p(0,iS),p(0,iU)+p(0,iS)),mB2)
+c     miUiS is the invariant mass of (p(:,iU)+p(:,iS))
+      miUiS = dot(p(0,iU),p(0,iU))+dot(p(0,iS),p(0,iS))
+     $     +2d0*dot(p(0,iU),p(0,is))
+      lam2 = lambda(Qsq,miUiS,mB2)
 c
 c     construct pbar from p
       call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,

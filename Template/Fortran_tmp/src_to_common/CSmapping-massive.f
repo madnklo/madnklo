@@ -25,8 +25,9 @@ c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
       integer idum
       common/rand/idum
-      double precision yplus,zminus,zplus
+      double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
+      double precision vel
 c
 c     initialise
       xjac=1d0
@@ -249,15 +250,6 @@ c      xjac=GG*Qsq*pi*(1-yCS)
 c
       return
  999  xjac=0d0
-      end
-
-
-      double precision function lambda(a,b,c)
-      implicit none
-      double precision a,b,c
-
-      lambda=a**2+b**2+c**2-2d0*a*b-2d0*b*c-2d0*a*c
-      
       end
 
 

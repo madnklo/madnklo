@@ -464,7 +464,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             necessary_ct[i+1] = ct
 
                     if singular_structure.name()=='C':
-                        if s['sector'].all_sector_mass_list[1] > 0:
+                        if s['sector'].all_sector_mass_list[1][-1] != 'ZERO':
+                            print(str(s['sector'].all_sector_mass_list))
+                            print(s['sector'].all_sector_mass_list[1][-1])
                             break
 
                         if not singular_structure.substructures:
@@ -724,14 +726,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #if str_cts[i*10+8] == 1:
             #    str_M2.append('')
 
-                #specify (abc) mapping choice
-                mapping_str = """ \
-                    iU = %s
-                    iS = %s
-                    iB = %s
-                    iA = 1 ! default azimuth for NLO
-                """ % (mapping[0][0], mapping[1][0], mapping[2][0])
-                overall_sector_info.append(sector_info)
+            #    #specify (abc) mapping choice
+            #    mapping_str = """ \
+            #        iU = %s
+            #        iS = %s
+            #        iB = %s
+            #        iA = 1 ! default azimuth for NLO
+            #    """ % (mapping[0][0], mapping[1][0], mapping[2][0])
+            #    overall_sector_info.append(sector_info)
                 
 
             # outside loop on necessary_ct_list   
@@ -877,8 +879,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # check on overall_sector_info lenght
         if len(overall_sector_info) != len(all_sector_list):
-            raise MadEvent7Error('WARNING, the list of sector-dictionary entries \
-                                    is not compatible with the total number of sectors!')
+            raise MadEvent7Error('WARNING, the list of sector-dictionary entries is not compatible with the total number of sectors!')
 
 
 ######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc

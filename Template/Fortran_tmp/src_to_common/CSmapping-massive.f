@@ -65,7 +65,7 @@ c     for massive emitter and massive recoiler
       
       Q2 = dot(pboost(:),pboost(:))
       sdip = Q2-mb2-mc2
-      yplus = 1d0 + 2d0*mc2/sdip-(2d0*dsqrt(mc2*(sdip+mb2+mc2)))/sdip
+      yplus = 1d0 + 2d0*mc2/sdip-(2d0*dsqrt(abs(mc2*(sdip+mb2+mc2))))/sdip
       yCS = xx(1)*yplus
       xjac = xjac*yplus
       vel = dsqrt((2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2)/sdip/(1d0-yCS)
@@ -170,9 +170,8 @@ c     consistency check
       enddo
 c
 c     construct xjac
-c      GG=1d0/16d0/pi**3
-c      xjac=GG*(4d0*pmod**2)*pi*(1-yCS)
-      xjac = xjac * (sdip**2*(1d0-yCS))/(16d0*dsqrt(lam1)*Pi**2)
+c     total jac = J_para*s**2(1-yCS)/(4*(2*pi)**3*sqrt(lam1))
+      xjac = xjac * (sdip**2*(1d0-yCS))/(4d0*dsqrt(lam1)*(2d0*Pi)**3)
 c
       return
  999  xjac=0d0

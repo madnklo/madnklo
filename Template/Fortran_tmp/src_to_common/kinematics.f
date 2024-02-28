@@ -12,10 +12,11 @@ c     initialise
       ierr=0
 c
 c     build invariants from p
-      do i=1,nparticles-1
-         do j=i+1,nparticles
+      do i=1,nparticles
+         do j=1,nparticles
             xs(i,j)=2d0*dot(p(0,i),p(0,j))
             xs(j,i)=xs(i,j)
+c            if(i .eq. j) write(*,*) i, j, xs(i,j)
 c     safety measure
             if(xs(i,j).lt.0d0)then
                write(77,*)'invariants_from_p: '

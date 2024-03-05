@@ -25,9 +25,13 @@ c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
       integer idum
       common/rand/idum
+      double precision yplus,z_minus,z_plus
+      double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
+      double precision vel
+      double precision, parameter :: tinymass=1d-8
 c
 c     initialise
-      xjac=0d0
+      xjac=1d0
 c
 c     input check
       if(iU.eq.iS.or.iU.eq.iB.or.iU.eq.iA.or.
@@ -52,12 +56,7 @@ c     boost to CM of pbS+pbB
       if(ierr.eq.1)goto 999
       call boostinv(pA,pboost,pA,ierr)
       if(ierr.eq.1)goto 999
-c
-c     Catani-Seymour parametrisation
-      zCS =xx(1)
-      yCS =xx(2)
-      phCS=2d0*pi*xx(3)
-c
+
 c     rotate pA to the frame where p(iB) and pbar(iB) are along (0,0,-1)
       pmod=sqrt(pbB(1)**2+pbB(2)**2+pbB(3)**2)
       if(pmod.le.0d0)then
@@ -66,6 +65,50 @@ c     rotate pA to the frame where p(iB) and pbar(iB) are along (0,0,-1)
       endif
       nB=pbB/pmod
       call rotate_to_z(nB(1),pA(1),pAr(1))
+c
+
+
+
+      mb2 = dot(pbS(:),pbS(:))
+      mc2 = dot(pbB(:),pbB(:))
+
+      if(mb2 .gt. tinymass .or. mc2 .gt. tinymass) then
+c     Catani-Seymour parametrisation 
+c     for massive emitter and massive recoiler
+         Q2 = dot(pboost(:),pboost(:))
+         sdip = Q2-mb2-mc2
+         yplus = 1d0 + 2d0*mc2/sdip-(2d0*dsqrt(abs(mc2*(sdip+mb2+mc2))))/sdip
+         yCS = xx(1)*yplus
+         xjac = xjac*yplus
+         vel = dsqrt((2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2)/sdip/(1d0-yCS)
+         z_minus = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0-vel)
+         z_plus  = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0+vel)
+         zCS = z_minus + (z_plus - z_minus)*xx(2)
+         xjac = xjac*(z_plus - z_minus)
+         phCS=2d0*pi*xx(3)
+         xjac = xjac*2d0*pi
+         lam1=lambda(Q2,mb2,mc2)
+         lam2 = lambda(Q2,mb2+sdip*yCS,mc2)
+c        Eu is the energy of p(iU)
+         Eu=sdip*(1d0-(1d0-zCS)*(1d0-yCS))/2d0/dsqrt(Q2)
+         costhUB=(dsqrt(mc2 + pmod**2) - 
+     -        ((Eu*(sdip*(2*mc2 + sdip)*vel*(-1 + yCS) + 
+     -        dsqrt(lam1)*(2*mc2 + sdip - sdip*yCS)))
+     -        /(dsqrt(Q2)*sdip*(-1 + yCS)) + 
+     -        dsqrt(lam1)*zCS)/(2d0*Eu*vel))/pmod
+         sinthUB= dsqrt(abs(1d0-costhUB**2))
+      else
+c     Catani-Seymour parametrisation for massless case
+      zCS =xx(1)
+      yCS =xx(2)
+      phCS=2d0*pi*xx(3)
+      costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
+      sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))
+c
+c     Eu is the energy of p(iU)
+      Eu=pmod*(1d0-(1d0-yCS)*(1d0-zCS))
+      endif
+c
 c
 c     build NLO unbarred momenta from LO barred ones and from (zCS,yCS,phCS).
 c
@@ -96,11 +139,6 @@ c     namely the angle between p(iU) and p(iB)
          write(77,*)1d0-(1d0-yCS)*(1d0-zCS),yCS*zCS*(1d0-zCS),yCS,zCS
          goto 999
       endif
-      costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
-      sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))
-c
-c     Eu is the energy of p(iU)
-      Eu=pmod*(1d0-(1d0-yCS)*(1d0-zCS))
 c
 c     construct rotated prU
       pUr(1)= Eu*sinthUB*cosphiU
@@ -116,8 +154,30 @@ c     Boost back
       if(ierr.eq.1)goto 999
 c
 c     construct p from pbar
+
+      if(mb2 .gt. tinymass .or. mc2 .gt. tinymass) then
+c     CS massive mapping
+         p(:,iB)=dsqrt(lam2/lam1)*
+     $        (pbBsave(:)-(Q2+mc2-mb2)/2d0/Q2*pboost(:))+
+     $        (sdip*(1d0-yCS)+2d0*mc2)/2d0/Q2*pboost(:)
+      
+         p(:,iS)=pboost(:)-p(:,iU)-p(:,iB)
+c     construct xjac
+         
+         xjac = xjac * (sdip**2*(1d0-yCS))/(4d0*dsqrt(lam1)*(2d0*Pi)**3)
+         
+      else
+         
+c     CS massless mapping         
       p(:,iB)=(1d0-yCS)*pbBsave(:)
       p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
+      
+c     construct xjac
+      GG=1d0/16d0/pi**3
+      xjac=GG*(4d0*pmod**2)*pi*(1-yCS)
+
+      endif
+      
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
          p(:,j)=pbar(:,mapped_labels(j))
@@ -131,9 +191,6 @@ c     consistency check
          endif
       enddo
 c
-c     construct xjac
-      GG=1d0/16d0/pi**3
-      xjac=GG*(4d0*pmod**2)*pi*(1-yCS)
 c
       return
  999  xjac=0d0
@@ -153,29 +210,64 @@ c
       include 'coupl.inc'
       include 'math.inc'
       integer i,j,iU,iS,iB,npart
-      double precision p(0:3,npart),pbar(0:3,npart-1)
+      double precision p(0:3,npart),pbar(0:3,npart-1),Q(0:3)
       integer leg_PDGs(npart)
       double precision yCS,xjac,GG,Qsq,dot
       character*1 maptype
       integer mapped_labels(npart),mapped_flavours(npart)
 c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
+      double precision lam1,lam2,mS2,mB2,miUiS
+      double precision lambda
+      double precision, parameter :: tinymass=1d-8
+
 c
 c     initialise
       xjac=0d0
       mapped_labels = 0
-c
+      mS2=0d0
+      mB2=0d0
+c     
 c     auxiliary quantities
-      Qsq=2d0*(dot(p(0,iU),p(0,iS))+dot(p(0,iU),p(0,iB))+
-     &         dot(p(0,iS),p(0,iB)))
-      yCS=2d0*dot(p(0,iU),p(0,iS))/Qsq
+      mS2=dot(p(0,iS),p(0,iS))
+      mB2=dot(p(0,iB),p(0,iB))
+      
+      Q(:) = p(:,iU) + p(:,iS) + p(:,iB)
+      Qsq = dot(Q(:),Q(:))
+      yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
+
+
 c
 c     construct pbar from p
       call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
      $           mapped_flavours,isLOQCDparton)
 c
-      pbar(:,mapped_labels(iB))=p(:,iB)/(1-yCS)
-      pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
+
+      if(mB2.gt.tinymass .or. mS2.gt.tinymass) then
+c     CS massive case
+         
+c     miUiS is the invariant mass of (p(:,iU)+p(:,iS))
+         miUiS = dot(p(0,iU),p(0,iU))+dot(p(0,iS),p(0,iS))
+     $        +2d0*dot(p(0,iU),p(0,is))
+         
+         lam1 = lambda(Qsq,mB2,mS2)
+         lam2 = lambda(Qsq,miUiS,mB2)
+         pbar(:,mapped_labels(iB))=
+     $        dsqrt(lam1/lam2)*(p(:,iB)-dot(Q(0),p(:,iB))*Q(:)/Qsq)+
+     $        (Qsq+mB2-mS2)/2d0/Qsq*Q(:)
+         pbar(:,mapped_labels(iS))=Q(:)-pbar(:,mapped_labels(iB))
+c     construct xjac         
+         xjac = ((Qsq-mB2-mS2)**2*(1d0-yCS))/(16d0*dsqrt(lam1)*Pi**2)
+      else
+c     CS massless case
+         pbar(:,mapped_labels(iB))=p(:,iB)/(1-yCS)
+         pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
+
+c     construct xjac
+         GG=1d0/16d0/pi**3
+         xjac=GG*Qsq*pi*(1-yCS)
+      endif
+         
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
          pbar(:,mapped_labels(j))=p(:,j)
@@ -189,15 +281,12 @@ c     consistency check
          endif
       enddo
 c
-c     construct xjac
-      GG=1d0/16d0/pi**3
-      xjac=GG*Qsq*pi*(1-yCS)
-c
       return
  999  xjac=0d0
       end
 
 
+      
       logical function dotechcut(s,ndim,tiny)
       implicit none
       integer ndim,i,j

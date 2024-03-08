@@ -78,12 +78,12 @@ c     for massive emitter and massive recoiler
          Q2 = dot(pboost(:),pboost(:))
          sdip = Q2-mb2-mc2
          yplus = 1d0 + 2d0*mc2/sdip-(2d0*dsqrt(abs(mc2*(sdip+mb2+mc2))))/sdip
-         yCS = xx(1)*yplus
+         yCS = xx(2)*yplus
          xjac = xjac*yplus
          vel = dsqrt((2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2)/sdip/(1d0-yCS)
          z_minus = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0-vel)
          z_plus  = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0+vel)
-         zCS = z_minus + (z_plus - z_minus)*xx(2)
+         zCS = z_minus + (z_plus - z_minus)*xx(1)
          xjac = xjac*(z_plus - z_minus)
          phCS=2d0*pi*xx(3)
          xjac = xjac*2d0*pi

@@ -16,7 +16,7 @@ c     it returns 0 if i is not a gluon
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,y,z,x,damp
+      double precision sil,sim,slm,sll,smm,y,z,x,damp
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
       logical isLOQCDparton(nexternal-1)
 c     set logical doplot
@@ -41,6 +41,9 @@ c     external
       INTEGER ISEC,JSEC
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+      DOUBLE PRECISION PMASS(NEXTERNAL)
+      INCLUDE 'pmass.inc'
+      
 c
 c     initialise
       M2_S=0d0
@@ -104,6 +107,8 @@ c     invariant quantities
             sil=xs(i,l)
             sim=xs(i,m)
             slm=xs(l,m)
+            sll=2d0*pmass(l)**2
+            smm=2d0*pmass(m)**2
 c
 c     safety check
             if(sil*sim.le.0d0)then
@@ -117,6 +122,7 @@ c     call colour-connected Born
 c
 c     eikonal
             M2tmp=ccBLO*2d0*slm/(sil*sim)
+            M2tmp = M2tmp-ccBLO*(sll/(sil**2)+smm/(sim**2))
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)

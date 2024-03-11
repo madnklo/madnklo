@@ -42,6 +42,7 @@ c     external
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
+      DOUBLE PRECISION Q2,sdip,sigma,vel,z_minus,z_plus,Zpr
       INCLUDE 'pmass.inc'
       
 c
@@ -121,8 +122,29 @@ c     call colour-connected Born
             ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
-            M2tmp=ccBLO*2d0*slm/(sil*sim)
-            M2tmp = M2tmp-ccBLO*(sll/(sil**2)+smm/(sim**2))
+            if(sll.ne.0d0 .or. smm.ne.0d0) then
+               sdip = sil+sim+slm
+               Y=SIL/sdip
+               Z=SIM/(SIM+SLM)
+               
+               Q2=sdip+sll/2d0+smm/2d0
+               sigma=dsqrt((smm+sdip*(1d0-y))**2-2d0*smm*Q2)
+               vel = sigma/sdip/(1d0-y)
+               z_minus = sdip*y/2d0/(sdip*y+sll/2d0)*(1d0-vel)
+               z_plus  = sdip*y/2d0/(sdip*y+sll/2d0)*(1d0+vel)
+               Zpr = (Z-z_minus)/(z_plus-z_minus)
+               
+               M2TMP=1d0/sil*((1d0-y)/y*2d0*(sil+sll/2d0)/(sdip*(1d0-y)-sigma*(1d0-2d0*Zpr))-1d0)
+               M2TMP = M2TMP - sll/2d0/sil**2
+               M2TMP = M2TMP - smm/2d0/sdip**2*(1d0/y*2d0*(sil+sll/2d0)/(sdip*(1d0-y)-sigma*(1d0-2d0*Zpr)))**2
+               
+               M2TMP=M2TMP*2d0 ! A factor 2 as our sum runs over L>M
+            else
+               M2TMP=2D0*SLM/(SIL*SIM)
+            endif
+            M2TMP = CCBLO*M2TMP
+
+c            M2tmp = M2tmp-ccBLO*(sll/(sil**2)+smm/(sim**2))
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)

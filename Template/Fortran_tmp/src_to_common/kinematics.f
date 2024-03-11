@@ -14,15 +14,20 @@ c
 c     build invariants from p
       do i=1,nparticles
          do j=1,nparticles
+            if(i.eq.j) cycle
             xs(i,j)=2d0*dot(p(0,i),p(0,j))
-            xs(j,i)=xs(i,j)
+c            xs(j,i)=xs(i,j)
 c            if(i .eq. j) write(*,*) i, j, xs(i,j)
 c     safety measure
             if(xs(i,j).lt.0d0)then
-               write(77,*)'invariants_from_p: '
-               write(77,*) 'negative invariants in invariants_from_p'
-               write(77,*)i,j,xs(i,j)
-               goto 999
+               if(abs(xs(i,j)).lt.1d-6) then
+                  xs(i,j)=0d0
+               else
+                  write(77,*)'invariants_from_p: '
+                  write(77,*) 'negative invariants in invariants_from_p'
+                  write(77,*)i,j,xs(i,j)
+                  goto 999
+               endif
             endif
          enddo
       enddo

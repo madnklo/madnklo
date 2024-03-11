@@ -28,7 +28,7 @@ c     TODO: change name to isunderlyingqcdparton()
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
       double precision vel
-      double precision, parameter :: tinymass=1d-8
+      double precision, parameter :: tinymass2=1d-2
 c
 c     initialise
       xjac=1d0
@@ -72,7 +72,7 @@ c
       mb2 = dot(pbS(:),pbS(:))
       mc2 = dot(pbB(:),pbB(:))
 
-      if(mb2 .gt. tinymass .or. mc2 .gt. tinymass) then
+      if(mb2 .gt. tinymass2 .or. mc2 .gt. tinymass2) then
 c     Catani-Seymour parametrisation 
 c     for massive emitter and massive recoiler
          Q2 = dot(pboost(:),pboost(:))
@@ -99,14 +99,14 @@ c        Eu is the energy of p(iU)
          sinthUB= dsqrt(abs(1d0-costhUB**2))
       else
 c     Catani-Seymour parametrisation for massless case
-      zCS =xx(1)
-      yCS =xx(2)
-      phCS=2d0*pi*xx(3)
-      costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
-      sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))
+         zCS =xx(1)
+         yCS =xx(2)
+         phCS=2d0*pi*xx(3)
+         costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
+         sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))
 c
 c     Eu is the energy of p(iU)
-      Eu=pmod*(1d0-(1d0-yCS)*(1d0-zCS))
+         Eu=pmod*(1d0-(1d0-yCS)*(1d0-zCS))
       endif
 c
 c
@@ -155,7 +155,7 @@ c     Boost back
 c
 c     construct p from pbar
 
-      if(mb2 .gt. tinymass .or. mc2 .gt. tinymass) then
+      if(mb2 .gt. tinymass2 .or. mc2 .gt. tinymass2) then
 c     CS massive mapping
          p(:,iB)=dsqrt(lam2/lam1)*
      $        (pbBsave(:)-(Q2+mc2-mb2)/2d0/Q2*pboost(:))+
@@ -219,7 +219,7 @@ c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
       double precision lam1,lam2,mS2,mB2,miUiS
       double precision lambda
-      double precision, parameter :: tinymass=1d-8
+      double precision, parameter :: tinymass2=1d-2
 
 c
 c     initialise
@@ -234,7 +234,7 @@ c     auxiliary quantities
       
       Q(:) = p(:,iU) + p(:,iS) + p(:,iB)
       Qsq = dot(Q(:),Q(:))
-      yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
+
 
 
 c
@@ -243,7 +243,8 @@ c     construct pbar from p
      $           mapped_flavours,isLOQCDparton)
 c
 
-      if(mB2.gt.tinymass .or. mS2.gt.tinymass) then
+      if(mB2.gt.tinymass2 .or. mS2.gt.tinymass2) then
+         yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
 c     CS massive case
          
 c     miUiS is the invariant mass of (p(:,iU)+p(:,iS))
@@ -260,6 +261,7 @@ c     construct xjac
          xjac = ((Qsq-mB2-mS2)**2*(1d0-yCS))/(16d0*dsqrt(lam1)*Pi**2)
       else
 c     CS massless case
+         yCS=2d0*dot(p(0,iU),p(0,iS))/Qsq
          pbar(:,mapped_labels(iB))=p(:,iB)/(1-yCS)
          pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-p(:,iB)*yCS/(1-yCS)
 

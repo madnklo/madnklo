@@ -28,7 +28,8 @@ c     TODO: change name to isunderlyingqcdparton()
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
       double precision vel
-      double precision, parameter :: tinymass2=1d-2
+      double precision pmass(npart)
+      include 'pmass.inc'
 c
 c     initialise
       xjac=1d0
@@ -68,11 +69,12 @@ c     rotate pA to the frame where p(iB) and pbar(iB) are along (0,0,-1)
 c
 
 
+      mb2 = pmass(iS)**2
+      mc2 = pmass(iB)**2
+c      mb2 = dot(pbS(:),pbS(:))
+c      mc2 = dot(pbB(:),pbB(:))
 
-      mb2 = dot(pbS(:),pbS(:))
-      mc2 = dot(pbB(:),pbB(:))
-
-      if(mb2 .gt. tinymass2 .or. mc2 .gt. tinymass2) then
+      if(mb2 .ne. 0d0 .or. mc2 .ne. 0d0) then
 c     Catani-Seymour parametrisation 
 c     for massive emitter and massive recoiler
          Q2 = dot(pboost(:),pboost(:))
@@ -155,7 +157,7 @@ c     Boost back
 c
 c     construct p from pbar
 
-      if(mb2 .gt. tinymass2 .or. mc2 .gt. tinymass2) then
+      if(mb2 .ne.0d0 .or. mc2 .ne. 0d0) then
 c     CS massive mapping
          p(:,iB)=dsqrt(lam2/lam1)*
      $        (pbBsave(:)-(Q2+mc2-mb2)/2d0/Q2*pboost(:))+
@@ -219,8 +221,10 @@ c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
       double precision lam1,lam2,mS2,mB2,miUiS
       double precision lambda
-      double precision, parameter :: tinymass2=1d-2
+      double precision pmass(npart)
+      include 'pmass.inc'
 
+      
 c
 c     initialise
       xjac=0d0
@@ -229,21 +233,21 @@ c     initialise
       mB2=0d0
 c     
 c     auxiliary quantities
-      mS2=dot(p(0,iS),p(0,iS))
-      mB2=dot(p(0,iB),p(0,iB))
+      mS2=pmass(iS)**2
+      mB2=pmass(iB)**2
+      
+c      mS2=dot(p(0,iS),p(0,iS))
+c      mB2=dot(p(0,iB),p(0,iB))
       
       Q(:) = p(:,iU) + p(:,iS) + p(:,iB)
       Qsq = dot(Q(:),Q(:))
-
-
-
 c
 c     construct pbar from p
       call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
      $           mapped_flavours,isLOQCDparton)
 c
 
-      if(mB2.gt.tinymass2 .or. mS2.gt.tinymass2) then
+      if(mB2.ne.0d0 .or. mS2.ne.0d0) then
          yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
 c     CS massive case
          

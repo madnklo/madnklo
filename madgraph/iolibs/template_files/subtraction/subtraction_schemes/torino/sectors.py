@@ -873,9 +873,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             # write driver_npo_template
             #self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec)
 
+
+            
             # write testR
             self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
-                                                    i, isec, jsec, necessary_ct_list, mapping_str)
+                                                    i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
 
         # check on overall_sector_info lenght
         if len(overall_sector_info) != len(all_sector_list):
@@ -1066,7 +1068,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     #===========================================================================
 
     def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process, 
-                                        i, isec, jsec, necessary_ct_list, mapping_str):
+                                        i, isec, jsec, necessary_ct_list, mapping_str,mass_list):
 
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -1076,11 +1078,18 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         is_soft = False
         is_coll = False
         list_Zsum = []
-        if necessary_ct_list[i*5] == 1:
+        if necessary_ct_list[i*5] == 1:    
             limit_str += """
 c
-c     soft limit
-      e1=1d0
+c     soft limit"""
+            if mass_list[-1] != 'ZERO': 
+            # TO DO  : to implement condition for massive recoiler  
+                limit_str += """
+      e1=0d0"""
+            else:
+                limit_str += """
+      e1=1d0"""  
+            limit_str += """     
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)

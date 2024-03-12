@@ -25,6 +25,9 @@ c     DOUBLE_POLE = INLO(3)
       INTEGER, PARAMETER :: HEL = - 1
       DOUBLE PRECISION  GET_CCBLO
       integer iref1(nexternal)
+      double precision vv
+      double precision pmass(nexternal)
+      include 'pmass.inc'
 c
 c     initialise
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
@@ -44,23 +47,18 @@ c     TODO: add check
 c
 c     Born contribution
       do i=1,nexternal
+         if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-c     finite part
             INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[- eps eulergamma])      
             INLO(1) = INLO(1) + pi**2/12d0 * CA
-c     single pole
             INLO(2) = INLO(2) + gamma_g
-c     double pole
             INLO(3) = INLO(3) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-c     finite part
             INLO(1) = INLO(1) + (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[- eps eulergamma])
             INLO(1) = INLO(1) + pi**2/12d0 * CF
-c     single pole
             INLO(2) = INLO(2) + gamma_q
-c     double pole
             INLO(3) = INLO(3) + CF
          endif
       enddo
@@ -70,6 +68,7 @@ c     Include damping factors
       A21a=A21(alpha)
       A20b=A20(beta_FF)
       do i=1,nexternal
+         if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21)INLO(1) = INLO(1) + CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
          if(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6)INLO(1) = INLO(1) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
@@ -83,10 +82,18 @@ c     Colour-linked-Born contribution
             if(.not.ISLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
             CCBLO = GET_CCBLO(i,j)
-c     finite part
-            INLO(1) = INLO(1) + ccBLO*log(sLO(i,j)/MU_R**2)*(2d0-log(sLO(i,j)/MU_R**2)/2d0)
-c     single pole
-            INLO(2) = INLO(2) + ccBLO*log(sLO(i,j)/MU_R**2)
+            if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
+               INLO(1) = INLO(1) + ccBLO*log(sLO(i,j)/MU_R**2)*(2d0-log(sLO(i,j)/MU_R**2)/2d0)
+               INLO(2) = INLO(2) + ccBLO*log(sLO(i,j)/MU_R**2)
+            elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
+               continue
+            elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
+               continue
+            elseif(pmass(i).ne.0d0.and.pmass(j).ne.0d0)then
+               vv=dsqrt(1-(2d0*pmass(i)*pmass(j)/SLO(I,J))**2)
+c     INLO(1) = INLO(1) + ...
+               INLO(2) = INLO(2) + CCBLO*(-1d0/2d0)*(2d0 + 1d0/vv*dlog((1d0-vv)/(1d0+vv)) )
+            endif
          enddo
       enddo
       INLO = INLO*pref

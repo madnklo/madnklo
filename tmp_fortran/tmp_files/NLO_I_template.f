@@ -25,7 +25,7 @@ c     DOUBLE_POLE = INLO(3)
       INTEGER, PARAMETER :: HEL = - 1
       DOUBLE PRECISION  GET_CCBLO
       integer iref1(nexternal)
-      double precision vv
+      double precision vv,ypl,Q2,ddilog
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -91,8 +91,12 @@ c     Colour-linked-Born contribution
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).ne.0d0)then
                vv=dsqrt(1-(2d0*pmass(i)*pmass(j)/SLO(I,J))**2)
-c     INLO(1) = INLO(1) + ...
-               INLO(2) = INLO(2) + CCBLO*(-1d0/2d0)*(2d0 + 1d0/vv*dlog((1d0-vv)/(1d0+vv)) )
+               Q2=slo(i,j)+pmass(i)**2+pmass(j)**2
+               ypl=1d0+(pmass(j)-dsqrt(Q2))*2d0*pmass(j)/slo(i,j)
+            INLO(1) = INLO(1) + CCBLO*( 1D0/VV*DLOG((1D0-VV)/(1D0+VV))*(-ypl+1d0/2d0*dlog(slo(i,j)*ypl**2/pmass(j)**2)) - 1D0/4D0*DLOG((1D0-VV)/(1D0+VV))**2 - ddilog(-2D0*VV/(1D0-VV)) + 1d0/VV*DLOG((1D0-VV)/(1D0+VV))*1d0/2d0*dlog(slo(i,j)/mu_r**2) )
+            INLO(1) = INLO(1) + CCBLO*( (slo(i,j)+2d0*pmass(j)**2)/slo(i,j)*dlog((slo(i,j)*ypl+pmass(j)**2)/pmass(j)**2)-ypl )
+            INLO(1) = INLO(1) + CCBLO*( 1d0+ypl-slo(i,j)*ypl/pmass(j)**2 + slo(i,j)*ypl**2/2d0/pmass(j)**2-2d0*dlog(ypl) + dlog((slo(i,j)*ypl+pmass(j)**2)/slo(i,j)) + 1d0/2d0/vv*dlog((1d0+vv)/(1d0-vv)) - dlog(slo(i,j)/mu_r**2) )
+            INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 + 1D0/VV*DLOG((1D0-VV)/(1D0+VV)) )
             endif
          enddo
       enddo

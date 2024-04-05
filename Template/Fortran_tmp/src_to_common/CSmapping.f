@@ -67,13 +67,8 @@ c     rotate pA to the frame where p(iB) and pbar(iB) are along (0,0,-1)
       nB=pbB/pmod
       call rotate_to_z(nB(1),pA(1),pAr(1))
 c
-
-
       mb2 = pmass(iS)**2
       mc2 = pmass(iB)**2
-c      mb2 = dot(pbS(:),pbS(:))
-c      mc2 = dot(pbB(:),pbB(:))
-
       if(mb2 .ne. 0d0 .or. mc2 .ne. 0d0) then
 c     Catani-Seymour parametrisation 
 c     for massive emitter and massive recoiler
@@ -82,6 +77,10 @@ c     for massive emitter and massive recoiler
          yplus = 1d0 + 2d0*mc2/sdip-(2d0*dsqrt(abs(mc2*(sdip+mb2+mc2))))/sdip
          yCS = xx(2)*yplus
          xjac = xjac*yplus
+         if((2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2.lt.0d0)then
+            write(77,*)'Negative sqrt in phase space'
+            stop
+         endif
          vel = dsqrt((2d0*mc2+sdip*(1d0-yCS))**2-4d0*mc2*Q2)/sdip/(1d0-yCS)
          z_minus = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0-vel)
          z_plus  = sdip*yCS/2d0/(sdip*yCS+mb2)*(1d0+vel)
@@ -90,13 +89,13 @@ c     for massive emitter and massive recoiler
          phCS=2d0*pi*xx(3)
          xjac = xjac*2d0*pi
          lam1=lambda(Q2,mb2,mc2)
-         lam2 = lambda(Q2,mb2+sdip*yCS,mc2)
+         lam2=lambda(Q2,mb2+sdip*yCS,mc2)
 c        Eu is the energy of p(iU)
          Eu=sdip*(1d0-(1d0-zCS)*(1d0-yCS))/2d0/dsqrt(Q2)
          costhUB=(dsqrt(mc2 + pmod**2) - 
-     -        ((Eu*(sdip*(2*mc2 + sdip)*vel*(-1 + yCS) + 
+     -        ((Eu*(sdip*(2*mc2 + sdip)*vel*(-1d0 + yCS) + 
      -        dsqrt(lam1)*(2*mc2 + sdip - sdip*yCS)))
-     -        /(dsqrt(Q2)*sdip*(-1 + yCS)) + 
+     -        /(dsqrt(Q2)*sdip*(-1d0 + yCS)) + 
      -        dsqrt(lam1)*zCS)/(2d0*Eu*vel))/pmod
          sinthUB= dsqrt(abs(1d0-costhUB**2))
       else
@@ -161,13 +160,10 @@ c     construct p from pbar
 c     CS massive mapping
          p(:,iB)=dsqrt(lam2/lam1)*
      $        (pbBsave(:)-(Q2+mc2-mb2)/2d0/Q2*pboost(:))+
-     $        (sdip*(1d0-yCS)+2d0*mc2)/2d0/Q2*pboost(:)
-      
+     $        (sdip*(1d0-yCS)+2d0*mc2)/2d0/Q2*pboost(:)      
          p(:,iS)=pboost(:)-p(:,iU)-p(:,iB)
 c     construct xjac
-         
          xjac = xjac * (sdip**2*(1d0-yCS))/(4d0*dsqrt(lam1)*(2d0*Pi)**3)
-         
       else
          
 c     CS massless mapping         
@@ -214,31 +210,24 @@ c
       integer i,j,iU,iS,iB,npart
       double precision p(0:3,npart),pbar(0:3,npart-1),Q(0:3)
       integer leg_PDGs(npart)
-      double precision yCS,xjac,GG,Qsq,dot
+      double precision yCS,zCS,xjac,GG,Qsq,dot
       character*1 maptype
       integer mapped_labels(npart),mapped_flavours(npart)
 c     TODO: change name to isunderlyingqcdparton()
       logical isLOQCDparton(npart-1)
-      double precision lam1,lam2,mS2,mB2,miUiS
-      double precision lambda
+      double precision lam1,lam2,mS2,mB2,miUiS2
+      double precision lambda,vel,sdip,z_minus,z_plus
       double precision pmass(npart)
       include 'pmass.inc'
-
-      
 c
 c     initialise
       xjac=0d0
       mapped_labels = 0
-      mS2=0d0
-      mB2=0d0
 c     
 c     auxiliary quantities
       mS2=pmass(iS)**2
       mB2=pmass(iB)**2
-      
-c      mS2=dot(p(0,iS),p(0,iS))
-c      mB2=dot(p(0,iB),p(0,iB))
-      
+
       Q(:) = p(:,iU) + p(:,iS) + p(:,iB)
       Qsq = dot(Q(:),Q(:))
 c
@@ -246,22 +235,29 @@ c     construct pbar from p
       call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
      $           mapped_flavours,isLOQCDparton)
 c
-
       if(mB2.ne.0d0 .or. mS2.ne.0d0) then
-         yCS=2d0*dot(p(0,iU),p(0,iS))/(Qsq-mS2-mB2)
 c     CS massive case
-         
-c     miUiS is the invariant mass of (p(:,iU)+p(:,iS))
-         miUiS = dot(p(0,iU),p(0,iU))+dot(p(0,iS),p(0,iS))
-     $        +2d0*dot(p(0,iU),p(0,is))
-         
-         lam1 = lambda(Qsq,mB2,mS2)
-         lam2 = lambda(Qsq,miUiS,mB2)
+         sdip=Qsq-mS2-mB2
+         yCS=2d0*dot(p(0,iU),p(0,iS))/sdip
+         zCS=dot(p(0,iU),p(0,iB))/(dot(p(0,iU),p(0,iB))+dot(p(0,iS),p(0,iB)))
+         vel = dsqrt((2d0*mB2+sdip*(1d0-yCS))**2-4d0*mB2*Qsq)/sdip/(1d0-yCS)
+         z_minus = sdip*yCS/2d0/(sdip*yCS+mS2)*(1d0-vel)
+         z_plus  = sdip*yCS/2d0/(sdip*yCS+mS2)*(1d0+vel)
+         if(zCS.gt.z_plus .or. zCS.lt.z_minus)return         
+c     miUiS2 is the invariant mass squared of (p(:,iU)+p(:,iS))
+         miUiS2 = mS2+2d0*dot(p(0,iU),p(0,iS))
+         lam1 = lambda(Qsq,mS2,mB2)
+         lam2 = lambda(Qsq,miUiS2,mB2)
+         if(lam1.le.0d0.or.lam2.le.0d0)then
+            write(*,*)'negative lambdas in phase_space_CS_inv',lam1,lam2
+            stop
+         endif
+
          pbar(:,mapped_labels(iB))=
-     $        dsqrt(lam1/lam2)*(p(:,iB)-dot(Q(0),p(:,iB))*Q(:)/Qsq)+
+     $        dsqrt(lam1/lam2)*(p(:,iB)-dot(Q(0),p(0,iB))*Q(:)/Qsq)+
      $        (Qsq+mB2-mS2)/2d0/Qsq*Q(:)
          pbar(:,mapped_labels(iS))=Q(:)-pbar(:,mapped_labels(iB))
-c     construct xjac         
+c     construct xjac
          xjac = ((Qsq-mB2-mS2)**2*(1d0-yCS))/(16d0*dsqrt(lam1)*Pi**2)
       else
 c     CS massless case

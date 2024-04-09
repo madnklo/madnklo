@@ -27,6 +27,7 @@ c     DOUBLE_POLE = INLO(3)
       integer iref1(nexternal)
       double precision vv,ypl,Q2,ddilog
       double precision pmass(nexternal)
+      DOUBLE PRECISION SS,MK2,ML2
       include 'pmass.inc'
 c
 c     initialise
@@ -90,13 +91,30 @@ c     Colour-linked-Born contribution
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).ne.0d0)then
-               vv=dsqrt(1-(2d0*pmass(i)*pmass(j)/SLO(I,J))**2)
-               Q2=slo(i,j)+pmass(i)**2+pmass(j)**2
-               ypl=1d0+(pmass(j)-dsqrt(Q2))*2d0*pmass(j)/slo(i,j)
-            INLO(1) = INLO(1) + CCBLO*( 1D0/VV*DLOG((1D0-VV)/(1D0+VV))*(-ypl+1d0/2d0*dlog(slo(i,j)*ypl**2/pmass(j)**2)) - 1D0/4D0*DLOG((1D0-VV)/(1D0+VV))**2 - ddilog(-2D0*VV/(1D0-VV)) + 1d0/VV*DLOG((1D0-VV)/(1D0+VV))*1d0/2d0*dlog(slo(i,j)/mu_r**2) )
-            INLO(1) = INLO(1) + CCBLO*( (slo(i,j)+2d0*pmass(j)**2)/slo(i,j)*dlog((slo(i,j)*ypl+pmass(j)**2)/pmass(j)**2)-ypl )
-            INLO(1) = INLO(1) + CCBLO*( 1d0+ypl-slo(i,j)*ypl/pmass(j)**2 + slo(i,j)*ypl**2/2d0/pmass(j)**2-2d0*dlog(ypl) + dlog((slo(i,j)*ypl+pmass(j)**2)/slo(i,j)) + 1d0/2d0/vv*dlog((1d0+vv)/(1d0-vv)) - dlog(slo(i,j)/mu_r**2) )
-            INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 + 1D0/VV*DLOG((1D0-VV)/(1D0+VV)) )
+               VV=DSQRT(1-(2D0*PMASS(I)*PMASS(J)/SLO(I,J))**2)
+               Q2=SLO(I,J)+PMASS(I)**2+PMASS(J)**2
+               YPL=1D0+(PMASS(J)-DSQRT(Q2))*2D0*PMASS(J)/SLO(I,J)
+               ML2=PMASS(I)**2
+               MK2=PMASS(J)**2
+               SS=SLO(I,J)
+c     EQ. (39)
+               INLO(1) = INLO(1) - CCBLO*1D0/VV*(DLOG((1D0+VV)/(1D0-VV))*(-YPL+1D0/2D0*DLOG(SS*YPL**2/MK2)+1D0/2D0*DLOG(SS/MU_R**2))+1D0/4D0*DLOG((1D0+VV)/(1D0-VV))**2+DDILOG(-2D0*VV/(1D0-VV)) )
+c     EQ. (40)
+               INLO(1) = INLO(1) + CCBLO*((SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)-YPL )
+c     EQ. (42)
+               INLO(1) = INLO(1) - CCBLO*(-1D0/2D0*DLOG(SS/MU_R**2) -1D0/2D0/SS*((2D0*MK2+SS)*DLOG(MK2)-2D0*SS+SS*DLOG(SS)+2D0*SS*DLOG(YPL)-2D0*(MK2+SS)*DLOG(MK2+SS*YPL)) )
+c     EQ. (43)
+               INLO(1) = INLO(1) - CCBLO*(YPL-SS*YPL/MK2+SS*YPL**2/2D0/MK2+1D0/2D0*DLOG(MK2)-1D0/2D0*DLOG(SS)-DLOG(YPL)+1D0/2D0/VV*DLOG((1D0+VV)/(1D0-VV))-1D0/2D0*DLOG(SS/MU_R**2) )
+               
+c     INLO(1) = INLO(1) + CCBLO*( (SLO(I,J)+2D0*PMASS(J)**2)/SLO
+c       (I,J)*DLOG((SLO(I,J)*YPL+PMASS(J)**2)/PMASS(J)**2)-YPL )
+c     INLO(1) = INLO(1) + CCBLO*( 1D0+YPL-SLO(I,J)*YPL/PMASS(J)
+c       **2 + SLO(I,J)*YPL**2/2D0/PMASS(J)**2-2D0*DLOG(YPL) +
+c        DLOG((SLO(I,J)*YPL+PMASS(J)**2)/SLO(I,J)) + 1D0/2D0
+c       /VV*DLOG((1D0+VV)/(1D0-VV)) - DLOG(SLO(I,J)/MU_R**2) )
+               
+               INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 + 1D0/VV*DLOG((1D0-VV)/(1D0+VV)) )
+               
             endif
          enddo
       enddo

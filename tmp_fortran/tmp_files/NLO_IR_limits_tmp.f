@@ -16,7 +16,7 @@ c     it returns 0 if i is not a gluon
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,sll,smm,y,z,x,damp
+      double precision sil,sim,slm,ml2,mm2,y,z,x,damp
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
       logical isLOQCDparton(nexternal-1)
 c     set logical doplot
@@ -42,7 +42,7 @@ c     external
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      DOUBLE PRECISION Q2,sdip,sigma,vel,z_minus,z_plus,Zpr
+      DOUBLE PRECISION Q2,sdip,sigma,sigma0,vel,z_minus,z_plus,Zpr
       INCLUDE 'pmass.inc'
       
 c
@@ -108,8 +108,8 @@ c     invariant quantities
             sil=xs(i,l)
             sim=xs(i,m)
             slm=xs(l,m)
-            sll=2d0*pmass(l)**2
-            smm=2d0*pmass(m)**2
+            ml2=pmass(l)**2
+            mm2=pmass(m)**2
 c
 c     safety check
             if(sil*sim.le.0d0)then
@@ -122,29 +122,30 @@ c     call colour-connected Born
             ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
-            if(sll.ne.0d0 .or. smm.ne.0d0) then
-               sdip = sil+sim+slm
+            if(ml2.ne.0d0 .or. mm2.ne.0d0) then
+               sdip=sil+sim+slm
                Y=SIL/sdip
                Z=SIM/(SIM+SLM)
                
-               Q2=sdip+sll/2d0+smm/2d0
-               sigma=dsqrt((smm+sdip*(1d0-y))**2-2d0*smm*Q2)
+               Q2=SDIP+ML2+MM2
+               SIGMA=DSQRT((2D0*MM2+SDIP*(1D0-Y))**2-4D0*MM2*Q2)
+               SIGMA0=DSQRT((2D0*MM2+SDIP)**2-4D0*MM2*Q2)
                vel = sigma/sdip/(1d0-y)
-               z_minus = sdip*y/2d0/(sdip*y+sll/2d0)*(1d0-vel)
-               z_plus  = sdip*y/2d0/(sdip*y+sll/2d0)*(1d0+vel)
+               Z_MINUS = SDIP*Y/2D0/(SDIP*Y+ML2)*(1D0-VEL)
+               Z_PLUS  = SDIP*Y/2D0/(SDIP*Y+ML2)*(1D0+VEL)
                Zpr = (Z-z_minus)/(z_plus-z_minus)
                
-               M2TMP=1d0/sil*((1d0-y)/y*2d0*(sil+sll/2d0)/(sdip*(1d0-y)-sigma*(1d0-2d0*Zpr))-1d0)
-               M2TMP = M2TMP - sll/2d0/sil**2
-               M2TMP = M2TMP - smm/2d0/sdip**2*(1d0/y*2d0*(sil+sll/2d0)/(sdip*(1d0-y)-sigma*(1d0-2d0*Zpr)))**2
-               
-               M2TMP=M2TMP*2d0 ! A factor 2 as our sum runs over L>M
+               M2TMP=1D0/SIL*( 1D0/Y*2D0*(SIL+ML2)/(SDIP-SIGMA0*(1D0-2D0*ZPR))-1D0 )
+               M2TMP = M2TMP - 1D0/2D0 * 2D0*ML2/SIL**2
+               M2TMP = M2TMP - 1D0/2D0 * 2D0*MM2/SIL**2 *(2D0*(SIL+ML2)/(SDIP-SIGMA0*(1D0-2D0*ZPR)))**2
+               M2TMP = M2TMP * (1D0-Y)*SIGMA0/SIGMA
+               M2TMP=M2TMP*2D0  ! A factor 2 as our sum runs over L>M
             else
                M2TMP=2D0*SLM/(SIL*SIM)
             endif
             M2TMP = CCBLO*M2TMP
 
-c            M2tmp = M2tmp-ccBLO*(sll/(sil**2)+smm/(sim**2))
+C         M2tmp = M2tmp-ccBLO*(ml2/(sil**2)+mm2/(sim**2))*2d0
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)

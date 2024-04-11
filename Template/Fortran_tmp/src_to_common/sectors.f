@@ -1,164 +1,230 @@
-      subroutine get_Z_NLO(xs,sCM,alpha,isec,jsec,Z_NLO,sector_type,ierr)
+      subroutine get_Z_NLO(xs,sCM,alpha,i1,i2,Z_NLO,sector_type,ierr)
+c     NLO sector functions Z
+c     i1 and i2 are the two sector indices.
+c     This function is meant to be called with (i1,i2) = (isec,jsec)
+c     or (i1,i2) = (jsec,isec), but in any case i1 must be in the
+c     final state 
       implicit none
       include 'nexternal.inc'
       include 'all_sector_list.inc'
       include 'leg_PDGs.inc'
-      integer i
-      integer isec,jsec,ierr
+      integer i,k,l
+      integer i1,i2,ierr
       double precision alpha
       double precision xs(nexternal,nexternal)
-      double precision wgt
-      double precision Z_NLO
+      double precision wgt,Z_NLO,ek,el,wkl
       character*1 sector_type
-      real * 8 sigma,sCM
-
+      double precision num,sigma,sCM,sigma_kl
+c
+c     initialise
       Z_NLO = 0d0
-!     build the total sigma (we need to know the number of sectors)
-      sigma = 0d0
-      ierr=0d0
-
-      if(isec.le.2) then
-         write(*,*) 'get_Z_NLO:'
-         write(*,*) 'The first particle sector must be in 
-     $           the final state!'
-         write(*,*) 'isec= ', isec
-         write(*,*) 'Exit...'
+      ierr = 0
+c
+c     safety checks
+      if(i1.le.2) then
+         write(*,*) 'First sector index must be in final state',i1
          stop
       endif
-
+      if(abs(sCM-xs(1,2))/sCM.gt.1d-8)then
+         write(77,*)'Wrong invariants in Z_NLO',sCM,xs(1,2)
+         goto 999
+      endif
+      if(alpha.lt.1d0)then
+         write(77,*)'Wrong alpha in Z_NLO',alpha
+         stop
+      endif
+c
+c     build Z_NLO
       if(sector_type.eq.'F') then
-!     build the total sigma
+         num = 0d0
+         sigma = 0d0
          do i=1,lensectors
-            call getsectorwgt(xs,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
-            sigma = sigma + wgt
-            if(all_sector_list(2,i).gt.2) then
-               call getsectorwgt(xs,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
-               sigma = sigma + wgt
+            k=all_sector_list(1,i)
+            l=all_sector_list(2,i)
+            if(l.eq.k)then
+               write(*,*)'Wrong indices in Z_NLO',k,l
+               stop
             endif
+            ek=(xs(k,1)+xs(k,2))/sCM
+            el=(xs(l,1)+xs(l,2))/sCM
+            wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+c     here sigma_kl means sigma_kl + sigma_lk
+            sigma_kl=(1d0/ek/wkl)**alpha+(1d0/el/wkl)**alpha
+            sigma = sigma + sigma_kl
+            if( (k.eq.i1.and.l.eq.i2) .or.
+     &          (l.eq.i1.and.k.eq.i2) ) num = num + sigma_kl
          enddo
-         call getsectorwgt(xs,sCM,isec,jsec,wgt)
-         Z_NLO = wgt
-         if(jsec.gt.2) then
-            call getsectorwgt(xs,sCM,jsec,isec,wgt)
-            Z_NLO = Z_NLO + wgt ! Symmetrization
+         if(sigma.le.0d0)then
+            write(*,*)'Wrong sigma in Z_NLO',sigma
+            stop
          endif
+         Z_NLO = num/sigma
+c
+c     build ZS_NLO
       elseif(sector_type.eq.'S') then
+         num = 0d0
+         sigma = 0d0
+c$$$c check
+c$$$c 3=g, 4=g, 5=q
+c$$$c sector 34 -> S3.Z34 = (1/w34) / (1/w34 + 1/w35) (this function is called with i1=3,i2=4)
+c$$$c sector 34 -> S4.Z34 = (1/w34) / (1/w34 + 1/w45) (this function is called with i1=4,i2=3)
+c$$$c sector 35 -> S3.Z35 = (1/w35) / (1/w34 + 1/w35) (this function is called with i1=3,i2=5)
+c$$$c sector 45 -> S4.Z45 = (1/w45) / (1/w34 + 1/w45) (this function is called with i1=4,i2=5)
+c$$$c kl = 34 35 45
          do i=1,lensectors
-            if(all_sector_list(1,i).eq.isec) then
-               call getsectorwgt_S(xs,sCM,all_sector_list(1,i),all_sector_list(2,i),wgt)
-               sigma=sigma+wgt
-            elseif(all_sector_list(2,i).eq.isec) then
-               call getsectorwgt_S(xs,sCM,all_sector_list(2,i),all_sector_list(1,i),wgt)
-               sigma=sigma+wgt
+            k=all_sector_list(1,i)
+            l=all_sector_list(2,i)
+            if(k.ne.i1.and.k.ne.i2.and.l.ne.i1.and.l.ne.i2)cycle
+            wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+c     here sigma_kl means 1/w_kl
+            sigma_kl=(1d0/wkl)**alpha
+            if(k.eq.i1)then
+               sigma = sigma + sigma_kl
+               if(l.eq.i2)num = num + sigma_kl
+            endif
+            if(l.eq.i1)then
+               sigma = sigma + sigma_kl
+               if(k.eq.i2)num = num + sigma_kl
             endif
          enddo
-         call getsectorwgt_S(xs,sCM,isec,jsec,wgt)
-         Z_NLO = wgt
+         if(sigma.le.0d0)then
+            write(*,*)'Wrong sigma in ZS_NLO',sigma
+            stop
+         endif
+         Z_NLO = num/sigma
       else
-         write(*,*) 'Not allowed value for sector_type: ', sector_type
-         write(*,*) 'Exit...'
+         write(*,*) 'Sector_type not recognised: ',sector_type
          stop
       endif
-
-      Z_NLO = Z_NLO/sigma
-      
-      end
-
-
-      subroutine getsectorwgt(xs,sCM,isec,jsec,wgt)
-      implicit none
-c$$$          """ the sector function sigma_ij of the Torino paper (eq. 2.13-2.14)
-c$$$     without the normalisation.
-c$$$     - q is the total momentum of the incoming particles
-c$$$     - p_sector is a list of the momenta of the particles defining the sector
-c$$$    """
-c     integer npsec
-      include 'nexternal.inc'
-      integer isec,jsec,j
-      real * 8 xs(nexternal,nexternal)
-      real * 8 wij,wgt
-      real * 8 sCM,sqisec,sqjsec,eisec
-
-      sqisec=0d0
-      sqjsec=0d0
-      wij=0d0
-      wgt=0d0
-      eisec=0d0
-        
-!build s,sqi,sqj 
-
-!      do j=3,nexternal
-!         sqisec = sqisec + xs(isec,j)
-!         sqjsec = sqjsec + xs(jsec,j)
-!      enddo
-
-
-      sqisec = xs(isec,1)+xs(isec,2)
-      sqjsec = xs(jsec,1)+xs(jsec,2)
-c$$$      write(*,*) sqisec
-c$$$      write(*,*) sqjsec
-c$$$      write(*,*) sCM
-c$$$      write(*,*) xs(isec,jsec)
-c$$$      write(*,*)
-
-      eisec = sqisec/sCM
-      wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-c      if(xs(isec,jsec).lt.1d-10)then
-c         write(*,*) 'isec - jsec', isec, jsec
-c         write(*,*) 'xs', xs(isec,jsec)
-c      endif
-c      write(*,*) wij, sCM, sqisec, sqjsec   
-      if(wij.lt.1d-15) then
-c         write(*,*) 'wij too small in getsectorwgt', isec,jsec, wij, sqisec,sqjsec,sCM,xs(isec,jsec)
-         wij=1d-15
+c
+c     sanity check
+      if(abs(Z_NLO).ge.huge(1d0).or.isnan(Z_NLO))then
+        write(77,*)'Exception caught in Z_NLO',Z_NLO
+        goto 999
       endif
-      wgt = 1d0/eisec/wij
-c      if(eisec.eq.0d0.or.wij.eq.0d0) write(*,*) eisec,wij
+c
+      return
+ 999  ierr=1
+      return
       end
-      
 
-      subroutine getsectorwgt_S(xs,sCM,isec,jsec,wgt)
+
+      subroutine get_Z_NNLO(xs,sCM,alpha,i1,i2,i3,Z_NNLO,sector_type,ierr)
+c     NNLO sector functions Z with three indices
+c     i1, i2, and i3 are the three sector indices.
+c     In any case i1 must be in the final state
       implicit none
       include 'nexternal.inc'
-      integer isec,jsec,j
-      real * 8 xs(nexternal,nexternal)
-      real * 8 wij,wgt
-      real * 8 sCM,sqisec,sqjsec
-
-      sqisec=0d0
-      sqjsec=0d0
-      wij=0d0
-      wgt=0d0
-      
-      do j=3,nexternal
-         sqisec = sqisec + xs(isec,j)
-         sqjsec = sqjsec + xs(jsec,j)
-      enddo
-
-      wij = sCM*xs(isec,jsec)/sqisec/sqjsec
-      if(wij.lt.1d-15) then
-c     write(*,*) 'wij too small in getsectorwgt', isec,jsec, wij, sqisec,sqjsec,sCM,xs(isec,jsec)
-         wij=1d-15
+      include 'all_sector_list.inc'
+      include 'leg_PDGs.inc'
+      integer i,k,l,m
+      integer i1,i2,i3,ierr
+      double precision alpha
+      double precision xs(nexternal,nexternal)
+      double precision wgt,Z_NNLO,ek,el,em,wkl,wkm,wlm
+      character*1 sector_type
+      double precision num,sigma,sCM,sigma_klm
+c
+c     initialise
+      Z_NNLO = 0d0
+      ierr = 0
+c
+c     safety checks
+      if(i1.le.2) then
+         write(*,*) 'First sector index must be in final state',i1
+         stop
       endif
-      wgt = 1d0/wij
-      
+      if(abs(sCM-xs(1,2))/sCM.gt.1d-8)then
+         write(77,*)'Wrong invariants in Z_NNLO',sCM,xs(1,2)
+         goto 999
+      endif
+      if(alpha.lt.1d0)then
+         write(77,*)'Wrong alpha in Z_NNLO',alpha
+         stop
+      endif
+c
+c     build Z_NNLO
+      if(sector_type.eq.'F') then
+         num = 0d0
+         sigma = 0d0
+         do i=1,lensectors
+            k=all_sector_list(1,i)
+            l=all_sector_list(2,i)
+            m=all_sector_list(3,i)
+            if(l.eq.k.or.l.eq.m.or.k.eq.m)then
+               write(*,*)'Wrong indices in Z_NNLO',k,l,m
+               stop
+            endif
+            ek=(xs(k,1)+xs(k,2))/sCM
+            el=(xs(l,1)+xs(l,2))/sCM
+            em=(xs(m,1)+xs(m,2))/sCM
+            wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+            wkm=sCM*xs(k,m)/(xs(k,1)+xs(k,2))/(xs(m,1)+xs(m,2))
+            wlm=sCM*xs(l,m)/(xs(l,1)+xs(l,2))/(xs(m,1)+xs(m,2))
+c     here sigma_klm is the sum of 12 permutations
+            sigma_klm=(1d0/ek/wkl)**alpha*(1d0/(ek+el)+1d0/em)*1d0/wlm
+     &               +(1d0/el/wkl)**alpha*(1d0/(ek+el)+1d0/em)*1d0/wkm
+     &               +(1d0/em/wkm)**alpha*(1d0/(ek+em)+1d0/el)*1d0/wkl
+     &               +(1d0/ek/wkm)**alpha*(1d0/(ek+em)+1d0/el)*1d0/wlm
+     &               +(1d0/el/wlm)**alpha*(1d0/(el+em)+1d0/ek)*1d0/wkm
+     &               +(1d0/em/wlm)**alpha*(1d0/(el+em)+1d0/ek)*1d0/wkl
+            sigma = sigma + sigma_klm
+            if( (k.eq.i1.and.l.eq.i2.and.m.eq.i3) .or.
+     &          (k.eq.i1.and.m.eq.i2.and.l.eq.i3) .or.
+     &          (l.eq.i1.and.k.eq.i2.and.m.eq.i3) .or.
+     &          (l.eq.i1.and.m.eq.i2.and.k.eq.i3) .or.
+     &          (m.eq.i1.and.k.eq.i2.and.l.eq.i3) .or.
+     &          (m.eq.i1.and.l.eq.i2.and.k.eq.i3) ) num = num + sigma_klm
+         enddo
+         if(sigma.le.0d0)then
+            write(*,*)'Wrong sigma in Z_NNLO',sigma
+            stop
+         endif
+         Z_NNLO = num/sigma
+c$$$c
+c$$$c     build ZSS_NNLO
+c$$$      elseif(sector_type.eq.'S') then
+c$$$         num = 0d0
+c$$$         sigma = 0d0
+c$$$c$$$c check
+c$$$c$$$c 3=g, 4=g, 5=q
+c$$$c$$$c sector 34 -> S3.Z34 = (1/w34) / (1/w34 + 1/w35) (this function is called with i1=3,i2=4)
+c$$$c$$$c sector 34 -> S4.Z34 = (1/w34) / (1/w34 + 1/w45) (this function is called with i1=4,i2=3)
+c$$$c$$$c sector 35 -> S3.Z35 = (1/w35) / (1/w34 + 1/w35) (this function is called with i1=3,i2=5)
+c$$$c$$$c sector 45 -> S4.Z45 = (1/w45) / (1/w34 + 1/w45) (this function is called with i1=4,i2=5)
+c$$$c$$$c kl = 34 35 45
+c$$$         do i=1,lensectors
+c$$$            k=all_sector_list(1,i)
+c$$$            l=all_sector_list(2,i)
+c$$$            if(k.ne.i1.and.k.ne.i2.and.l.ne.i1.and.l.ne.i2)cycle
+c$$$c     here sigma_kl means 1/w_kl
+c$$$            sigma_kl=((xs(k,1)+xs(k,2))*(xs(l,1)+xs(l,2))/sCM/xs(k,l))**alpha
+c$$$            if(k.eq.i1)then
+c$$$               sigma = sigma + sigma_kl
+c$$$               if(l.eq.i2)num = num + sigma_kl
+c$$$            endif
+c$$$            if(l.eq.i1)then
+c$$$               sigma = sigma + sigma_kl
+c$$$               if(k.eq.i2)num = num + sigma_kl
+c$$$            endif
+c$$$         enddo
+c$$$         if(sigma.le.0d0)then
+c$$$            write(*,*)'Wrong sigma in ZS_NLO',sigma
+c$$$            stop
+c$$$         endif
+c$$$         Z_NLO = num/sigma
+      else
+         write(*,*) 'Sector_type not recognised: ',sector_type
+         stop
+      endif
+c
+c     sanity check
+      if(abs(Z_NNLO).ge.huge(1d0).or.isnan(Z_NNLO))then
+        write(77,*)'Exception caught in Z_NNLO',Z_NNLO
+        goto 999
+      endif
+c
+      return
+ 999  ierr=1
+      return
       end
-
-c$$$      subroutine getsecwgt_C(q,p_sec,wgt)
-c$$$      implicit none
-c$$$      real * 8 q(0:3),p_sec(0:3,2)
-c$$$      real * 8 wgt
-c$$$      real * 8 s,sij,sqi,sqj,wij,ei
-c$$$!      real * 8 getsecinv
-c$$$
-c$$$      call getsecinv(q, p_sec,s,sqi,sqj,sij)
-c$$$      
-c$$$      ei = sqi/s
-c$$$      
-c$$$      wgt = 1d0/ei
-c$$$      
-c$$$      
-c$$$      end
-
-
-

@@ -28,6 +28,8 @@ c     DOUBLE_POLE = INLO(3)
       double precision vv,ypl,Q2,ddilog
       double precision pmass(nexternal)
       DOUBLE PRECISION SS,MK2,ML2
+      DOUBLE PRECISION FF1,FF2,FF3
+      PARAMETER(FF1=1D0,FF2=1D0,FF3=0D0)
       include 'pmass.inc'
 c
 c     initialise
@@ -51,13 +53,13 @@ c     Born contribution
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
             INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
-c     Torino to ML conversion factor (gamma[1-eps] -> exp[- eps eulergamma])      
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])      
             INLO(1) = INLO(1) + pi**2/12d0 * CA
             INLO(2) = INLO(2) + gamma_g
             INLO(3) = INLO(3) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
             INLO(1) = INLO(1) + (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
-c     Torino to ML conversion factor (gamma[1-eps] -> exp[- eps eulergamma])
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             INLO(1) = INLO(1) + pi**2/12d0 * CF
             INLO(2) = INLO(2) + gamma_q
             INLO(3) = INLO(3) + CF
@@ -91,30 +93,24 @@ c     Colour-linked-Born contribution
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).ne.0d0)then
-               VV=DSQRT(1-(2D0*PMASS(I)*PMASS(J)/SLO(I,J))**2)
-               Q2=SLO(I,J)+PMASS(I)**2+PMASS(J)**2
-               YPL=1D0+(PMASS(J)-DSQRT(Q2))*2D0*PMASS(J)/SLO(I,J)
                ML2=PMASS(I)**2
                MK2=PMASS(J)**2
                SS=SLO(I,J)
-c     EQ. (39)
+               VV=DSQRT(SS**2-4D0*ML2*MK2)/SS
+               Q2=SS+ML2+MK2
+               YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
+C     EQ. (39) (+ FF-DEPENDENT PIECE)
                INLO(1) = INLO(1) - CCBLO*1D0/VV*(DLOG((1D0+VV)/(1D0-VV))*(-YPL+1D0/2D0*DLOG(SS*YPL**2/MK2)+1D0/2D0*DLOG(SS/MU_R**2))+1D0/4D0*DLOG((1D0+VV)/(1D0-VV))**2+DDILOG(-2D0*VV/(1D0-VV)) )
-c     EQ. (40)
-               INLO(1) = INLO(1) + CCBLO*((SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)-YPL )
-c     EQ. (42)
-               INLO(1) = INLO(1) - CCBLO*(-1D0/2D0*DLOG(SS/MU_R**2) -1D0/2D0/SS*((2D0*MK2+SS)*DLOG(MK2)-2D0*SS+SS*DLOG(SS)+2D0*SS*DLOG(YPL)-2D0*(MK2+SS)*DLOG(MK2+SS*YPL)) )
+               INLO(1) = INLO(1) - CCBLO*1D0/VV*DLOG((1D0+VV)/(1D0-VV))*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL)*(1D0-FF1)
+c     EQ. (40) (MADE FF-DEPENDENT)
+               INLO(1) = INLO(1) - CCBLO*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL) * FF2
 c     EQ. (43)
-               INLO(1) = INLO(1) - CCBLO*(YPL-SS*YPL/MK2+SS*YPL**2/2D0/MK2+1D0/2D0*DLOG(MK2)-1D0/2D0*DLOG(SS)-DLOG(YPL)+1D0/2D0/VV*DLOG((1D0+VV)/(1D0-VV))-1D0/2D0*DLOG(SS/MU_R**2) )
-               
-c     INLO(1) = INLO(1) + CCBLO*( (SLO(I,J)+2D0*PMASS(J)**2)/SLO
-c       (I,J)*DLOG((SLO(I,J)*YPL+PMASS(J)**2)/PMASS(J)**2)-YPL )
-c     INLO(1) = INLO(1) + CCBLO*( 1D0+YPL-SLO(I,J)*YPL/PMASS(J)
-c       **2 + SLO(I,J)*YPL**2/2D0/PMASS(J)**2-2D0*DLOG(YPL) +
-c        DLOG((SLO(I,J)*YPL+PMASS(J)**2)/SLO(I,J)) + 1D0/2D0
-c       /VV*DLOG((1D0+VV)/(1D0-VV)) - DLOG(SLO(I,J)/MU_R**2) )
-               
-               INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 + 1D0/VV*DLOG((1D0-VV)/(1D0+VV)) )
-               
+               INLO(1) = INLO(1) - CCBLO*(-1D0/2D0*DLOG(SS/MU_R**2) -1D0/2D0/SS*((2D0*MK2+SS)*DLOG(MK2)-2D0*SS+SS*DLOG(SS)+2D0*SS*DLOG(YPL)-2D0*(MK2+SS)*DLOG(MK2+SS*YPL)) )
+c     EQ. (44) (+ FF-DEPENDENT PIECE)
+               INLO(1) = INLO(1) - CCBLO*(YPL-SS*YPL/MK2+SS*YPL**2/2D0/MK2+1D0/2D0*DLOG(MK2)-1D0/2D0*DLOG(SS)-DLOG(YPL)+1D0/2D0/VV*DLOG((1D0+VV)/(1D0-VV))-1D0/2D0*DLOG(SS/MU_R**2))
+               INLO(1) = INLO(1) - CCBLO*(FF3-1D0)/2D0/SS/MK2*(SS*YPL*(2D0*(1D0-FF3)*MK2-(FF3+1D0)*SS*(2D0-YPL))+2D0*(FF3-1D0)*MK2*(MK2+SS)*DLOG((SS*YPL+MK2)/MK2))
+C
+               INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif
          enddo
       enddo

@@ -42,7 +42,9 @@ c     external
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      DOUBLE PRECISION Q2,sdip,sigma,sigma0,vel,z_minus,z_plus,Zpr
+      DOUBLE PRECISION Q2,ss,sigma,sqrtlam,vel,z_minus,z_plus,Zpr
+      DOUBLE PRECISION FF1,FF2,FF3
+      PARAMETER(FF1=1D0,FF2=1D0,FF3=0D0)
       INCLUDE 'pmass.inc'
       
 c
@@ -72,12 +74,13 @@ c     overall kernel prefix
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
-      do m=1,nexternal-1
+      do m=1,nexternal
          if(.not.isNLOQCDparton(m))cycle
          if(m.eq.i)cycle
-         do l=m+1,nexternal
+         do l=1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
+            if(l.eq.m)cycle
 c
             lb=mapped_labels(l)
             mb=mapped_labels(m)
@@ -123,30 +126,25 @@ c     call colour-connected Born
 c
 c     eikonal
             if(ml2.ne.0d0 .or. mm2.ne.0d0) then
-               sdip=sil+sim+slm
-               Y=SIL/sdip
+               ss=sil+sim+slm
+               Y=SIL/ss
                Z=SIM/(SIM+SLM)
-               
-               Q2=SDIP+ML2+MM2
-               SIGMA=DSQRT((2D0*MM2+SDIP*(1D0-Y))**2-4D0*MM2*Q2)
-               SIGMA0=DSQRT((2D0*MM2+SDIP)**2-4D0*MM2*Q2)
-               vel = sigma/sdip/(1d0-y)
-               Z_MINUS = SDIP*Y/2D0/(SDIP*Y+ML2)*(1D0-VEL)
-               Z_PLUS  = SDIP*Y/2D0/(SDIP*Y+ML2)*(1D0+VEL)
-               Zpr = (Z-z_minus)/(z_plus-z_minus)
-               
-               M2TMP=1D0/SIL*( 1D0/Y*2D0*(SIL+ML2)/(SDIP-SIGMA0*(1D0-2D0*ZPR))-1D0 )
+               Q2=SS+ML2+MM2
+               SIGMA=DSQRT(SS**2+SIL*(SIL-2D0*SS-4D0*MM2)-4D0*ML2*MM2)
+               SQRTLAM=DSQRT(SS**2-4D0*ML2*MM2)
+               VEL = SIGMA/SS/(1D0-Y)
+               Z_MINUS = SIL/2D0/(SIL+ML2)*(1D0-VEL)
+               Z_PLUS  = SIL/2D0/(SIL+ML2)*(1D0+VEL)
+               ZPR = (Z-Z_MINUS)/(Z_PLUS-Z_MINUS)
+
+               M2TMP=1D0/SIL*( 1D0/Y*2D0*(FF1*SIL+ML2)/(SS-SQRTLAM*(1D0-2D0*ZPR))-FF2*1D0 )
                M2TMP = M2TMP - 1D0/2D0 * 2D0*ML2/SIL**2
-               M2TMP = M2TMP - 1D0/2D0 * 2D0*MM2/SIL**2 *(2D0*(SIL+ML2)/(SDIP-SIGMA0*(1D0-2D0*ZPR)))**2
-               M2TMP = M2TMP * (1D0-Y)*SIGMA0/SIGMA
-               M2TMP=M2TMP*2D0  ! A factor 2 as our sum runs over L>M
+               M2TMP = M2TMP - 1D0/2D0 * 2D0*MM2/SIL**2 *(2D0*(FF3*SIL+ML2)/(SS-SQRTLAM*(1D0-2D0*ZPR)))**2
+               M2TMP = M2TMP * (1D0-Y)*SQRTLAM/SIGMA
             else
-               M2TMP=2D0*SLM/(SIL*SIM)
+               M2TMP=SLM/(SIL*SIM)
             endif
             M2TMP = CCBLO*M2TMP
-
-C         M2tmp = M2tmp-ccBLO*(ml2/(sil**2)+mm2/(sim**2))*2d0
-c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
 c

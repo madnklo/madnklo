@@ -42,7 +42,7 @@ c     external
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      DOUBLE PRECISION Q2,ss,sigma,sqrtlam,vel,z_minus,z_plus,Zpr
+      DOUBLE PRECISION Q2,ss,sigma,sqrtlam,sigma1,vel,z_minus,z_plus,Zpr
       DOUBLE PRECISION FF1,FF2,FF3
       PARAMETER(FF1=1D0,FF2=1D0,FF3=0D0)
       INCLUDE 'pmass.inc'
@@ -132,14 +132,15 @@ c     eikonal
                Q2=SS+ML2+MM2
                SIGMA=DSQRT(SS**2+SIL*(SIL-2D0*SS-4D0*MM2)-4D0*ML2*MM2)
                SQRTLAM=DSQRT(SS**2-4D0*ML2*MM2)
+               SIGMA1=SQRTLAM-SIL*(SS+2D0*MM2)/SQRTLAM
                VEL = SIGMA/SS/(1D0-Y)
                Z_MINUS = SIL/2D0/(SIL+ML2)*(1D0-VEL)
                Z_PLUS  = SIL/2D0/(SIL+ML2)*(1D0+VEL)
                ZPR = (Z-Z_MINUS)/(Z_PLUS-Z_MINUS)
 
-               M2TMP=1D0/SIL*( 1D0/Y*2D0*(FF1*SIL+ML2)/(SS-SQRTLAM*(1D0-2D0*ZPR))-FF2*1D0 )
+               M2TMP=1D0/SIL*( (1D0-Y)/Y*2D0*(SIL+ML2)/(SS*(1D0-Y)-SIGMA1*(1D0-2D0*ZPR))-1D0 )
                M2TMP = M2TMP - 1D0/2D0 * 2D0*ML2/SIL**2
-               M2TMP = M2TMP - 1D0/2D0 * 2D0*MM2/SIL**2 *(2D0*(FF3*SIL+ML2)/(SS-SQRTLAM*(1D0-2D0*ZPR)))**2
+               M2TMP = M2TMP - 1D0/2D0 * 2D0*MM2/SIL**2 *( 2D0*(SIL+ML2)/(SS*(1D0-Y)-SIGMA1*(1D0-2D0*ZPR)) )**2
                M2TMP = M2TMP * (1D0-Y)*SQRTLAM/SIGMA
             else
                M2TMP=SLM/(SIL*SIM)

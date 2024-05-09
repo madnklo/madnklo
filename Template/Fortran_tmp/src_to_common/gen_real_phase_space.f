@@ -5,7 +5,7 @@ c     iU is the unresolved parton associated with the soft singularity
       include 'math.inc'
       include 'nexternal.inc'
       include 'leg_PDGs.inc'
-      double precision x(3*nexternal-4),shat
+      double precision x(3*nexternal-10),shat
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA

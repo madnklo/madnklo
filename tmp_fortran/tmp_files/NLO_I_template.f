@@ -117,7 +117,7 @@ c$$$
 c$$$               INLO(1) = INLO(1) - CCBLO*(FF3-1D0)/2D0/SS/MK2*(SS*YPL*(2D0*(1D0-FF3)*MK2-(FF3+1D0)*SS*(2D0-YPL))+2D0*(FF3-1D0)*MK2*(MK2+SS)*DLOG((SS*YPL+MK2)/MK2))
 C     
                
-            call nlo_v_sub(ss,vv,yp,mk2,ml2,mu_r,ccBLO,res)
+            call nlo_v_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
 
             INLO(1) = res
                

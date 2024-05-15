@@ -904,7 +904,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         cwd = os.getcwd()
         print(cwd)
         print(self.dir_path)
-        user_linkfiles = ['driver_v.f',] #, 'makefile_v'] 
+        user_linkfiles = ['driver_v.f','NLO_V_sub.f'] #, 'makefile_v'] 
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             if file=='makefile_v':

@@ -745,9 +745,12 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                          fortran_model, group_number = group_number, 
                                      proc_id = proc_id, config_map = config_map)
         
-
         tmp_proc_dir = pjoin(self.dir_path,'../')
         filename = pjoin(tmp_proc_dir,'contributions.mg')
+
+        procdirVV = tmp_proc_dir + 'NNLO_VV_x_B_'
+        procdirVV = procdirVV + (self.dir_path).split('/')[-1][10:]
+        subprocdirVV = pjoin(procdirVV.split('/')[-1]+'/SubProcesses/', proc_dir_name)
 
 #        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
         subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/', proc_dir_name)
@@ -808,21 +811,18 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
                        matrix_element.get('processes')[0],group_number,proc_id))
 
-
-        
-
         #gl
         self.write_NLO_V_template(writers.FortranWriter, matrix_element, group_number = group_number, proc_id = proc_id)
         self.write_NLO_I_template(writers.FortranWriter, matrix_element)
+#        self.write_NNLO_VV_template(subprocdirVV, writers.FortranWriter, matrix_element, group_number = group_number, proc_id = proc_id)
+#        self.write_NNLO_I2_template(subprocdirVV, writers.FortranWriter, matrix_element)
+#        self.write_NNLO_IRV_template(subprocdirVV, writers.FortranWriter, matrix_element)
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
+        self.write_makefile_vv_template(writers.FileWriter, matrix_element)
         if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-        #os.symlink(dirpath + '/../../../Common_Files/ngraphs.inc',dirpath+'/ngraphs.inc')
-        #os.symlink(dirpath + '/../../../Common_Files/decayBW.inc',dirpath+'/decayBW.inc')
-        #os.symlink(dirpath + '/../../../Common_Files/leshouche.inc',dirpath+'/leshouche.inc')
-        #os.symlink(dirpath + '/../../../Common_Files/props.inc',dirpath+'/props.inc')
 
         # Return to original PWD
         os.chdir(cwd)
@@ -861,12 +861,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
             dirpathBorn = glob.glob("%s/../NLO_R*" % self.dir_path)[0]
             dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
-        #dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
-        #print('AAAA' + dirpathBorn)
-        #print('BBBB' + process.shell_string())
-        #print('CCCC' + ' ' + dirpathBorn + "/SubProcesses/P" + process.shell_string())
-        #dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
-        #dirpathBorn = dirpathBorn + "/SubProcesses/P" + process.shell_string()
 
         linkfiles = ['colored_partons.inc', 'include']
         for file in linkfiles:
@@ -904,13 +898,20 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         cwd = os.getcwd()
         print(cwd)
         print(self.dir_path)
-        user_linkfiles = ['driver_v.f','NLO_V_sub.f'] #, 'makefile_v'] 
-        for file in user_linkfiles:
+        user_linkfiles_v = ['driver_v.f','NLO_V_sub.f']
+        for file in user_linkfiles_v:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             if file=='makefile_v':
                 mv(pjoin(cwd,'makefile_v'), pjoin(cwd,'makefile'))  
             
+        user_linkfiles_vv = ['driver_vv.f']
+        for file in user_linkfiles_vv:
+            cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
+            if file=='makefile_vv':
+                mv(pjoin(cwd,'makefile_vv'), pjoin(cwd,'makefile'))
 
+
+                
     #===========================================================================
     # write NLO_V : V + integrated cts
     #===========================================================================
@@ -966,6 +967,89 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict['doto_str'] = obj_str
 
         
+
+
+
+    #===========================================================================
+    # write NNLO_VV : VV + integrated cts
+    #===========================================================================
+    #gl
+    def write_NNLO_VV_template(self, tmp_proc_dir, writer, matrix_element, group_number = None, proc_id = None):
+        
+        replace_dict = {}
+        replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
+                       group_number = group_number, group_elem_number = proc_id)
+
+        # write driver
+        filename = pjoin(tmp_proc_dir, 'NNLO_VV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_VV_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+
+    #===========================================================================
+    # write NNLO_I2 : integrated counterterms
+    #===========================================================================
+    #gl
+    def write_NNLO_I2_template(self, tmp_proc_dir, writer, matrix_element):
+        
+        replace_dict = {}
+        replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+
+        # write driver
+        filename = pjoin(tmp_proc_dir, 'NNLO_I2_%s.f' % (matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+
+
+    #===========================================================================
+    # write NNLO_IRV : integrated counterterms
+    #===========================================================================
+    #gl
+    def write_NNLO_IRV_template(self, tmp_proc_dir, writer, matrix_element):
+        
+        replace_dict = {}
+        replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+
+        # write driver
+        print(tmp_proc_dir)
+        filename = pjoin(tmp_proc_dir, 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+
+
+    #===========================================================================
+    # write makefile v
+    #===========================================================================
+    #gl
+    def write_makefile_vv_template(self, writer, matrix_element):
+        
+        replace_dict = {}
+        proc_prefix = matrix_element.get('processes')[0].shell_string(
+                                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        proc_str = """PROC_FILES= NNLO_I2_%s.o NNLO_IRV_%s.o NNLO_VV_%s.o""" % (proc_prefix, proc_prefix, proc_prefix)
+        obj_str = """%.o"""
+        fort_str = """%.f"""
+        replace_dict['proc_file_str'] = proc_str
+        replace_dict['dotf_str'] = fort_str
+        replace_dict['doto_str'] = obj_str
+
+
 
 
         object_str = """

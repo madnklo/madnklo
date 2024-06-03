@@ -1,0 +1,130 @@
+#include ../../Source/make_opts
+ifeq ($(wildcard ../Source/make_opts),)
+    ifeq ($(wildcard ../../Source/make_opts),)
+       ROOT = ../../..
+    else
+       ROOT = ../..
+    endif
+else
+    ROOT = ..
+endif
+LIBDIR = $(ROOT)/lib/
+
+
+# For the compilation of the MadLoop file polynomial.f it makes a big difference to use -O3 and
+# to turn off the bounds check. These can however be modified here if really necessary.
+POLYNOMIAL_OPTIMIZATION = -O3
+POLYNOMIAL_BOUNDS_CHECK =
+
+include $(ROOT)/Source/make_opts
+include $(ROOT)/SubProcesses/MadLoop_makefile_definitions
+
+SHELL = /bin/bash
+
+PWD=$(shell pwd)
+
+OS=$(shell uname -s)
+
+ifeq ("$(OS)","Darwin")
+STDLIB= -lc++
+endif
+
+FJPATH=$(shell fastjet-config --prefix)
+LIBSC=-L$(FJPATH)/lib \
+	-lfastjettools -lfastjet -lfastjetplugins \
+	-lsiscone_spherical -lsiscone $(STDLIB)
+INC=-I$(FJPATH)/include
+
+
+CFLAGS=-fPIC -$(OPT)
+CDEBUG=
+
+DEBUG=
+#DEBUG= -ggdb -pg
+
+LINKLIBS = -L$(LIBDIR) -ldhelas -lmodel $(LINK_LOOP_LIBS) $(LDFLAGS)
+#LIBS+=  $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LOOP_LIBS)
+
+# TODO: compile libraries when generating process
+LINKLIBS+=  -lpdf -lgeneric
+
+LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
+
+LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
+	$(LIBDIR)libpdf.$(libext) $(LOOP_LIBS)
+
+LIBS+= $(LIBDIR)V_libdhelas.$(libext) $(LIBDIRBORN)B_libdhelas.$(libext)
+
+OPT=O3
+
+OBJ=obj-$(DEFAULT_F_COMPILER)
+
+FFLAGS+= -g -fno-automatic $(DEBUG)  -$(OPT)
+
+FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
+
+PATH_TO_USR_FILES=../../../Common_Files
+
+INCLUDE0=$(PWD)/include
+
+INCLUDE1=$(PWD)
+
+INCLUDE2=../../../../HEPTools/include/
+
+INCLUDE+=$(wildcard ./include/*.inc ./*.inc)
+
+
+SOURCE=../../Source
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(INCLUDE2) -I$(SOURCE)
+
+PROCESS= MadLoopParamReader.o MadLoopCommons.o \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard polynomial.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard loop_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard improve_ps.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard born_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard CT_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard loop_num.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard helas_calls*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard jamp?_calls_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard mp_born_amps_and_wfs.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard mp_compute_loop_coefs.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard mp_helas_calls*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard coef_construction_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard loop_CT_calls_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard mp_coef_construction_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard TIR_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard GOLEM_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard COLLIER_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard compute_color_flows.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard user_access_subroutines.f))
+
+VPATH = $(OBJ)
+
+%(object_str)s 
+
+COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o myamp.o idenparts.o dsample.o matrix.o ranmar.o
+
+
+%(proc_file_str)s
+
+USR_FILES = cuts.o analysis.o alphaS.o hbook.o kinematics.o configs.o props.o decayBW.o leshouche.o
+
+FILES = driver_vv.o $(PROCESS) $(COMMON_FILES) $(PROC_FILES) $(USR_FILES)
+
+all: libs virtual
+
+%(virtual_str)s
+
+.PHONY: clean libs
+clean:
+	rm -rf ./*.o $(OBJ)/*.o ../../lib/libdhelas.a  ../../lib/V_libdhelas.a
+	cd ../../../Source; make clean; cd -
+
+libs:
+	mkdir -p $(OBJ)
+	cd ../../Source/DHELAS; make; cd -
+	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
+	cd ../../../Source; make ; cd -
+	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
+

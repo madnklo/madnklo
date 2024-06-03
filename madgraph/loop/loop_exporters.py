@@ -748,8 +748,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         tmp_proc_dir = pjoin(self.dir_path,'../')
         filename = pjoin(tmp_proc_dir,'contributions.mg')
 
-        procdirVV = tmp_proc_dir + 'NNLO_VV_x_B_'
-        procdirVV = procdirVV + (self.dir_path).split('/')[-1][10:]
+        procdirVV = tmp_proc_dir + 'NNLO_VV_x_B_' + (self.dir_path).split('/')[-1][10:]
         subprocdirVV = pjoin(procdirVV.split('/')[-1]+'/SubProcesses/', proc_dir_name)
 
 #        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
@@ -820,7 +819,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
-        self.write_makefile_vv_template(writers.FileWriter, matrix_element)
+        self.write_makefile_vv_template(subprocdirVV,writers.FileWriter, matrix_element)
         if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 
@@ -896,19 +895,13 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     def link_files_common_directory(self):
 
         cwd = os.getcwd()
-        print(cwd)
-        print(self.dir_path)
         user_linkfiles_v = ['driver_v.f','NLO_V_sub.f']
         for file in user_linkfiles_v:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
-            if file=='makefile_v':
-                mv(pjoin(cwd,'makefile_v'), pjoin(cwd,'makefile'))  
             
         user_linkfiles_vv = ['driver_vv.f']
         for file in user_linkfiles_vv:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
-            if file=='makefile_vv':
-                mv(pjoin(cwd,'makefile_vv'), pjoin(cwd,'makefile'))
 
 
                 
@@ -965,6 +958,35 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict['proc_file_str'] = proc_str
         replace_dict['dotf_str'] = fort_str
         replace_dict['doto_str'] = obj_str
+
+        object_str = """
+%.o: %.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+\t#$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+%.o: $(PATH_TO_USR_FILES)/%.cc
+\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
+"""
+        virtual_str = """
+virtual: $(FILES)
+\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) -o $@
+"""
+        replace_dict['object_str'] = object_str
+        replace_dict['virtual_str'] = virtual_str
+
+        # write makefile
+        filename = pjoin(os.getcwd(), 'makefile' )
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/makefile_v_template")).read()
+        file = file % replace_dict
+        writer(filename).write(file)
+
+        return True
+
 
         
 
@@ -1037,7 +1059,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     # write makefile v
     #===========================================================================
     #gl
-    def write_makefile_vv_template(self, writer, matrix_element):
+    def write_makefile_vv_template(self, tmp_proc_dir, writer, matrix_element):
         
         replace_dict = {}
         proc_prefix = matrix_element.get('processes')[0].shell_string(
@@ -1048,9 +1070,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         replace_dict['proc_file_str'] = proc_str
         replace_dict['dotf_str'] = fort_str
         replace_dict['doto_str'] = obj_str
-
-
-
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -1073,8 +1092,8 @@ virtual: $(FILES)
         replace_dict['virtual_str'] = virtual_str
 
         # write makefile
-        filename = pjoin(os.getcwd(), 'makefile' )
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/makefile_v_template")).read()
+        filename = pjoin(tmp_proc_dir, 'makefile' )
+        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/makefile_vv_template")).read()
         file = file % replace_dict
         writer(filename).write(file)
 

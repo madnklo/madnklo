@@ -25,14 +25,14 @@
 
       INLO = - CCBLO * (
      $ s/dsqrt(lam)*(
-     $ 1d0/2d0*dlog(eta)*(-dlog(s/mu**2)-dlog(lam**2/(mk2*ml2*Q2*s)))+
+     $ 1d0/2d0*dlog(eta)*(-dlog(s/mu**2)-dlog(lam**2/(mk2*ml2*Q2*s)))-
      $ 1d0/4d0*dlog(eta)**2+dlog(eta)+2d0*dsqrt(lam)/s+
      $ dlog(((Q+ml)**2-mk2)/(ml*(Q+ml)))*dlog((1d0-beta)/(1d0+beta))+
      $ ddilog(-2d0*beta/(1d0-beta))-ddilog(2d0*beta/(1d0+beta))+
      $ ddilog((1d0+beta)/2d0)-ddilog((1d0-beta)/2d0)-
      $ ddilog((1d0-alpha)/(1d0-beta))+ddilog((1d0-alpha)/(1d0+beta))-
      $ ddilog((1d0-beta)/(1d0+alpha))+ddilog((1d0+beta)/(1d0+alpha))+
-     $ ddilog(-2d0*beta/(alpha-beta))-ddilog(2d0*beta/(alpha+beta))+
+     $ ddilog(-2d0*beta/(alpha-beta))-ddilog(2d0*beta/(alpha+beta))-
      $ ddilog(1d0-eta))+
      $ 2d0-(2d0*ml2-Q2+s)*dlog((1d0-beta)/(1d0+beta))/dsqrt(lam)+
      $ (2d0*mk2-2d0*Q2-s)*dlog(eta)/(2d0*dsqrt(lam))-

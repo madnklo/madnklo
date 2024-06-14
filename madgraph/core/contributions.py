@@ -457,6 +457,13 @@ class Contribution(object):
                     proc_id = None,
                     config_map=None,
                     unique_id=me.get('processes')[0].get('uid'))
+                
+                calls = calls + self.exporter.generate_VVloop_subprocess(me, 
+                    self.helas_model,
+                    group_number = me.get('processes')[0].get('uid'),
+                    proc_id = None,
+                    config_map=None,
+                    unique_id=me.get('processes')[0].get('uid'))
     
             # If all ME's do not share the same maximum loop vertex rank and the
             # same loop maximum wavefunction size, we need to set the maximum

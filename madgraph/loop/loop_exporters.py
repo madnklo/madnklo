@@ -712,6 +712,10 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         MadEvent output and only to specify the ME_identifier and the P* 
         SubProcess directory name."""
 
+        # import pdb
+        # pdb.set_trace()
+
+
         cwd = os.getcwd()
         proc_dir_name = self.get_SubProc_folder_name(
                         matrix_element.get('processes')[0],group_number,proc_id)
@@ -819,7 +823,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
         self.write_makefile_v_template(writers.FileWriter, matrix_element)
-        self.write_makefile_vv_template(subprocdirVV,writers.FileWriter, matrix_element)
+#        self.write_makefile_vv_template(subprocdirVV,writers.FileWriter, matrix_element)
         if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 
@@ -829,6 +833,142 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if not calls:
             calls = 0
         return calls
+##### GIOVANNI
+    def generate_VVloop_subprocess(self, matrix_element, fortran_model,
+          group_number = None, proc_id = None, config_map=None, unique_id=None):
+        """Generate the Pxxxxx directory for a loop subprocess in MG4 standalone,
+        including the necessary loop_matrix.f, born_matrix.f and include files.
+        Notice that this is too different from generate_subprocess_directory
+        so that there is no point reusing this mother function.
+        The 'group_number' and 'proc_id' options are only used for the LoopInduced
+        MadEvent output and only to specify the ME_identifier and the P* 
+        SubProcess directory name."""
+        
+        cwd = os.getcwd()
+        proc_dir_name = self.get_SubProc_folder_name(
+                        matrix_element.get('processes')[0],group_number,proc_id)
+        dirpath = os.path.join(self.dir_path, 'SubProcesses', proc_dir_name)
+        
+        tmp_proc_dir = pjoin(self.dir_path,'../')
+        filename = pjoin(tmp_proc_dir,'contributions.mg')
+        procdirVV = tmp_proc_dir + 'NNLO_VV_x_B_' + (self.dir_path).split('/')[-1][10:]
+        subprocdirVV = procdirVV +'/SubProcesses/' + proc_dir_name
+       
+        try:
+            os.mkdir(subprocdirVV)
+        except os.error as error:
+            logger.warning(error.strerror + " " + subprocdirVV)
+
+        try:
+            os.chdir(subprocdirVV)
+        except os.error:
+            logger.error('Could not cd to directory %s' % subprocdirVV)
+            return 0
+
+        logger.info('Creating files in directory %s' % subprocdirVV)
+
+        
+
+
+        if unique_id is None:
+            raise MadGraph5Error, 'A unique id must be provided to the function'+\
+                     'generate_loop_subprocess of LoopProcessExporterFortranSA.'
+        # Create an include with the unique consecutive ID assigned
+        open('unique_id.inc','w').write(
+"""      integer UNIQUE_ID
+      parameter(UNIQUE_ID=%d)"""%unique_id)
+        
+        # Extract number of external particles
+        (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
+
+        
+
+        #calls=self.write_loop_matrix_element_v4(None,matrix_element,
+        #                 fortran_model, group_number = group_number, 
+        #                             proc_id = proc_id, config_map = config_map)
+        
+        
+#        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+        subprocdirVV = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/', proc_dir_name)
+                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
+        files.append_to_file(filename,self.write_contributions,subprocdirVV)
+        self.write_contributions,(self.dir_path)                  
+                
+
+        # We assume here that all processes must share the same property of 
+        # having a born or not, which must be true anyway since these are two
+        # definite different classes of processes which can never be treated on
+        # the same footing.
+        #gl suspended in fortran code
+        if matrix_element.get('processes')[0].get('has_born'):
+            filename = 'born_matrix.f'
+            calls = self.write_bornmatrix(
+                writers.FortranWriter(filename),
+                matrix_element,
+                fortran_model)
+
+        filename = 'pmass.inc'
+        self.write_pmass_file(writers.FortranWriter(filename),
+                         matrix_element)
+
+        #filename = 'ngraphs.inc'
+        #self.write_ngraphs_file(writers.FortranWriter(filename),
+        #                   len(matrix_element.get_all_amplitudes()))
+
+        # Do not draw the loop diagrams if they are too many.
+        # The user can always decide to do it manually, if really needed
+        loop_diags = [loop_diag for loop_diag in\
+             matrix_element.get('base_amplitude').get('loop_diagrams')\
+             if isinstance(loop_diag,LoopDiagram) and loop_diag.get('type') > 0]
+        if len(loop_diags)>5000:
+            logger.info("There are more than 5000 loop diagrams."+\
+                                              "Only the first 5000 are drawn.")
+        filename = "loop_matrix.ps"
+        plot = draw.MultiEpsDiagramDrawer(base_objects.DiagramList(
+            loop_diags[:5000]),filename,
+            model=matrix_element.get('processes')[0].get('model'),amplitude='')
+        logger.info("Drawing loop Feynman diagrams for " + \
+                     matrix_element.get('processes')[0].nice_string())
+        plot.draw()
+
+        if matrix_element.get('processes')[0].get('has_born'):   
+            filename = "born_matrix.ps"
+            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                 get('born_diagrams'),
+                                              filename,
+                                              model=matrix_element.get('processes')[0].\
+                                                 get('model'),
+                                              amplitude='')
+            logger.info("Generating born Feynman diagrams for " + \
+                         matrix_element.get('processes')[0].nice_string(\
+                                                          print_weighted=False))
+            plot.draw()
+
+        self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
+                       matrix_element.get('processes')[0],group_number,proc_id))
+
+        #gl
+        
+#        self.write_NNLO_VV_template(subprocdirVV, writers.FortranWriter, matrix_element, group_number = group_number, proc_id = proc_id)
+#        self.write_NNLO_I2_template(subprocdirVV, writers.FortranWriter, matrix_element)
+#        self.write_NNLO_IRV_template(subprocdirVV, writers.FortranWriter, matrix_element)
+        # self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+        # self.link_files_common_directory()
+        #self.write_makefile_v_template(writers.FileWriter, matrix_element)
+        #self.write_makefile_vv_template(subprocdirVV,writers.FileWriter, matrix_element)
+        self.write_makefile_vv_template(writers.FileWriter, matrix_element)
+        # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
+        #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+
+        # Return to original PWD
+        os.chdir(cwd)
+
+        if not calls:
+            calls = 0
+        return calls
+
+
+
 
     def link_files_from_Subprocesses(self,proc_name):
         """ To link required files from the Subprocesses directory to the
@@ -996,7 +1136,7 @@ virtual: $(FILES)
     # write NNLO_VV : VV + integrated cts
     #===========================================================================
     #gl
-    def write_NNLO_VV_template(self, tmp_proc_dir, writer, matrix_element, group_number = None, proc_id = None):
+    def write_NNLO_VV_template(self, writer, matrix_element, group_number = None, proc_id = None):
         
         replace_dict = {}
         replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
@@ -1059,7 +1199,7 @@ virtual: $(FILES)
     # write makefile v
     #===========================================================================
     #gl
-    def write_makefile_vv_template(self, tmp_proc_dir, writer, matrix_element):
+    def write_makefile_vv_template(self, writer, matrix_element):
         
         replace_dict = {}
         proc_prefix = matrix_element.get('processes')[0].shell_string(
@@ -1092,7 +1232,7 @@ virtual: $(FILES)
         replace_dict['virtual_str'] = virtual_str
 
         # write makefile
-        filename = pjoin(tmp_proc_dir, 'makefile' )
+        filename = pjoin(os.getcwd(), 'makefile' )
         file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/makefile_vv_template")).read()
         file = file % replace_dict
         writer(filename).write(file)

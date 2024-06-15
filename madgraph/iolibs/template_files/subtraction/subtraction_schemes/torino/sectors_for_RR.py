@@ -777,143 +777,143 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         necessary_3p_ct12_list[24] = necessary_3p_ct2_list[8]*1
 
         ######## 4p #########
-        all_4p_local_counterterms_list = []
-        necessary_4p_ct1_list = [0] * (6*len(all_4p_sectors))
-        necessary_4p_ct1 = [0] * (6*len(all_4p_sectors))
-        necessary_4p_ct2_list = [0] * (10*len(all_4p_sectors))
-        necessary_4p_ct2 = [0] * (13*len(all_4p_sectors))
-        necessary_4p_ct12_list = [0] * (24*len(all_4p_sectors))
-        necessary_4p_ct12 = [0] * (18*len(all_4p_sectors))
-        for s in all_4p_sectors:
-            s['sector'].all_4p_sector_list = all_4p_sector_list
-            s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
+        # all_4p_local_counterterms_list = []
+        # necessary_4p_ct1_list = [0] * (6*len(all_4p_sectors))
+        # necessary_4p_ct1 = [0] * (6*len(all_4p_sectors))
+        # necessary_4p_ct2_list = [0] * (10*len(all_4p_sectors))
+        # necessary_4p_ct2 = [0] * (13*len(all_4p_sectors))
+        # necessary_4p_ct12_list = [0] * (24*len(all_4p_sectors))
+        # necessary_4p_ct12 = [0] * (18*len(all_4p_sectors))
+        # for s in all_4p_sectors:
+        #     s['sector'].all_4p_sector_list = all_4p_sector_list
+        #     s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
 
-            if counterterms is not None:
-                s['counterterms'] = []
-                for i_ct, ct in enumerate(counterterms):
-                    print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    current = ct.nodes[0].current
-                    n_subs = current.get('singular_structure').substructures
-                    singular_structure = current.get('singular_structure').substructures[0]
-                    all_legs = singular_structure.get_all_legs()
-                    leg_numbers = s['sector'].leg_numbers
-                    ileg = leg_numbers[0]
-                    jleg = leg_numbers[1]
-                    kleg = leg_numbers[2]
-                    lleg = leg_numbers[3]
-                    print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
+        #     if counterterms is not None:
+        #         s['counterterms'] = []
+        #         for i_ct, ct in enumerate(counterterms):
+        #             print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
+        #             current = ct.nodes[0].current
+        #             n_subs = current.get('singular_structure').substructures
+        #             singular_structure = current.get('singular_structure').substructures[0]
+        #             all_legs = singular_structure.get_all_legs()
+        #             leg_numbers = s['sector'].leg_numbers
+        #             ileg = leg_numbers[0]
+        #             jleg = leg_numbers[1]
+        #             kleg = leg_numbers[2]
+        #             lleg = leg_numbers[3]
+        #             print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
 
 
-                    # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
+        #             # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
 
-                    # Si
-                    if s['sector'].id[0] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[1] = 1
-                        necessary_4p_ct1[1] = ct
-                    # Sj
-                    if s['sector'].id[1] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[2] = 1
-                        necessary_4p_ct1[2] = ct
-                    # Sk
-                    if s['sector'].id[2] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[3] = 1
-                        necessary_4p_ct1[3] = ct
-                    # Sl
-                    if s['sector'].id[3] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[4] = 1
-                        necessary_4p_ct1[4] = ct
+        #             # Si
+        #             if s['sector'].id[0] == 21 :
+        #                 s['counterterms'].append(i_ct)
+        #                 necessary_4p_ct1_list[1] = 1
+        #                 necessary_4p_ct1[1] = ct
+        #             # Sj
+        #             if s['sector'].id[1] == 21 :
+        #                 s['counterterms'].append(i_ct)
+        #                 necessary_4p_ct1_list[2] = 1
+        #                 necessary_4p_ct1[2] = ct
+        #             # Sk
+        #             if s['sector'].id[2] == 21 :
+        #                 s['counterterms'].append(i_ct)
+        #                 necessary_4p_ct1_list[3] = 1
+        #                 necessary_4p_ct1[3] = ct
+        #             # Sl
+        #             if s['sector'].id[3] == 21 :
+        #                 s['counterterms'].append(i_ct)
+        #                 necessary_4p_ct1_list[4] = 1
+        #                 necessary_4p_ct1[4] = ct
                     
-                    if singular_structure.name()=='C' and len(all_legs)==2:
-                        if not singular_structure.substructures:
-                            # Cij
-                            if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
-                                s['counterterms'].append(i_ct)
-                                necessary_4p_ct1_list[5] = 1
-                                necessary_4p_ct1[5] = ct
-                            # Ckl
-                            if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
-                                s['counterterms'].append(i_ct)
-                                necessary_4p_ct1_list[6] = 1
-                                necessary_4p_ct1[6] = ct
+        #             if singular_structure.name()=='C' and len(all_legs)==2:
+        #                 if not singular_structure.substructures:
+        #                     # Cij
+        #                     if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
+        #                         s['counterterms'].append(i_ct)
+        #                         necessary_4p_ct1_list[5] = 1
+        #                         necessary_4p_ct1[5] = ct
+        #                     # Ckl
+        #                     if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
+        #                         s['counterterms'].append(i_ct)
+        #                         necessary_4p_ct1_list[6] = 1
+        #                         necessary_4p_ct1[6] = ct
 
-                    # L2_ijkl  : 13  ->  [Sik, Sil, Sjk, Sjl, 
-                    #                     SHCikl, SHCjkl, SHCkij, SHClij, 
-                    #                     Cijkl(1+Sik+Sil+Sjk+Sjl), 
-                    #                     CijklSCikl, CijklSCjkl, CijklSCkij, CijklSClij]  
+        #             # L2_ijkl  : 13  ->  [Sik, Sil, Sjk, Sjl, 
+        #             #                     SHCikl, SHCjkl, SHCkij, SHClij, 
+        #             #                     Cijkl(1+Sik+Sil+Sjk+Sjl), 
+        #             #                     CijklSCikl, CijklSCjkl, CijklSCkij, CijklSClij]  
 
-                    if n_subs == 1 and len(singular_structure.substructures) == 0 :
+        #             if n_subs == 1 and len(singular_structure.substructures) == 0 :
 
-                        if singular_structure.name()=='S' and len(all_legs)==2:
-                            if not singular_structure.substructures:
-                                # Sik
-                                if sorted([l.n for l in all_legs]) == (sorted([ileg,kleg])):
-                                    s['counterterms'].append(i_ct)
-                                    necessary_4p_ct2_list[1] = 1
-                                    necessary_4p_ct2[1] = ct
-                                # Sil
-                                if sorted([l.n for l in all_legs]) == (sorted([ileg,lleg])):
-                                    s['counterterms'].append(i_ct)
-                                    necessary_4p_ct2_list[2] = 1
-                                    necessary_4p_ct2[2] = ct
-                                # Sjk
-                                if sorted([l.n for l in all_legs]) == (sorted([jleg,kleg])):
-                                    s['counterterms'].append(i_ct)
-                                    necessary_4p_ct2_list[3] = 1
-                                    necessary_4p_ct2[3] = ct
-                                # Sjl
-                                if sorted([l.n for l in all_legs]) == (sorted([jleg,lleg])):
-                                    s['counterterms'].append(i_ct)
-                                    necessary_4p_ct2_list[4] = 1
-                                    necessary_4p_ct2[4] = ct
+        #                 if singular_structure.name()=='S' and len(all_legs)==2:
+        #                     if not singular_structure.substructures:
+        #                         # Sik
+        #                         if sorted([l.n for l in all_legs]) == (sorted([ileg,kleg])):
+        #                             s['counterterms'].append(i_ct)
+        #                             necessary_4p_ct2_list[1] = 1
+        #                             necessary_4p_ct2[1] = ct
+        #                         # Sil
+        #                         if sorted([l.n for l in all_legs]) == (sorted([ileg,lleg])):
+        #                             s['counterterms'].append(i_ct)
+        #                             necessary_4p_ct2_list[2] = 1
+        #                             necessary_4p_ct2[2] = ct
+        #                         # Sjk
+        #                         if sorted([l.n for l in all_legs]) == (sorted([jleg,kleg])):
+        #                             s['counterterms'].append(i_ct)
+        #                             necessary_4p_ct2_list[3] = 1
+        #                             necessary_4p_ct2[3] = ct
+        #                         # Sjl
+        #                         if sorted([l.n for l in all_legs]) == (sorted([jleg,lleg])):
+        #                             s['counterterms'].append(i_ct)
+        #                             necessary_4p_ct2_list[4] = 1
+        #                             necessary_4p_ct2[4] = ct
 
-                        if singular_structure.name()=='C' and len(all_legs)==4:
-                            # Cijkl
-                            if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg,kleg,lleg])):
-                                s['counterterms'].append(i_ct)
-                                necessary_4p_ct2_list[7] = 1
-                                necessary_4p_ct2[7] = ct
+        #                 if singular_structure.name()=='C' and len(all_legs)==4:
+        #                     # Cijkl
+        #                     if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg,kleg,lleg])):
+        #                         s['counterterms'].append(i_ct)
+        #                         necessary_4p_ct2_list[7] = 1
+        #                         necessary_4p_ct2[7] = ct
 
-                    if n_subs == 2 : 
-                        # here singular_structure = coll_sub -> C(i,j)
+        #             if n_subs == 2 : 
+        #                 # here singular_structure = coll_sub -> C(i,j)
 
-                        # CijklSCikl
-                        if sorted([l.n for l in all_legs]) == (sorted([jleg,kleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[4] = 1
-                            necessary_3p_ct2[4] = ct
-                        # SCjik
-                        if sorted([l.n for l in all_legs]) == (sorted([ileg,kleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[5] = 1
-                            necessary_3p_ct2[5] = ct
-                        # SCkij
-                        if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[6] = 1
-                            necessary_3p_ct2[6] = ct
+        #                 # CijklSCikl
+        #                 if sorted([l.n for l in all_legs]) == (sorted([jleg,kleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[4] = 1
+        #                     necessary_3p_ct2[4] = ct
+        #                 # SCjik
+        #                 if sorted([l.n for l in all_legs]) == (sorted([ileg,kleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[5] = 1
+        #                     necessary_3p_ct2[5] = ct
+        #                 # SCkij
+        #                 if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[6] = 1
+        #                     necessary_3p_ct2[6] = ct
 
-                    if n_subs == 1 and len(singular_structure.substructures) == 2 :
-                        coll_subsub = singular_structure.substructures[0]
+        #             if n_subs == 1 and len(singular_structure.substructures) == 2 :
+        #                 coll_subsub = singular_structure.substructures[0]
 
-                        # CijkSCijk
-                        if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([jleg,kleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[8] = 1
-                            necessary_3p_ct2[8] = ct
-                        # CijkSCjik
-                        if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([ileg,kleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[9] = 1
-                            necessary_3p_ct2[9] = ct
-                        # CijkSCkij
-                        if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([ileg,jleg])) :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct2_list[10] = 1
-                            necessary_3p_ct2[10] = ct
+        #                 # CijkSCijk
+        #                 if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([jleg,kleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[8] = 1
+        #                     necessary_3p_ct2[8] = ct
+        #                 # CijkSCjik
+        #                 if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([ileg,kleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[9] = 1
+        #                     necessary_3p_ct2[9] = ct
+        #                 # CijkSCkij
+        #                 if sorted([l.n for l in coll_subsub.get_all_legs()]) == (sorted([ileg,jleg])) :
+        #                     s['counterterms'].append(i_ct)
+        #                     necessary_3p_ct2_list[10] = 1
+        #                     necessary_3p_ct2[10] = ct
 
                     # L12_ijkl : 18  ->  [Si Sik, Sk Sik, Si Sil, Sl Sil, Sj Sjk, Sk Sjk, Sj Sjl, Sl Sjl,
                     #                     Si SHCikl, Sj SHCjkl, Sk SHCkij, Sl SHClij,
@@ -929,7 +929,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
 
 ######### Set writer
-        writer = writers.FortranWriter
+#        writer = writers.FortranWriter
 
         # Point to the right process directory
 #        dirmadnklo=os.getcwd()

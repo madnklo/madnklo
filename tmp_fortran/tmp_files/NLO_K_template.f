@@ -12,7 +12,7 @@ c     local NLO counterterm for sector [isec,jsec]
       double precision wgt,ZSi,ZSj,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision M2_S,M2_S_ALT
+      double precision M2_S_G
       double precision KS,KHC,KNLO,wgt_chan
       logical default_soft
       parameter(default_soft=.true.)

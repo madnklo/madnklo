@@ -1,4 +1,4 @@
-      double precision function M2_S(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_G(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       implicit none
@@ -46,7 +46,7 @@ c     external
       
 c
 c     initialise
-      M2_S=0d0
+      M2_S_G=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -57,7 +57,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'M2_S:'
+        WRITE(*,*) 'M2_S_G:'
         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
         STOP
       ENDIF
@@ -84,11 +84,11 @@ c
 c
 c         check labels and pdgs
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong indices 1 in M2_S',LB,MB
+            WRITE(*,*)'Wrong indices 1 in M2_S_G',LB,MB
             STOP
           ENDIF
           IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong indices 2 in M2_S',L,M,LB,MB
+            WRITE(*,*)'Wrong indices 2 in M2_S_G',L,M,LB,MB
             STOP
           ENDIF
 c
@@ -113,7 +113,7 @@ c     invariant quantities
 c
 c     safety check
             if(sil*sim.le.0d0)then
-               write(77,*)'Inaccuracy 1 in M2_S',sil,sim
+               write(77,*)'Inaccuracy 1 in M2_S_G',sil,sim
                goto 999
             endif
 c
@@ -141,7 +141,7 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S=M2_S+pref*M2tmp*Zsoft*extra
+            M2_S_G=M2_S_G+pref*M2tmp*Zsoft*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit*wgt_chan
@@ -152,11 +152,11 @@ c
       enddo
 c
 c     apply flavour factor
-      M2_S = M2_s * %(proc_prefix_real)s_fl_factor
+      M2_S_G = M2_S_G * %(proc_prefix_real)s_fl_factor
 c
 c     sanity check
-      if(abs(M2_S).ge.huge(1d0).or.isnan(M2_S))then
-         write(77,*)'Exception caught in M2_S',M2_S
+      if(abs(M2_S_G).ge.huge(1d0).or.isnan(M2_S_G))then
+         write(77,*)'Exception caught in M2_S_G',M2_S_G
          goto 999
       endif
 c
@@ -165,155 +165,6 @@ c
       return
       end
 
-
-
-      
-      DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,NIT,EXTRA,wgt_chan,IERR)
-C     single-soft limit S_(i) * Zsoft, mapped as the collinear one
-C     it returns 0 if i is not a gluon
-      IMPLICIT NONE
-      INCLUDE 'nexternal.inc'
-      INCLUDE 'coupl.inc'
-      INCLUDE 'math.inc'
-      INCLUDE 'damping_factors.inc'
-      INCLUDE 'colored_partons.inc'
-      INCLUDE 'leg_PDGs.inc'
-      INCLUDE 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
-      INTEGER I,L,M,IB,IR,LB,MB,NIT,IERR,PARENT_LEG,idum
-      DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,wgt_chan,ZSOFT,XJ,XJB,EXTRA
-      DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1)
-      DOUBLE PRECISION BLO,CCBLO
-      DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
-      DOUBLE PRECISION SIL,SIM,SLM,X,Y,Z,DAMP
-      DOUBLE PRECISION ANS(0:NSQSO_BORN)
-      INTEGER MAPPED_LABELS(NEXTERNAL),MAPPED_FLAVOURS(NEXTERNAL)
-      INTEGER, PARAMETER :: HEL = - 1
-      DOUBLE PRECISION ALPHAS,ALPHA_QCD
-      LOGICAL ISLOQCDPARTON(NEXTERNAL-1)
-C     set logical doplot
-      LOGICAL DOPLOT
-      COMMON/CDOPLOT/DOPLOT
-      DOUBLE PRECISION SCM
-      COMMON/CSCM/SCM
-      LOGICAL DOCUT
-      integer %(proc_prefix_real)s_fl_factor
-      common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
-      INTEGER GET_COLOR_DIPOLE_INDEX
-      EXTERNAL GET_COLOR_DIPOLE_INDEX
-      double precision  %(proc_prefix_S)s_GET_CCBLO
-      integer %(proc_prefix_real)s_den
-      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_S)s_den
-      common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
-      INTEGER ISEC,JSEC
-      COMMON/CNLOSECINDICES/ISEC,JSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
-C     
-C     initialise
-      M2_S_ALT=0D0
-      M2TMP=0D0
-      IERR=0
-      DAMP=0D0
-      idum=0
-c
-c     return if not gluon
-      if(leg_pdgs(I).ne.21)return
-c
-c     safety check on PDGs
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-        STOP
-      ENDIF
-C     
-C     get PDGs and possible cuts
-      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,IB,IR,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
-C     
-C     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
-C
-C     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-      PREF=-8D0*PI*ALPHAS
-C
-C     call colour-connected Born outside of the eikonal sum
-      CALL %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-C     
-C     eikonal double sum
-      DO M=1,NEXTERNAL-1
-        IF(.NOT.ISNLOQCDPARTON(M))CYCLE
-        IF(M.EQ.I)CYCLE
-        DO L=M+1,NEXTERNAL
-          IF(.NOT.ISNLOQCDPARTON(L))CYCLE
-          IF(L.EQ.I)CYCLE
-c
-          LB=MAPPED_LABELS(L)
-          MB=MAPPED_LABELS(M)
-c
-c         check labels and pdgs
-          IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong indices 1 in M2_S_ALT',LB,MB
-            STOP
-          ENDIF
-          IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong indices 2 in M2_S_ALT',L,M,LB,MB
-            STOP
-          ENDIF
-C         
-C         invariant quantities
-          SIL=XS(I,L)
-          SIM=XS(I,M)
-          SLM=XS(L,M)
-C
-C         safety check
-          IF(SIL*SIM.LE.0D0)THEN
-            WRITE(77,*)'Inaccuracy 1 in M2_S_ALT',SIL,SIM
-            GOTO 999
-          ENDIF
-C
-C         eikonal
-          CCBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
-          M2TMP=CCBLO*2D0*SLM/(SIL*SIM)
-c
-C         Including correct multiplicity factor
-          M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
-c
-c         Damping factors
-          IF(M.GT.2.AND.L.GT.2)THEN
-            Y=SIL/(SIL+SIM+SLM)
-            Z=SIM/(SIM+SLM)
-            DAMP=((1D0-Y)*(1D0-Z))**ALPHA
-          ELSEIF(M.GT.2.AND.L.LE.2)THEN
-            Z=SIM/(SIM+SLM)
-            X=1D0 - SIL/(SIM+SLM)
-            DAMP=((1D0-Z)*X)**ALPHA
-          ELSEIF(M.LE.2.AND.L.LE.2)THEN
-            X=1D0 - (SIL+SIM)/SLM
-            DAMP=X**ALPHA
-          ENDIF
-          M2TMP=M2TMP*DAMP
-          M2_S_ALT=M2_S_ALT+PREF*M2TMP*ZSOFT*XJ*EXTRA
-        ENDDO
-      ENDDO
-C     apply flavour factor
-      M2_S_ALT=M2_S_ALT*%(proc_prefix_real)s_fl_factor
-C         
-C     plot
-      WGTPL=-M2_S_ALT*WGT/NIT*wgt_chan
-      IF(DOPLOT)CALL HISTO_FILL(XPB,XSB,NEXTERNAL-1,WGTPL)
-C     
-C     sanity check
-      IF(ABS(M2_S_ALT).GE.HUGE(1D0).OR.ISNAN(M2_S_ALT))THEN
-        WRITE(77,*)'Exception caught in M2_S_ALT',M2_S_ALT
-        GOTO 999
-      ENDIF
-C     
-      RETURN
- 999  IERR=1
-      RETURN
-      END
 
 
       double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
@@ -717,7 +568,153 @@ C
 
 
 c c STUFF NOT WORKING
-c c      double precision function M2_S2(i,xs,xp,wgt,ZSoft,xj,xjB,XX,nit,extra,ierr)
+c       DOUBLE PRECISION FUNCTION M2_S_ALT(I,IB,IR,XS,XP,XSB,XPB,WGT,ZSOFT,XJ,XJB,NIT,EXTRA,wgt_chan,IERR)
+c C     single-soft limit S_(i) * Zsoft, mapped as the collinear one
+c C     it returns 0 if i is not a gluon
+c       IMPLICIT NONE
+c       INCLUDE 'nexternal.inc'
+c       INCLUDE 'coupl.inc'
+c       INCLUDE 'math.inc'
+c       INCLUDE 'damping_factors.inc'
+c       INCLUDE 'colored_partons.inc'
+c       INCLUDE 'leg_PDGs.inc'
+c       INCLUDE 'nsqso_born.inc'
+c       INCLUDE 'input.inc'
+c       INCLUDE 'run.inc'
+c       INTEGER I,L,M,IB,IR,LB,MB,NIT,IERR,PARENT_LEG,idum
+c       DOUBLE PRECISION PREF,M2TMP,WGT,WGTPL,wgt_chan,ZSOFT,XJ,XJB,EXTRA
+c       DOUBLE PRECISION XS(NEXTERNAL,NEXTERNAL),XSB(NEXTERNAL-1,NEXTERNAL-1)
+c       DOUBLE PRECISION BLO,CCBLO
+c       DOUBLE PRECISION XP(0:3,NEXTERNAL),XPB(0:3,NEXTERNAL-1)
+c       DOUBLE PRECISION SIL,SIM,SLM,X,Y,Z,DAMP
+c       DOUBLE PRECISION ANS(0:NSQSO_BORN)
+c       INTEGER MAPPED_LABELS(NEXTERNAL),MAPPED_FLAVOURS(NEXTERNAL)
+c       INTEGER, PARAMETER :: HEL = - 1
+c       DOUBLE PRECISION ALPHAS,ALPHA_QCD
+c       LOGICAL ISLOQCDPARTON(NEXTERNAL-1)
+c C     set logical doplot
+c       LOGICAL DOPLOT
+c       COMMON/CDOPLOT/DOPLOT
+c       DOUBLE PRECISION SCM
+c       COMMON/CSCM/SCM
+c       LOGICAL DOCUT
+c       integer %(proc_prefix_real)s_fl_factor
+c       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
+c       INTEGER GET_COLOR_DIPOLE_INDEX
+c       EXTERNAL GET_COLOR_DIPOLE_INDEX
+c       double precision  %(proc_prefix_S)s_GET_CCBLO
+c       integer %(proc_prefix_real)s_den
+c       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+c       integer %(proc_prefix_S)s_den
+c       common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+c       INTEGER ISEC,JSEC
+c       COMMON/CNLOSECINDICES/ISEC,JSEC
+c       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+c C     
+c C     initialise
+c       M2_S_ALT=0D0
+c       M2TMP=0D0
+c       IERR=0
+c       DAMP=0D0
+c       idum=0
+c c
+c c     return if not gluon
+c       if(leg_pdgs(I).ne.21)return
+c c
+c c     safety check on PDGs
+c       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
+c         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
+c         STOP
+c       ENDIF
+c C     
+c C     get PDGs and possible cuts
+c       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+c       CALL GET_SOFT_MAPPED_LABELS(I,IB,IR,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+c C     
+c C     possible cuts
+c       IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
+c C
+c C     overall kernel prefix
+c       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+c       PREF=-8D0*PI*ALPHAS
+c C
+c C     call colour-connected Born outside of the eikonal sum
+c       CALL %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c C     
+c C     eikonal double sum
+c       DO M=1,NEXTERNAL-1
+c         IF(.NOT.ISNLOQCDPARTON(M))CYCLE
+c         IF(M.EQ.I)CYCLE
+c         DO L=M+1,NEXTERNAL
+c           IF(.NOT.ISNLOQCDPARTON(L))CYCLE
+c           IF(L.EQ.I)CYCLE
+c c
+c           LB=MAPPED_LABELS(L)
+c           MB=MAPPED_LABELS(M)
+c c
+c c         check labels and pdgs
+c           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
+c             WRITE(*,*)'Wrong indices 1 in M2_S_ALT',LB,MB
+c             STOP
+c           ENDIF
+c           IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
+c             WRITE(*,*)'Wrong indices 2 in M2_S_ALT',L,M,LB,MB
+c             STOP
+c           ENDIF
+c C         
+c C         invariant quantities
+c           SIL=XS(I,L)
+c           SIM=XS(I,M)
+c           SLM=XS(L,M)
+c C
+c C         safety check
+c           IF(SIL*SIM.LE.0D0)THEN
+c             WRITE(77,*)'Inaccuracy 1 in M2_S_ALT',SIL,SIM
+c             GOTO 999
+c           ENDIF
+c C
+c C         eikonal
+c           CCBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
+c           M2TMP=CCBLO*2D0*SLM/(SIL*SIM)
+c c
+c C         Including correct multiplicity factor
+c           M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
+c c
+c c         Damping factors
+c           IF(M.GT.2.AND.L.GT.2)THEN
+c             Y=SIL/(SIL+SIM+SLM)
+c             Z=SIM/(SIM+SLM)
+c             DAMP=((1D0-Y)*(1D0-Z))**ALPHA
+c           ELSEIF(M.GT.2.AND.L.LE.2)THEN
+c             Z=SIM/(SIM+SLM)
+c             X=1D0 - SIL/(SIM+SLM)
+c             DAMP=((1D0-Z)*X)**ALPHA
+c           ELSEIF(M.LE.2.AND.L.LE.2)THEN
+c             X=1D0 - (SIL+SIM)/SLM
+c             DAMP=X**ALPHA
+c           ENDIF
+c           M2TMP=M2TMP*DAMP
+c           M2_S_ALT=M2_S_ALT+PREF*M2TMP*ZSOFT*XJ*EXTRA
+c         ENDDO
+c       ENDDO
+c C     apply flavour factor
+c       M2_S_ALT=M2_S_ALT*%(proc_prefix_real)s_fl_factor
+c C         
+c C     plot
+c       WGTPL=-M2_S_ALT*WGT/NIT*wgt_chan
+c       IF(DOPLOT)CALL HISTO_FILL(XPB,XSB,NEXTERNAL-1,WGTPL)
+c C     
+c C     sanity check
+c       IF(ABS(M2_S_ALT).GE.HUGE(1D0).OR.ISNAN(M2_S_ALT))THEN
+c         WRITE(77,*)'Exception caught in M2_S_ALT',M2_S_ALT
+c         GOTO 999
+c       ENDIF
+c C     
+c       RETURN
+c  999  IERR=1
+c       RETURN
+c       END
+c c c      double precision function M2_S2(i,xs,xp,wgt,ZSoft,xj,xjB,XX,nit,extra,ierr)
 c cc     single-soft limit S_(i) * Zsoft
 c cc     it returns 0 if i is not a gluon
 c c      implicit none

@@ -119,7 +119,7 @@ C
                
             call nlo_v_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
 
-            INLO(1) = res
+            INLO(1) = INLO(1) + res
                
                INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif

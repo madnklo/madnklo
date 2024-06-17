@@ -19,8 +19,19 @@ c
 c     initialise
       Z_NLO = 0d0
       ierr = 0
+      wkl = 0d0
+      ek = 0d0
+      el = 0d0
 c
 c     safety checks
+      if(sCM.le.0d0)then
+         write(77,*)'Wrong sCM in Z_NLO',sCM
+         stop
+      endif
+      if(alpha.lt.1d0)then
+         write(77,*)'Wrong alpha in Z_NLO',alpha
+         stop
+      endif
       if(i1.le.2) then
          write(*,*) 'First sector index must be in final state',i1
          stop
@@ -28,10 +39,6 @@ c     safety checks
       if(abs(sCM-xs(1,2))/sCM.gt.1d-8)then
          write(77,*)'Wrong invariants in Z_NLO',sCM,xs(1,2)
          goto 999
-      endif
-      if(alpha.lt.1d0)then
-         write(77,*)'Wrong alpha in Z_NLO',alpha
-         stop
       endif
 c
 c     build Z_NLO
@@ -45,9 +52,13 @@ c     build Z_NLO
                write(*,*)'Wrong indices in Z_NLO',k,l
                stop
             endif
-            ek=(xs(k,1)+xs(k,2))/sCM
-            el=(xs(l,1)+xs(l,2))/sCM
-            wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+            if((xs(k,1)+xs(k,2))*(xs(l,1)+xs(l,2))*xs(k,l).ne.0d0)then
+               ek=(xs(k,1)+xs(k,2))/sCM
+               el=(xs(l,1)+xs(l,2))/sCM
+               wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+            else
+               goto 999
+            endif
 c     here sigma_kl means sigma_kl + sigma_lk
             sigma_kl=(1d0/ek/wkl)**alpha+(1d0/el/wkl)**alpha
             sigma = sigma + sigma_kl
@@ -75,7 +86,11 @@ c$$$c kl = 34 35 45
             k=all_sector_list(1,i)
             l=all_sector_list(2,i)
             if(k.ne.i1.and.k.ne.i2.and.l.ne.i1.and.l.ne.i2)cycle
-            wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+            if((xs(k,1)+xs(k,2))*(xs(l,1)+xs(l,2))*xs(k,l).ne.0d0)then
+               wkl=sCM*xs(k,l)/(xs(k,1)+xs(k,2))/(xs(l,1)+xs(l,2))
+            else
+               goto 999
+            endif
 c     here sigma_kl means 1/w_kl
             sigma_kl=(1d0/wkl)**alpha
             if(k.eq.i1)then

@@ -316,7 +316,7 @@ C
       END
 
 
-      double precision function M2_H_C_FgFg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib) - S_(ib)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -340,7 +340,7 @@ c     for sectors (ia,ib)+(ib,ia)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision %(proc_prefix_H_C_FgFg)s_GET_KKBLO
+      double precision %(proc_prefix_HC_gg)s_GET_KKBLO
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -351,15 +351,15 @@ c     set logical doplot
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_H_C_FgFg)s_den
-      common/%(proc_prefix_H_C_FgFg)s_iden/%(proc_prefix_H_C_FgFg)s_den
+      integer %(proc_prefix_HC_gg)s_den
+      common/%(proc_prefix_HC_gg)s_iden/%(proc_prefix_HC_gg)s_den
       INTEGER ISEC,JSEC
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
 
 c
 c     initialise
-      M2_H_C_FgFg=0d0
+      M2_HC_gg=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -390,27 +390,27 @@ c     kt = wa pa + wb pb + wr pr
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C_FgFg',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_gg',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
-      call %(proc_prefix_H_C_FgFg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
       call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
-         write(*,*) 'M2_H_C_FgFg: '
+         write(*,*) 'M2_HC_gg: '
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
          stop
       endif
 c
-      KKBLO = %(proc_prefix_H_C_FgFg)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FgFg)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir) 
       if(ir.ge.2)then
@@ -419,17 +419,17 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FgFg=M2tmp*pref/sab*xj*extra
+      M2_HC_gg=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
-      M2_H_C_FgFg=M2_H_C_FgFg*%(proc_prefix_real)s_fl_factor
+      M2_HC_gg=M2_HC_gg*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFg*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_gg*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C_FgFg).ge.huge(1d0).or.isnan(M2_H_C_FgFg))then
-         write(77,*)'Exception caught in M2_H_C_FgFg',M2_H_C_FgFg
+      if(abs(M2_HC_gg).ge.huge(1d0).or.isnan(M2_HC_gg))then
+         write(77,*)'Exception caught in M2_HC_gg',M2_HC_gg
          goto 999
       endif
 c
@@ -439,7 +439,7 @@ c
       end
   
                   
-      double precision function M2_H_C_FgFq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_gq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -471,15 +471,15 @@ c     set logical doplot
       integer,parameter :: HEL = - 1
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_H_C_FgFq)s_den
-      common/%(proc_prefix_H_C_FgFq)s_iden/%(proc_prefix_H_C_FgFq)s_den
+      integer %(proc_prefix_HC_gq)s_den
+      common/%(proc_prefix_HC_gq)s_iden/%(proc_prefix_HC_gq)s_den
       INTEGER ISEC,JSEC
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
 
 c
 c     initialise
-      M2_H_C_FgFq=0d0
+      M2_HC_gq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -506,17 +506,17 @@ c     invariant quantities
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C_FgFq',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_gq',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
-      call %(proc_prefix_H_C_FgFq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FgFq)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -525,17 +525,17 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FgFq=M2tmp*pref/sab*xj*extra
+      M2_HC_gq=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
-      M2_H_C_FgFq=M2_H_C_FgFq*%(proc_prefix_real)s_fl_factor
+      M2_HC_gq=M2_HC_gq*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FgFq*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_gq*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C_FgFq).ge.huge(1d0).or.isnan(M2_H_C_FgFq))then
-         write(77,*)'Exception caught in M2_H_C_FgFq',M2_H_C_FgFq
+      if(abs(M2_HC_gq).ge.huge(1d0).or.isnan(M2_HC_gq))then
+         write(77,*)'Exception caught in M2_HC_gq',M2_HC_gq
          goto 999
       endif
 c
@@ -545,7 +545,7 @@ c
       end
 
 
-      double precision function M2_H_C_FqFqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -577,17 +577,17 @@ c     set logical doplot
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       double precision alphas,alpha_qcd
-      double precision %(proc_prefix_H_C_FqFqx)s_get_kkblo
+      double precision %(proc_prefix_HC_qqx)s_get_kkblo
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_H_C_FqFqx)s_den
-      common/%(proc_prefix_H_C_FqFqx)s_iden/%(proc_prefix_H_C_FqFqx)s_den
+      integer %(proc_prefix_HC_qqx)s_den
+      common/%(proc_prefix_HC_qqx)s_iden/%(proc_prefix_HC_qqx)s_den
       INTEGER ISEC,JSEC
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
 c
 c     initialise
-      M2_H_C_FqFqx=0d0
+      M2_HC_qqx=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -619,12 +619,12 @@ c     kt = wa pa + wb pb + wr pr
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_H_C_FqFqx',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_qqx',sab,sar+sbr,x
          goto 999
       endif
 c
 c     call Born
-      call %(proc_prefix_H_C_FqFqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
       call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
@@ -634,11 +634,11 @@ c
          stop
       endif
 c
-      KKBLO = %(proc_prefix_H_C_FqFqx)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(BLO-4d0/sab*KKBLO)
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_H_C_FqFqx)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_real)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -647,17 +647,17 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_H_C_FqFqx=M2tmp*pref/sab*xj*extra
+      M2_HC_qqx=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
-      M2_H_C_FqFqx=M2_H_C_FqFqx*%(proc_prefix_real)s_fl_factor
+      M2_HC_qqx=M2_HC_qqx*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_H_C_FqFqx*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check
-      if(abs(M2_H_C_FqFqx).ge.huge(1d0).or.isnan(M2_H_C_FqFqx))then
-         write(77,*)'Exception caught in M2_H_C_FqFqx',M2_H_C_FqFqx
+      if(abs(M2_HC_qqx).ge.huge(1d0).or.isnan(M2_HC_qqx))then
+         write(77,*)'Exception caught in M2_HC_qqx',M2_HC_qqx
          goto 999
       endif
 c

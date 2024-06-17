@@ -621,9 +621,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_limits['proc_prefix_real'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_limits['proc_prefix_S'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FgFg'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FgFq'] = 'dummy'
-            replace_dict_limits['proc_prefix_H_C_FqFqx'] = 'dummy'
+            replace_dict_limits['proc_prefix_HC_gg'] = 'dummy'
+            replace_dict_limits['proc_prefix_HC_gq'] = 'dummy'
+            replace_dict_limits['proc_prefix_HC_qqx'] = 'dummy'
             #replace_dict_int_real['isec'] = isec
             #replace_dict_int_real['jsec'] = jsec
 
@@ -700,16 +700,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # Check irec validity
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                    # Write an identified M2_H_C_F*F* for each (**) flavour couple 
+                    # Write an identified M2_HC_** for each (**) flavour couple 
                     if id_isec == 21 and id_jsec == 21:
-                        list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
-                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFg')
+                        list_M2.append('KHC=KHC+M2_HC_gg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
+                        list_str_defHC.append('DOUBLE PRECISION M2_HC_gg')
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        list_M2.append('KHC=KHC+M2_H_C_FgFq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
-                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFq')
+                        list_M2.append('KHC=KHC+M2_HC_gq(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
+                        list_str_defHC.append('DOUBLE PRECISION M2_HC_gq')
                     else:
-                        list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
-                        list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
+                        list_M2.append('KHC=KHC+M2_HC_qqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
+                        list_str_defHC.append('DOUBLE PRECISION M2_HC_qqx')
                     list_M2.append('if(ierr.eq.1)goto 999\n')
 
                     # default mapping for final-state collinear kernels (abc) == (ijr)
@@ -779,13 +779,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if isec > 2 and jsec > 2:
                     # g > g + g  
                     if id_isec == 21 and id_jsec == 21:
-                        tmp_proc = 'proc_prefix_H_C_FgFg'
+                        tmp_proc = 'proc_prefix_HC_gg'
                     # q(qx) > g + q(qx)
                     elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        tmp_proc = 'proc_prefix_H_C_FgFq'
+                        tmp_proc = 'proc_prefix_HC_gq'
                     # g > q(qx) + qx(q)
                     else:
-                        tmp_proc = 'proc_prefix_H_C_FqFqx'
+                        tmp_proc = 'proc_prefix_HC_qqx'
 
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)

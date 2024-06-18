@@ -1,4 +1,4 @@
-      double precision function M2_S_G(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_g(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       implicit none
@@ -33,11 +33,11 @@ c     external
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
-      double precision  %(proc_prefix_S)s_GET_CCBLO
+      double precision  %(proc_prefix_S_g)s_GET_CCBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_S)s_den
-      common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+      integer %(proc_prefix_S_g)s_den
+      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
       INTEGER ISEC,JSEC
       COMMON/CNLOSECINDICES/ISEC,JSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -46,7 +46,7 @@ c     external
       
 c
 c     initialise
-      M2_S_G=0d0
+      M2_S_g=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -57,7 +57,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'M2_S_G:'
+        WRITE(*,*) 'M2_S_g:'
         WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
         STOP
       ENDIF
@@ -84,11 +84,11 @@ c
 c
 c         check labels and pdgs
           IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong indices 1 in M2_S_G',LB,MB
+            WRITE(*,*)'Wrong indices 1 in M2_S_g',LB,MB
             STOP
           ENDIF
           IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong indices 2 in M2_S_G',L,M,LB,MB
+            WRITE(*,*)'Wrong indices 2 in M2_S_g',L,M,LB,MB
             STOP
           ENDIF
 c
@@ -113,19 +113,19 @@ c     invariant quantities
 c
 c     safety check
             if(sil*sim.le.0d0)then
-               write(77,*)'Inaccuracy 1 in M2_S_G',sil,sim
+               write(77,*)'Inaccuracy 1 in M2_S_g',sil,sim
                goto 999
             endif
 c
 c     call colour-connected Born
-            call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
+            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
             M2TMP=SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
+            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
 c
 c     damping factors
             if(m.gt.2.and.l.gt.2)then
@@ -141,7 +141,7 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_G=M2_S_G+pref*M2tmp*Zsoft*extra
+            M2_S_g=M2_S_g+pref*M2tmp*Zsoft*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit*wgt_chan
@@ -152,11 +152,11 @@ c
       enddo
 c
 c     apply flavour factor
-      M2_S_G = M2_S_G * %(proc_prefix_real)s_fl_factor
+      M2_S_g = M2_S_g * %(proc_prefix_real)s_fl_factor
 c
 c     sanity check
-      if(abs(M2_S_G).ge.huge(1d0).or.isnan(M2_S_G))then
-         write(77,*)'Exception caught in M2_S_G',M2_S_G
+      if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then
+         write(77,*)'Exception caught in M2_S_g',M2_S_g
          goto 999
       endif
 c
@@ -602,11 +602,11 @@ c       integer %(proc_prefix_real)s_fl_factor
 c       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
 c       INTEGER GET_COLOR_DIPOLE_INDEX
 c       EXTERNAL GET_COLOR_DIPOLE_INDEX
-c       double precision  %(proc_prefix_S)s_GET_CCBLO
+c       double precision  %(proc_prefix_S_g)s_GET_CCBLO
 c       integer %(proc_prefix_real)s_den
 c       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-c       integer %(proc_prefix_S)s_den
-c       common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+c       integer %(proc_prefix_S_g)s_den
+c       common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
 c       INTEGER ISEC,JSEC
 c       COMMON/CNLOSECINDICES/ISEC,JSEC
 c       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -639,7 +639,7 @@ c       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c       PREF=-8D0*PI*ALPHAS
 c C
 c C     call colour-connected Born outside of the eikonal sum
-c       CALL %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c       CALL %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
 c C     
 c C     eikonal double sum
 c       DO M=1,NEXTERNAL-1
@@ -674,11 +674,11 @@ c             GOTO 999
 c           ENDIF
 c C
 c C         eikonal
-c           CCBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
+c           CCBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c           M2TMP=CCBLO*2D0*SLM/(SIL*SIM)
 c c
 c C         Including correct multiplicity factor
-c           M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
+c           M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
 c c
 c c         Damping factors
 c           IF(M.GT.2.AND.L.GT.2)THEN
@@ -749,11 +749,11 @@ c c      external get_color_dipole_index
 c c      double precision alphas,ans(0:NSQSO_BORN)
 c c      double precision alpha_qcd
 c c      integer, parameter :: HEL = - 1
-c c      double precision  %(proc_prefix_S)s_GET_CCBLO
+c c      double precision  %(proc_prefix_S_g)s_GET_CCBLO
 c c      integer %(proc_prefix_real)s_den
 c c      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-c c      integer %(proc_prefix_S)s_den
-c c      common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+c c      integer %(proc_prefix_S_g)s_den
+c c      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
 c c      INTEGER ISEC,JSEC
 c c      COMMON/CNLOSECINDICES/ISEC,JSEC
 c c      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -787,7 +787,7 @@ c c      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c c      pref=-8d0*pi*alphas
 c cC
 c cC     call colour-connected Born outside of the eikonal sum
-c c      CALL %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c c      CALL %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
 c cc
 c cc     eikonal double sum
 c c      do m=1,nexternal-1
@@ -834,11 +834,11 @@ c c               goto 999
 c c            endif
 c cc
 c cc     eikonal
-c c            ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
+c c            ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c c            M2tmp=ccBLO*2d0*slm/(sil*sim) * Zsoft * xjB * xjCS
 c cc
 c cc     Including correct multiplicity factor
-c c            M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
+c c            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
 c cc
 c cc     damping factors
 c c          if(alpha.ne.0d0)then
@@ -923,11 +923,11 @@ c c      EXTERNAL GET_COLOR_DIPOLE_INDEX
 c c      DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
 c c      DOUBLE PRECISION ALPHA_QCD
 c c      INTEGER, PARAMETER :: HEL = - 1
-c c      double precision  %(proc_prefix_S)s_GET_CCBLO
+c c      double precision  %(proc_prefix_S_g)s_GET_CCBLO
 c c      integer %(proc_prefix_real)s_den
 c c      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-c c      integer %(proc_prefix_S)s_den
-c c      common/%(proc_prefix_S)s_iden/%(proc_prefix_S)s_den
+c c      integer %(proc_prefix_S_g)s_den
+c c      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
 c c      INTEGER ISEC,JSEC
 c c      COMMON/CNLOSECINDICES/ISEC,JSEC
 c c      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -962,7 +962,7 @@ c c      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c c      PREF=-8D0*PI*ALPHAS
 c cC
 c cC     call colour-connected Born outside of the eikonal sum
-c c      call %(proc_prefix_S)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c c      call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
 c cC
 c cC     eikonal double sum
 c c      DO M=1,NEXTERNAL-1
@@ -1010,14 +1010,14 @@ c c            GOTO 999
 c c          ENDIF
 c cC         
 c cC         eikonal difference
-c c          ccBLO = %(proc_prefix_S)s_GET_CCBLO(lb,mb)
+c c          ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c c          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * ZSOFT_ilm * XJB * XJCS_ILM
 c cc          M2TMP = SLM_ilm/(SIL_ilm*SIM_ilm) * ZSOFT * XJB * XJCS_ILM
 c c          M2TMP = M2TMP - SLM/(SIL*SIM) * ZSOFT * XJ
 c c          M2TMP = M2TMP * CCBLO*2D0
 c cc
 c cC         Including correct multiplicity factor
-c c          M2tmp = M2tmp*dble(%(proc_prefix_S)s_den)/dble(%(proc_prefix_real)s_den)
+c c          M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
 c cc
 c cc         Damping factors
 c c          if(alpha.ne.0d0)then

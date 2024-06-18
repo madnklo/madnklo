@@ -104,10 +104,10 @@ class Contribution(object):
             elif n_loops == 1 and n_unresolved_particles == 1:
                 target_type = 'RealVirtual'
             elif n_loops == 2 and n_unresolved_particles == 0:
-                #if 'DUMMY' not in contribution_definition.process_definition.get('NLO_mode'):
-                target_type = "VirtualVirtual"
-                #elif contribution_definition.process_definition.get('NLO_mode'):
-                #    target_type = "DummyVirtualVirtual"
+                if 'DUMMY' not in contribution_definition.process_definition.get('NLO_mode'):
+                    target_type = "VirtualVirtual"
+                elif contribution_definition.process_definition.get('NLO_mode'):
+                    target_type = "DummyVirtualVirtual"
             else:
                 raise MadGraph5Error("Some %s type of contributions are not implemented yet."%
                                                                             contribution_definition.correction_order)
@@ -245,9 +245,8 @@ class Contribution(object):
         
         # Decide whether a MadLoop output is required based on the process definition
         # underlying this contribution.
-        
         if any(self.contribution_definition.process_definition.get('NLO_mode').startswith(marker)
-                                                                for marker in ['virt','sqrvirt','tree_DUMMY2LOOP']):
+                                                                for marker in ['virt','sqrvirt']):
             return 'madloop'
         else:
             return 'default'
@@ -448,38 +447,23 @@ class Contribution(object):
         calls=0
         cpu_time_start = time.time()
         
-        # for me in matrix_elements:
-        #     if(me.get('processes')[0].get('n_loops')==2):
-        #         print('GIOVANNIIIIIII', self.output_type)
-
-
-
         if self.output_type == 'madloop':
             for me in matrix_elements:
-                if(me.get('processes')[0].get('n_loops')<2):
                 # Choose the group number to be the unique id so that the output prefix
                 # is nicely P<proc_id>_<unique_id>_
-                    calls = calls + self.exporter.generate_loop_subprocess(me, 
-                        self.helas_model,
-                        group_number = me.get('processes')[0].get('uid'),
-                        proc_id = None,
-                        config_map=None,
-                        unique_id=me.get('processes')[0].get('uid'))
-                elif(me.get('processes')[0].get('n_loops')==2):
-                    # calls = calls + self.exporter.generate_VVloop_subprocess(me, 
-                    #     self.helas_model,
-                    #     group_number = me.get('processes')[0].get('uid'),
-                    #     proc_id = None,
-                    #     config_map=None,
-                    #     unique_id=me.get('processes')[0].get('uid'))
-                    
-                    
-                    calls = calls + self.exporter.generate_VVloop_subprocess(me, 
-                        self.helas_model,
-                        group_number = me.get('processes')[0].get('uid'),
-                        proc_id = None,
-                        config_map=None,
-                        unique_id=me.get('processes')[0].get('uid'))
+                calls = calls + self.exporter.generate_loop_subprocess(me, 
+                    self.helas_model,
+                    group_number = me.get('processes')[0].get('uid'),
+                    proc_id = None,
+                    config_map=None,
+                    unique_id=me.get('processes')[0].get('uid'))
+                
+                calls = calls + self.exporter.generate_VVloop_subprocess(me, 
+                    self.helas_model,
+                    group_number = me.get('processes')[0].get('uid'),
+                    proc_id = None,
+                    config_map=None,
+                    unique_id=me.get('processes')[0].get('uid'))
     
             # If all ME's do not share the same maximum loop vertex rank and the
             # same loop maximum wavefunction size, we need to set the maximum
@@ -2447,13 +2431,13 @@ class Contribution_V(Contribution):
         
         # Let the ME7 exporter that we could successfully host this integrated counterterm
         return True
-#GIOVANNI Debug
+
 class Contribution_VV(Contribution_V):
     """ TODO: Genuine implementation of the double virtual using for example UFO form factors """
     def __init__(self, *args, **opts):
         logger.critical("The implementation of exact multi-loop matrix elements is not available "+
                         "within MaNkLO at this time. Specify dummy ones instead.")
-        #raise NotImplementedError
+        raise NotImplementedError
         super(Contribution_VV, self).__init__(*args, **opts)
 
 class DummyContribution_V(Contribution_V):

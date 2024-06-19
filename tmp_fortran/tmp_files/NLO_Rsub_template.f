@@ -21,8 +21,8 @@ c     (n+1)-body NLO integrand for vegas
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
       double precision Z_NLO,ZSi,ZSj
-      double precision alpha
-      parameter(alpha=1d0)
+      double precision alphaZ
+      parameter(alphaZ=1d0)
       double precision RNLO,KNLO,KS,KHC
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
@@ -144,7 +144,7 @@ c     real
       endif
 c
 c     real sector function
-      call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,Z_NLO,'F',ierr)
+      call get_Z_NLO(sNLO,sCM,alphaZ,isec,jsec,Z_NLO,'F',ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
          write(77,*) 'Wrong Z_NLO', Z_NLO
@@ -162,7 +162,7 @@ c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,wgt_chan,ierr)
+      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
          write(77,*) 'Something wrong in the counterterm', KNLO

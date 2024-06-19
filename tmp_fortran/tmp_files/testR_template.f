@@ -72,14 +72,14 @@ c
       double precision xsave(3)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-      DOUBLE PRECISION Z_NLO,ZSI,ZSJ
+      DOUBLE PRECISION Z_NLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NLO_proc_str)sfl_factor 
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
-      DOUBLE PRECISION ALPHA
-      PARAMETER(ALPHA=1D0)
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
@@ -91,8 +91,6 @@ c     initialise
       xjac=0d0
       sNLO=0d0
       sLO=0d0
-      ZSI=0d0
-      ZSJ=0d0
       Z_NLO=0d0
       wgt_chan=1d0
 c
@@ -142,13 +140,11 @@ c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
-         CALL GET_Z_NLO(SNLO,SCM,1D0,%(isec)d,%(jsec)d,Z_NLO,'F',IERR)
+         CALL GET_Z_NLO(SNLO,SCM,ALPHAZ,%(isec)d,%(jsec)d,Z_NLO,'F',IERR)
          if(ierr.eq.1)cycle
 c
 c     counterterm
-%(str_Zsum)s
-
-         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,ZSi,ZSj,xjac,xjacB,x,KS,KHC,KNLO,wgt_chan,ierr)
+         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNLO

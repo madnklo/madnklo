@@ -1,4 +1,4 @@
-      double precision function M2_S_g(i,xs,xp,wgt,ZSoft,xj,xjB,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       implicit none
@@ -12,7 +12,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,Zsoft,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,ZS,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -32,6 +32,8 @@ c     external
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
+      double precision alphaZ
+      parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_g)s_GET_CCBLO
       integer %(proc_prefix_real)s_den
@@ -64,7 +66,11 @@ c     safety check on PDGs
 c
 c     get PDGs
       CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,idum,idum,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,IDUM,IDUM,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+c
+c     call Z soft
+      CALL GET_Z_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS,'S',IERR)
+      if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -141,10 +147,10 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_g=M2_S_g+pref*M2tmp*Zsoft*extra
+            M2_S_g=M2_S_g+pref*M2tmp*ZS*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*Zsoft*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*ZS*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c

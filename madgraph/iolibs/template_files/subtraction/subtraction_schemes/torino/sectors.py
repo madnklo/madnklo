@@ -675,31 +675,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     #print(str(necessary_ct_list[i][j].split("_")))
                     if id_isec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % isec)
-                    # list_M2.append('if(default_soft)then\n')
-                    list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,ZSi,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
+                    list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
                     list_M2.append('if(ierr.eq.1)goto 999\n')
-                    # list_M2.append('else\n')
-                    # list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
-                    # list_M2.append('if(ierr.eq.1)goto 999\n')
-                    # list_M2.append('endif\n')
-
-                    list_int_real.append('# call sector function ZSi\n')
-                    list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZSi,"S",ierr)\n')
-                    list_int_real.append('if(ierr.eq.1)goto 999\n')
                 elif j == 1:
                     if id_jsec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % jsec)
-                    #list_M2.append('if(default_soft)then\n')
                     list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
                     list_M2.append('if(ierr.eq.1)goto 999\n')
-                    #list_M2.append('else\n')
-                    #list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
-                    #list_M2.append('if(ierr.eq.1)goto 999\n')
-                    #list_M2.append('endif\n')
-
-                    list_int_real.append('# call sector function ZSj\n')
-                    list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZSj,"S",ierr)\n')
-                    list_int_real.append('if(ierr.eq.1)goto 999\n')
                 elif j==2 :
                     #print(str(necessary_ct_list[i][j].split("_")[1]))
                     if isec > 2 and jsec > 2:
@@ -1137,7 +1119,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         limit_str = ''
         is_soft = False
         is_coll = False
-        list_Zsum = []
         if necessary_ct_list[i][0] != 0 : #[i*5] == 1:    
             limit_str += """
 c
@@ -1153,8 +1134,6 @@ c     soft limit"""
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('#     call sector function ZSi\n')
-            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZSi,"S",ierr)\n'%(isec,jsec))
             is_soft = True
         if necessary_ct_list[i][1] != 0 : #[i*5+1] == 1:
             limit_str += """
@@ -1164,8 +1143,6 @@ c     soft limit
       e2=1d0
       call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
 """%(isec,jsec)
-            list_Zsum.append('#     call sector function ZSj\n')
-            list_Zsum.append('        call get_Z_NLO(sNLO,sCM,alpha,%d,%d,ZSj,"S",ierr)\n'%(jsec,isec))
             is_soft = True
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
@@ -1203,8 +1180,6 @@ c     soft-collinear limit
         replace_dict['limit_str'] = limit_str
         replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
-        str_Zsum = " ".join(list_Zsum)
-        replace_dict['str_Zsum'] = str_Zsum  
         replace_dict['mapping_str'] = mapping_str
 
         # write testR             

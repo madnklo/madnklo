@@ -12,7 +12,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,ZS,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,ZS_NLO,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -69,7 +69,7 @@ c     get PDGs
       CALL GET_SOFT_MAPPED_LABELS(I,IDUM,IDUM,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c
 c     call Z soft
-      CALL GET_Z_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS,'S',IERR)
+      CALL GET_ZS_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS_NLO,IERR)
       if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
@@ -147,10 +147,10 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_g=M2_S_g+pref*M2tmp*ZS*extra
+            M2_S_g=M2_S_g+pref*M2tmp*ZS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZS*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c

@@ -20,7 +20,7 @@ c     (n+1)-body NLO integrand for vegas
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
-      double precision Z_NLO,ZSi,ZSj
+      double precision Z_NLO
       double precision alphaZ
       parameter(alphaZ=1d0)
       double precision RNLO,KNLO,KS,KHC
@@ -69,8 +69,6 @@ c     initialise
       iref = %(iref)d
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
-      ZSi=0d0
-      ZSj=0d0
       Z_NLO=0d0
       RNLO=0d0
       do i=1,3
@@ -144,7 +142,7 @@ c     real
       endif
 c
 c     real sector function
-      call get_Z_NLO(sNLO,sCM,alphaZ,isec,jsec,Z_NLO,'F',ierr)
+      call get_Z_NLO(sNLO,sCM,alphaZ,isec,jsec,Z_NLO,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
          write(77,*) 'Wrong Z_NLO', Z_NLO

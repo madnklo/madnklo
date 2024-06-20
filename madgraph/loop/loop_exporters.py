@@ -844,7 +844,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         # import pdb
         # pdb.set_trace()
 
-
         cwd = os.getcwd()
         proc_dir_name = self.get_SubProc_folder_name(
                         matrix_element.get('processes')[0],group_number,proc_id)
@@ -874,78 +873,81 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         # Extract number of external particles
         (nexternal, ninitial) = matrix_element.get_nexternal_ninitial()
 
-        # calls=self.write_loop_matrix_element_v4(None,matrix_element,
-        #                  fortran_model, group_number = group_number, 
-        #                              proc_id = proc_id, config_map = config_map)
+        calls=self.write_loop_matrix_element_v4(None,matrix_element,
+                         fortran_model, group_number = group_number, 
+                                     proc_id = proc_id, config_map = config_map)
         
+        tmp_proc_dir = pjoin(self.dir_path,'../')
+        filename = pjoin(tmp_proc_dir,'contributions.mg')
+
         
-        #if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
         subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/', proc_dir_name)
                 #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
-        #files.append_to_file(filename,self.write_contributions,subprocdir)
+        files.append_to_file(filename,self.write_contributions,subprocdir)
         self.write_contributions,(self.dir_path)                  
-
+                
 
         # We assume here that all processes must share the same property of 
         # having a born or not, which must be true anyway since these are two
         # definite different classes of processes which can never be treated on
         # the same footing.
         #gl suspended in fortran code
+        if matrix_element.get('processes')[0].get('has_born'):
+            filename = 'born_matrix.f'
+            calls = self.write_bornmatrix(
+                writers.FortranWriter(filename),
+                matrix_element,
+                fortran_model)
 
-        # if matrix_element.get('processes')[0].get('has_born'):
-        #     filename = 'born_matrix.f'
-        #     calls = self.write_bornmatrix(
-        #         writers.FortranWriter(filename),
-        #         matrix_element,
-        #         fortran_model)
-        
         filename = 'pmass.inc'
-        calls=self.write_pmass_file(writers.FortranWriter(filename),
+        self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)
+
         #filename = 'ngraphs.inc'
         #self.write_ngraphs_file(writers.FortranWriter(filename),
         #                   len(matrix_element.get_all_amplitudes()))
 
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
-        # loop_diags = [loop_diag for loop_diag in\
-        #      matrix_element.get('base_amplitude').get('loop_diagrams')\
-        #      if isinstance(loop_diag,LoopDiagram) and loop_diag.get('type') > 0]
-        # if len(loop_diags)>5000:
-        #     logger.info("There are more than 5000 loop diagrams."+\
-        #                                       "Only the first 5000 are drawn.")
-        # filename = "loop_matrix.ps"
-        # plot = draw.MultiEpsDiagramDrawer(base_objects.DiagramList(
-        #     loop_diags[:5000]),filename,
-        #     model=matrix_element.get('processes')[0].get('model'),amplitude='')
-        # logger.info("Drawing loop Feynman diagrams for " + \
-        #              matrix_element.get('processes')[0].nice_string())
-        # plot.draw()
+        loop_diags = [loop_diag for loop_diag in\
+             matrix_element.get('base_amplitude').get('loop_diagrams')\
+             if isinstance(loop_diag,LoopDiagram) and loop_diag.get('type') > 0]
+        if len(loop_diags)>5000:
+            logger.info("There are more than 5000 loop diagrams."+\
+                                              "Only the first 5000 are drawn.")
+        filename = "loop_matrix.ps"
+        plot = draw.MultiEpsDiagramDrawer(base_objects.DiagramList(
+            loop_diags[:5000]),filename,
+            model=matrix_element.get('processes')[0].get('model'),amplitude='')
+        logger.info("Drawing loop Feynman diagrams for " + \
+                     matrix_element.get('processes')[0].nice_string())
+        plot.draw()
 
-        # if matrix_element.get('processes')[0].get('has_born'):   
-        #     filename = "born_matrix.ps"
-        #     plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
-        #                                          get('born_diagrams'),
-        #                                       filename,
-        #                                       model=matrix_element.get('processes')[0].\
-        #                                          get('model'),
-        #                                       amplitude='')
-        #     logger.info("Generating born Feynman diagrams for " + \
-        #                  matrix_element.get('processes')[0].nice_string(\
-        #                                                   print_weighted=False))
-        #     plot.draw()
+        if matrix_element.get('processes')[0].get('has_born'):   
+            filename = "born_matrix.ps"
+            plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
+                                                 get('born_diagrams'),
+                                              filename,
+                                              model=matrix_element.get('processes')[0].\
+                                                 get('model'),
+                                              amplitude='')
+            logger.info("Generating born Feynman diagrams for " + \
+                         matrix_element.get('processes')[0].nice_string(\
+                                                          print_weighted=False))
+            plot.draw()
 
-        # self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
-        #                matrix_element.get('processes')[0],group_number,proc_id))
+        self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
+                       matrix_element.get('processes')[0],group_number,proc_id))
 
         #gl
         
         self.write_makefile_vv_template(writers.FileWriter, matrix_element)
-        
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-        
+
         # Return to original PWD
+
+        
         os.chdir(cwd)
 
         if not calls:

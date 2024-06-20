@@ -752,8 +752,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         tmp_proc_dir = pjoin(self.dir_path,'../')
         filename = pjoin(tmp_proc_dir,'contributions.mg')
 
-        procdirVV = tmp_proc_dir + 'NNLO_VV_x_B_' + (self.dir_path).split('/')[-1][10:]
-        subprocdirVV = pjoin(procdirVV.split('/')[-1]+'/SubProcesses/', proc_dir_name)
+        
 
 #        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
         subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/', proc_dir_name)
@@ -829,7 +828,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if not calls:
             calls = 0
         return calls
-##### GIOVANNI
+##### GIOVANNI: Section to export double virtual
     
     def generate_VVloop_subprocess(self, matrix_element, fortran_model,
           group_number = None, proc_id = None, config_map=None, unique_id=None):
@@ -841,8 +840,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         MadEvent output and only to specify the ME_identifier and the P* 
         SubProcess directory name."""
 
-        # import pdb
-        # pdb.set_trace()
+       
 
         cwd = os.getcwd()
         proc_dir_name = self.get_SubProc_folder_name(
@@ -903,9 +901,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.write_pmass_file(writers.FortranWriter(filename),
                          matrix_element)
 
-        #filename = 'ngraphs.inc'
-        #self.write_ngraphs_file(writers.FortranWriter(filename),
-        #                   len(matrix_element.get_all_amplitudes()))
+        filename = 'ngraphs.inc'
+        self.write_ngraphs_file(writers.FortranWriter(filename),
+                          len(matrix_element.get_all_amplitudes()))
 
         # Do not draw the loop diagrams if they are too many.
         # The user can always decide to do it manually, if really needed
@@ -940,7 +938,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                        matrix_element.get('processes')[0],group_number,proc_id))
 
         #gl
-        
+        # self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+        self.link_files_common_directory()
         self.write_makefile_vv_template(writers.FileWriter, matrix_element)
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
@@ -992,6 +991,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
             dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
             dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
+            dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+            dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
         elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
             dirpathBorn = glob.glob("%s/../NLO_R*" % self.dir_path)[0]
             dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
@@ -1028,15 +1030,18 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
     #gl
     def link_files_common_directory(self):
-
+       
         cwd = os.getcwd()
-        user_linkfiles_v = ['driver_v.f','NLO_V_sub.f']
-        for file in user_linkfiles_v:
+        if((self.dir_path).split('/')[-1][0:11]== 'NNLO_VV_x_B'):
+            user_linkfiles = ['driver_vv.f']
+        else:
+            user_linkfiles = ['driver_v.f','NLO_V_sub.f']
+        for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             
-        user_linkfiles_vv = ['driver_vv.f']
-        for file in user_linkfiles_vv:
-            cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
+        
+        # for file in user_linkfiles_vv:
+        #     cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
 
 
                 

@@ -680,7 +680,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 elif j == 1:
                     if id_jsec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % jsec)
-                    list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
+                    list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                 elif j==2 :
                     #print(str(necessary_ct_list[i][j].split("_")[1]))

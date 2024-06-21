@@ -602,7 +602,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         for i in range(0,len(all_sector_list)):
             list_M2 = []
-            list_str_defHC = []
+            list_str_def_M2 = []
             list_int_real = []
             mapping = []
             mapping_str = ''
@@ -663,40 +663,64 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             overall_sector_info.append(sector_info)
 
             for j in range(0, len(necessary_ct_list[i])):
-                # tmp: compact formulation
-                #if necessary_ct_list[i][j] != 0: 
-                #    list_str_defHC.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                # if necessary_ct_list[i][j] != 0: 
+                #    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
                 #    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
-                #                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][2]))
+                #                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                 #    list_M2.append('if(ierr.eq.1)goto 999\n')
-                if necessary_ct_list[i][j] == 0:
+                if necessary_ct_list[i][j] ==  0:
                     continue
                 elif j == 0:
-                    #print(str(necessary_ct_list[i][j].split("_")))
                     if id_isec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % isec)
-                    list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
+                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                    list_M2.append('K%s=K%s+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                 elif j == 1:
                     if id_jsec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % jsec)
-                    list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
+                    # list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                    list_M2.append('K%s=K%s+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
-                elif j==2 :
-                    #print(str(necessary_ct_list[i][j].split("_")[1]))
-                    if isec > 2 and jsec > 2:
-                    # Check irec validity
-                        if (isec == iref) or (jsec == iref):
-                            raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                        # Write an identified M2_H_C_F*F* for each (**) flavour couple 
-                        list_str_defHC.append('DOUBLE PRECISION M2_%s' % necessary_ct_list[i][2])
-                        list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
-                                            % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][2]))
-                        list_M2.append('if(ierr.eq.1)goto 999\n')
+                elif j == 2:
+                    if (isec == iref) or (jsec == iref):
+                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
+                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                    list_M2.append('if(ierr.eq.1)goto 999\n')
 
-                    # Loop over sectors with at least one initial state particle
-                    if isec <= 2 or jsec <= 2:
-                        continue
+
+                # if necessary_ct_list[i][j] == 0:
+                #     continue
+                # elif j == 0:
+                #     #print(str(necessary_ct_list[i][j].split("_")))
+                #     if id_isec != 21:
+                #         raise MadEvent7Error('%d is not a gluon!' % isec)
+                #     list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
+                #     list_M2.append('if(ierr.eq.1)goto 999\n')
+                # elif j == 1:
+                #     if id_jsec != 21:
+                #         raise MadEvent7Error('%d is not a gluon!' % jsec)
+                #     list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
+                #     list_M2.append('if(ierr.eq.1)goto 999\n')
+                # elif j==2 :
+                #     #print(str(necessary_ct_list[i][j].split("_")[1]))
+                #     if isec > 2 and jsec > 2:
+                #     # Check irec validity
+                #         if (isec == iref) or (jsec == iref):
+                #             raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+                #         # Write an identified M2_H_C_F*F* for each (**) flavour couple 
+                #         list_str_defHC.append('DOUBLE PRECISION M2_%s' % necessary_ct_list[i][2])
+                #         list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
+                #                             % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][2]))
+                #         list_M2.append('if(ierr.eq.1)goto 999\n')
+
+                #     # Loop over sectors with at least one initial state particle
+                #     if isec <= 2 or jsec <= 2:
+                #         continue
 
 
             # #if necessary_ct_list[i*5] != 0 : # == 1:
@@ -778,8 +802,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 
 
             # outside loop on necessary_ct_list   
-            str_defHC = " ".join(list_str_defHC)
-            replace_dict_ct['str_defHC'] = str_defHC 
+            str_def_M2 = " ".join(list_str_def_M2)
+            replace_dict_ct['str_def_M2'] = str_def_M2 
             str_M2 = " ".join(list_M2)
             str_int_real = " ".join(list_int_real)
             replace_dict_ct['str_M2'] = str_M2
@@ -819,15 +843,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if necessary_ct_list[i][2] != 0 : #== 1:
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
-                    # g > g + g  
-                    if id_isec == 21 and id_jsec == 21:
-                        tmp_proc = 'proc_prefix_HC_gg'
-                    # q(qx) > g + q(qx)
-                    elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-                        tmp_proc = 'proc_prefix_HC_gq'
-                    # g > q(qx) + qx(q)
-                    else:
-                        tmp_proc = 'proc_prefix_HC_qqx'
+                    tmp_proc = 'proc_prefix_%s' % necessary_ct_list[i][2]
+                    # # g > g + g  
+                    # if id_isec == 21 and id_jsec == 21:
+                    #     tmp_proc = 'proc_prefix_HC_gg'
+                    # # q(qx) > g + q(qx)
+                    # elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
+                    #     tmp_proc = 'proc_prefix_HC_gq'
+                    # # g > q(qx) + qx(q)
+                    # else:
+                    #     tmp_proc = 'proc_prefix_HC_qqx'
 
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)

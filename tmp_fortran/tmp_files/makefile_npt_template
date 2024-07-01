@@ -1,0 +1,89 @@
+include ../../Source/make_opts
+SHELL = /bin/bash
+
+PWD=$(shell pwd)
+
+OS=$(shell uname -s)
+
+ifeq ("$(OS)","Darwin")
+STDLIB= -lc++
+endif
+
+FJPATH=$(shell fastjet-config --prefix)
+LIBSC=-L$(FJPATH)/lib \
+	-lfastjettools -lfastjet -lfastjetplugins \
+	-lsiscone_spherical -lsiscone $(STDLIB)
+INC=-I$(FJPATH)/include
+
+
+CFLAGS=-fPIC -$(OPT)
+CDEBUG=
+
+DEBUG=
+#DEBUG= -ggdb -pg
+
+LIBDIR=../../lib/
+
+# TODO: compile libraries when generating process
+LINKLIBS= -L../../lib/ -ldhelas -lmodel -lpdf -lgeneric
+
+LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
+
+LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
+	$(LIBDIR)libpdf.$(libext)
+
+LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIR)R_libdhelas.$(libext)
+
+OPT=O3
+
+OBJ=obj-$(DEFAULT_F_COMPILER)
+
+FFLAGS+= -g -fno-automatic $(DEBUG)  -$(OPT)
+
+FDEBUG=-fcheck=all -fbacktrace -Wall -ffpe-trap=zero,overflow,underflow
+
+PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
+
+PATH_TO_USR_FILES=../../../Common_Files
+
+INCLUDE0=$(PWD)/include
+
+INCLUDE1=$(PWD)
+
+INCLUDE =$(wildcard ./include/*.inc ./*.inc)
+
+SOURCE=../../Source
+
+FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(SOURCE)
+
+VPATH = $(OBJ)
+
+%(object_str)s
+
+COMMON_FILES= CSmapping.o imap.o  gen_real_phase_space.o  vegas.o  fjcore.o fastjetfortran_core.o
+
+COMMON_FILES+= genps.o invarients.o transpole.o myamp.o idenparts.o dsample.o ranmar.o
+
+
+USR_FILES=alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o
+
+%(proc_str)s
+
+%(files_str)s
+
+%(all_str)s 
+
+%(sector_str)s
+
+.PHONY: clean libs
+clean:
+	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/R_libdhelas.a
+	cd ../../../Source; make clean; cd -
+
+libs:
+	mkdir -p $(OBJ)
+	cd ../../Source/DHELAS; make; cd -
+	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
+	cd ../../../Source; make ; cd -
+	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
+

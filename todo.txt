@@ -211,4 +211,17 @@ TODO 6/9
 [ ] insert damping factors in M2_S_diff
 
 
+**************************
+
+TODO 1/7/24 towards eejj @NNLO
+
+[] driver_npt <- Paolo
+[] phase space for n+2 <- Paolo
+[] NNLO_RRsub <- Giovanni
+[] test_RR <- Giovanni
+[] NNLO_IR_limits_tmp (implement SS_qq, CC_qq'q', C_qq) <- Paolo + Giovanni
+[] sector functions Z for SS <- Paolo
+
+
+
 

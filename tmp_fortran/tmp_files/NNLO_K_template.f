@@ -26,9 +26,8 @@ c     local NNLO counterterm K1 for sector [isec,jsec,ksec,lsec]
       double precision wgt,ZSi,ZSj,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision M2_S
       double precision KS,KHC,K1,wgt_chan
-      %(str_defHC_K1)s
+      %(str_defK1)s
 c
 c     initialise
       isec = %(isec)d
@@ -68,7 +67,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K2,wgt_chan
-      double precision KSS,KSHC,KHCC,KCSHC
+      double precision KSS,KSHC,KHCC,KCCSHC
       %(str_defK2)s
 c
 c     initialise
@@ -80,14 +79,14 @@ c     initialise
       KSS=0d0
       KSHC=0d0
       KHCC=0d0
-      KCSHC=0d0
+      KCCSHC=0d0
       K2=0d0
 c
 c     counterterms
       %(str_M2_K2)s
 c     
 c     combination
-      K2=KSS+KSHC+KHCC+KCSHC
+      K2=KSS+KSHC+KHCC+KCCSHC
 c
       return
  999  ierr=1
@@ -111,8 +110,8 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K12,wgt_chan
-      double precision KS_SS, KS_SHC, KS_HCCs
-      double precision KHC_SS, KHC_SC, KHC_HCCc
+      double precision KS_SS, KS_SHC, KS_HCC
+      double precision KHC_SS, KHC_SHC, KHC_HCC
       %(str_defK12)s
 c
 c     initialise
@@ -123,17 +122,17 @@ c     initialise
       iref = %(iref)d
       KS_SS=0d0
       KS_SHC=0d0
-      KS_HCCs=0d0
+      KS_HCC=0d0
       KHC_SS=0d0
-      KHC_SC=0d0
-      KHC_HCCc=0d0 
+      KHC_SHC=0d0
+      KHC_HCC=0d0 
       K12=0d0
 c
 c     counterterms
       %(str_M2_K12)s
 c     
 c     combination
-      K12=KS_SS+KS_SHC+KS_HCCs+KHC_SS+KHC_SC+KHC_HCCc
+      K12=KS_SS+KS_SHC+KS_HCC+KHC_SS+KHC_SHC+KHC_HCC
 c
       return
  999  ierr=1

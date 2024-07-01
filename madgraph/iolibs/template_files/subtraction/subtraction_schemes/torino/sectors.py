@@ -423,11 +423,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # gl
         all_sector_id_list = [s['sector'].id for s in all_sectors]
 
-        #print('all sector list : ' + str(all_sector_list))
+        print(all_sector_id_list)
 
         #gl
         all_local_counterterms_list = []
-        necessary_ct_list = [] #[0] * (5*len(all_sectors))
+        necessary_ct_list = [] # [S_gi, S_gj, HC_ij]
         necessary_ct = [0] * (5*len(all_sectors))
         i = 0
         for s in all_sectors:
@@ -437,7 +437,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             # gl
             s['sector'].all_sector_id_list = all_sector_id_list
             #print('s all_sector_list : ' + str(all_sector_list))
-            #print('s all_sector_id_list : ' + str(all_sector_id_list))
+            print('s all_sector_id_list : ' + str(all_sector_id_list))
 
             if counterterms is not None:
                 s['counterterms'] = []

@@ -26,8 +26,7 @@ c     local NNLO counterterm K1 for sector [isec,jsec,ksec,lsec]
       double precision wgt,ZSi,ZSj,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision KS,KHC,K1,wgt_chan
-      %(str_defK1)s
+      double precision KS,KHC,K1,wgt_chan%(str_defK1)s
 c
 c     initialise
       isec = %(isec)d
@@ -67,8 +66,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K2,wgt_chan
-      double precision KSS,KSHC,KHCC,KCCSHC
-      %(str_defK2)s
+      double precision KSS,KSHC,KHCC,KCCSHC%(str_defK2)s
 c
 c     initialise
       isec = %(isec)d
@@ -86,7 +84,7 @@ c     counterterms
       %(str_M2_K2)s
 c     
 c     combination
-      K2=KSS+KSHC+KHCC+KCCSHC
+      K2=KSS+KSHC+KHCC-KCCSHC
 c
       return
  999  ierr=1
@@ -111,8 +109,7 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       DOUBLE PRECISION X(MXDIM)
       double precision K12,wgt_chan
       double precision KS_SS, KS_SHC, KS_HCC
-      double precision KHC_SS, KHC_SHC, KHC_HCC
-      %(str_defK12)s
+      double precision KHC_SS, KHC_SHC, KHC_HCC%(str_defK12)s
 c
 c     initialise
       isec = %(isec)d

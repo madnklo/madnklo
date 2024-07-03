@@ -385,8 +385,22 @@ c     build ZSS_NNLO
             if(a.eq.i2.and.b.eq.i1.and.c.eq.i3) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wac + (1d0/eb/wbc)**alpha*1d0/(eb+ec)*1d0/wac
             if(a.eq.i2.and.b.eq.i3.and.c.eq.i1) num = num + (1d0/ec/wac)**alpha*1d0/eb*1d0/wab + (1d0/ec/wbc)**alpha*1d0/(eb+ec)*1d0/wab
          else
-            write(*,*)'TODOOOOO'
-            stop
+            if(a.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/ea/wab)**alpha*1d0/ec*1d0/wcd
+            if(a.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wcd)**alpha*1d0/ea*1d0/wab
+            if(b.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/eb/wab)**alpha*1d0/ec*1d0/wcd
+            if(b.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wcd)**alpha*1d0/eb*1d0/wab
+            if(a.eq.i1.and.d.eq.i3) sigma = sigma + (1d0/ea/wab)**alpha*1d0/ed*1d0/wcd
+            if(a.eq.i3.and.d.eq.i1) sigma = sigma + (1d0/ed/wcd)**alpha*1d0/ea*1d0/wab
+            if(b.eq.i1.and.d.eq.i3) sigma = sigma + (1d0/eb/wab)**alpha*1d0/ed*1d0/wcd
+            if(b.eq.i3.and.d.eq.i1) sigma = sigma + (1d0/ed/wcd)**alpha*1d0/eb*1d0/wab
+            if(a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.d.eq.i4) num = num + (1d0/ea/wab)**alpha*1d0/ec*1d0/wcd
+            if(a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2) num = num + (1d0/ec/wcd)**alpha*1d0/ea*1d0/wab
+            if(a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.d.eq.i4) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wcd
+            if(a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2) num = num + (1d0/ec/wcd)**alpha*1d0/eb*1d0/wab
+            if(a.eq.i1.and.b.eq.i2.and.c.eq.i4.and.d.eq.i3) num = num + (1d0/ea/wab)**alpha*1d0/ed*1d0/wcd
+            if(a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1) num = num + (1d0/ed/wcd)**alpha*1d0/ea*1d0/wab
+            if(a.eq.i2.and.b.eq.i1.and.c.eq.i4.and.d.eq.i3) num = num + (1d0/eb/wab)**alpha*1d0/ed*1d0/wcd
+            if(a.eq.i4.and.b.eq.i3.and.d.eq.i2.and.d.eq.i1) num = num + (1d0/ed/wcd)**alpha*1d0/eb*1d0/wab
          endif
       enddo
       if(sigma.le.0d0)then

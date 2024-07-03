@@ -220,7 +220,7 @@ TODO 1/7/24 towards eejj @NNLO
 [ ] NNLO_RRsub <- Giovanni
 [ ] test_RR <- Giovanni
 [ ] NNLO_IR_limits_tmp (implement SS_qq, CC_qq'q', C_qq) <- Paolo + Giovanni
-[ ] sector functions Z for SS <- Paolo
+[x] sector functions Z for SS <- Paolo
 
 
 

@@ -1,4 +1,4 @@
-      double precision function int_double_real_%(isec)d_%(jsec)d(x,wgt)
+      double precision function int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       implicit none
       include 'coupl.inc'
@@ -35,9 +35,9 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cdoplot/doplot
       logical docut
       integer iS1,iB1,iA1,iU2,iS2,iB2,iA2
-      integer isec,jsec,iref
-      common/cNLOsecindices/isec,jsec
-      common/cNLOmaplabels/iU,iS,iB,iA,iref
+      integer isec,jsec,ksec,lsec,iref
+      common/cNNLOsecindices/isec,jsec,ksec,lsec
+      common/cNNLOmaplabels/iU,iS,iB,iA,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
@@ -139,7 +139,7 @@ c
 c     test matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
-         call test_R_%(isec)d_%(jsec)d(iunit,x)
+         call test_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,x)
       endif
 c     TODO: implement flag 'test_only' to stop here
 c
@@ -152,16 +152,16 @@ c     real
          goto 999
       endif
 c
-c     real sector function
-      call get_Z_NLO(sNLO,sCM,alphaZ,isec,jsec,Z_NLO,ierr)
+c     double real sector function
+      call  get_Z_NNLO(xs,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
       if(ierr.eq.1)then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong Z_NLO', Z_NLO
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Wrong Z_NNLO', Z_NNLO
          goto 999
       endif
 c
 c     full real in the combination of sectors
-      int_double_real_no_cnt=RNNLO*Z_NLO*xjac
+      int_double_real_no_cnt=RNNLO*Z_NNLO*xjac
 c
 c     plot real
       wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan
@@ -171,16 +171,16 @@ c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
+      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_(%lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,ZSi,ZSj,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
-         write(77,*) 'int_real: '
-         write(77,*) 'Something wrong in the counterterm', KNLO
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Something wrong in the counterterm', KNNLO
          goto 999
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_double_real_%(isec)d_%(jsec)d=int_double_real_no_cnt-KNNLO
-      int_double_real_%(isec)d_%(jsec)d = int_double_real_%(isec)d_%(jsec)d*wgt_chan
+      int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d=int_double_real_no_cnt-KNNLO
+       int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d =  int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

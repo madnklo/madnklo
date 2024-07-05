@@ -371,7 +371,8 @@ c     build ZSS_NNLO
          else
             goto 999
          endif
-         if(d.eq.0)then
+         if(i4.eq.0)then
+c SHOULD IT BE d=0 OR i4=0???
             if(a.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/ea/wab)**alpha*1d0/ec*1d0/wbc + (1d0/ea/wac)**alpha*1d0/(ea+ec)*1d0/wbc
             if(a.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wbc)**alpha*1d0/ea*1d0/wab + (1d0/ec/wac)**alpha*1d0/(ea+ec)*1d0/wab
             if(a.eq.i1.and.b.eq.i3) sigma = sigma + (1d0/ea/wac)**alpha*1d0/eb*1d0/wbc + (1d0/ea/wab)**alpha*1d0/(ea+eb)*1d0/wbc

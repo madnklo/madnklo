@@ -271,7 +271,8 @@ c     build Z_NNLO
      &          (a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2) .or.
      &          (a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1) .or.
      &          (a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2) .or.
-     &          (a.eq.i4.and.b.eq.i3.and.c.eq.i2.and.d.eq.i1) ) num = num + sigma_abcd
+     &           (a.eq.i4.and.b.eq.i3.and.c.eq.i2.and.d.eq.i1) ) num = num + sigma_abcd
+         endif
          enddo
          if(sigma.le.0d0)then
             write(*,*)'Wrong sigma in Z_NNLO',sigma

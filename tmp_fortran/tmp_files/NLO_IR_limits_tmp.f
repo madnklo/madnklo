@@ -69,10 +69,13 @@ c     get PDGs
       CALL GET_SOFT_MAPPED_LABELS(I,IDUM,IDUM,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c
 c     call Z soft
-      if(i==isec) then
+      if(i.eq.isec) then
          CALL GET_ZS_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS_NLO,IERR)
-      else
+      elseif(i.eq.jsec) then
          CALL GET_ZS_NLO(XS,SCM,ALPHAZ,JSEC,ISEC,ZS_NLO,IERR)
+      else
+         write(*,*)'In M2_S_g i should be = isec or = jsec',i,isec,jsec
+         stop
       endif
       if(ierr.eq.1)goto 999
 c

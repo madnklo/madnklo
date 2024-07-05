@@ -1,4 +1,4 @@
-      double precision function int_real_%(isec)d_%(jsec)d(x,wgt)
+      double precision function int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       implicit none
       include 'coupl.inc'
@@ -17,13 +17,14 @@ c     (n+1)-body NLO integrand for vegas
       integer ntested
       parameter(ntest=20)
       save ievt,nthres,ntested
-      double precision int_real_no_cnt
-      double precision sNLO(nexternal,nexternal),sminNLO
-      double precision sLO(nexternal-1,nexternal-1)
+      double precision int_double_real_no_cnt
+      double precision sNNLO(nexternal,nexternal)
+      double precision sNLO(nexternal-1,nexternal-1),sminNLO
+      double precision sLO(nexternal-2,nexternal-2)
       double precision Z_NLO
       double precision alphaZ
       parameter(alphaZ=1d0)
-      double precision RNLO,KNLO,KS,KHC
+      double precision RNNLO,KNNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
@@ -33,11 +34,13 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical doplot
       common/cdoplot/doplot
       logical docut
-      integer isec,jsec,iU,iS,iB,iA,iref
-      common/cNLOsecindices/isec,jsec
-      common/cNLOmaplabels/iU,iS,iB,iA,iref
+      integer iS1,iB1,iA1,iU2,iS2,iB2,iA2
+      integer isec,jsec,ksec,lsec,iref
+      common/cNNLOsecindices/isec,jsec,ksec,lsec
+      common/cNNLOmaplabels/iU,iS,iB,iA,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
+      double precision ptilde(0:3,nexternal-2)
       double precision xjac,xjacB
       double precision xsave(3)
       double precision sCM
@@ -67,10 +70,10 @@ c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
       iref = %(iref)d
-      int_real_%(isec)d_%(jsec)d=0d0
-      int_real_no_cnt=0d0
+      int_double_real_%(isec)d_%(jsec)d=0d0
+      int_double_real_no_cnt=0d0
       Z_NLO=0d0
-      RNLO=0d0
+      RNNLO=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
@@ -93,29 +96,37 @@ c     phase space and invariants
       call props_%(strUB)s
       call decaybw_%(strUB)s
       call getleshouche_%(strUB)s
-      
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+
+
+
+      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pbar,ptilde,xjac,xjacB,iU2,iS2,iB2)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
-         write(77,*) 'int_real: '
+         write(77,*) 'int_double_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
          goto 999
       endif
-      call invariants_from_p(p,nexternal,sNLO,ierr)
+      call invariants_from_p(p,nexternal,sNNLO,ierr)
       if(ierr.eq.1) then
-         write(77,*) 'int_real: '
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Wrong NNLO invariants ', sNNLO
+         goto 999
+      endif
+      call invariants_from_p(pb,nexternal-1,sNLO,ierr)  
+      if(ierr.eq.1) then
+         write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
-      call invariants_from_p(pb,nexternal-1,sLO,ierr)  
+      call invariants_from_p(ptilde,nexternal-2,sLO,ierr)  
       if(ierr.eq.1) then
-         write(77,*) 'int_real: '
+         write(77,*) 'int_double_real: '
          write(77,*) 'Wrong LO invariants ', sLO
          goto 999
       endif
 c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
-      if(dotechcut(snlo,nexternal,tinycut)) goto 999
+      if(dotechcut(snnlo,nexternal,tinycut)) goto 999
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
@@ -128,48 +139,48 @@ c
 c     test matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
-         call test_R_%(isec)d_%(jsec)d(iunit,x)
+         call test_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,x)
       endif
 c     TODO: implement flag 'test_only' to stop here
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
-      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong RNLO', RNLO
+      RNNLO = ANS(0) * %(NLO_proc_str)sfl_factor
+      if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))then
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Wrong RNNLO', RNNLO
          goto 999
       endif
 c
-c     real sector function
-      call get_Z_NLO(sNLO,sCM,alphaZ,isec,jsec,Z_NLO,ierr)
+c     double real sector function
+      call  get_Z_NNLO(xs,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
       if(ierr.eq.1)then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong Z_NLO', Z_NLO
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Wrong Z_NNLO', Z_NNLO
          goto 999
       endif
 c
 c     full real in the combination of sectors
-      int_real_no_cnt=RNLO*Z_NLO*xjac
+      int_double_real_no_cnt=RNNLO*Z_NNLO*xjac
 c
 c     plot real
-      wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan
-      if(doplot)call histo_fill(p,sNLO,nexternal,wgtpl)
+      wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan
+      if(doplot)call histo_fill(p,sNNLO,nexternal,wgtpl)
  555  continue
 c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
+      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_(%lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,ZSi,ZSj,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
-         write(77,*) 'int_real: '
-         write(77,*) 'Something wrong in the counterterm', KNLO
+         write(77,*) 'int_double_real: '
+         write(77,*) 'Something wrong in the counterterm', KNNLO
          goto 999
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO
-      int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*wgt_chan
+      int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d=int_double_real_no_cnt-KNNLO
+       int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d =  int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

@@ -3,6 +3,7 @@
 c
       call inihist
       call mbook(1,'total  ',1d0,0d0,2d0)
+c      call mbook(2,'rap  ',0.2d0,0d0,6d0)
 c      call mbook(2,'thrust ',0.02d0,0.68d0,1.02d0)
       call mbook(3,'pt j1  ',10d0,2d0,502d0)
       call mbook(4,'pt j2  ',10d0,2d0,502d0)
@@ -27,56 +28,92 @@ c
 
       subroutine histo_fill(p,xs,nexternal,www)
       implicit none
-      include 'jets.inc'
+c      include 'jets.inc'
+      include 'run.inc'
+      include 'cuts.inc'
       integer nexternal,i,j,nQCD
       double precision xs(nexternal,nexternal)
       double precision p(0:3,nexternal),www
       double precision xsec,thrust
       double precision getthrust_3body,getrapidity,getpseudorap
-      double precision rfj,sycut,palg,pQCD(0:3,nexternal)
+      double precision rfj,sycut,palg,pQCD(0:3,nexternal),etamax
+      double precision, parameter :: tiny=1d-8
+      double precision eta
+c      integer maxdim
+c      parameter(maxdim=20)
+c      integer njet,jet(maxdim)
+c      double precision pjet(0:3,maxdim)
+c      double precision ptjet(maxdim),etajet(maxdim),yjet(maxdim)
+c      REAL*8 JETALGO,JETRADIUS,PTJ,ETAJ ! jet cuts
+c      REAL*8 PTL,ETAL,DRLL,DRLL_SF,MLL,MLL_SF ! lepton cuts
+
+
 c
 c     observables
       xsec=1d0
-c$$$      thrust=getthrust_3body(p,nexternal)
-c$$$c     jets
-c$$$      pjet=0d0
-c$$$      jet=0
-c$$$      njet=0
-c$$$      ptjet=0d0
-c$$$      etajet=-100d0
-c$$$      yjet=-100d0
-c$$$c
-c$$$c     cluster partons into jets
-c$$$      nQCD=0
-c$$$      do j=3,nexternal
-c$$$         nQCD=nQCD+1
-c$$$         do i=0,3
-c$$$            pQCD(i,nQCD)=p(i,j)
-c$$$         enddo
-c$$$      enddo
-c$$$c     
-c$$$c     clustering parameters
-c$$$      palg=-1d0
-c$$$      rfj=0.4d0
-c$$$      sycut=10d0
-c$$$      call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
-c$$$c
-c$$$c     check on jet pt ordering
+c$$$c      thrust=getthrust_3body(p,nexternal)
+c     jets
+      pjet=0d0
+      jet=0
+      njet=0
+      ptjet=0d0
+      etajet=-100d0
+      yjet=-100d0
+c
+c     cluster partons into jets
+      nQCD=0
+      do j=3,nexternal
+         nQCD=nQCD+1
+         do i=0,3
+            pQCD(i,nQCD)=p(i,j)
+         enddo
+      enddo
+c     
+c     clustering parameters
+      palg = jetalgo
+      rfj = jetradius
+      sycut = ptj
+      etamax = etaj
+      call fastjetppgenkt_etamax(pQCD,nQCD,rfj,sycut,etamax,palg,pjet,njet,jet)
+c
+c     check on jet pt ordering
+
+         do i=1,njet
+            ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
+            etajet(i)=eta(pjet(0,i))
+            if(i.gt.1)then
+               if (ptjet(i)-ptjet(i-1).gt.tiny) then
+                  write (*,*) 'Error 1 in analyis: jets unordered in pt'
+                  stop
+               endif
+            endif
+         enddo
+
+
+
 c$$$      do i=1,njet
 c$$$         ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
 c$$$         etajet(i)=getpseudorap(pjet(0,i),pjet(1,i),pjet(2,i),pjet(3,i))
 c$$$         yjet(i)=getrapidity(pjet(0,i),pjet(3,i))
 c$$$         if(i.gt.1)then
 c$$$            if (ptjet(i).gt.ptjet(i-1)) then
-c$$$               write (*,*) 'Error 1 in docut: jets unordered in pt'
+c$$$               write (*,*) 'Error 1 in analysis: jets unordered in pt'
 c$$$               stop
 c$$$            endif
 c$$$         endif
 c$$$      enddo
-c
+c$$$c
 c     fill histograms
       call mfill(1,xsec,www)
-c$$$      call mfill(2,thrust,www)
+      
+c     call mfill(2,thrust,www)
+
+
+
+c      y=getpseudorap(p(0,3),p(1,3),p(2,3),p(3,3))
+c      call mfill(2,y,www)
+
+      
       if(njet.ge.1)then
          call mfill(3,ptjet(1),www)
          call mfill(7,abs(etajet(1)),www)

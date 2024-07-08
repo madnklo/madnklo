@@ -1246,6 +1246,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 'isec'          :   0,
                 'jsec'          :   0,
                 'ksec'          :   0,
+                'lsec'          :   0,
                 'iref'          :   0,
                 'mapping'       :   [],
                 'Born_str'      :   '',
@@ -1257,6 +1258,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
             sector_info['ksec'] = ksec
+            sector_info['lsec'] = lsec
             sector_info['iref'] = iref
 
             # default mapping

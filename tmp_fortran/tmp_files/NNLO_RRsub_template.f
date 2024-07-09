@@ -1,5 +1,5 @@
-      double precision function int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d(x,wgt)
-c     (n+1)-body NLO integrand for vegas
+      double precision function int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(x,wgt)
+c     (n+2)-body NNLO integrand for vegas
       implicit none
       include 'coupl.inc'
       include 'math.inc'
@@ -8,7 +8,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
-      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
+c      INCLUDE 'ngraphs_(UBgraphs)s.inc' TODO
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -21,7 +21,7 @@ c     (n+1)-body NLO integrand for vegas
       double precision sNNLO(nexternal,nexternal)
       double precision sNLO(nexternal-1,nexternal-1),sminNLO
       double precision sLO(nexternal-2,nexternal-2)
-      double precision Z_NLO
+      double precision Z_NNLO
       double precision alphaZ
       parameter(alphaZ=1d0)
       double precision RNNLO,KNNLO
@@ -37,7 +37,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
       common/cNNLOsecindices/isec,jsec,ksec,lsec
-      common/cNNLOmaplabels/iU,iS,iB,iA,iref
+      common/cNNLOmaplabels/iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
@@ -50,8 +50,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       save counter
       integer nitr
       common/iterations/nitr
-      integer %(NLO_proc_str)sfl_factor 
-      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
+      integer %(proc_prefix_rr)sfl_factor 
+      common/%(proc_prefix_rr)sflavour_factor/%(proc_prefix_rr)sfl_factor
       double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -69,17 +69,19 @@ c     initialise
       xjacB = 0d0
       isec = %(isec)d
       jsec = %(jsec)d
+      ksec = %(ksec)d
+      lsec = %(lsec)d
       iref = %(iref)d
-      int_double_real_%(isec)d_%(jsec)d=0d0
+      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d=0d0
       int_double_real_no_cnt=0d0
-      Z_NLO=0d0
+      Z_NNLO=0d0
       RNNLO=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
 c
 c     specify phase-space mapping
-      %(mapping_str)s
+c     (mapping_str)s TODO
 
       if(isec.le.2.or.jsec.le.2)then
          write(*,*)'update sCM in int_real'
@@ -92,10 +94,10 @@ c     phase space and invariants
          stop
       endif
 
-      call configs_%(strUB)s
-      call props_%(strUB)s
-      call decaybw_%(strUB)s
-      call getleshouche_%(strUB)s
+c      call configs_(strUB)s TODO
+c      call props_(strUB)s   TODO 
+c      call decaybw_(strUB)s TODO
+c      call getleshouche_(strUB)s TODO
 
 
 
@@ -130,7 +132,7 @@ c     tiny technical phase-space cut to avoid fluctuations
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
+c      call (strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS) TODO
       WGT_CHAN=AMP2(ICH)
 c
 c     possible cuts
@@ -144,8 +146,8 @@ c     test matrix elements
 c     TODO: implement flag 'test_only' to stop here
 c
 c     real
-      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNNLO = ANS(0) * %(NLO_proc_str)sfl_factor
+      call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      RNNLO = ANS(0) * %(proc_prefix_rr)sfl_factor
       if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))then
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong RNNLO', RNNLO
@@ -168,10 +170,10 @@ c     plot real
       if(doplot)call histo_fill(p,sNNLO,nexternal,wgtpl)
  555  continue
 c
-      %(str_int_real)s
+c      (str_int_real)s TODO
 c
 c     counterterm
-      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_(%lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,ZSi,ZSj,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
+      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
          write(77,*) 'Something wrong in the counterterm', KNNLO
@@ -179,8 +181,8 @@ c     counterterm
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d=int_double_real_no_cnt-KNNLO
-       int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d =  int_double_real_%(isec)d_%(jsec)d_(%ksec)d_(%lsec)d*wgt_chan
+      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d=int_double_real_no_cnt-KNNLO
+       int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d =  int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

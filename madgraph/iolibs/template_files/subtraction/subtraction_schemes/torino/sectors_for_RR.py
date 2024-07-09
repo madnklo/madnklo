@@ -1168,6 +1168,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
         replace_dict_limits = {}
+        replace_dict_double_real = {}
         necessary_default_3p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
                                         'SS_gg', 'SS_qqx', \
                                         'SHC_ggg', 'SHC_ggq', 'SHC_gqqx', \
@@ -1221,7 +1222,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             iref = 1 #all_sector_recoilers[i] #TODO define recoiler
             replace_dict_ct['iref'] = iref
             if (isec == iref) or (jsec == iref) or (ksec == iref):
-                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,ksec,iref))
+                        raise MadEvent7Error('Wrong recoiler %d,%d,%d, %d!' % (isec,jsec,ksec,iref))
             # Check sector indicies
             if isec == jsec or isec == ksec or jsec == ksec:
                 raise MadEvent7Error('Wrong sector indices %d,%d,%d!' % (isec,jsec,ksec))
@@ -1230,12 +1231,19 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             replace_dict_ct['jsec'] = jsec
             replace_dict_ct['ksec'] = ksec
             replace_dict_ct['lsec'] = lsec
+            replace_dict_double_real['isec'] = isec
+            replace_dict_double_real['jsec'] = jsec
+            replace_dict_double_real['ksec'] = ksec
+            replace_dict_double_real['lsec'] = lsec
+            replace_dict_double_real['iref'] = iref
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
             replace_dict_limits['ksec'] = ksec
             replace_dict_limits['lsec'] = lsec
             replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
+            replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
+                                       forbid=True, main=False, pdg_order=False, print_id = False))
 
             # Initialise ct routines to 'dummy'
             for k in range(0, len(necessary_default_3p_ct_list)):
@@ -1358,17 +1366,29 @@ c       %s
             str_M2_K12 = " ".join(list_str_M2_K12)
             replace_dict_ct['str_M2_K12'] = str_M2_K12
 
+            replace_dict_double_real['mapping_str'] = mapping
+
             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
 
-######### Write NNLO_K_isec_jsec_ksec_lsec.f (4-particle sector)
+            
+            filename = []
+            filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
+            file = file % replace_dict_double_real
+            writer(filename).writelines(file)
+
+
+######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
         
         # Set replace_dict for NLO_K_isec_jsec.f
         replace_dict_ct = {}
         replace_dict_limits = {}
+        replace_dict_double_real ={}
+
         # TODO: do we have SS_qqx????
 
         necessary_default_4p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
@@ -1429,11 +1449,19 @@ c       %s
             replace_dict_ct['jsec'] = jsec
             replace_dict_ct['ksec'] = ksec
             replace_dict_ct['lsec'] = lsec
+            replace_dict_double_real['isec'] = isec
+            replace_dict_double_real['jsec'] = jsec
+            replace_dict_double_real['ksec'] = ksec
+            replace_dict_double_real['lsec'] = lsec
+            replace_dict_double_real['iref'] = iref
+            
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
             replace_dict_limits['ksec'] = ksec
             replace_dict_limits['lsec'] = lsec
             replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
+            replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
 
             # Initialise ct routines to 'dummy'
@@ -1553,9 +1581,16 @@ c       %s
             str_M2_K12 = " ".join(list_str_M2_K12)
             replace_dict_ct['str_M2_K12'] = str_M2_K12
 
+            
             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
             file = file % replace_dict_ct
+            writer(filename).writelines(file)
+            
+            filename = []
+            filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec,lsec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
+            file = file % replace_dict_double_real
             writer(filename).writelines(file)
 
         return #all_sectors

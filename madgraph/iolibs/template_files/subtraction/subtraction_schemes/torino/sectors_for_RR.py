@@ -1271,7 +1271,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1]]
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
 
             # loop on K1 cts
             ct_list = []
@@ -1393,8 +1393,6 @@ c       %s
         replace_dict_limits = {}
         replace_dict_double_real ={}
 
-        # TODO: do we have SS_qqx????
-
         necessary_default_4p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
                                         'SS_gg', 'SS_qqx', \
                                         'SHC_ggg', 'SHC_ggq', 'SHC_gqqx', \
@@ -1494,7 +1492,7 @@ c       %s
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
 
             # loop on K1 cts
             ct_list = []
@@ -1610,20 +1608,29 @@ c       %s
 
     def write_all_sector_list_include(self, writer, dirpath, all_3p_sector_list, all_4p_sector_list):
 
+        # Define 3p sectors as 4p sectors with lsec = 0
+        all_3p_sector_list_with_0 = []
+        for i in range(0,len(all_3p_sector_list)):
+            new_list = list(all_3p_sector_list[i])
+            new_list.append(0)
+            new_list = tuple(new_list)
+            all_3p_sector_list_with_0.append(new_list)
+        # Check
+        if len(all_3p_sector_list_with_0) != len(all_3p_sector_list):
+            print('WARNING: Wrong number of 3p sectors!')
+            return
+        
+        all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
+
         replace_dict = {}
-        replace_dict['len_3p_sec_list'] = len(all_3p_sector_list)
-        replace_dict['len_4p_sec_list'] = len(all_4p_sector_list)
-        replace_dict['all_3p_sector_list'] = str(all_3p_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-        replace_dict['all_4p_sector_list'] = str(all_4p_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        replace_dict['len_sec_list'] = len(all_sector_list)
+        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
 
         file = """ \
-          integer, parameter :: len_3p_sectors = %(len_3p_sec_list)d
-          integer, parameter :: len_4p_sectors = %(len_4p_sec_list)d
-          integer all_3p_sector_list(2,len_3p_sectors)
-          integer all_4p_sector_list(2,len_4p_sectors)
-          data all_3p_sector_list/%(all_3p_sector_list)s/         
-          data all_4p_sector_list/%(all_4p_sector_list)s/""" % replace_dict
-
+          integer, parameter :: len_sectors = %(len_sec_list)d
+          integer all_sector_list(2,len_sectors)
+          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+        
         filename = pjoin(dirpath, 'all_sector_list.inc')
         writer(filename).writelines(file)
 

@@ -420,6 +420,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #  the weight function
         all_sector_list = [s['sector'].leg_numbers for s in all_sectors]
         all_sector_mass_list = [s['sector'].masses for s in all_sectors]
+        
         # gl
         all_sector_id_list = [s['sector'].id for s in all_sectors]
 
@@ -943,6 +944,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             
             # write testR
+            
             self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
                                                     i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
 
@@ -1142,61 +1144,54 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         replace_dict['jsec'] = jsec
 
         limit_str = ''
-        is_soft = False
-        is_coll = False
-        if necessary_ct_list[i][0] != 0 : #[i*5] == 1:    
+        if necessary_ct_list[i][0] != 0 : #Si limit  
             limit_str += """
 c
 c     soft limit"""
+            
             if mass_list[-1] != 'ZERO': 
-            # TO DO  : to implement condition for massive recoiler  
                 limit_str += """
-      e1=0d0"""
+      e=[0d0,1d0]"""
             else:
                 limit_str += """
-      e1=1d0"""  
-            limit_str += """     
-      e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+      e=[1d0,1d0] 
+      l=[0d0,0d0]
+      call do_limit_R_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec)
-            is_soft = True
-        if necessary_ct_list[i][1] != 0 : #[i*5+1] == 1:
+        if necessary_ct_list[i][1] != 0 : #Sj limit
+            #TODO for future: massive recoiler to be implemented
             limit_str += """
 c
 c     soft limit
-      e1=0d0
-      e2=1d0
-      call do_limit_R_%d_%d(iunit,'S       ',x0,e1,e2)
+      e=[1d0,1d0] 
+      l=[1d0,0d0]
+      call do_limit_R_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec)
-            is_soft = True
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
-            if necessary_ct_list[i][2] != 0 : # == 1:
+            if necessary_ct_list[i][2] != 0 : #Cij
                 limit_str += """
 c
 c     collinear limit
-      if((iU.eq.isec.and.iS.eq.jsec.and.iB.eq.iref).or.(iU.eq.jsec.and.iS.eq.isec.and.iB.eq.iref)) then
-        e1=0d0
-        e2=1d0
-      elseif((iU.eq.isec.and.iS.eq.iref.and.iB.eq.jsec).or.(iU.eq.jsec.and.iS.eq.iref.and.iB.eq.isec)) then
-        e1=1d0
-        e2=0d0
-      else
-        write(*,*) 'Wrong mapping for collinear limit'
-        write(*,*) 'iU, iS, iB = ', iU, iS, iB
-        write(*,*) 'isec, jsec = ', isec, jsec
-        stop
-      endif
-      call do_limit_R_%d_%d(iunit,'C       ',x0,e1,e2)
+        e=[0d0,1d0]
+        l=[0d0,0d0]
+      call do_limit_R_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec)
-                is_coll = True
-            if is_soft and is_coll:
-                limit_str += """
+                if necessary_ct_list[i][0] != 0: #SiCij 
+                    limit_str += """
 c
 c     soft-collinear limit
-      e1=e1+1d0
-      e2=e2+1d0
-      call do_limit_R_%d_%d(iunit,'SC      ',x0,e1,e2)
+      e=[1d0,2d0]
+      l=[0d0,0d0]
+      call do_limit_R_%d_%d(iunit,'SiCij   ',x0,e,l)
+"""%(isec,jsec)
+                if necessary_ct_list[i][1] != 0: #SjCij
+                    limit_str += """
+c
+c     soft-collinear limit
+      e=[1d0,2d0]
+      l=[0d0,0d0]
+      call do_limit_R_%d_%d(iunit,'SjCij   ',x0,e,l)
 """%(isec,jsec)
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectors.py """

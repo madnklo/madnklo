@@ -10,14 +10,15 @@
       common/cnlosecindices/isec,jsec
       integer i,iU,iS,iB,iA,iref
       common/cNLOmaplabels/iU,iS,iB,iA,iref
+      integer iUtmp,iStmp
       integer iunit,ievnt
       INTEGER, PARAMETER :: MXDIM = 30
       double precision x0(mxdim)
-      double precision e1,e2
       character*10 dash10
       save ievnt
       double precision xsave(3)
       common/cxsave/xsave
+      double precision e(2), l(2)
 c
       dash10='----------'
       ievnt=ievnt+1
@@ -42,7 +43,7 @@ c
       end
 
 
-      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e1,e2)
+      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e,l)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -62,7 +63,6 @@ c
       double precision sLO(nexternal-1,nexternal-1)
       double precision KS,KHC,KNLO
       double precision lam,lim,RNLO,single_real
-      double precision e1,e2
       character*5 str5
       character*8 limstr
       character*10 str10
@@ -81,6 +81,7 @@ c
       DOUBLE PRECISION ALPHAZ
       PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
+      double precision e(2),l(2)
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     
@@ -119,8 +120,8 @@ c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise 
-         x(1)=x0(1)*lam**e1
-         x(2)=x0(2)*lam**e2
+         x(1)=abs(l(1)-x0(1))*lam**e(1)
+         x(2)=abs(l(2)-x0(2))*lam**e(2)
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics

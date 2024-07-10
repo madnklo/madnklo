@@ -1381,6 +1381,10 @@ c       %s
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
 
+            #print('GIOVANNIIIIII', all_3p_K1_ct)
+            self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
+                                    i, isec, jsec, ksec, lsec,all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+           
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
         
@@ -1592,6 +1596,10 @@ c       %s
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
+            #print('GIOVANNIIIII', masses )
+
+            # self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
+            #                                         i, isec, jsec, necessary_default_4p_ct_list, mapping_str,mass)
 
         return #all_sectors
 
@@ -1617,6 +1625,187 @@ c       %s
           data all_4p_sector_list/%(all_4p_sector_list)s/""" % replace_dict
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
+        writer(filename).writelines(file)
+
+        return True
+    
+
+
+    #===========================================================================
+    # write file for testing limits, 'testRR.f'
+    #===========================================================================
+
+    def write_testRR_3p_template_file(self, writer, dirpath, dirmadnklo, defining_process, 
+                                    i, isec, jsec, ksec, lsec, K1_ct, K2_ct,K12_ct):
+        replace_dict = {}
+        replace_dict['isec'] = isec
+        replace_dict['jsec'] = jsec
+        replace_dict['ksec'] = ksec
+        replace_dict['lsec'] = lsec
+        mass_list=[]
+        mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
+
+        limit_str = ''
+        is_soft = False
+        is_coll = False
+
+
+#         # K2 cts
+#         if all_3p_K2_ct[i][0] != 0:
+#             limit_str += """
+# c
+# c       soft limit"""
+#             limit_str += """
+#         e1=0d0
+#         e2=1d0
+#         e4=1d0
+#         e5=1d0
+#         call do_limit_RR_%d_%d_%d_%d(iunit,'SS', x0,e1,e2,e4,e5)    
+#        """%(isec,jsec,ksec,lsec)
+        
+        
+
+        # Test for K1_3p (ijk)  
+        # Identify cts for L1_ijk (list starts from 0)
+        # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
+        if K1_ct[i][0] != 0 : #Si
+            limit_str += """
+c
+c     soft limit for isec particle going soft
+      e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
+      l = [0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        if K1_ct[i][1] != 0 : #Sj
+            limit_str += """
+c
+      e=[0d0,0d0,0d0,1d0,1d0] ! Sj limit
+      l=[0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        if K1_ct[i][2] != 0 : #Sk to do
+            limit_str += """
+c
+c     soft limit
+      e1=1d0
+      e2=1d0
+      e4=0d0
+      e5=0d0
+      call do_limit_R_%d_%d_%d_%d(iunit,'S       ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        # Loop over sectors with final state particles only
+        if isec > 2 and jsec > 2:
+            if K1_ct[i][3] != 0 : # Cij
+                limit_str += """
+c
+c     collinear limit Cij
+        e=[0d0,1d0,0d0,0d0,1d0]
+        l=[0d0,0d0,0d0,0d0]
+c      if((iU1.eq.isec.and.iS1.eq.jsec.and.iB1.eq.iref).or.(iU1.eq.jsec.and.iS1.eq.isec.and.iB1.eq.iref)) then
+c        e1=0d0
+c        e2=1d0
+c      elseif((iU1.eq.isec.and.iS1.eq.iref.and.iB1.eq.jsec).or.(iU1.eq.jsec.and.iS1.eq.iref.and.iB1.eq.isec)) then
+c        e1=1d0
+c        e2=0d0
+c      else
+c        write(*,*) 'Wrong mapping for collinear limit'
+c        write(*,*) 'iU, iS, iB = ', iU, iS, iB
+c        write(*,*) 'isec, jsec = ', isec, jsec
+c        stop
+c      endif
+c      e4=0d0
+c      e5=0d0
+      call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+            limit_str += """
+c
+c     soft-collinear limit
+      e=[1d0,2d0,0d0,0d0,1d0]  
+      l=[0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+            if K1_ct[i][1] != 0 : #SjCij
+                limit_str += """
+c
+c     soft-collinear limit
+      e=[0d0,1d0,0d0,1d0,2d0]
+      l=[0d0,0d0,0d0,0d0]
+     
+      call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
+      """%(isec,jsec,ksec,lsec)
+            if K1_ct[i][5] != 0 : # Cik:
+                limit_str += """
+c
+c     collinear limit Cik
+c      if((iU1.eq.isec.and.iS1.eq.jsec.and.iB1.eq.iref).or.(iU1.eq.jsec.and.iS1.eq.isec.and.iB1.eq.iref)) then
+c        e1=0d0
+c        e2=1d0
+c      elseif((iU1.eq.isec.and.iS1.eq.iref.and.iB1.eq.jsec).or.(iU1.eq.jsec.and.iS1.eq.iref.and.iB1.eq.isec)) then
+c        e1=1d0
+c        e2=0d0
+c      else
+c        write(*,*) 'Wrong mapping for collinear limit'
+c        write(*,*) 'iU, iS, iB = ', iU, iS, iB
+c        write(*,*) 'isec, jsec = ', isec, jsec
+c        stop
+c      endif
+c      e4=0d0
+c      e5=0d0
+      e=[0d0,1d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0]  
+      call do_limit_R_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+            if K1_ct[i][0] != 0 : # SiCik
+                limit_str += """
+c
+c     soft-collinear limit
+      e=[1d0,2d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'SiCik      ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+            if K1_ct[i][-1] != 0 : #Cjk
+                limit_str += """
+c
+c     collinear limit Cjk
+c      if((iU1.eq.isec.and.iS1.eq.jsec.and.iB1.eq.iref).or.(iU1.eq.jsec.and.iS1.eq.isec.and.iB1.eq.iref)) then
+c        e1=0d0
+c        e2=1d0
+c      elseif((iU1.eq.isec.and.iS1.eq.iref.and.iB1.eq.jsec).or.(iU1.eq.jsec.and.iS1.eq.iref.and.iB1.eq.isec)) then
+c        e1=1d0
+c        e2=0d0
+c      else
+c        write(*,*) 'Wrong mapping for collinear limit'
+c        write(*,*) 'iU, iS, iB = ', iU, iS, iB
+c        write(*,*) 'isec, jsec = ', isec, jsec
+c        stop
+c      endif
+c      e4=0d0
+c      e5=0d0
+      e=[0d0,0d0,0d0,0d0,1d0]
+      l=[0d0,0d0,0d0,0d0]  
+      call do_limit_R_%d_%d_%d_%d(iunit,'Cjk     ',x0,e1,e2,e4,e5)
+"""%(isec,jsec,ksec,lsec)
+            if  K1_ct[i][1] != 0: #SjCjk 
+                limit_str += """
+c
+c     soft-collinear limit
+      e=[0d0,0d0,0d0,1d0,2d0]
+      l=[0d0,0d0,0d0,0d0]  
+      call do_limit_R_%d_%d_%d_%d(iunit,'SjCjk   ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)     
+        elif isec > 2 and jsec <= 2:
+            limit_str += """Collinear limits still to be specified in sectorsRR.py """
+            raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
+
+        replace_dict['limit_str'] = limit_str
+        replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+#         replace_dict['mapping_str'] = mapping_str
+
+        # write testR             
+        filename = pjoin(dirpath, 'testR_%d_%d_%d.f' %(isec,jsec,ksec) )
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
+        file = file % replace_dict
         writer(filename).writelines(file)
 
         return True

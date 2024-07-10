@@ -1,4 +1,4 @@
-      subroutine test_R_%(isec)d_%(jsec)d(iunit,x0)
+      subroutine test_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,x0)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -18,6 +18,7 @@
       save ievnt
       double precision xsave(3)
       common/cxsave/xsave
+      double precision e(4),l(4)
 c
       dash10='----------'
       ievnt=ievnt+1
@@ -30,7 +31,7 @@ c
 %(limit_str)s
 c     
 c     reinstate original xsave after testing
-      do i=1,3
+      do i=1,5
          xsave(i)=x0(i)
       enddo
 c
@@ -42,7 +43,7 @@ c
       end
 
 
-      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e1,e2)
+      subroutine do_limit_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,limstr,x0,e,l)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -51,36 +52,40 @@ c
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       integer iitn,i,j,maxitn,iunit,ierr
-      integer isec,jsec
-      common/cnlosecindices/isec,jsec
-      integer iU,iS,iB,iA,iref
-      common/cnlomaplabels/iU,iS,iB,iA,iref
+      integer isec,jsec,ksec,lsec
+      common/cnlosecindices/isec,jsec,ksec,lsec
+      integer iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      common/cNNLOmaplabels/iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+C      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)
       double precision x0(mxdim),x(mxdim)
-      double precision sNLO(nexternal,nexternal)
-      double precision sLO(nexternal-1,nexternal-1)
-      double precision KS,KHC,KNLO
-      double precision lam,lim,RNLO,single_real
-      double precision e1,e2
+      double precision sNNLO(nexternal,nexternal)
+      double precision sNLO(nexternal-1,nexternal-1)
+      double precision sLO(nexternal-2,nexternal-2)
+      double precision KNNLO
+      double precision lam,lim,RNNLO,double_real
+      double precision e1,e2,e4,e5
       character*5 str5
       character*8 limstr
       character*10 str10
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
+      double precision ptilde(0:3,nexternal-2)
       double precision xjac,xjacB
       double precision xsave(3)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-      DOUBLE PRECISION Z_NLO
+      DOUBLE PRECISION Z_NNLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
-      integer %(NLO_proc_str)sfl_factor 
-      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
+      integer %(NNLO_proc_str)sfl_factor 
+      common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
       DOUBLE PRECISION ALPHAZ
       PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
+      double precision e(4),l(4)
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     
@@ -89,9 +94,10 @@ c     initialise
       str5 ='     '
       str10='          '
       xjac=0d0
+      sNNLO=0d0
       sNLO=0d0
       sLO=0d0
-      Z_NLO=0d0
+      Z_NNLO=0d0
       wgt_chan=1d0
 c
 c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
@@ -100,7 +106,7 @@ c     start testing
       write(iunit,*)
       write(iunit,*)
       write(iunit,*)'LIM = '//trim(limstr)
-      write(iunit,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
+      write(iunit,*)str10//'lambda'//str10//str10//'RR'//str10//str10//str5//'LIM'//str10//str10//'|RR-LIM|/|LIM|'
 c
 c     possibility to set by hand the starting point
 c     for the limiting procedure
@@ -114,46 +120,51 @@ c
 c     initialise
          KS=0d0
          KHC=0d0
-         KNLO=0d0
+         KNNLO=0d0
 c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise 
          x(1)=x0(1)*lam**e1
          x(2)=x0(2)*lam**e2
+         x(4)=x0(4)*lam**e4
+         x(5)=x0(5)*lam**e5
+         
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics
-         do i=1,3
+         do i=1,5
             xsave(i)=x(i)
          enddo
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
-         if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
-         call invariants_from_p(p,nexternal,sNLO,ierr)
+         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pbar,ptilde,xjac,xjacB,iU2,iS2,iB2)
+         if(xjac.eq.0d0.or.xjacB.eq.0d0) cycle
+         call invariants_from_p(p,nexternal,sNNLO,ierr)
          if(ierr.eq.1)cycle
-         call invariants_from_p(pb,nexternal-1,sLO,ierr)
+         call invariants_from_p(pb,nexternal-1,sNLO,ierr)
+         if(ierr.eq.1)cycle
+         call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
          if(ierr.eq.1)cycle
 c
 c     real
-         call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-         RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
+         call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+         RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
-         CALL GET_Z_NLO(SNLO,SCM,ALPHAZ,%(isec)d,%(jsec)d,Z_NLO,IERR)
+         call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
          if(ierr.eq.1)cycle
 c
 c     counterterm
-         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
+         call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
          
-         lim=KNLO
-         single_real=RNLO*Z_NLO*xjac
+         lim=KNNLO
+         double_real=RNNLO*Z_NNLO*xjac
          
          if(abs(lim).gt.0d0)then
-            write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
+            write(iunit,*)lam,double_real,lim,abs(double_real-lim)/abs(lim)
          else
-            write(iunit,*)lam,single_real,lim,single_real,' *** '
+            write(iunit,*)lam,double_real,lim,double_real,' *** '
          endif
       enddo
       x=x0

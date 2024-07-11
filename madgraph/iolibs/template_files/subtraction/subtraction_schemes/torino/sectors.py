@@ -1202,7 +1202,7 @@ c     soft-collinear limit
 c
 c     soft-collinear limit
       e=[1d0,2d0]
-      l=[0d0,0d0]
+      l=[1d0,0d0]
       call do_limit_R_%d_%d(iunit,'SjCij   ',x0,e,l)
 """%(isec,jsec)
         elif isec > 2 and jsec <= 2:

@@ -124,6 +124,8 @@ c     safety checks
          write(77,*)'Wrong invariants in ZS_NLO',sCM,xs(1,2)
          goto 999
       endif
+c
+c     build ZS_NLO
       do i=1,lensectors
          a=all_sector_list(1,i)
          b=all_sector_list(2,i)

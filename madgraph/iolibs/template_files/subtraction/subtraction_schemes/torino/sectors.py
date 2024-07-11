@@ -3,6 +3,7 @@
 #
 import copy
 import sys
+import os
 
 
 import commons.generic_sectors as generic_sectors
@@ -625,8 +626,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                         forbid=True, main=False, pdg_order=False, print_id = False))
 
             # Initialise ct routines to 'dummy'
-            for k in range(0, len(necessary_default_ct_list)):
-                replace_dict_limits['proc_prefix_%s' % necessary_default_ct_list[k]] = 'dummy'
+            #for k in range(0, len(necessary_default_ct_list)):
+            #    replace_dict_limits['proc_prefix_%s' % necessary_default_ct_list[k]] = 'dummy'
 
             # replace_dict_limits['proc_prefix_S_g'] = 'dummy'
             # replace_dict_limits['proc_prefix_HC_gg'] = 'dummy'
@@ -663,6 +664,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             """ % (mapping[0][0], mapping[1][0], mapping[2][0])
             overall_sector_info.append(sector_info)
 
+            # Initialise NLO_IR_limits.f for every sector [ij]
+            string = "c Collection of relevant limits for sector [%d,%d]" %(isec,jsec)
+            NLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NLO_limits/'
+            os.system('echo ' + string + ' > ' + NLO_IR_limits_tmp_path + 'IR_tmp.f') 
+
             for j in range(0, len(necessary_ct_list[i])):
                 # if necessary_ct_list[i][j] != 0: 
                 #    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
@@ -678,6 +684,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('K%s=K%s+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
+                    # Write ct template in NLO_IR_limits 
+                    os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
                 elif j == 1:
                     if id_jsec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % jsec)
@@ -692,6 +700,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
+                    # Write ct template in NLO_IR_limits 
+                    os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
 
 
                 # if necessary_ct_list[i][j] == 0:
@@ -914,9 +924,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
             # write NLO_IR_limits
             filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
+            #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
+            file = open(NLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
+            os.system('rm ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
 
             ###
 

@@ -113,8 +113,6 @@ c     loop to get closer and closer to the limit
          lam=10d0**(1d0-iitn)
 c
 c     initialise
-         KS=0d0
-         KHC=0d0
          KNLO=0d0
 c
 c     rescale relevant x random numbers

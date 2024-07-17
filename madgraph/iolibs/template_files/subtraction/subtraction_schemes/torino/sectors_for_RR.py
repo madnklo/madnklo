@@ -540,6 +540,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_3p_K1_ct = []
         all_3p_K2_ct = []
         all_3p_K12_ct = []
+        uB_all_3p_K1_ct = []
+        uB_all_3p_K2_ct = []
         for s in all_3p_sectors:
             s['sector'].all_3p_sector_list = all_3p_sector_list
             s['sector'].all_3p_sector_id_list = all_3p_sector_id_list
@@ -551,10 +553,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_3p_ct2_list = [0] * (10)
                 necessary_3p_ct2 = [0] * (10)
                 necessary_3p_ct12_list = [0] * (21)
-                necessary_3p_ct12 = [0] * (21)
 
                 print('****** NEW SECTOR ******')
-                #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]))
                 print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]))
 
@@ -606,21 +606,22 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     # Identify cts for L1_ijk
                     # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
 
-                    # Si
-                    if s['sector'].id[0] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[0] = 'S_g' 
-                        necessary_3p_ct1[0] = ct
-                    # Sj
-                    if s['sector'].id[1] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[1] = 'S_g' 
-                        necessary_3p_ct1[1] = ct
-                    # Sk
-                    if s['sector'].id[2] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[2] = 'S_g' 
-                        necessary_3p_ct1[2] = ct
+                    if len(n_subs) == 1 and len(all_legs) == 1:
+                        # Si
+                        if s['sector'].id[0] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[0] = 'S_g' 
+                            necessary_3p_ct1[0] = ct
+                        # Sj
+                        if s['sector'].id[1] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[1] = 'S_g' 
+                            necessary_3p_ct1[1] = ct
+                        # Sk
+                        if s['sector'].id[2] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[2] = 'S_g' 
+                            necessary_3p_ct1[2] = ct
                     
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -868,10 +869,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 3p sector')
                 print(necessary_3p_ct1_list)
                 all_3p_K1_ct.append(necessary_3p_ct1_list)
+                uB_all_3p_K1_ct.append(necessary_3p_ct1)
 
                 print('K2 3p sector')
                 print(necessary_3p_ct2_list)
                 all_3p_K2_ct.append(necessary_3p_ct2_list)
+                uB_all_3p_K2_ct.append(necessary_3p_ct2)
                     
                 print('K12 3p sector')
                 print(necessary_3p_ct12_list)
@@ -882,6 +885,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_4p_K1_ct = []
         all_4p_K2_ct = []
         all_4p_K12_ct = []
+        uB_all_4p_K1_ct = []
+        uB_all_4p_K2_ct = []
         for s in all_4p_sectors:
             s['sector'].all_4p_sector_list = all_4p_sector_list
             s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
@@ -893,7 +898,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
                 necessary_4p_ct12_list = [0] * (18)
-                necessary_4p_ct12 = [0] * (18)
 
                 print('****** NEW SECTOR ******')
                 #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
@@ -927,31 +931,33 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         continue
 
                     # print('GOOD CT')
-                    #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    #print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
-                    #print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
+                    # print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
+                    # print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
+                    # print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
 
                     # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
-                    # Si
-                    if s['sector'].id[0] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[0] = 'S_g' 
-                        necessary_4p_ct1[0] = ct
-                    # Sj
-                    if s['sector'].id[1] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[1] = 'S_g' 
-                        necessary_4p_ct1[1] = ct
-                    # Sk
-                    if s['sector'].id[2] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[2] = 'S_g' 
-                        necessary_4p_ct1[2] = ct
-                    # Sl
-                    if s['sector'].id[3] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[3] = 'S_g' 
-                        necessary_4p_ct1[3] = ct
+
+                    if len(n_subs) == 1 and len(all_legs) == 1:
+                        # Si
+                        if s['sector'].id[0] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[0] = 'S_g' 
+                            necessary_4p_ct1[0] = ct
+                        # Sj
+                        if s['sector'].id[1] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[1] = 'S_g' 
+                            necessary_4p_ct1[1] = ct
+                        # Sk
+                        if s['sector'].id[2] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[2] = 'S_g' 
+                            necessary_4p_ct1[2] = ct
+                        # Sl
+                        if s['sector'].id[3] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[3] = 'S_g' 
+                            necessary_4p_ct1[3] = ct
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -1081,6 +1087,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 elif abs(s['sector'].id[0]) == abs(s['sector'].id[1]) and \
                                     abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
                                     necessary_4p_ct2_list[8] = 'HCC_qxqqxq'
+                                necessary_4p_ct2[8] = ct
 
                     # L12_ijkl : 18  ->  [Si Sik, Si Sil, Si SHCikl, 
                     #                     Sj Sjk, Sj Sjl, Sj SHCjkl,
@@ -1140,10 +1147,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 4p sector')
                 print(necessary_4p_ct1_list)
                 all_4p_K1_ct.append(necessary_4p_ct1_list)
+                uB_all_4p_K1_ct.append(necessary_4p_ct1)
 
                 print('K2 4p sector')
                 print(necessary_4p_ct2_list)
                 all_4p_K2_ct.append(necessary_4p_ct2_list)
+                uB_all_4p_K2_ct.append(necessary_4p_ct2)
                     
                 print('K12 4p sector')
                 print(necessary_4p_ct12_list)
@@ -1273,6 +1282,16 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)] 
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
 
+            # TODO
+            # #specify (abcd) mapping choice
+            # mapping_str = """ \
+            #     iU = %s
+            #     iS = %s
+            #     iB = %s
+            #     iA = 1 ! default azimuth for NLO
+            # """ % (mapping[0][0], mapping[1][0], mapping[2][0], mapping[3][0])
+            # overall_sector_info.append(sector_info)
+
             # loop on K1 cts
             ct_list = []
             for j in range(0, len(all_3p_K1_ct[i])):
@@ -1282,10 +1301,16 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    print('From single soft : ' + str(uB_all_3p_K1_ct[i][j]))
+                    print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    print('From single collinear : ' + str(uB_all_3p_K1_ct[i][j]))
+                    print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1302,10 +1327,16 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    print('From double soft : ' + str(uB_all_3p_K2_ct[i][j]))
+                    print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 else:
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    print('From other double singular : ' + str(uB_all_3p_K2_ct[i][j]))
+                    print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 if all_3p_K2_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K2_ct[i][j])
                     tmp_str = """ 
@@ -1320,7 +1351,6 @@ c       %s
                     continue
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
-                    #print('LIM : ' + str(lim))
                 if j <= 3:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
@@ -1537,7 +1567,6 @@ c       %s
                     continue
                 else:
                     lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
-                    #print('LIM : ' + str(lim))
                 if j <= 2:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))

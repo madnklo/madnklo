@@ -1622,7 +1622,7 @@ c       %s
             writer(filename).writelines(file)
            
             self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-                                    i, isec, jsec, ksec, lsec,all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+                                    i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
            
 
             
@@ -1758,11 +1758,22 @@ c   Use mapping (i,k,r),(j,k,r) (j <--> k)
       e=[0d0,1d0,0d0,0d0,0d0]
       l=[0d0,0d0,0d0,0d0,0d0]  
       call do_limit_R_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
+      iU2 = iU2tmp
+      iS1 = iS1tmp
+      iS2 = iS2tmp
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][0] != 0 : # SiCik
                     limit_str += """
 c
 c     soft-collinear limit
+c   Use mapping (i,k,r),(j,k,r) (j <--> k)
+      iU1tmp = iU1 ! isec
+      iU2tmp = iU2 ! ksec
+      iS1tmp = iS1
+      iS2tmp = iS2
+      iU2 = iS2tmp
+      iS2 = iU2tmp
+      iS1 = iS2tmp
       e=[1d0,2d0,0d0,0d0,0d0]
       l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SiCik      ',x0,e,l)
@@ -1964,35 +1975,49 @@ c     collinear limit Cij
         e=[0d0,1d0,0d0,0d0,0d0]
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
+      iS1 = iS1tmp
+      iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
                 if  K1_ct[i][0] != 0:   # SiCij 
                     limit_str += """
 c
+c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
+      iS1tmp = iS1
+      iU2tmp = iU2
+      iS1 = iU2
+      iU2 = iS1tmp
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]  
       l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
+      iS1 = iS1tmp
+      iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][1] != 0 : #SjCij
                     limit_str += """
 c
+c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
+      iS1tmp = iS1
+      iU2tmp = iU2
+      iS1 = iU2
+      iU2 = iS1tmp
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]
       l=[1d0,0d0,0d0,0d0,0d0]
-     
       call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
       iS1 = iS1tmp
       iU2 = iU2tmp
       """%(isec,jsec,ksec,lsec)
             if K1_ct[i][5] != 0 : # Ckl:
                 limit_str += """
+      
 c
 c     collinear limit Ckl
       e=[0d0,0d0,0d0,0d0,1d0]
       l=[0d0,0d0,0d0,0d0,1d0]  
       call do_limit_R_%d_%d_%d_%d(iunit,'Ckl     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if K1_ct[i][1] != 0 : # SkCkl
+                if K1_ct[i][2] != 0 : # SkCkl
                     limit_str += """
 c
 c     soft-collinear limit
@@ -2013,11 +2038,6 @@ c     soft-collinear limit
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
 
- 
-
-
-
-
 
 
         replace_dict['limit_str'] = limit_str
@@ -2026,7 +2046,7 @@ c     soft-collinear limit
 #         replace_dict['mapping_str'] = mapping_str
 
         # write testR             
-        filename = pjoin(dirpath, 'testR_%d_%d_%d_%d.f' %(isec,jsec,ksec,lsec) )
+        filename = pjoin(dirpath, 'testRR_%d_%d_%d_%d.f' %(isec,jsec,ksec,lsec) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)

@@ -540,8 +540,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_3p_K1_ct = []
         all_3p_K2_ct = []
         all_3p_K12_ct = []
-        uB_all_3p_K1_ct = []
-        uB_all_3p_K2_ct = []
         for s in all_3p_sectors:
             s['sector'].all_3p_sector_list = all_3p_sector_list
             s['sector'].all_3p_sector_id_list = all_3p_sector_id_list
@@ -553,8 +551,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_3p_ct2_list = [0] * (10)
                 necessary_3p_ct2 = [0] * (10)
                 necessary_3p_ct12_list = [0] * (21)
+                necessary_3p_ct12 = [0] * (21)
 
                 print('****** NEW SECTOR ******')
+                #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]))
                 print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]))
 
@@ -606,22 +606,21 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     # Identify cts for L1_ijk
                     # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
 
-                    if len(n_subs) == 1 and len(all_legs) == 1:
-                        # Si
-                        if s['sector'].id[0] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[0] = 'S_g' 
-                            necessary_3p_ct1[0] = ct
-                        # Sj
-                        if s['sector'].id[1] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[1] = 'S_g' 
-                            necessary_3p_ct1[1] = ct
-                        # Sk
-                        if s['sector'].id[2] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[2] = 'S_g' 
-                            necessary_3p_ct1[2] = ct
+                    # Si
+                    if s['sector'].id[0] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_3p_ct1_list[0] = 'S_g' 
+                        necessary_3p_ct1[0] = ct
+                    # Sj
+                    if s['sector'].id[1] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_3p_ct1_list[1] = 'S_g' 
+                        necessary_3p_ct1[1] = ct
+                    # Sk
+                    if s['sector'].id[2] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_3p_ct1_list[2] = 'S_g' 
+                        necessary_3p_ct1[2] = ct
                     
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -869,12 +868,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 3p sector')
                 print(necessary_3p_ct1_list)
                 all_3p_K1_ct.append(necessary_3p_ct1_list)
-                uB_all_3p_K1_ct.append(necessary_3p_ct1)
 
                 print('K2 3p sector')
                 print(necessary_3p_ct2_list)
                 all_3p_K2_ct.append(necessary_3p_ct2_list)
-                uB_all_3p_K2_ct.append(necessary_3p_ct2)
                     
                 print('K12 3p sector')
                 print(necessary_3p_ct12_list)
@@ -885,8 +882,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_4p_K1_ct = []
         all_4p_K2_ct = []
         all_4p_K12_ct = []
-        uB_all_4p_K1_ct = []
-        uB_all_4p_K2_ct = []
         for s in all_4p_sectors:
             s['sector'].all_4p_sector_list = all_4p_sector_list
             s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
@@ -898,6 +893,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
                 necessary_4p_ct12_list = [0] * (18)
+                necessary_4p_ct12 = [0] * (18)
 
                 print('****** NEW SECTOR ******')
                 #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
@@ -931,33 +927,31 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         continue
 
                     # print('GOOD CT')
-                    # print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    # print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
-                    # print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
+                    #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
+                    #print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
+                    #print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
 
                     # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
-
-                    if len(n_subs) == 1 and len(all_legs) == 1:
-                        # Si
-                        if s['sector'].id[0] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[0] = 'S_g' 
-                            necessary_4p_ct1[0] = ct
-                        # Sj
-                        if s['sector'].id[1] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[1] = 'S_g' 
-                            necessary_4p_ct1[1] = ct
-                        # Sk
-                        if s['sector'].id[2] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[2] = 'S_g' 
-                            necessary_4p_ct1[2] = ct
-                        # Sl
-                        if s['sector'].id[3] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[3] = 'S_g' 
-                            necessary_4p_ct1[3] = ct
+                    # Si
+                    if s['sector'].id[0] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_4p_ct1_list[0] = 'S_g' 
+                        necessary_4p_ct1[0] = ct
+                    # Sj
+                    if s['sector'].id[1] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_4p_ct1_list[1] = 'S_g' 
+                        necessary_4p_ct1[1] = ct
+                    # Sk
+                    if s['sector'].id[2] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_4p_ct1_list[2] = 'S_g' 
+                        necessary_4p_ct1[2] = ct
+                    # Sl
+                    if s['sector'].id[3] == 21 :
+                        s['counterterms'].append(i_ct)
+                        necessary_4p_ct1_list[3] = 'S_g' 
+                        necessary_4p_ct1[3] = ct
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -1087,7 +1081,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 elif abs(s['sector'].id[0]) == abs(s['sector'].id[1]) and \
                                     abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
                                     necessary_4p_ct2_list[8] = 'HCC_qxqqxq'
-                                necessary_4p_ct2[8] = ct
 
                     # L12_ijkl : 18  ->  [Si Sik, Si Sil, Si SHCikl, 
                     #                     Sj Sjk, Sj Sjl, Sj SHCjkl,
@@ -1147,12 +1140,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 4p sector')
                 print(necessary_4p_ct1_list)
                 all_4p_K1_ct.append(necessary_4p_ct1_list)
-                uB_all_4p_K1_ct.append(necessary_4p_ct1)
 
                 print('K2 4p sector')
                 print(necessary_4p_ct2_list)
                 all_4p_K2_ct.append(necessary_4p_ct2_list)
-                uB_all_4p_K2_ct.append(necessary_4p_ct2)
                     
                 print('K12 4p sector')
                 print(necessary_4p_ct12_list)
@@ -1279,18 +1270,20 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             sector_info['iref'] = iref
 
             # default mapping
-            mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)] 
+            mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
+            #specify ((isec,jsec,iref),(ksec,jsec,iref)) mapping choice
+            mapping_str = """ \
+                iU1 = %s 
+                iS1 = %s
+                iB1 = %s
+                iU2 = %s
+                iS2 = %s
+                iB2 = %s 
+                iA1 = 1 ! default azimuth for NLO
+            """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[1][0],mapping[4][0])
+            #overall_sector_info.append(sector_info)
 
-            # TODO
-            # #specify (abcd) mapping choice
-            # mapping_str = """ \
-            #     iU = %s
-            #     iS = %s
-            #     iB = %s
-            #     iA = 1 ! default azimuth for NLO
-            # """ % (mapping[0][0], mapping[1][0], mapping[2][0], mapping[3][0])
-            # overall_sector_info.append(sector_info)
 
             # loop on K1 cts
             ct_list = []
@@ -1301,16 +1294,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    print('From single soft : ' + str(uB_all_3p_K1_ct[i][j]))
-                    print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    print('From single collinear : ' + str(uB_all_3p_K1_ct[i][j]))
-                    print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1327,16 +1314,10 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    print('From double soft : ' + str(uB_all_3p_K2_ct[i][j]))
-                    print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 else:
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    print('From other double singular : ' + str(uB_all_3p_K2_ct[i][j]))
-                    print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
                 if all_3p_K2_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K2_ct[i][j])
                     tmp_str = """ 
@@ -1351,6 +1332,7 @@ c       %s
                     continue
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
+                    #print('LIM : ' + str(lim))
                 if j <= 3:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
@@ -1396,7 +1378,7 @@ c       %s
             str_M2_K12 = " ".join(list_str_M2_K12)
             replace_dict_ct['str_M2_K12'] = str_M2_K12
 
-            replace_dict_double_real['mapping_str'] = mapping
+            replace_dict_double_real['mapping_str'] = mapping_str
 
             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
@@ -1413,7 +1395,7 @@ c       %s
 
             #print('GIOVANNIIIIII', all_3p_K1_ct)
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-                                    i, isec, jsec, ksec, lsec,all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+                                    i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
            
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
@@ -1520,10 +1502,24 @@ c       %s
             sector_info['lsec'] = lsec
             sector_info['iref'] = iref
 
+
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
+            #specify ((acd),(bcd)) mapping choice
+            mapping_str = """ \
+                iU1 = %s 
+                iS1 = %s
+                iB1 = %s
+                iU2 = %s
+                iS2 = %s
+                iB2 = %s 
+                iA1 = 1 ! default azimuth for NLO
+            """ % (mapping[0][0], mapping[2][0], mapping[3][0],mapping[1][0], mapping[3][0],mapping[4][0])
+            #overall_sector_info.append(sector_info)
 
+
+            replace_dict_double_real['mapping_str'] = mapping_str 
             # loop on K1 cts
             ct_list = []
             for j in range(0, len(all_4p_K1_ct[i])):
@@ -1567,6 +1563,7 @@ c       %s
                     continue
                 else:
                     lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
+                    #print('LIM : ' + str(lim))
                 if j <= 2:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
@@ -1623,14 +1620,12 @@ c       %s
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
-            #print('GIOVANNIIIII', masses )
-            # self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-            #                         i, isec, jsec, ksec, lsec,all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+           
+            self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
+                                    i, isec, jsec, ksec, lsec,all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
            
 
-            # self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                                         i, isec, jsec, necessary_default_4p_ct_list, mapping_str,mass)
-
+            
         return #all_sectors
 
 
@@ -1685,50 +1680,42 @@ c       %s
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''
-        is_soft = False
-        is_coll = False
-
-
-#         # K2 cts
-#         if all_3p_K2_ct[i][0] != 0:
-#             limit_str += """
-# c
-# c       soft limit"""
-#             limit_str += """
-#         e1=0d0
-#         e2=1d0
-#         e4=1d0
-#         e5=1d0
-#         call do_limit_RR_%d_%d_%d_%d(iunit,'SS', x0,e1,e2,e4,e5)    
-#        """%(isec,jsec,ksec,lsec)
-        
-        
+    
 
         # Test for K1_3p (ijk)  
         # Identify cts for L1_ijk (list starts from 0)
         # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
+        # mapping: ((isec,jsec,iref),(ksec,jsec,iref))
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
 c
 c     soft limit for isec particle going soft
       e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
-      l = [0d0,0d0,0d0,0d0]
+      l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][1] != 0 : #Sj
             limit_str += """
 c
       e=[1d0,1d0,0d0,0d0,0d0] ! Sj limit
-      l=[1d0,0d0,0d0,0d0]
+      l=[1d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][2] != 0 : #Sk to CHECK
             limit_str += """
 c
 c     soft limit Sk
-      e=[1d0,1d0,0d0,0d0,0d0] ! Sk limit
-      l=[0d0,1d0,0d0,0d0]
+c   Use mapping (k,j,r),(i,j,r)
+c      iU1tmp = iU1 ! isec
+c      iU2tmp = iU2 ! ksec
+c      iU1 = iU2
+c      iU2 = iU1tmp
+
+      e=[0d0,0d0,0d0,0d0,0d0] ! Sk limit
+      l=[0d0,0d0,0d0,1d0,1d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
+c      iU1 = iU1tmp
+c      iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
@@ -1737,7 +1724,7 @@ c     soft limit Sk
 c
 c     collinear limit Cij
         e=[0d0,1d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if  K1_ct[i][0] != 0:   # SiCij 
@@ -1745,24 +1732,31 @@ c     collinear limit Cij
 c
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]  
-      l=[0d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][1] != 0 : #SjCij
                     limit_str += """
-c
+c     
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]
-      l=[1d0,0d0,0d0,0d0]
-     
+      l=[1d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
       """%(isec,jsec,ksec,lsec)
             if K1_ct[i][4] != 0 : # Cik TO CHECK:
                 limit_str += """
 c
 c     collinear limit Cik
+c   Use mapping (i,k,r),(j,k,r) (j <--> k)
+      iU1tmp = iU1 ! isec
+      iU2tmp = iU2 ! ksec
+      iS1tmp = iS1
+      iS2tmp = iS2
+      iU2 = iS2tmp
+      iS2 = iU2tmp
+      iS1 = iS2tmp  
       e=[0d0,1d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0]  
+      l=[0d0,0d0,0d0,0d0,0d0]  
       call do_limit_R_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][0] != 0 : # SiCik
@@ -1770,36 +1764,138 @@ c     collinear limit Cik
 c
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SiCik      ',x0,e,l)
+      iU1 = iU1tmp ! isec
+      iU2 = iU2tmp ! ksec
+      iS1 = iS1tmp
+      iS2 = iS2tmp
 """%(isec,jsec,ksec,lsec)
             if K1_ct[i][-1] != 0 : # TO CHECK Cjk
                 limit_str += """
 c
 c     collinear limit Cjk
-      e=[0d0,1d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0]  
-      call do_limit_R_%d_%d_%d_%d(iunit,'Cjk     ',x0,e1,e2,e4,e5)
+      e=[0d0,0d0,0d0,0d0,1d0]
+      l=[0d0,0d0,0d0,0d0,0d0]  
+      call do_limit_R_%d_%d_%d_%d(iunit,'Cjk     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if  K1_ct[i][1] != 0: # TO CHECK SjCjk 
                     limit_str += """
 c
 c     soft-collinear limit
-      e=[1d0,2d0,0d0,0d0,0d0]
-      l=[1d0,0d0,0d0,0d0]  
+      e=[0d0,0d0,0d0,1d0,2d0]
+      l=[0d0,0d0,0d0,0d0,0d0] 
       call do_limit_R_%d_%d_%d_%d(iunit,'SjCjk   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)     
+"""%(isec,jsec,ksec,lsec) 
+                if  K1_ct[i][2] != 0: # TO CHECK SkCjk 
+                    limit_str += """
+c
+c     soft-collinear limit
+      e=[0d0,0d0,0d0,1d0,2d0]
+      l=[0d0,0d0,0d0,1d0,0d0] 
+      call do_limit_R_%d_%d_%d_%d(iunit,'SkCjk   ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)       
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
 
+
+        # Test for K2_3p(ijk) 
+        # L2_ijk  : 10 -> [Sij, Sik, Sjk,
+                    #                  SHCijk, SHCjik, SHCkij, 
+                    #                  HCijk, 
+                    #                  CijkSHCijk, CijkSHCjik, CijkSHCkij]  
+        # mapping ((isec,ksec,iref),(jsec,ksec,iref))
+                    
+        if K2_ct[i][0] != 0: # Sij limit
+            limit_str += """
+c
+c     double soft limit for (isec,jsec) particles going soft
+c   mapping ((i,j,r),(k,j,r))
+      e = [0d0,0d0,0d0,0d0,0d0] ! Sij limit
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        if K2_ct[i][1] != 0: # Sik limit to check
+            limit_str += """
+    c
+c     double soft limit for (isec,ksec) particles going soft
+      e = [0d0,0d0,0d0,0d0,0d0] ! Sik limit
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        if K2_ct[i][2] != 0: # Sjk limit to check
+            limit_str += """
+    c
+c     double soft limit for (jsec,ksec) particles going soft
+      e = [0d0,0d0,0d0,0d0,0d0] ! Sjk limit
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sjk     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        if isec > 2 and jsec > 2:
+            if K2_ct[i][3] != 0 : # SHCijk
+                limit_str += """
+c
+c     single soft double collinear limit SHCijk
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'SiHCijk ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+            if K2_ct[i][4] != 0 : # SHCjik
+                limit_str += """
+c
+c     single soft double collinear limit SHCijk
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[1d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'SjHCijk ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+                if K2_ct[i][5] != 0 : # SHCkij
+                    limit_str += """
+c
+c     single soft double collinear limit SHCijk
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[1d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'SjHCkij ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+                if K2_ct[i][6] != 0 : # HCijk
+                    limit_str += """
+c
+c       double collinear limit HCijk
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'HCijk ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+                if K2_ct[i][7] != 0 : # CijkSHCijk
+                    limit_str += """
+c
+c     single soft double collinear limit CijkSHCijk
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCijk',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+                if K2_ct[i][8] != 0 : # CijkSHCjik
+                    limit_str += """
+c
+c     single soft double collinear limit CijkSHCjik
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCjik',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+                if K2_ct[i][9] != 0 : # CijkSHCkij
+                    limit_str += """
+c
+c     single soft double collinear limit CijkSHCkij
+        e=[0d0,0d0,0d0,0d0,0d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCkij',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 #         replace_dict['mapping_str'] = mapping_str
 
         # write testR             
-        filename = pjoin(dirpath, 'testR_%d_%d_%d.f' %(isec,jsec,ksec) )
+        filename = pjoin(dirpath, 'testRR_%d_%d_%d.f' %(isec,jsec,ksec) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
@@ -1822,63 +1918,51 @@ c     soft-collinear limit
         # Test for K1_4p (ijkl)  
         # Identify cts for L1_ijkl (list starts from 0)
         # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]  
+        # mapping ((isec,ksec,lsec),(jsec,lsec,iref))
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
 c
 c     soft limit for isec particle going soft
       e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
-      l = [0d0,0d0,0d0,0d0]
+      l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][1] != 0 : #Sj
             limit_str += """
 c
       e=[0d0,0d0,0d0,1d0,1d0] ! Sj limit
-      l=[0d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][2] != 0 : #Sk to do
             limit_str += """
 c
 c     soft limit
-      e1=1d0
-      e2=1d0
-      e4=0d0
-      e5=0d0
-      call do_limit_R_%d_%d_%d_%d(iunit,'S       ',x0,e,l)
+      e=[1d0,1d0,0d0,0d0,0d0] ! Sk limit
+      l=[1d0,0d0,0d0,0d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][3] != 0 : #Sl to do
             limit_str += """
 c
 c     soft limit
-      e1=1d0
-      e2=1d0
-      e4=0d0
-      e5=0d0
-      call do_limit_R_%d_%d_%d_%d(iunit,'S       ',x0,e,l)
+      e=[0d0,0d0,0d0,1d0,1d0] ! Sl limit
+      l=[0d0,0d0,0d0,1d0,0d0]
+      call do_limit_R_%d_%d_%d_%d(iunit,'Sl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)    
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
             if K1_ct[i][4] != 0 : # Cij
                 limit_str += """
 c
+c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
+      iS1tmp = iS1
+      iU2tmp = iU2
+      iS1 = iU2
+      iU2 = iS1tmp
 c     collinear limit Cij
         e=[0d0,1d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0]
-c      if((iU1.eq.isec.and.iS1.eq.jsec.and.iB1.eq.iref).or.(iU1.eq.jsec.and.iS1.eq.isec.and.iB1.eq.iref)) then
-c        e1=0d0
-c        e2=1d0
-c      elseif((iU1.eq.isec.and.iS1.eq.iref.and.iB1.eq.jsec).or.(iU1.eq.jsec.and.iS1.eq.iref.and.iB1.eq.isec)) then
-c        e1=1d0
-c        e2=0d0
-c      else
-c        write(*,*) 'Wrong mapping for collinear limit'
-c        write(*,*) 'iU, iS, iB = ', iU, iS, iB
-c        write(*,*) 'isec, jsec = ', isec, jsec
-c        stop
-c      endif
-c      e4=0d0
-c      e5=0d0
+        l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if  K1_ct[i][0] != 0:   # SiCij 
@@ -1886,52 +1970,55 @@ c      e5=0d0
 c
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]  
-      l=[0d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][1] != 0 : #SjCij
                     limit_str += """
 c
 c     soft-collinear limit
-      e=[0d0,2d0,0d0,1d0,0d0]
-      l=[0d0,0d0,0d0,0d0]
+      e=[1d0,2d0,0d0,0d0,0d0]
+      l=[1d0,0d0,0d0,0d0,0d0]
      
       call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
+      iS1 = iS1tmp
+      iU2 = iU2tmp
       """%(isec,jsec,ksec,lsec)
             if K1_ct[i][5] != 0 : # Ckl:
                 limit_str += """
 c
 c     collinear limit Ckl
-c      if((iU1.eq.isec.and.iS1.eq.jsec.and.iB1.eq.iref).or.(iU1.eq.jsec.and.iS1.eq.isec.and.iB1.eq.iref)) then
-c        e1=0d0
-c        e2=1d0
-c      elseif((iU1.eq.isec.and.iS1.eq.iref.and.iB1.eq.jsec).or.(iU1.eq.jsec.and.iS1.eq.iref.and.iB1.eq.isec)) then
-c        e1=1d0
-c        e2=0d0
-c      else
-c        write(*,*) 'Wrong mapping for collinear limit'
-c        write(*,*) 'iU, iS, iB = ', iU, iS, iB
-c        write(*,*) 'isec, jsec = ', isec, jsec
-c        stop
-c      endif
-c      e4=0d0
-c      e5=0d0
       e=[0d0,0d0,0d0,0d0,1d0]
-      l=[0d0,0d0,0d0,0d0]  
+      l=[0d0,0d0,0d0,0d0,1d0]  
       call do_limit_R_%d_%d_%d_%d(iunit,'Ckl     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if K1_ct[i][0] != 0 : # SiCik
+                if K1_ct[i][1] != 0 : # SkCkl
                     limit_str += """
 c
 c     soft-collinear limit
-      e=[1d0,2d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SiCik      ',x0,e,l)
+      e=[1d0,0d0,0d0,0d0,2d0]
+      l=[1d0,0d0,0d0,0d0,1d0] 
+      call do_limit_R_%d_%d_%d_%d(iunit,'SkCkl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
+                if K1_ct[i][3] != 0 : # SlCkl
+                    limit_str += """
+c
+c     soft-collinear limit
+      e=[0d0,0d0,0d0,1d0,2d0]
+      l=[0d0,0d0,0d0,1d0,1d0] 
+      call do_limit_R_%d_%d_%d_%d(iunit,'SlCkl      ',x0,e,l)
+"""%(isec,jsec,ksec,lsec) 
                 
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
+
+ 
+
+
+
+
+
 
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
@@ -1939,7 +2026,7 @@ c     soft-collinear limit
 #         replace_dict['mapping_str'] = mapping_str
 
         # write testR             
-        filename = pjoin(dirpath, 'testR_%d_%d_%d.f' %(isec,jsec,ksec) )
+        filename = pjoin(dirpath, 'testR_%d_%d_%d_%d.f' %(isec,jsec,ksec,lsec) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)

@@ -80,8 +80,8 @@ c     initialise
          xsave(i)=x(i)
       enddo
 c
-c     specify phase-space mapping
-c     (mapping_str)s TODO
+c     specify phase-space mapping ! TO CHECK
+      %(mapping_str)s 
 
       if(isec.le.2.or.jsec.le.2)then
          write(*,*)'update sCM in int_real'

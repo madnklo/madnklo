@@ -6,7 +6,7 @@
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       include 'colored_partons.inc'
-      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
+c      INCLUDE 'ngraphs_(UBgraphs)s.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -37,6 +37,7 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer N_MAX_CG
       double precision sum_rr,sum_err_rr
       double precision sum_err_rr_a,err_rr_a(N_MAX_CG)
 c
@@ -81,16 +82,11 @@ c     initialise histograms and open output files
       ksec=%(ksec)d
       lsec=%(lsec)d
       call histo_init
-      open(unit=iu1,
-     & file='integration_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
-      open(unit=iu7,
-     & file='failures_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
-      open(unit=iu8,
-     & file='testRR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
-      open(unit=iu9,
-     & file='chan_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
-      open(unit=iu,
-     & file='results_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
+      open(unit=iu1,file='integration_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
+      open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
+      open(unit=iu8,file='testRR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
+      open(unit=iu9,file='chan_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
+      open(unit=iu,file='results_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.log')
       line='=================================================='
       write(iu9,*)' Double-real contribution '
 c      write(iu,*)
@@ -104,8 +100,7 @@ c     number of points thrown per channel in the main loop
          ich=i
          init=0
          doplot=.false.
-         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,
-     &   init,nclRRth0,nitRRth0,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,init,nclRRth0,nitRRth0,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_rr_a(ich) = err_rr
          sum_err_rr_a = sum_err_rr_a + err_rr_a(ich)
       enddo
@@ -113,42 +108,32 @@ c
 c     main loop over channels
       do i=1,N_MAX_CG
          ich=i
-         write(*,*)'Double-real %(isec)d%(jsec)d%(ksec)d%(lsec)d
-     & warmup for channel',ich
-         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(ksec)d%(lsec)d
-     & warmup, channel',ich
+         write(*,*)'Double-real %(isec)d%(jsec)d%(ksec)d%(lsec)d warmup for channel',ich
+         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(ksec)d%(lsec)d  warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
-         write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d
-     & WARMUP, CHANNEL',ich
+         write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d WARMUP, CHANNEL',ich
          write(iu1,*)'============================='
          init=0
          doplot=.false.
          nclRRth1=max(1000,int(nclRRth*err_rr_a(ich)/sum_err_rr_a))
-         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,
-     &   init,nclRRth1,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu9,*)'RR%(isec)d%(jsec)d%(ksec)d%(lsec)d warmup:
-     & channel, itns, calls = ',ich,nitRRth,nclRRth1
+         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,init,nclRRth1,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         write(iu9,*)'RR%(isec)d%(jsec)d%(ksec)d%(lsec)d warmup:channel, itns, calls = ',ich,nitRRth,nclRRth1
 c
-         write(*,*)'Double-real %(isec)d%(jsec)d%(ksec)d%(lsec)d
-     & for channel',ich
-         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(ksec)d%(lsec)d
-     & , channel',ich
+         write(*,*)'Double-real %(isec)d%(jsec)d%(ksec)d%(lsec)d for channel',ich
+         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(ksec)d%(lsec)d, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
-         write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d
-     & , CHANNEL',ich
+         write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d, CHANNEL',ich
          write(iu1,*)'============================='
          init=1
          doplot=.true.
          nclRR1=max(1000,int(nclRR*err_rr_a(ich)/sum_err_rr_a))
-         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,
-     &   init,nclRR1,nitRR,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d,init,nclRR1,nitRR,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_RR=dble(nitRR)/min(dble(nitRR),dble(it))
          sum_rr = sum_rr + res_rr
          sum_err_rr = sum_err_rr + err_rr**2
-         write(iu9,*)' sigma RR%(isec)d_%(jsec)d%(ksec)d_%(lsec)d [pb],
-     & channel',ich,' = ',res_rr,' +-',err_rr
+         write(iu9,*)' sigma RR%(isec)d_%(jsec)d%(ksec)d_%(lsec)d [pb], channel',ich,' = ',res_rr,' +-',err_rr
          write(iu9,*)
 c     
          write(*,*)'...done'
@@ -156,13 +141,11 @@ c
 c
 c     finalise histograms and output files
       sum_err_rr = dsqrt(sum_err_rr)      
-      call histo_final('plot_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.dat'
-     & ,rescale_plot_RR)
+      call histo_final('plot_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d.dat', rescale_plot_RR)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)
-      write(iu,*)' sigma RR%(isec)d%(jsec)d%(ksec)d%(lsec)d [pb]  = '
-     & ,sum_rr,' +-',sum_err_rr
+      write(iu,*)' sigma RR%(isec)d%(jsec)d%(ksec)d%(lsec)d [pb]  = ', sum_rr,' +-',sum_err_rr
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

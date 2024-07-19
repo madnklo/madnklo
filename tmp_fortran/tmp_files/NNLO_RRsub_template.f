@@ -146,7 +146,7 @@ c     test matrix elements
 c     TODO: implement flag 'test_only' to stop here
 c
 c     real
-      call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      call %(proc_prefix_rr)s_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNNLO = ANS(0) * %(proc_prefix_rr)sfl_factor
       if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))then
          write(77,*) 'int_double_real: '

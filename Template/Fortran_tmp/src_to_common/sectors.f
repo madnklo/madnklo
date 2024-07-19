@@ -14,7 +14,6 @@ c     final state
       double precision xs(nexternal,nexternal)
       double precision wgt,Z_NLO,ea,eb,wab
       double precision num,sigma,sCM,sigma_ab
-      integer lensectors
 c
 c     initialise
       Z_NLO = 0d0
@@ -98,7 +97,6 @@ c     i1 must be in the final state as associated with the soft singularity
       double precision xs(nexternal,nexternal)
       double precision wgt,ZS_NLO,ea,eb,wab
       double precision num,sigma,sCM
-      integer lensectors
 c
 c     initialise
       ZS_NLO = 0d0
@@ -188,7 +186,6 @@ c     In any case i1 must be in the final state
       double precision wgt,Z_NNLO,ea,eb,ec,ed
       double precision wab,wac,wad,wbc,wbd,wcd
       double precision num,sigma,sCM,sigma_abcd
-      integer lensectors
 c
 c     initialise
       Z_NNLO = 0d0
@@ -313,7 +310,6 @@ c     i1 and i3 must be in the final state as associated with the double-soft si
       double precision wgt,ZSS_NNLO,ea,eb,ec,ed
       double precision wab,wac,wad,wbc,wbd,wcd
       double precision num,sigma,sCM
-      integer lensectors
 c
 c     initialise
       ZSS_NNLO = 0d0

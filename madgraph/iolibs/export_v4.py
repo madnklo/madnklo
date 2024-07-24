@@ -3091,6 +3091,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         name_of_file = 'Born_PDGs'
         completeName = os.path.join(save_path, name_of_file + ".py") 
 
+        name_of_file_NLO = 'Real_PDGs'
+        completeName_NLO = os.path.join(save_path, name_of_file_NLO + ".py") 
+
         for i in range(0,len(processes)):
 
             initial_state_PDGs, final_state_PDGs = processes[i].get_cached_initial_final_pdgs()
@@ -3106,6 +3109,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
             replace_dict['len_legPDGs'] = len(leg_PDGs)
             replace_dict['leg_PDGs'] = str(leg_PDGs).replace('[','').replace(']','').replace(' ','').replace("'","")
+
+            #print('EXPORT V4')
+            #print(processes[i].shell_string_user(
+            #                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+            #print(leg_PDGs)
 
             if i == 0: #and strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L' and strdirpath[-1][4] == 'R':
                 replace_dict['proc_prefix'] = processes[i].shell_string(
@@ -3127,8 +3135,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 #replace_dict['proc_prefix'] = processes[i].shell_string_user(
                 #                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)[0]
                 #gl
-                #print(processes[i].shell_string_user(
-                #                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+
                 #print(processes[i].shell_string(
                 #                        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
 
@@ -3146,6 +3153,22 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                 file1.write(toFile)
                 file1.close()
 
+            if strdirpath[-1][0] == 'N' and strdirpath[-1][1] == 'L':
+                replace_dict['proc_prefix'] = processes[i].shell_string(
+                                    schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                
+                filename = pjoin(dirpath, 'leg_PDGs_%(proc_prefix)s.inc' % replace_dict)
+                file = """ \
+                  integer leg_PDGs_%(proc_prefix)s(%(len_legPDGs)d)
+                  data leg_PDGs_%(proc_prefix)s/%(leg_PDGs)s/""" % replace_dict
+
+                # Write the file
+                writers.FortranWriter(filename).writelines(file)
+        
+                file1 = open(completeName_NLO, "a")
+                toFile = 'leg_PDGs_%(proc_prefix)s = [%(leg_PDGs)s] \n' % replace_dict
+                file1.write(toFile)
+                file1.close()
 
         return True
    

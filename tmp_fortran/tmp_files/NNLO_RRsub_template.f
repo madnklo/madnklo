@@ -101,7 +101,7 @@ c      call getleshouche_(strUB)s TODO
 
 
 
-      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pbar,ptilde,xjac,xjacB,iU2,iS2,iB2)
+      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pb,ptilde,xjac,xjacB,iU2,iS2,iB2)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_double_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
@@ -145,8 +145,8 @@ c     test matrix elements
       endif
 c     TODO: implement flag 'test_only' to stop here
 c
-c     real
-      call %(proc_prefix_rr)s_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+c     double real
+      call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNNLO = ANS(0) * %(proc_prefix_rr)sfl_factor
       if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))then
          write(77,*) 'int_double_real: '
@@ -169,8 +169,6 @@ c     plot real
       wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan
       if(doplot)call histo_fill(p,sNNLO,nexternal,wgtpl)
  555  continue
-c
-c      (str_int_real)s TODO
 c
 c     counterterm
       call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)

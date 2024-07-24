@@ -540,6 +540,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_3p_K1_ct = []
         all_3p_K2_ct = []
         all_3p_K12_ct = []
+        uB_all_3p_K1_ct = []
+        uB_all_3p_K2_ct = []
         for s in all_3p_sectors:
             s['sector'].all_3p_sector_list = all_3p_sector_list
             s['sector'].all_3p_sector_id_list = all_3p_sector_id_list
@@ -551,10 +553,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_3p_ct2_list = [0] * (10)
                 necessary_3p_ct2 = [0] * (10)
                 necessary_3p_ct12_list = [0] * (21)
-                necessary_3p_ct12 = [0] * (21)
 
                 print('****** NEW SECTOR ******')
-                #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]))
                 print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]))
 
@@ -606,21 +606,22 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     # Identify cts for L1_ijk
                     # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
 
-                    # Si
-                    if s['sector'].id[0] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[0] = 'S_g' 
-                        necessary_3p_ct1[0] = ct
-                    # Sj
-                    if s['sector'].id[1] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[1] = 'S_g' 
-                        necessary_3p_ct1[1] = ct
-                    # Sk
-                    if s['sector'].id[2] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_3p_ct1_list[2] = 'S_g' 
-                        necessary_3p_ct1[2] = ct
+                    if len(n_subs) == 1 and len(all_legs) == 1:
+                        # Si
+                        if s['sector'].id[0] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[0] = 'S_g' 
+                            necessary_3p_ct1[0] = ct
+                        # Sj
+                        if s['sector'].id[1] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[1] = 'S_g' 
+                            necessary_3p_ct1[1] = ct
+                        # Sk
+                        if s['sector'].id[2] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_3p_ct1_list[2] = 'S_g' 
+                            necessary_3p_ct1[2] = ct
                     
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -868,10 +869,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 3p sector')
                 print(necessary_3p_ct1_list)
                 all_3p_K1_ct.append(necessary_3p_ct1_list)
+                uB_all_3p_K1_ct.append(necessary_3p_ct1)
 
                 print('K2 3p sector')
                 print(necessary_3p_ct2_list)
                 all_3p_K2_ct.append(necessary_3p_ct2_list)
+                uB_all_3p_K2_ct.append(necessary_3p_ct2)
                     
                 print('K12 3p sector')
                 print(necessary_3p_ct12_list)
@@ -882,6 +885,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_4p_K1_ct = []
         all_4p_K2_ct = []
         all_4p_K12_ct = []
+        uB_all_4p_K1_ct = []
+        uB_all_4p_K2_ct = []
         for s in all_4p_sectors:
             s['sector'].all_4p_sector_list = all_4p_sector_list
             s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
@@ -893,7 +898,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
                 necessary_4p_ct12_list = [0] * (18)
-                necessary_4p_ct12 = [0] * (18)
 
                 print('****** NEW SECTOR ******')
                 #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
@@ -927,31 +931,33 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         continue
 
                     # print('GOOD CT')
-                    #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    #print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
-                    #print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
+                    # print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
+                    # print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
+                    # print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
 
                     # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
-                    # Si
-                    if s['sector'].id[0] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[0] = 'S_g' 
-                        necessary_4p_ct1[0] = ct
-                    # Sj
-                    if s['sector'].id[1] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[1] = 'S_g' 
-                        necessary_4p_ct1[1] = ct
-                    # Sk
-                    if s['sector'].id[2] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[2] = 'S_g' 
-                        necessary_4p_ct1[2] = ct
-                    # Sl
-                    if s['sector'].id[3] == 21 :
-                        s['counterterms'].append(i_ct)
-                        necessary_4p_ct1_list[3] = 'S_g' 
-                        necessary_4p_ct1[3] = ct
+
+                    if len(n_subs) == 1 and len(all_legs) == 1:
+                        # Si
+                        if s['sector'].id[0] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[0] = 'S_g' 
+                            necessary_4p_ct1[0] = ct
+                        # Sj
+                        if s['sector'].id[1] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[1] = 'S_g' 
+                            necessary_4p_ct1[1] = ct
+                        # Sk
+                        if s['sector'].id[2] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[2] = 'S_g' 
+                            necessary_4p_ct1[2] = ct
+                        # Sl
+                        if s['sector'].id[3] == 21 :
+                            s['counterterms'].append(i_ct)
+                            necessary_4p_ct1_list[3] = 'S_g' 
+                            necessary_4p_ct1[3] = ct
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -1081,6 +1087,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 elif abs(s['sector'].id[0]) == abs(s['sector'].id[1]) and \
                                     abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
                                     necessary_4p_ct2_list[8] = 'HCC_qxqqxq'
+                                necessary_4p_ct2[8] = ct
 
                     # L12_ijkl : 18  ->  [Si Sik, Si Sil, Si SHCikl, 
                     #                     Sj Sjk, Sj Sjl, Sj SHCjkl,
@@ -1140,10 +1147,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 4p sector')
                 print(necessary_4p_ct1_list)
                 all_4p_K1_ct.append(necessary_4p_ct1_list)
+                uB_all_4p_K1_ct.append(necessary_4p_ct1)
 
                 print('K2 4p sector')
                 print(necessary_4p_ct2_list)
                 all_4p_K2_ct.append(necessary_4p_ct2_list)
+                uB_all_4p_K2_ct.append(necessary_4p_ct2)
                     
                 print('K12 4p sector')
                 print(necessary_4p_ct12_list)
@@ -1159,9 +1168,20 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         dirpath = pjoin(dirpath, 'SubProcesses', \
                       "P%s" % defining_process.shell_string())
         sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
+        import Born_PDGs as PDGs_from_Born
+        import Real_PDGs as PDGs_from_Real
 
 ######### Write all_sector_list.inc
         self.write_all_sector_list_include(writers.FortranWriter, dirpath, all_3p_sector_list, all_4p_sector_list)
+
+######### Useful quantities
+        overall_sector_info = []
+        UBorn_procs = []
+        path_UBorn_procs = []
+        UReal_procs = []
+        path_UReal_procs = []
+        dirpathB_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
+        dirpathR_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
             
 ######### Write NNLO_K_isec_jsec_ksec.f (3-particle sector)
         
@@ -1243,7 +1263,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
-                                       forbid=True, main=False, pdg_order=False, print_id = False))
+                                       forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 
             # Initialise ct routines to 'dummy'
             for k in range(0, len(necessary_default_3p_ct_list)):
@@ -1261,7 +1281,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 'Born_PDGs'     :   [],
                 'path_to_Born'  :   '',
                 'alt_Born_str'  :   '',
-                'alt_Born_path' :   ''
+                'alt_Born_path' :   '',
+                'Real_str'      :   '',
+                'Real_PDGs'     :   [],
+                'path_to_Real'  :   '',
+                'alt_Real_str'  :   '',
+                'alt_Real_path' :   ''             
             }
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
@@ -1271,8 +1296,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
-            #specify ((isec,jsec,iref),(ksec,jsec,iref)) mapping choice
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
+            # specify ((isec,jsec,iref),(ksec,jsec,iref)) mapping choice
             mapping_str = """ \
                 iU1 = %s 
                 iS1 = %s
@@ -1282,7 +1307,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
             """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[1][0],mapping[4][0])
-            #overall_sector_info.append(sector_info)
 
 
             # loop on K1 cts
@@ -1294,10 +1318,54 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    #print('From single soft : ' + str(uB_all_3p_K1_ct[i][j]))
+                    #print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                    #        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+
+                    #self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
+                    #                   replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
+
+                    # UR = uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                    #         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                    # UR_1 = uB_all_3p_K1_ct[i][j].current.shell_string_user()
+                    # for k in range(0,len(UR)):
+                    #     dirpathR = pjoin(dirpathR_head, 'SubProcesses', "P%s" % UR_1[k])                    
+                    #     if os.path.exists(dirpathR):
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K1_ct[i][j]] = UR[k]
+                    #         if UR[k] not in UReal_procs:
+                    #             UReal_procs.append(UR[k])
+                    #             path_UReal_procs.append(dirpathR)
+                    #         break
+                    #     # grouped subprocesses with no specific LO directory
+                    #     if k == len(UR) - 1:
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K1_ct[i][j]] = UR[0]
+
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    #print('From single collinear : ' + str(uB_all_3p_K1_ct[i][j]))
+                    #print(uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                    #        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+
+                    # UR = uB_all_3p_K1_ct[i][j].current.shell_string_user(
+                    #         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                    # UR_1 = uB_all_3p_K1_ct[i][j].current.shell_string_user()
+                    # for k in range(0,len(UR)):
+                    #     dirpathR = pjoin(dirpathR_head, 'SubProcesses', "P%s" % UR_1[k])                    
+                    #     if os.path.exists(dirpathR):
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K1_ct[i][j]] = UR[k]
+                    #         if UR[k] not in UReal_procs:
+                    #             UReal_procs.append(UR[k])
+                    #             path_UReal_procs.append(dirpathR)
+                    #         break
+                    #     # grouped subprocesses with no specific LO directory
+                    #     if k == len(UR) - 1:
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K1_ct[i][j]] = UR[0]
+
+                self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
+                                       replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
+
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1314,10 +1382,54 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    #print('From double soft : ' + str(uB_all_3p_K2_ct[i][j]))
+                    #print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                    #        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+
+                    #self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
+                    #                   replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
+
+
+                    # UB = uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                    #         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                    # UB_1 = uB_all_3p_K2_ct[i][j].current.shell_string_user()
+                    # for k in range(0,len(UB)):
+                    #     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % UB_1[k])                    
+                    #     if os.path.exists(dirpathLO):
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K2_ct[i][j]] = UB[k]
+                    #         if UB[k] not in UBorn_procs:
+                    #             UBorn_procs.append(UB[k])
+                    #             path_UBorn_procs.append(dirpathLO)
+                    #         break
+                    #     # grouped subprocesses with no specific LO directory
+                    #     if k == len(UB) - 1:
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K2_ct[i][j]] = UB[0]
                 else:
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    #print('From other double singular : ' + str(uB_all_3p_K2_ct[i][j]))
+                    #print(uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                    #        schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
+
+                    # UB = uB_all_3p_K2_ct[i][j].current.shell_string_user(
+                    #         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                    # UB_1 = uB_all_3p_K2_ct[i][j].current.shell_string_user()
+                    # for k in range(0,len(UB)):
+                    #     dirpathLO = pjoin(dirpathB_head, 'SubProcesses', "P%s" % UB_1[k])                    
+                    #     if os.path.exists(dirpathLO):
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K2_ct[i][j]] = UB[k]
+                    #         if UB[k] not in UBorn_procs:
+                    #             UBorn_procs.append(UB[k])
+                    #             path_UBorn_procs.append(dirpathLO)
+                    #         break
+                    #     # grouped subprocesses with no specific LO directory
+                    #     if k == len(UB) - 1:
+                    #         replace_dict_limits['proc_prefix_%s' % all_3p_K2_ct[i][j]] = UB[0]
+
+                self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
+                                       replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
+                
                 if all_3p_K2_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K2_ct[i][j])
                     tmp_str = """ 
@@ -1332,7 +1444,6 @@ c       %s
                     continue
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
-                    #print('LIM : ' + str(lim))
                 if j <= 3:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
@@ -1364,6 +1475,14 @@ c       %s
         DOUBLE PRECISION M2_%s""" %(K12_labels[j],all_3p_K12_ct[i][j])
                     list_str_defK12.append(tmp_str)
 
+            # update list of sector_info
+            if sector_info['Born_str']:
+                sector_info['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str'])
+            if sector_info['Real_str']:
+                sector_info['Real_PDGs'] = getattr(PDGs_from_Real, "leg_PDGs_%s" % sector_info['Real_str'])
+            #print(sector_info)
+            overall_sector_info.append(sector_info)
+
             # write NLO_K
             str_defK1 = " ".join(list_str_defK1)
             replace_dict_ct['str_defK1'] = str_defK1
@@ -1380,13 +1499,13 @@ c       %s
 
             replace_dict_double_real['mapping_str'] = mapping_str
 
+            # write NNLO_K
             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
-
-
             
+            # write NNLO_RRsub
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
@@ -1396,6 +1515,13 @@ c       %s
             #print('GIOVANNIIIIII', all_3p_K1_ct)
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+            
+            # GB : test on UB strings
+            NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
+            filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
+            file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
+            file = file % replace_dict_limits
+            writer(filename).writelines(file)
            
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
@@ -1494,7 +1620,12 @@ c       %s
                 'Born_PDGs'     :   [],
                 'path_to_Born'  :   '',
                 'alt_Born_str'  :   '',
-                'alt_Born_path' :   ''
+                'alt_Born_path' :   '',
+                'Real_str'      :   '',
+                'Real_PDGs'     :   [],
+                'path_to_Real'  :   '',
+                'alt_Real_str'  :   '',
+                'alt_Real_path' :   ''             
             }
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
@@ -1505,7 +1636,7 @@ c       %s
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
             #specify ((acd),(bcd)) mapping choice
             mapping_str = """ \
                 iU1 = %s 
@@ -1516,8 +1647,6 @@ c       %s
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
             """ % (mapping[0][0], mapping[2][0], mapping[3][0],mapping[1][0], mapping[3][0],mapping[4][0])
-            #overall_sector_info.append(sector_info)
-
 
             replace_dict_double_real['mapping_str'] = mapping_str 
             # loop on K1 cts
@@ -1533,6 +1662,10 @@ c       %s
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+
+                self.get_uproc_str('Real', uB_all_4p_K1_ct[i][j], all_4p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
+                                       replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
+                
                 if all_4p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_4p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1549,6 +1682,10 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+
+                self.get_uproc_str('Born', uB_all_4p_K2_ct[i][j], all_4p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
+                                       replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
+                    
                 if all_4p_K2_ct[i][j] not in ct_list:
                     ct_list.append(all_4p_K2_ct[i][j])
                     tmp_str = """ 
@@ -1563,7 +1700,6 @@ c       %s
                     continue
                 else:
                     lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
-                    #print('LIM : ' + str(lim))
                 if j <= 2:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
@@ -1595,6 +1731,14 @@ c       %s
         DOUBLE PRECISION M2_%s""" %(K12_labels[j],all_4p_K12_ct[i][j])
                     list_str_defK12.append(tmp_str)
 
+            # update list of sector_info
+            if sector_info['Born_str']:
+                sector_info['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str'])
+            if sector_info['Real_str']:
+                sector_info['Real_PDGs'] = getattr(PDGs_from_Real, "leg_PDGs_%s" % sector_info['Real_str'])
+            #print(sector_info)
+            overall_sector_info.append(sector_info)
+
             # write NLO_K
             str_defK1 = " ".join(list_str_defK1)
             replace_dict_ct['str_defK1'] = str_defK1
@@ -1609,24 +1753,113 @@ c       %s
             str_M2_K12 = " ".join(list_str_M2_K12)
             replace_dict_ct['str_M2_K12'] = str_M2_K12
 
-            
+            # write NNLO_K
             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
             
+            # write NNLO_RRsub
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec,lsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
            
+            # write testRR
             self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
            
 
+
+######### Write get_Born_PDGs.f & get_Real_PDGs.f
+
+        self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
+        self.write_get_Real_PDGs_file(writer, dirpath, overall_sector_info)
+
+######### Write makefile_npt_template
+        
+
+######### Write ajob_isec_jsec_ksec_lsec
+        
+
+######### Link Born & Real files to each real process directory
+
+        self.link_files_to_RR_dir(dirpath, overall_sector_info)
+
             
         return #all_sectors
+
+
+
+
+
+
+    #===========================================================================
+    # get the underlying Real/Born process strings
+    #===========================================================================
+
+    def get_uproc_str(self, u_str, ct, ct_name, dirpath, replace_dict_limits, replace_dict_double_real, 
+                      proc_dir, path_proc_dir, overall_sector_info):
+
+        UProc = ct.current.shell_string_user(
+                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        UProc_1 = ct.current.shell_string_user()
+
+        flag = False
+        for i in range(0,len(UProc)):
+            dirpathUProc = pjoin(dirpath, 'SubProcesses', "P%s" % UProc_1[i])                    
+            if os.path.exists(dirpathUProc):
+                replace_dict_double_real['str_U%s' % u_str] = UProc[i]
+                replace_dict_limits['proc_prefix_%s' % ct_name] = UProc[i]
+                overall_sector_info['%s_str' % u_str] = UProc[i]
+                overall_sector_info['path_to_%s' % u_str] = dirpathUProc
+                if UProc[i] not in proc_dir:
+                    proc_dir.append(UProc[i])
+                    path_proc_dir.append(dirpathUProc)
+                    break
+            # if subproc has no associated directory
+            else:
+                list_proc = []
+                filepdg = pjoin(dirpath,'../SubProcesses/%s_PDGs.py' % u_str)
+                f = open(filepdg,"r")
+                while(True):
+                    line = f.readline()
+                    if(line != ''):
+                        list_proc.append(line)
+                    else:
+                        break 
+                f.close()
+                for k in range(len(list_proc)):
+                    if(UProc[i] in list_proc[k]):
+                        extra_UProc = UProc[i]    
+                        replace_dict_double_real['str_U%s' % u_str] = UProc[i]
+                        replace_dict_limits['proc_prefix_%s' % ct_name] = UProc[i]
+                        overall_sector_info['%s_str' % u_str] = UProc[i]
+
+                        tmp_extra_UProc = extra_UProc.split("_")
+                        fs_flavours = [x for x in tmp_extra_UProc[-1]]
+                        for m in range(len(fs_flavours)):
+                            if fs_flavours[m] == 's':
+                                fs_flavours[m] = 'd'
+                            elif fs_flavours[m] == 'c':
+                                fs_flavours[m] = 'u'
+                        fs_flavours = "".join(fs_flavours)
+                        tmp_extra_UProc[-1] = fs_flavours
+                        overall_sector_info['alt_%s_str' % u_str] = "_".join(tmp_extra_UProc)
+                        overall_sector_info['alt_%s_path' % u_str] = pjoin(dirpath, 'SubProcesses', "P%s" 
+                                                                                    % "_".join(['1',overall_sector_info['alt_%s_str' % u_str]]))
+                                    
+                        flag = True 
+                        break
+                if(flag == True):
+                    break 
+
+            # if no specific underlying directory
+            #if i == len(UProc) - 1:
+            #    replace_dict_double_real['str_U%s' % u_str] = UProc[0]
+            #    replace_dict_limits['proc_prefix_%s' % ct_name] = UProc[0]
+            #    overall_sector_info['%s_str' % u_str] = UProc[0]
 
 
     #===========================================================================
@@ -1666,6 +1899,149 @@ c       %s
 
 
     #===========================================================================
+    # write 'get_Born_PDGs.f' & 'get_Real_PDGs.f' to find labels/flavours of n(+1)-body kinematics
+    #===========================================================================
+
+    def write_get_Born_PDGs_file(self, writer, dirpath, overall_sector_info):
+
+        file = ''
+        file += """ \
+          subroutine get_Born_PDGs(isec,jsec,ksec,lsec,nexternal_Born,Born_leg_PDGs)
+          implicit none
+          integer isec, jsec, ksec, lsec
+          integer nexternal_Born
+          integer Born_leg_PDGs(nexternal_Born)
+          \n"""
+
+        for i in range(0,len(overall_sector_info)):
+
+            replace_dict_tmp = {}
+            replace_dict_tmp['isec'] = overall_sector_info[i]['isec']
+            replace_dict_tmp['jsec'] = overall_sector_info[i]['jsec']
+            replace_dict_tmp['ksec'] = overall_sector_info[i]['ksec']
+            replace_dict_tmp['lsec'] = overall_sector_info[i]['lsec']
+            replace_dict_tmp['tmp_PDGs'] = overall_sector_info[i]['Born_PDGs']
+
+            if i == 0:
+                replace_dict_tmp['if_elseif'] = 'if'
+            else:
+                replace_dict_tmp['if_elseif'] = 'elseif'
+
+            file += """ \
+               %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
+                  Born_leg_PDGs = %(tmp_PDGs)s \n""" % replace_dict_tmp
+        
+        file += """ \
+          endif
+          return
+          end
+          """
+
+        filename = pjoin(dirpath, 'get_Born_PDGs.f')
+        writer(filename).writelines(file)
+
+        return True
+    
+    def write_get_Real_PDGs_file(self, writer, dirpath, overall_sector_info):
+
+        file = ''
+        file += """ \
+          subroutine get_Real_PDGs(isec,jsec,ksec,lsec,nexternal_Real,Real_leg_PDGs)
+          implicit none
+          integer isec, jsec, ksec, lsec
+          integer nexternal_Real
+          integer Real_leg_PDGs(nexternal_Real)
+          \n"""
+
+        for i in range(0,len(overall_sector_info)):
+
+            replace_dict_tmp = {}
+            replace_dict_tmp['isec'] = overall_sector_info[i]['isec']
+            replace_dict_tmp['jsec'] = overall_sector_info[i]['jsec']
+            replace_dict_tmp['ksec'] = overall_sector_info[i]['ksec']
+            replace_dict_tmp['lsec'] = overall_sector_info[i]['lsec']
+            replace_dict_tmp['tmp_PDGs'] = overall_sector_info[i]['Real_PDGs']
+
+            if i == 0:
+                replace_dict_tmp['if_elseif'] = 'if'
+            else:
+                replace_dict_tmp['if_elseif'] = 'elseif'
+
+            file += """ \
+               %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
+                  Real_leg_PDGs = %(tmp_PDGs)s \n""" % replace_dict_tmp
+        
+        file += """ \
+          endif
+          return
+          end
+          """
+
+        filename = pjoin(dirpath, 'get_Real_PDGs.f')
+        writer(filename).writelines(file)
+
+        return True
+    
+
+    #===========================================================================
+    # function for linking files to RR subprocess directory
+    #===========================================================================
+
+    def link_files_to_RR_dir(self, dirpath, overall_sector_info):
+
+        for i in range(0,len(overall_sector_info)):
+
+            # copy born stuff
+            if not overall_sector_info[i]['Born_str']:
+                continue
+            
+            # Set up links to additional files related to the 'Born_str', independent of flavour-dependent Born string
+            if not glob.glob(dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']):
+                os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
+                os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/configs_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/props_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/decayBW_%s.f' % overall_sector_info[i]['Born_str'])
+                os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % overall_sector_info[i]['Born_str'],
+                           dirpath + '/leshouche_%s.f' % overall_sector_info[i]['Born_str'])
+                
+            # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
+            if not overall_sector_info[i]['path_to_Born']:
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']), 
+                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str']) )
+                    os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'], 
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'] )
+                continue
+
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']), 
+                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
+                os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
+                
+            # copy real stuff
+            if not overall_sector_info[i]['Real_str']:
+                continue
+            if not overall_sector_info[i]['path_to_Real']:
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Real_str'])):
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], overall_sector_info[i]['alt_Real_str']), 
+                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Real_str']) )
+                    os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Real_str'], 
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Real_str'] )
+                continue
+
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
+                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], overall_sector_info[i]['Real_str']), 
+                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str']) )
+                os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'], 
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
+
+
+    #===========================================================================
     # write file for testing limits, 'testRR.f'
     #===========================================================================
 
@@ -1676,7 +2052,7 @@ c       %s
         replace_dict['jsec'] = jsec
         replace_dict['ksec'] = ksec
         replace_dict['lsec'] = lsec
-        mass_list=[]
+        mass_list = []
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''
@@ -1921,7 +2297,7 @@ c     single soft double collinear limit CijkSHCkij
         replace_dict['jsec'] = jsec
         replace_dict['ksec'] = ksec
         replace_dict['lsec'] = lsec
-        mass_list=[]
+        mass_list = []
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''

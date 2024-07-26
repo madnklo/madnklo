@@ -55,7 +55,6 @@ c
       common/cnlosecindices/isec,jsec,ksec,lsec
       integer iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
       common/cNNLOmaplabels/iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
-      integer iS1tmp,iB1tmp,iA1tmp,iU2tmp,iS2tmp,iB2tmp,iA2tmp,iref
 C      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)
@@ -85,6 +84,7 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       double precision e(5),l(5)
+      integer i 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     
@@ -136,7 +136,7 @@ c     more and more singular kinematics
          enddo
 c
 c     recompute momenta after rescaling
-         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pbar,ptilde,xjac,xjacB,iU2,iS2,iB2)
+         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pb,ptilde,xjac,xjacB,iU2,iS2,iB2)
          if(xjac.eq.0d0.or.xjacB.eq.0d0) cycle
          call invariants_from_p(p,nexternal,sNNLO,ierr)
          if(ierr.eq.1)cycle
@@ -145,10 +145,10 @@ c     recompute momenta after rescaling
          call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
          if(ierr.eq.1)cycle
 c
-c     real
+c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
-         if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
+         if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
          call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
          if(ierr.eq.1)cycle
 c

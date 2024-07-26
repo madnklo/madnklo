@@ -15,7 +15,7 @@ c      INCLUDE 'ngraphs_(UBgraphs)s.inc'
       integer iu,iu1,iu7,iu8,iu9
       common/cdim/ndim
       double precision int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d
-      double precision err_r,res_r
+      double precision err_rr,res_rr
       external int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d
       common/ciunitNLO/iu8
       integer order
@@ -69,7 +69,7 @@ c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
       do i=1,2
-         if(ISNLOQCDPARTON(i)) ndim = ndim + 1
+         if(ISNNLOQCDPARTON(i)) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0

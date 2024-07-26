@@ -18,6 +18,8 @@
       double precision xsave(3)
       common/cxsave/xsave
       double precision e(5),l(5)
+      integer i
+      
 c
       dash10='----------'
       ievnt=ievnt+1
@@ -53,7 +55,7 @@ c
       integer iitn,i,j,maxitn,iunit,ierr
       integer isec,jsec,ksec,lsec
       common/cnlosecindices/isec,jsec,ksec,lsec
-      integer iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      integer iS1,iB1,iA1,iU1,iS2,iB2,iA2,iU2,iref
       common/cNNLOmaplabels/iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
 C      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
@@ -84,7 +86,6 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       double precision e(5),l(5)
-      integer i 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     

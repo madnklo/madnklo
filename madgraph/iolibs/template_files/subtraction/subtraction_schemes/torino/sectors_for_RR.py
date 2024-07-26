@@ -1540,7 +1540,7 @@ c       %s
             replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
-                                        forbid=True, main=False, pdg_order=False, print_id = False))
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
             replace_dict_double_real['str_UBorn'] = 'dummy'
             replace_dict_double_real['UBgraphs'] = 'dummy'
 

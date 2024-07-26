@@ -41,7 +41,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
-      double precision xjac,xjacB
+      double precision xjac,xjacB,xjacCS1 
       double precision xsave(3)
       double precision sCM
       common/cscm/sCM
@@ -101,10 +101,10 @@ c     phase space and invariants
 
 
 
-      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pb,ptilde,xjac,xjacB,iU2,iS2,iB2)
-      if(xjac.eq.0d0.or.xjacB.eq.0d0) then
+      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
+      if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) then
          write(77,*) 'int_double_real: '
-         write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
+         write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB, xjacCS1
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNNLO,ierr)
@@ -155,7 +155,7 @@ c     double real
       endif
 c
 c     double real sector function
-      call  get_Z_NNLO(xs,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+      call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong Z_NNLO', Z_NNLO

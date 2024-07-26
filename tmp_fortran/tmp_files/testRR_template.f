@@ -72,7 +72,7 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
-      double precision xjac,xjacB
+      double precision xjac,xjacB,xjacCS1
       double precision xsave(5)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
@@ -137,8 +137,8 @@ c     more and more singular kinematics
          enddo
 c
 c     recompute momenta after rescaling
-         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iA2,p,pb,ptilde,xjac,xjacB,iU2,iS2,iB2)
-         if(xjac.eq.0d0.or.xjacB.eq.0d0) cycle
+         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
+         if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) then
          call invariants_from_p(p,nexternal,sNNLO,ierr)
          if(ierr.eq.1)cycle
          call invariants_from_p(pb,nexternal-1,sNLO,ierr)

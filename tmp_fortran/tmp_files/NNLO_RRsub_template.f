@@ -8,7 +8,7 @@ c     (n+2)-body NNLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
-c      INCLUDE 'ngraphs_(UBgraphs)s.inc' TODO
+      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -94,10 +94,10 @@ c     phase space and invariants
          stop
       endif
 
-c      call configs_(strUB)s TODO
-c      call props_(strUB)s   TODO 
-c      call decaybw_(strUB)s TODO
-c      call getleshouche_(strUB)s TODO
+      call configs_%(str_UBorn)s 
+      call props_%(str_UBorn)s    
+      call decaybw_%(str_UBorn)s 
+      call getleshouche_%(str_UBorn)s 
 
 
 
@@ -132,7 +132,7 @@ c     tiny technical phase-space cut to avoid fluctuations
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-c      call (strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS) TODO
+      call %(str_UBorn)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS) 
       WGT_CHAN=AMP2(ICH)
 c
 c     possible cuts
@@ -179,8 +179,8 @@ c     counterterm
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d=int_double_real_no_cnt-KNNLO
-       int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d =  int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d*wgt_chan
+      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d = int_double_real_no_cnt-KNNLO
+      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d = int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

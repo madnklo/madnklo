@@ -1964,7 +1964,7 @@ c       %s
           include 'nexternal.inc'
           integer isec, jsec, ksec, lsec
           integer npart
-          integer Underlying_leg_PDGs(npart-1)
+          integer Underlying_leg_PDGs(npart)
           integer Born_leg_PDGs(nexternal_Born), Real_leg_PDGs(nexternal_Real) 
           \n"""
 

@@ -712,7 +712,11 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
           integer    nexternal
           parameter (nexternal=%(nexternal)d)
           integer    nincoming
-          parameter (nincoming=%(ninitial)d)""" % replace_dict
+          parameter (nincoming=%(ninitial)d)
+          integer nexternal_ub
+          parameter (nexternal_ub = nexternal - 1)
+          integer nexternal_uub
+          parameter (nexternal_uub = nexternal - 2)""" % replace_dict
 
         # Write the file
         if writer:
@@ -2847,7 +2851,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['invarients.f','transpole.f']
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
-        common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
+        common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         common_files+=['analysis_new.f', 'HwU.f']
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories

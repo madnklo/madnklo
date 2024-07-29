@@ -1443,6 +1443,11 @@ c       %s
             # write NNLO_RRsub
             if sector_info['Born_str']:
                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+            else:
+                if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
+                
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
@@ -1715,6 +1720,11 @@ c       %s
             # write NNLO_RRsub
             if sector_info['Born_str']:
                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i+len(all_3p_sector_list)]['Born_str']
+            else:
+                if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
+
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec,lsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()

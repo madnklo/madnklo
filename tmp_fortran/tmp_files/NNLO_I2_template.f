@@ -17,7 +17,7 @@ c     DOUBLE_POLE = INLO(3)
       integer ierr
       double precision p(0:3,nexternal)
       double precision sLO(nexternal,nexternal)
-      double precision INLO(3),pref
+      double precision INLO(5),pref
       double precision BLO,ccBLO
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
@@ -32,6 +32,8 @@ c     DOUBLE_POLE = INLO(3)
       PARAMETER(FF1=1D0,FF2=1D0,FF3=0D0)
       double precision res
       include 'pmass.inc'
+
+      
 c
 c     initialise
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
@@ -50,10 +52,20 @@ c     TODO: add check
          iref1(iref(1,i)) = iref(2,i)
       enddo
 c
+c      INLO(i) = coeff*eps^-(i-1)
+
+
 c     Born contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
+            INLO(5) = INLO(5) - 1d0/2d0*CA
+            INLO(4) = INLO(4) + CA*(3d0/8d0*beta0-gamma_g)
+            INLO(3) = INLO(3) + 1d0/4d0*(2d0*beta0*gamma_g-1d0/4d0*CA*((8d0/3d0-4d0*zeta2)*CA+10d0/3d0*beta0)-2d0*gamma_g**2)
+            INLO(2) = INLO(2) - 1d0/8d0*4d0*gamma2_g
+            
+
+            
             INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])      
             INLO(1) = INLO(1) + pi**2/12d0 * CA

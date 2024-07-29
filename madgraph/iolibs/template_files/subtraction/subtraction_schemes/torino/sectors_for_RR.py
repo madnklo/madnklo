@@ -1300,7 +1300,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
-            # specify ((isec,jsec,iref),(ksec,jsec,iref)) mapping choice
+            # specify ((isec,jsec,iref),(jsec,ksec,iref)) mapping choice
             mapping_str = """ \
                 iU1 = %s 
                 iS1 = %s
@@ -1309,7 +1309,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iS2 = %s
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[1][0],mapping[4][0])
+            """ % (mapping[0][0], mapping[1][0], mapping[4][0], mapping[1][0],mapping[2][0],mapping[4][0])
 
 
             # loop on K1 cts
@@ -1454,7 +1454,11 @@ c       %s
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
 
-            #print('GIOVANNIIIIII', all_3p_K1_ct)
+            # write driver_RR
+
+            
+            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs=None)
+
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
             
@@ -1583,7 +1587,7 @@ c       %s
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
-            #specify ((acd),(bcd)) mapping choice
+            #specify ((isec,jsec,iref),(ksec,lsec,iref)) mapping choice
             mapping_str = """ \
                 iU1 = %s 
                 iS1 = %s
@@ -1592,7 +1596,7 @@ c       %s
                 iS2 = %s
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[2][0], mapping[3][0],mapping[1][0], mapping[3][0],mapping[4][0])
+            """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[3][0],mapping[4][0])
 
             replace_dict_double_real['mapping_str'] = mapping_str 
             # loop on K1 cts
@@ -1731,7 +1735,9 @@ c       %s
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
            
-            # write testRR
+            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs=None)
+
+
             self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
            
@@ -1741,6 +1747,7 @@ c       %s
 
         self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
         self.write_get_Real_PDGs_file(writer, dirpath, overall_sector_info)
+        self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
 
 ######### Write makefile_npt_template
         
@@ -1948,6 +1955,61 @@ c       %s
         return True
     
 
+    def write_get_UnderLying_PDGs_file(self, writer, dirpath, overall_sector_info):
+
+        file = ''
+        file += """ \
+          subroutine get_UnderLying_PDGs(isec,jsec,ksec,lsec,npart,Underlying_leg_PDGs)
+          implicit none
+          include 'nexternal.inc'
+          integer isec, jsec, ksec, lsec
+          integer npart
+          integer Underlying_leg_PDGs(npart-1)
+          integer Born_leg_PDGs(nexternal_Born), Real_leg_PDGs(nexternal_Real) 
+          \n"""
+
+        for i in range(0,len(overall_sector_info)):
+
+            replace_dict_tmp = {}
+            replace_dict_tmp['isec'] = overall_sector_info[i]['isec']
+            replace_dict_tmp['jsec'] = overall_sector_info[i]['jsec']
+            replace_dict_tmp['ksec'] = overall_sector_info[i]['ksec']
+            replace_dict_tmp['lsec'] = overall_sector_info[i]['lsec']
+            replace_dict_tmp['tmp_Real_PDGs'] = overall_sector_info[i]['Real_PDGs']
+            replace_dict_tmp['tmp_Born_PDGs'] = overall_sector_info[i]['Born_PDGs']
+
+            if i == 0:
+                replace_dict_tmp['if_elseif'] = 'if'
+            else:
+                replace_dict_tmp['if_elseif'] = 'elseif'
+
+            file += """ \
+               %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
+                  Real_leg_PDGs = %(tmp_Real_PDGs)s
+                  Born_leg_PDGs = %(tmp_Born_PDGs)s \n""" % replace_dict_tmp
+        
+        file += """ \
+          endif
+          if(npart .eq. nexternal_Real) then
+            Underlying_leg_PDGs = Real_leg_PDGs
+          elseif(npart .eq. nexternal_Born) then
+            Underlying_leg_PDGs = Born_leg_PDGs
+          else
+            write(*,*) 'Get_Underlying_PDGs: error'
+            write(*,*) 'npart is neither equal to nexternal_Real nor to nexternal_Born:'
+            write(*,*) 'npart, nexternal_Real, nexternal_Born = ',  npart, nexternal_Real, nexternal_Born
+            stop
+          endif        
+          return
+          end
+          """
+
+        filename = pjoin(dirpath, 'get_UnderlyingProc_PDGs.f')
+        writer(filename).writelines(file)
+
+        return True
+    
+
     #===========================================================================
     # function for linking files to RR subprocess directory
     #===========================================================================
@@ -2026,37 +2088,28 @@ c       %s
         # Test for K1_3p (ijk)  
         # Identify cts for L1_ijk (list starts from 0)
         # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
-        # mapping: ((isec,jsec,iref),(ksec,jsec,iref))
+        # mapping: ((isec,jsec,iref),(jsec,ksec,iref))
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
 c
 c     soft limit for isec particle going soft
-      e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
+      e = [0d0,0d0,0d0,1d0,1d0] ! Si limit
       l = [0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][1] != 0 : #Sj
             limit_str += """
 c
-      e=[1d0,1d0,0d0,0d0,0d0] ! Sj limit
-      l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
+      e=[0d0,0d0,0d0,1d0,1d0] ! Sj limit
+      l=[0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][2] != 0 : #Sk to CHECK
             limit_str += """
 c
-c     soft limit Sk
-c   Use mapping (k,j,r),(i,j,r)
-c      iU1tmp = iU1 ! isec
-c      iU2tmp = iU2 ! ksec
-c      iU1 = iU2
-c      iU2 = iU1tmp
-
-      e=[0d0,0d0,0d0,0d0,0d0] ! Sk limit
-      l=[0d0,0d0,0d0,1d0,1d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
-c      iU1 = iU1tmp
-c      iU2 = iU2tmp
+      e=[1d0,1d0,0d0,0d0,0d0] ! Sk limit
+      l=[1d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
@@ -2064,89 +2117,26 @@ c      iU2 = iU2tmp
                 limit_str += """
 c
 c     collinear limit Cij
-        e=[0d0,1d0,0d0,0d0,0d0]
+        e=[0d0,0d0,0d0,0d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if  K1_ct[i][0] != 0:   # SiCij 
-                    limit_str += """
-c
-c     soft-collinear limit
-      e=[1d0,2d0,0d0,0d0,0d0]  
-      l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-                if K1_ct[i][1] != 0 : #SjCij
-                    limit_str += """
-c     
-c     soft-collinear limit
-      e=[1d0,2d0,0d0,0d0,0d0]
-      l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
-      """%(isec,jsec,ksec,lsec)
             if K1_ct[i][4] != 0 : # Cik TO CHECK:
                 limit_str += """
 c
-c     collinear limit Cik
-c   Use mapping (i,k,r),(j,k,r) (j <--> k)
-      iU1tmp = iU1 ! isec
-      iU2tmp = iU2 ! ksec
-      iS1tmp = iS1
-      iS2tmp = iS2
-      iU2 = iS2tmp
-      iS2 = iU2tmp
-      iS1 = iS2tmp  
-      e=[0d0,1d0,0d0,0d0,0d0]
+c     collinear limit Cik ! todo
+      e=[0d0,0d0,0d0,0d0,0d0]
       l=[0d0,0d0,0d0,0d0,0d0]  
-      call do_limit_R_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
-      iU2 = iU2tmp
-      iS1 = iS1tmp
-      iS2 = iS2tmp
-"""%(isec,jsec,ksec,lsec)
-                if K1_ct[i][0] != 0 : # SiCik
-                    limit_str += """
-c
-c     soft-collinear limit
-c   Use mapping (i,k,r),(j,k,r) (j <--> k)
-      iU1tmp = iU1 ! isec
-      iU2tmp = iU2 ! ksec
-      iS1tmp = iS1
-      iS2tmp = iS2
-      iU2 = iS2tmp
-      iS2 = iU2tmp
-      iS1 = iS2tmp
-      e=[1d0,2d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SiCik      ',x0,e,l)
-      iU1 = iU1tmp ! isec
-      iU2 = iU2tmp ! ksec
-      iS1 = iS1tmp
-      iS2 = iS2tmp
-"""%(isec,jsec,ksec,lsec)
-            if K1_ct[i][-1] != 0 : # TO CHECK Cjk
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)   
+            if K1_ct[i][-1] != 0 :
                 limit_str += """
 c
-c     collinear limit Cjk
-      e=[0d0,0d0,0d0,0d0,1d0]
+c     collinear limit Cjk ! todo
+      e=[0d0,0d0,0d0,0d0,0d0]
       l=[0d0,0d0,0d0,0d0,0d0]  
-      call do_limit_R_%d_%d_%d_%d(iunit,'Cjk     ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cjk     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if  K1_ct[i][1] != 0: # TO CHECK SjCjk 
-                    limit_str += """
-c
-c     soft-collinear limit
-      e=[0d0,0d0,0d0,1d0,2d0]
-      l=[0d0,0d0,0d0,0d0,0d0] 
-      call do_limit_R_%d_%d_%d_%d(iunit,'SjCjk   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec) 
-                if  K1_ct[i][2] != 0: # TO CHECK SkCjk 
-                    limit_str += """
-c
-c     soft-collinear limit
-      e=[0d0,0d0,0d0,1d0,2d0]
-      l=[0d0,0d0,0d0,1d0,0d0] 
-      call do_limit_R_%d_%d_%d_%d(iunit,'SkCjk   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)       
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
@@ -2163,83 +2153,59 @@ c     soft-collinear limit
             limit_str += """
 c
 c     double soft limit for (isec,jsec) particles going soft
-c   mapping ((i,j,r),(k,j,r))
-      e = [0d0,0d0,0d0,0d0,0d0] ! Sij limit
+c   mapping ((i,j,r),(j,k,r))
+      e = [1d0,1d0,0d0,0d0,1d0] ! Sij limit
       l = [0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K2_ct[i][1] != 0: # Sik limit to check
             limit_str += """
     c
 c     double soft limit for (isec,ksec) particles going soft
-      e = [0d0,0d0,0d0,0d0,0d0] ! Sik limit
-      l = [0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
+      e = [1d0,1d0,0d0,1d0,1d0] ! Sik limit
+      l = [1d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K2_ct[i][2] != 0: # Sjk limit to check
             limit_str += """
     c
 c     double soft limit for (jsec,ksec) particles going soft
-      e = [0d0,0d0,0d0,0d0,0d0] ! Sjk limit
-      l = [0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sjk     ',x0,e,l)
+      e = [1d0,1d0,0d0,1d0,1d0] ! Sjk limit
+      l = [1d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sjk     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if isec > 2 and jsec > 2:
             if K2_ct[i][3] != 0 : # SHCijk
                 limit_str += """
 c
-c     single soft double collinear limit SHCijk
-        e=[0d0,0d0,0d0,0d0,0d0]
+c     single soft double collinear limit SCijk
+        e=[0d0,1d0,0d0,1d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SiHCijk ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
             if K2_ct[i][4] != 0 : # SHCjik
                 limit_str += """
 c
-c     single soft double collinear limit SHCijk
-        e=[0d0,0d0,0d0,0d0,0d0]
-        l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SjHCijk ',x0,e,l)
+c     single soft double collinear limit SCjik
+        e=[0d0,1d0,0d0,1d0,1d0]
+        l=[0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][5] != 0 : # SHCkij
                     limit_str += """
 c
-c     single soft double collinear limit SHCijk
-        e=[0d0,0d0,0d0,0d0,0d0]
+c     single soft double collinear limit SCkij
+        e=[1d0,1d0,0d0,0d0,1d0]
         l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SjHCkij ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][6] != 0 : # HCijk
                     limit_str += """
 c
-c       double collinear limit HCijk
-        e=[0d0,0d0,0d0,0d0,0d0]
+c       double collinear limit Cijk
+        e=[0d0,1d0,0d0,0d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'HCijk ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-                if K2_ct[i][7] != 0 : # CijkSHCijk
-                    limit_str += """
-c
-c     single soft double collinear limit CijkSHCijk
-        e=[0d0,0d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCijk',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-                if K2_ct[i][8] != 0 : # CijkSHCjik
-                    limit_str += """
-c
-c     single soft double collinear limit CijkSHCjik
-        e=[0d0,0d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCjik',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-                if K2_ct[i][9] != 0 : # CijkSHCkij
-                    limit_str += """
-c
-c     single soft double collinear limit CijkSHCkij
-        e=[0d0,0d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'CijkSHCkij',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
@@ -2277,14 +2243,14 @@ c
 c     soft limit for isec particle going soft
       e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
       l = [0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][1] != 0 : #Sj
             limit_str += """
 c
       e=[0d0,0d0,0d0,1d0,1d0] ! Sj limit
       l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][2] != 0 : #Sk to do
             limit_str += """
@@ -2292,7 +2258,7 @@ c
 c     soft limit
       e=[1d0,1d0,0d0,0d0,0d0] ! Sk limit
       l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][3] != 0 : #Sl to do
             limit_str += """
@@ -2300,7 +2266,7 @@ c
 c     soft limit
       e=[0d0,0d0,0d0,1d0,1d0] ! Sl limit
       l=[0d0,0d0,0d0,1d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Sl      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)    
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
@@ -2315,7 +2281,7 @@ c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
 c     collinear limit Cij
         e=[0d0,1d0,0d0,0d0,0d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
       iS1 = iS1tmp
       iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
@@ -2330,7 +2296,7 @@ c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]  
       l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
       iS1 = iS1tmp
       iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
@@ -2345,7 +2311,7 @@ c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
 c     soft-collinear limit
       e=[1d0,2d0,0d0,0d0,0d0]
       l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_R_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SjCij      ',x0,e,l)
       iS1 = iS1tmp
       iU2 = iU2tmp
       """%(isec,jsec,ksec,lsec)
@@ -2356,7 +2322,7 @@ c
 c     collinear limit Ckl
       e=[0d0,0d0,0d0,0d0,1d0]
       l=[0d0,0d0,0d0,0d0,1d0]  
-      call do_limit_R_%d_%d_%d_%d(iunit,'Ckl     ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Ckl     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][2] != 0 : # SkCkl
                     limit_str += """
@@ -2364,7 +2330,7 @@ c
 c     soft-collinear limit
       e=[1d0,0d0,0d0,0d0,2d0]
       l=[1d0,0d0,0d0,0d0,1d0] 
-      call do_limit_R_%d_%d_%d_%d(iunit,'SkCkl      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SkCkl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][3] != 0 : # SlCkl
                     limit_str += """
@@ -2372,7 +2338,7 @@ c
 c     soft-collinear limit
       e=[0d0,0d0,0d0,1d0,2d0]
       l=[0d0,0d0,0d0,1d0,1d0] 
-      call do_limit_R_%d_%d_%d_%d(iunit,'SlCkl      ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SlCkl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec) 
                 
         elif isec > 2 and jsec <= 2:
@@ -2391,5 +2357,197 @@ c     soft-collinear limit
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
+
+        return True
+    
+
+    #===========================================================================
+    # write driver_isec_jsec for real subprocess directory
+    #===========================================================================
+
+    def write_driver_npt_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs):
+        
+        replace_dict = {}
+        replace_dict['isec'] = isec
+        replace_dict['jsec'] = jsec
+        replace_dict['ksec'] = ksec
+        replace_dict['lsec'] = lsec
+        #replace_dict['UBgraphs'] = UBgraphs
+
+        # write driver
+        if(lsec != 0):
+            filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec, jsec,ksec,lsec))
+        else:
+            filename = pjoin(dirpath, 'driver_RR_%d_%d_%d.f' % (isec, jsec,ksec))
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npt_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+    
+    def write_makefile_RR_file(self, writer, dirpath, dirmadnklo, defining_process, overall_sector_info):
+
+        replace_dict = {}
+        proc_str = ''
+        files_str = ''
+        sector_str = ''
+        all_str = 'all: libs'
+        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        
+        for i in range(0,len(overall_sector_info)):
+            if not overall_sector_info[i]['path_to_Born']:
+                continue
+            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+                continue
+            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
+
+        replace_dict['proc_str'] = proc_str
+ 
+        for i in range(0,len(overall_sector_info)):
+            isec = overall_sector_info[i]['isec']
+            jsec = overall_sector_info[i]['jsec']
+            replace_dict['isec'] = isec
+            replace_dict['jsec'] = jsec
+            files_str += 'FILES_%d_%d= ' % (isec, jsec)
+            files_str += 'driver_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
+
+            files_str += 'testR_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
+            all_str += ' sector_%d_%d' % (isec, jsec) 
+            sector_str += """
+sector_%d_%d_libs: libs sector_%d_%d
+
+sector_%d_%d: $(FILES_%d_%d)
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
+
+        object_str = """
+%.o: %.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.cc
+\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
+"""
+        replace_dict['object_str'] = object_str
+        replace_dict['sector_str'] = sector_str
+        replace_dict['all_str'] = all_str
+        replace_dict['files_str'] = files_str
+
+        # write makefile
+        filename = pjoin(dirpath, 'makefile' )
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
+        file = file % replace_dict
+        writer(filename).write(file)
+
+        return True
+    
+
+    #===========================================================================
+    # write driver_isec_jsec for real subprocess directory
+    #===========================================================================
+
+    def write_driver_npt_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs):
+        
+        replace_dict = {}
+        replace_dict['isec'] = isec
+        replace_dict['jsec'] = jsec
+        replace_dict['ksec'] = ksec
+        replace_dict['lsec'] = lsec
+        #replace_dict['UBgraphs'] = UBgraphs
+
+        # write driver
+        if(lsec != 0):
+            filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec, jsec,ksec,lsec))
+        else:
+            filename = pjoin(dirpath, 'driver_RR_%d_%d_%d.f' % (isec, jsec,ksec))
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npt_template.f")).read()
+        file = file % replace_dict
+        writer(filename).writelines(file)
+
+        return True
+
+    
+    def write_makefile_RR_file(self, writer, dirpath, dirmadnklo, defining_process, overall_sector_info):
+
+        replace_dict = {}
+        proc_str = ''
+        files_str = ''
+        sector_str = ''
+        all_str = 'all: libs'
+        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
+            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        
+        for i in range(0,len(overall_sector_info)):
+            if not overall_sector_info[i]['path_to_Born']:
+                continue
+            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+                continue
+            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
+
+        replace_dict['proc_str'] = proc_str
+ 
+        for i in range(0,len(overall_sector_info)):
+            isec = overall_sector_info[i]['isec']
+            jsec = overall_sector_info[i]['jsec']
+            replace_dict['isec'] = isec
+            replace_dict['jsec'] = jsec
+            files_str += 'FILES_%d_%d= ' % (isec, jsec)
+            files_str += 'driver_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
+
+            files_str += 'testR_%d_%d.o ' % (isec, jsec)
+            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
+            all_str += ' sector_%d_%d' % (isec, jsec) 
+            sector_str += """
+sector_%d_%d_libs: libs sector_%d_%d
+
+sector_%d_%d: $(FILES_%d_%d)
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
+
+        object_str = """
+%.o: %.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+
+#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
+#\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.cc
+\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
+"""
+        replace_dict['object_str'] = object_str
+        replace_dict['sector_str'] = sector_str
+        replace_dict['all_str'] = all_str
+        replace_dict['files_str'] = files_str
+
+        # write makefile
+        filename = pjoin(dirpath, 'makefile' )
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
+        file = file % replace_dict
+        writer(filename).write(file)
 
         return True

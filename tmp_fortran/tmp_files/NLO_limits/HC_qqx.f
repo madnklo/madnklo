@@ -37,9 +37,10 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_HC_qqx)s_den
       common/%(proc_prefix_HC_qqx)s_iden/%(proc_prefix_HC_qqx)s_den
-      INTEGER ISEC,JSEC
-      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER ISEC,JSEC,KSEC,LSEC
+      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
 c
 c     initialise
       M2_HC_qqx=0d0
@@ -48,8 +49,10 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
+c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
+
+      IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
 
 
 c

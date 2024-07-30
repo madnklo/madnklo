@@ -33,8 +33,9 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical doplot
       common/cdoplot/doplot
       logical docut
-      integer isec,jsec,iU,iS,iB,iA,iref
-      common/cNLOsecindices/isec,jsec
+      integer iU,iS,iB,iA,iref
+      integer isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
       common/cNLOmaplabels/iU,iS,iB,iA,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
@@ -66,6 +67,8 @@ c     initialise
       xjacB = 0d0
       isec = %(isec)d
       jsec = %(jsec)d
+      ksec = 0d0
+      lsec = 0d0
       iref = %(iref)d
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0

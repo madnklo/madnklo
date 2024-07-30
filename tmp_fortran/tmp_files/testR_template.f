@@ -6,8 +6,8 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer isec,jsec
-      common/cnlosecindices/isec,jsec
+      integer isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
       integer i,iU,iS,iB,iA,iref
       common/cNLOmaplabels/iU,iS,iB,iA,iref
       integer iUtmp,iStmp
@@ -52,8 +52,8 @@ c
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       integer iitn,i,j,maxitn,iunit,ierr
-      integer isec,jsec
-      common/cnlosecindices/isec,jsec
+      integer isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
       integer iU,iS,iB,iA,iref
       common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30

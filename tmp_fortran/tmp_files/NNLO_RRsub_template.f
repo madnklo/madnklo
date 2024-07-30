@@ -36,7 +36,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical docut
       integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
-      common/cNNLOsecindices/isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
       common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)

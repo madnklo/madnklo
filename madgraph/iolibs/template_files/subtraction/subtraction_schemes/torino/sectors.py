@@ -1052,8 +1052,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Write get_Born_PDGs.f
 
-        self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
-
+        self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
+        #self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
 
 ######### Write makefile_npo_template
 
@@ -1225,15 +1225,17 @@ c     spurious collinear limit
     # write 'get_Born_PDGs.f' to find labels/flavours of n-body kinematics
     #===========================================================================
 
-    def write_get_Born_PDGs_file(self,writer, dirpath, overall_sector_info):
+    def write_get_UnderLying_PDGs_file(self,writer, dirpath, overall_sector_info):
 
         file = ''
         file += """ \
-          subroutine get_Born_PDGs(isec,jsec,nexternal_Born,Born_leg_PDGs)
+          subroutine get_UnderLying_PDGs(isec,jsec,ksec,lsec,npart,UnderLying_leg_PDGs)
           implicit none
-          integer isec, jsec
-          integer nexternal_Born
-          integer Born_leg_PDGs(nexternal_Born)
+          include 'nexternal.inc'
+          integer isec, jsec, ksec, lsec
+          integer npart
+          integer Born_leg_PDGs(nexternal_UB)
+          integer UnderLying_leg_PDGs(npart)
           \n"""
 
         for i in range(0,len(overall_sector_info)):
@@ -1254,16 +1256,31 @@ c     spurious collinear limit
         
         file += """ \
           endif
+          if(npart .eq. nexternal_UB) then
+          UnderLying_leg_PDGs = Born_leg_PDGs
+          else
+          write(*,*) 'get_UnderLying_PDGs: error'
+          write(*,*) 'npart must be equal to nexternal_UB'
+          write(*,*) 'npart, nexternal_UB = ', npart, nexternal_UB
+          write(*,*) 'exit...'
+          stop
+          endif
           return
           end
           """
 
-        filename = pjoin(dirpath, 'get_Born_PDGs.f')
+        filename = pjoin(dirpath, 'get_UnderlyingProc_PDGs.f')
         writer(filename).writelines(file)
 
         return True
 
+    
 
+        filename = pjoin(dirpath, 'get_UnderlyingProc_PDGs.f')
+        writer(filename).writelines(file)
+
+        return True
+    
     #===========================================================================
     # write 'makefile' for real subprocesses
     #===========================================================================
@@ -1275,7 +1292,7 @@ c     spurious collinear limit
         files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
+        proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         
         for i in range(0,len(overall_sector_info)):

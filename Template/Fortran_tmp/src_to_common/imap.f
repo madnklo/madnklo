@@ -81,11 +81,14 @@ c     exclude the mapped_flavours=0 value of the removed gluon
       integer i,j
       integer a,b,c,n
       integer isec,jsec
-      common/cnlosecindices/isec,jsec
+      integer ksec,lsec
+c     common/cnlosecindices/isec,jsec
+      common/csecindices/isec,jsec,ksec,lsec
       integer rm_leg,parent_leg,rec_leg
       integer leg_pdgs(n)
       integer mapped_labels(n),mapped_flavours(n)
       integer Born_leg_PDGs(n-1)
+      integer UnderLying_leg_PDGs(n-1)
       integer parent_from_v,rec_from_v
 c
 c     initialise
@@ -156,7 +159,10 @@ c        g > g + g
 c        remove the first particle in the mapping
          mapped_flavours(rm_leg) = 0
 
-         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+c         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+         call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,N-1
+     $        ,UNDERLYING_LEG_PDGS)
+
 
          
 c     Identify mapped_labels
@@ -172,7 +178,7 @@ c$$$  enddo
          do i=1,n-1
             do j=1,n
 c               write(*,*) 'i,j', i, j
-               if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+               if(UnderLying_leg_PDGs(i).eq.mapped_flavours(j)) then
                   if(mapped_labels(j).eq.0) then
                      mapped_labels(j) = i
 c                     write(*,*) 'mapped_labels', mapped_labels
@@ -200,15 +206,17 @@ c        q(barq) > q(barq) + g
          endif
          mapped_flavours(rm_leg) = 0
          
-         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
-         
+c         call get_Born_PDGs(isec,jsec,n-1,Born_leg_PDGs)
+         call GET_UNDERLYING_PDGS(ISEC,JSEC,0,0,N-1
+     $ ,UnderLying_LEG_PDGS)
+
 c        rescaling of mapped_labels
          j = 1
          do i=1,n-1
             if(mapped_flavours(j).eq.0) then
                j = j + 1
             endif
-            if(Born_leg_PDGs(i).eq.mapped_flavours(j)) then
+            if(UnderLying_leg_PDGs(i).eq.mapped_flavours(j)) then
                mapped_labels(j) = i
                j = j + 1
             endif
@@ -223,12 +231,12 @@ c     chosen for the virtual process (reported in virtual_recoilers.inc)
          rec_from_v = IREF(2,i)
          if((mapped_labels(parent_leg).eq.parent_from_v)
      &        .and.(mapped_labels(rec_leg).eq.rec_from_v)) then
-            if(mapped_flavours(rec_leg).ne.Born_leg_PDGs(rec_from_v))
+            if(mapped_flavours(rec_leg).ne.UnderLying_leg_PDGs(rec_from_v))
      &           then
                write(*,*) 'get_collinear_mapped_labels: '
                write(*,*) 'Recoiler flavour from mapped_flavours'
                write(*,*) 'and recoiler flavour from virtual process does not match!'
-               write(*,*) mapped_flavours(rec_leg), Born_leg_PDGs(rec_from_v)
+               write(*,*) mapped_flavours(rec_leg), UnderLying_leg_PDGs(rec_from_v)
                stop
             endif
          endif

@@ -77,6 +77,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_sector_legs = []
         all_sector_id_legs = []
         all_sector_recoilers = []
+        all_3p_sector_recoilers = []
 
         pert_dict = fks_common.find_pert_particles_interactions(model)
         colorlist = [model['particle_dict'][l['id']]['color'] for l in leglist]
@@ -168,9 +169,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         }
                         a_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'), j.get('number')))
                         # TODO: define recoiler 
-                        a_sector['recoiler'] = None
-                        #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
-                        #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                        #a_sector['recoiler'] = None
+                        a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
+                        all_sector_recoilers.append(a_sector['recoiler'].get('number'))
                         #print('Leg number : ' + str(a_sector['sector']))
                         #gl
                         all_sector_legs.append(i.get('number'))
@@ -185,7 +186,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         all_sector_id_legs.append(i.get('id'))
                         all_sector_id_legs.append(j.get('id'))
                         #print('Identities : ' + str(a_sector['sector'].id))
-
                         all_sectors.append(a_sector)
 
                     for k, col_k in zip(leglist, colorlist):
@@ -247,9 +247,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 }
                                 a_sector['sector'] = sectors.Sector(leg_numbers=(ij.get('number'), k.get('number')))
                                 # TODO: define recoiler 
-                                a_sector['recoiler'] = None
-                                #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
-                                #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                                #a_sector['recoiler'] = None
+                                a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
+                                all_sector_recoilers.append(a_sector['recoiler'].get('number'))
                                 #print('Leg number : ' + str(a_sector['sector']))
                                 #gl
                                 all_sector_legs.append(ij.get('number'))
@@ -281,8 +281,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             'recoiler' : None
                             }
                             a_3p_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'),j.get('number'),k.get('number')))
-                            #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
-                            #all_3p_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                            a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number'),k.get('number')))
+                            all_3p_sector_recoilers.append(a_sector['recoiler'].get('number'))
                             # keep track of the masses
                             #a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                             #                         model.get('particle_dict')[j.get('id')]['mass'])
@@ -1239,7 +1239,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             id_jsec = all_3p_sector_id_list[i][1]
             id_ksec = all_3p_sector_id_list[i][2]
             # Extract the reference particle leg from recoiler_function.py
-            iref = 1 #all_sector_recoilers[i] #TODO define recoiler
+            iref = all_3p_sector_recoilers[i]
             replace_dict_ct['iref'] = iref
             if (isec == iref) or (jsec == iref) or (ksec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d, %d!' % (isec,jsec,ksec,iref))

@@ -1859,8 +1859,8 @@ c       %s
         replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
 
         file = """ \
-          integer, parameter :: len_sectors = %(len_sec_list)d
-          integer all_sector_list(2,len_sectors)
+          integer, parameter :: lensectors = %(len_sec_list)d
+          integer all_sector_list(4,lensectors)
           data all_sector_list/%(all_sector_list)s/""" % replace_dict
         
         filename = pjoin(dirpath, 'all_sector_list.inc')

@@ -12,12 +12,16 @@ c     iU1 and iU2 are the unresolved partons associated with the soft singularit
       integer iconfig,mincfig,maxcfig,invar
       integer ich
       common/comich/ich
+      integer isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
+      integer real_leg_PDGs(nexternal-1)
 c
 c     initialise
       p=0d0
       pbar=0d0
       ptilde=0d0
       xjacB=Gevtopb
+      real_leg_PDGs = 0
 c
 C     Hard coded settings for gen_mom
       iconfig = ich
@@ -27,10 +31,16 @@ C     Hard coded settings for gen_mom
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(7),ptilde,nexternal-2)
 c
 c     call radiation phase space from Born to real
-      call phase_space_CS(x(4),iU2,iS2,iB2,iA2,pbar,ptilde,nexternal-1,leg_PDGs,'C',xjacCS2)
+c     The mapping from Born configuration to single Real one
+c     needs real_leg_PDGs configuration
+      call get_underlying_PDGs(isec,jsec,ksec,lsec,nexternal-1
+     $     ,real_leg_PDGs)
+      call phase_space_CS(x(4),iU1,iS1,iB1,iA1,pbar,ptilde,nexternal-1,
+     $     real_leg_PDGs,'C',xjacCS2) 
 c
 c     call radiation phase space from real to double real
-      call phase_space_CS(x(1),iU1,iS1,iB1,iA1,p,pbar,nexternal,leg_PDGs,'C',xjacCS1)
+      call phase_space_CS(x(1),iU2,iS2,iB2,iA2,p,pbar,nexternal,
+     $     leg_PDGs,'C',xjacCS1)
 c
 c     total jacobian
       xjac=xjacB*xjacCS1*xjacCS2

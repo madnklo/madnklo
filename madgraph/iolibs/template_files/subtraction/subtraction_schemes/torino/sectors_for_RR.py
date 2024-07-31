@@ -1301,6 +1301,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
             # specify ((isec,jsec,iref),(jsec,ksec,iref)) mapping choice
+            #try ((isec,jsec,ksec),(jsec,ksec,iref))
             mapping_str = """ \
                 iU1 = %s 
                 iS1 = %s
@@ -1309,7 +1310,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iS2 = %s
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[4][0], mapping[1][0],mapping[2][0],mapping[4][0])
+                iA2 = 1 ! default azimuth for NLO
+            """ % (mapping[0][0], mapping[1][0], mapping[2][0], mapping[1][0],mapping[2][0],mapping[4][0])
 
 
             # loop on K1 cts
@@ -1965,7 +1967,7 @@ c       %s
           integer isec, jsec, ksec, lsec
           integer npart
           integer Underlying_leg_PDGs(npart)
-          integer Born_leg_PDGs(nexternal_Born), Real_leg_PDGs(nexternal_Real) 
+          integer Born_leg_PDGs(nexternal_UUB), Real_leg_PDGs(nexternal_UB) 
           \n"""
 
         for i in range(0,len(overall_sector_info)):
@@ -1977,6 +1979,8 @@ c       %s
             replace_dict_tmp['lsec'] = overall_sector_info[i]['lsec']
             replace_dict_tmp['tmp_Real_PDGs'] = overall_sector_info[i]['Real_PDGs']
             replace_dict_tmp['tmp_Born_PDGs'] = overall_sector_info[i]['Born_PDGs']
+            if(overall_sector_info[i]['Born_PDGs'] == []):
+                replace_dict_tmp['tmp_PDGs'] = '0'
 
             if i == 0:
                 replace_dict_tmp['if_elseif'] = 'if'
@@ -1990,14 +1994,14 @@ c       %s
         
         file += """ \
           endif
-          if(npart .eq. nexternal_Real) then
+          if(npart .eq. nexternal_UB) then
             Underlying_leg_PDGs = Real_leg_PDGs
-          elseif(npart .eq. nexternal_Born) then
+          elseif(npart .eq. nexternal_UUB) then
             Underlying_leg_PDGs = Born_leg_PDGs
           else
             write(*,*) 'Get_Underlying_PDGs: error'
-            write(*,*) 'npart is neither equal to nexternal_Real nor to nexternal_Born:'
-            write(*,*) 'npart, nexternal_Real, nexternal_Born = ',  npart, nexternal_Real, nexternal_Born
+            write(*,*) 'npart is neither equal to nexternal_UB nor to nexternal_UUB:'
+            write(*,*) 'npart, nexternal_UB, nexternal_UUB = ',  npart, nexternal_UB, nexternal_UUB
             stop
           endif        
           return

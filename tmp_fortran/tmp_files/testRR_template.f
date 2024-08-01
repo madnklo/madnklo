@@ -56,7 +56,7 @@ c
       integer isec,jsec,ksec,lsec
       common/csecindices/isec,jsec,ksec,lsec
       integer iS1,iB1,iA1,iU1,iS2,iB2,iA2,iU2,iref
-      common/cNNLOmaplabels/iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
 C      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)

@@ -118,26 +118,20 @@ c     pause
       rm_leg = a
 
       if(ksec.eq.0 .and. lsec .eq.0) then ! This is NLO mapping
-         if(a.eq.isec.and.b.eq.jsec) then
-            parent_leg = b
-            rec_leg = c
-         else
-            write(*,*) 'imap : NLO mapping error...'
-            write(*,*) 'It should be a = isec, b = jsec'
-            write(*,*) 'a, b, isec, jsec = ', a, b, isec, jsec
-            stop
-         endif
+         parent_leg = b
+         rec_leg = c
       elseif(ksec.ne.0 .and. lsec .eq. 0) then ! NNLO Mapping for 3 index sector (i,j,k)
-         if((a.eq.isec.and.b.eq.jsec).or.(a.eq.jsec .and. b.eq.ksec)) then
-            parent_leg = b
-            rec_leg = c
-         else
-            write(*,*) 'imap : NNLO mapping error...'
-            write(*,*) 'It should be a = isec, b = jsec
-     $       or a = jsec, b = ksec'
-            write(*,*) 'a, b, isec, jsec, ksec = ', a, b, isec, jsec, ksec
-            stop
-         endif
+c         if((a.eq.isec.and.b.eq.jsec).or.(a.eq.jsec .and. b.eq.ksec)) then
+         parent_leg = b
+         rec_leg = c
+         ! TODO : implement correct checks on mapping
+c$$$         else
+c$$$            write(*,*) 'imap : NNLO mapping error...'
+c$$$            write(*,*) 'It should be a = isec, b = jsec
+c$$$     $       or a = jsec, b = ksec'
+c$$$            write(*,*) 'a, b, isec, jsec, ksec = ', a, b, isec, jsec, ksec
+c$$$            stop
+c$$$         endif
       elseif(ksec.ne.0 .and. lsec .ne. 0) then ! NNLO Mapping for 4 index sector (i,j,k,l)
          write(*,*) 'NNLO mapping for 4 index sector to be implemented'
          stop
@@ -179,6 +173,9 @@ c
 c     TODO: consistency check on (a,b,c) PDGs
 c
       mapped_flavours = leg_pdgs
+
+
+
 c
 c     FaFb mapping : isec is always > 2,  jsec > 2
 c     Notation: given (abc), [ab] > a + b
@@ -228,7 +225,10 @@ c                     write(*,*) 'mapped_labels', mapped_labels
                endif
             enddo
          enddo
-               
+c$$$         write(*,*) 'a,b,c,n', a,b,c,n
+c$$$         write(*,*) 'mapped_flavours', mapped_flavours
+c$$$         write(*,*) 'mapped_labels', mapped_labels
+c$$$         pause
 c
 c     FaIb mapping : isec is always > 2, jsec < 2
 c
@@ -284,3 +284,32 @@ c$$$         endif
 c$$$      enddo
       
       end
+
+
+
+c$$$      subroutine check_mapping(a,b,c,n)
+c$$$      implicit none
+c$$$      include 'nexternal.inc'
+c$$$      include 'leg_PDGs.inc'
+c$$$      integer isec,jsec,ksec,lsec
+c$$$      common/secindices/isec,jsec,ksec,lsec
+c$$$      integer a, b, c, n
+c$$$      integer mapped_labels
+c$$$
+c$$$      if(ksec.eq.0 .and. lsec.eq.0) then
+c$$$         if(a.ne.isec.or.b.ne.jsec) then
+c$$$            write(*,*) 'imap : NLO mapping error...'
+c$$$            write(*,*) 'It should be a = isec, b = jsec'
+c$$$            write(*,*) 'a, b, isec, jsec = ', a, b, isec, jsec
+c$$$            stop
+c$$$         endif
+c$$$      elseif(ksec.ne.0 .and. lsec .eq. 0) then
+c$$$         call get_collinear_mapped_labels(isec,jsec,iref,nexternal,leg_pdgs,
+c$$$     $     mapped_labels,mapped_flavours)
+c$$$
+c$$$         if((a.eq.isec.and.b.eq.jsec).or.(a.eq.jsec .and. b.eq.ksec))
+c$$$         
+c$$$      endif
+c$$$      
+c$$$      
+c$$$      end

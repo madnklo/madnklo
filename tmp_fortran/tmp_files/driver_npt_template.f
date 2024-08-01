@@ -37,7 +37,6 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
-      integer N_MAX_CG
       double precision sum_rr,sum_err_rr
       double precision sum_err_rr_a,err_rr_a(N_MAX_CG)
 c

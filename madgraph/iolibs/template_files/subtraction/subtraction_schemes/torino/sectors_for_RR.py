@@ -1454,12 +1454,13 @@ c       %s
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
+            UBgraphs = overall_sector_info[i]['Born_str']
             writer(filename).writelines(file)
 
             # write driver_RR
 
             
-            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs=None)
+            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
@@ -1736,8 +1737,8 @@ c       %s
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
-           
-            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs=None)
+            UBgraphs = overall_sector_info[i+len(all_3p_sector_list)]['Born_str']
+            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
 
             self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
@@ -1980,7 +1981,7 @@ c       %s
             replace_dict_tmp['tmp_Real_PDGs'] = overall_sector_info[i]['Real_PDGs']
             replace_dict_tmp['tmp_Born_PDGs'] = overall_sector_info[i]['Born_PDGs']
             if(overall_sector_info[i]['Born_PDGs'] == []):
-                replace_dict_tmp['tmp_PDGs'] = '0'
+                replace_dict_tmp['tmp_Born_PDGs'] = '0'
 
             if i == 0:
                 replace_dict_tmp['if_elseif'] = 'if'
@@ -2376,7 +2377,7 @@ c     soft-collinear limit
         replace_dict['jsec'] = jsec
         replace_dict['ksec'] = ksec
         replace_dict['lsec'] = lsec
-        #replace_dict['UBgraphs'] = UBgraphs
+        replace_dict['UBgraphs'] = UBgraphs
 
         # write driver
         if(lsec != 0):
@@ -2472,7 +2473,7 @@ sector_%d_%d: $(FILES_%d_%d)
         replace_dict['jsec'] = jsec
         replace_dict['ksec'] = ksec
         replace_dict['lsec'] = lsec
-        #replace_dict['UBgraphs'] = UBgraphs
+        replace_dict['UBgraphs'] = UBgraphs
 
         # write driver
         if(lsec != 0):

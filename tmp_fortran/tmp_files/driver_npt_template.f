@@ -6,7 +6,7 @@
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       include 'colored_partons.inc'
-c      INCLUDE 'ngraphs_(UBgraphs)s.inc'
+      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum

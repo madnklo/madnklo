@@ -85,7 +85,7 @@ c     call Born
       call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'M2_HC_gg: '

@@ -37,9 +37,10 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_HC_gg)s_den
       common/%(proc_prefix_HC_gg)s_iden/%(proc_prefix_HC_gg)s_den
-      INTEGER ISEC,JSEC
-      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER ISEC,JSEC,KSEC,LSEC
+      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
 
 c
 c     initialise
@@ -49,8 +50,10 @@ c     initialise
       damp=0d0
 c
 c     possible cuts
-      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))RETURN
+c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UnderLying_LEG_PDGS)
+
+      IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
       
 c
 c     overall kernel prefix
@@ -82,7 +85,7 @@ c     call Born
       call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,ir,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'M2_HC_gg: '

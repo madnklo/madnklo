@@ -42,9 +42,10 @@ c     external
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S_g)s_den
       common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
-      INTEGER ISEC,JSEC
-      COMMON/CNLOSECINDICES/ISEC,JSEC
+      INTEGER ISEC,JSEC,KSEC,LSEC
+      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
+      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
       INCLUDE 'pmass.inc'
       
@@ -67,8 +68,10 @@ c     safety check on PDGs
       ENDIF
 c
 c     get PDGs
-      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      CALL GET_SOFT_MAPPED_LABELS(I,IDUM,IDUM,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
+      call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
+
+      CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c
 c     call Z soft
       if(i.eq.isec) then
@@ -102,7 +105,7 @@ c         check labels and pdgs
             WRITE(*,*)'Wrong indices 1 in M2_S_g',LB,MB
             STOP
           ENDIF
-          IF(leg_pdgs(l).ne.Born_leg_pdgs(lb).or.leg_pdgs(m).ne.Born_leg_pdgs(mb))THEN
+          IF(leg_pdgs(l).ne.UnderLying_leg_pdgs(lb).or.leg_pdgs(m).ne.UnderLying_leg_pdgs(mb))THEN
             WRITE(*,*)'Wrong indices 2 in M2_S_g',L,M,LB,MB
             STOP
           ENDIF
@@ -111,13 +114,13 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,'S',xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPB,NEXTERNAL-1,BORN_LEG_PDGS,0))CYCLE
+            IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)

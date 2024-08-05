@@ -71,7 +71,7 @@ c     get PDGs
 c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
 
-      CALL GET_SOFT_MAPPED_LABELS(I,IDUM,IDUM,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c
 c     call Z soft
       if(i.eq.isec) then
@@ -114,7 +114,7 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,'S',xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999

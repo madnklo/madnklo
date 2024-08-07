@@ -2186,7 +2186,7 @@ c
 c     single soft double collinear limit SCijk
         e=[0d0,1d0,0d0,1d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
             if K2_ct[i][4] != 0 : # SHCjik
                 limit_str += """
@@ -2194,7 +2194,7 @@ c
 c     single soft double collinear limit SCjik
         e=[0d0,1d0,0d0,1d0,1d0]
         l=[0d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][5] != 0 : # SHCkij
                     limit_str += """
@@ -2202,7 +2202,7 @@ c
 c     single soft double collinear limit SCkij
         e=[1d0,1d0,0d0,0d0,1d0]
         l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][6] != 0 : # HCijk
                     limit_str += """
@@ -2210,7 +2210,7 @@ c
 c       double collinear limit Cijk
         e=[0d0,1d0,0d0,0d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk ',x0,e,l)
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 

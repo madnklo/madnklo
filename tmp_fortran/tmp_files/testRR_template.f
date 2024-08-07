@@ -15,7 +15,7 @@
       double precision x0(mxdim)
       character*10 dash10
       save ievnt
-      double precision xsave(3)
+      double precision xsave(5)
       common/cxsave/xsave
       double precision e(5),l(5)
       integer i

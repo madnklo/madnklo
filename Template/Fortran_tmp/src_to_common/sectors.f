@@ -231,20 +231,35 @@ c     build Z_NNLO
             write(*,*)'Wrong indices in Z_NNLO',a,b,c,d
             stop
          endif
-         if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*(xs(d,1)+xs(d,2))*
-     &      xs(a,b)*xs(a,c)*xs(a,d)*xs(b,c)*xs(b,d)*xs(c,d).ne.0d0)then
-            ea=(xs(a,1)+xs(a,2))/sCM
-            eb=(xs(b,1)+xs(b,2))/sCM
-            ec=(xs(c,1)+xs(c,2))/sCM
-            ed=(xs(d,1)+xs(d,2))/sCM
-            wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
-            wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
-            wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
-            wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
-            wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
-            wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
-         else
-            goto 999
+         if(d.eq.0) then
+            if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
+     &           xs(a,b)*xs(a,c)*xs(b,c).ne.0d0)then
+               ea=(xs(a,1)+xs(a,2))/sCM
+               eb=(xs(b,1)+xs(b,2))/sCM
+               ec=(xs(c,1)+xs(c,2))/sCM
+               wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
+               wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
+               wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
+            else
+               goto 999
+            endif
+         elseif(d.ne.0) then
+            if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
+     &           (xs(d,1)+xs(d,2))*xs(a,b)*xs(a,c)*xs(a,d)*xs(b,c)*
+     &           xs(b,d)*xs(c,d).ne.0d0)then
+               ea=(xs(a,1)+xs(a,2))/sCM
+               eb=(xs(b,1)+xs(b,2))/sCM
+               ec=(xs(c,1)+xs(c,2))/sCM
+               wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
+               wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
+               wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
+               ed=(xs(d,1)+xs(d,2))/sCM
+               wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
+               wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
+               wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
+            else
+               goto 999
+            endif
          endif
          if(d.eq.0)then
             sigma_abcd=(1d0/ea/wab)**alpha*(1d0/(ea+eb)+1d0/ec)*1d0/wbc

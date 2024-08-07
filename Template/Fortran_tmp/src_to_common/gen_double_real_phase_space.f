@@ -39,17 +39,17 @@ c     needs real_leg_PDGs configuration
       call get_underlying_PDGs(isec,jsec,ksec,lsec,nexternal-1
      $     ,real_leg_PDGs)
 c     map according to (iU1 iS1 iB1 , iU2 iS2 iB2)
-      call get_collinear_mapped_labels(iU1,iS1,iB1,nexternal,leg_pdgs,
+      call get_collinear_mapped_labels(iU1,iS1,nexternal,leg_pdgs,
      $     mapped_labels,mapped_flavours)
       mapiU2 = mapped_labels(iU2)
       mapiS2 = mapped_labels(iS2)
       mapiB2 = mapped_labels(iB2)
       call phase_space_CS(x(4),mapiU2,mapiS2,mapiB2,iA2,pbar,ptilde,
-     $     nexternal-1,real_leg_PDGs,'C',xjacCS2) 
+     $     nexternal-1,real_leg_PDGs,xjacCS2)
 c
 c     call radiation phase space from real to double real
       call phase_space_CS(x(1),iU1,iS1,iB1,iA1,p,pbar,nexternal,
-     $     leg_PDGs,'C',xjacCS1)
+     $     leg_PDGs,xjacCS1)
 c
 c     total jacobian
       xjac=xjacB*xjacCS1*xjacCS2

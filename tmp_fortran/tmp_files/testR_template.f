@@ -118,8 +118,8 @@ c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise 
-         x(1)=abs(l(1)-x0(1))*lam**e(1)
-         x(2)=abs(l(2)-x0(2))*lam**e(2)
+         x(1)=abs(l(1)-x0(1)*lam**e(1))
+         x(2)=abs(l(2)-x0(2)*lam**e(2))
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics

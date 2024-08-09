@@ -124,10 +124,10 @@ c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     x(4) is zCS', while x(5) is yCS'    
 c     TODO: this rescaling is specific for (ijr) mapping; generalise
-         x(1)=abs(l(1)-x0(1))*lam**e(1)
-         x(2)=abs(l(2)-x0(2))*lam**e(2)
-         x(4)=abs(l(4)-x0(4))*lam**e(4)
-         x(5)=abs(l(5)-x0(5))*lam**e(5)
+         x(1)=abs(l(1)-x0(1)*lam**e(1))
+         x(2)=abs(l(2)-x0(2)*lam**e(2))
+         x(4)=abs(l(4)-x0(4)*lam**e(4))
+         x(5)=abs(l(5)-x0(5)*lam**e(5))
 
          
 c

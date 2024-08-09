@@ -1311,7 +1311,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iB2 = %s 
                 iA1 = 1 ! default azimuth for NLO
                 iA2 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[2][0], mapping[1][0],mapping[2][0],mapping[4][0])
+            """ % (mapping[0][0], mapping[1][0], mapping[4][0], mapping[1][0],mapping[2][0],mapping[4][0])
 
 
             # loop on K1 cts

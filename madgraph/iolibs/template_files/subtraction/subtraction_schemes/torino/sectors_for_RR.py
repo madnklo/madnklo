@@ -2096,24 +2096,25 @@ c       %s
         # mapping: ((isec,jsec,iref),(jsec,ksec,iref))
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
+            
 c
 c     soft limit for isec particle going soft
-      e = [0d0,0d0,0d0,1d0,1d0] ! Si limit
+      e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][1] != 0 : #Sj
             limit_str += """
 c
-      e=[0d0,0d0,0d0,1d0,1d0] ! Sj limit
-      l=[0d0,0d0,0d0,1d0,0d0]
+      e=[1d0,1d0,0d0,0d0,0d0] ! Sj limit
+      l=[1d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K1_ct[i][2] != 0 : #Sk to CHECK
             limit_str += """
 c
-      e=[1d0,1d0,0d0,0d0,0d0] ! Sk limit
-      l=[1d0,0d0,0d0,0d0,0d0]
+      e=[0d0,0d0,0d0,1d0,1d0] ! Sk limit
+      l=[0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         # Loop over sectors with final state particles only
@@ -2122,7 +2123,7 @@ c
                 limit_str += """
 c
 c     collinear limit Cij
-        e=[0d0,0d0,0d0,0d0,1d0]
+        e=[0d0,1d0,0d0,0d0,0d0]
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
@@ -2159,7 +2160,7 @@ c     collinear limit Cjk ! todo
 c
 c     double soft limit for (isec,jsec) particles going soft
 c   mapping ((i,j,r),(j,k,r))
-      e = [1d0,1d0,0d0,0d0,1d0] ! Sij limit
+      e = [0d0,1d0,0d0,1d0,1d0] ! Sij limit
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
@@ -2168,7 +2169,7 @@ c   mapping ((i,j,r),(j,k,r))
     c
 c     double soft limit for (isec,ksec) particles going soft
       e = [1d0,1d0,0d0,1d0,1d0] ! Sik limit
-      l = [1d0,0d0,0d0,0d0,0d0]
+      l = [0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         if K2_ct[i][2] != 0: # Sjk limit to check
@@ -2184,7 +2185,7 @@ c     double soft limit for (jsec,ksec) particles going soft
                 limit_str += """
 c
 c     single soft double collinear limit SCijk
-        e=[0d0,1d0,0d0,1d0,1d0]
+        e=[1d0,1d0,0d0,0d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
@@ -2192,16 +2193,16 @@ c     single soft double collinear limit SCijk
                 limit_str += """
 c
 c     single soft double collinear limit SCjik
-        e=[0d0,1d0,0d0,1d0,1d0]
-        l=[0d0,0d0,0d0,1d0,0d0]
+        e=[1d0,1d0,0d0,0d0,1d0]
+        l=[1d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][5] != 0 : # SHCkij
                     limit_str += """
 c
 c     single soft double collinear limit SCkij
-        e=[1d0,1d0,0d0,0d0,1d0]
-        l=[1d0,0d0,0d0,0d0,0d0]
+        e=[0d0,1d0,0d0,1d0,1d0]
+        l=[0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K2_ct[i][6] != 0 : # HCijk

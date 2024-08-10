@@ -1,6 +1,19 @@
       subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,KNNLO,wgt_chan,ierr)
 c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl      
       implicit none
+      include 'nexternal.inc'
+      integer nitRR, ierr
+      common/iterations/nitRR
+      double precision xs(nexternal,nexternal), xp(0:3,nexternal)
+      double precision xsb(nexternal-1,nexternal-1), xpb(0:3,nexternal-1)
+      double precision xsbb(nexternal-2,nexternal-2), xpbb(0:3,nexternal-2)
+      double precision ZSi, ZSj
+      double precision wgt,xj,xjB
+      integer, parameter :: mxdim = 30
+      double precision x(mxdim)
+      double precision KNNLO, K1, K2, K12, wgt_chan
+
+      KNNLO = 0d0
 
       call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,wgt,ZSi,ZSj,xj,xjB,x,K1,wgt_chan,ierr)
       call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,K2,wgt_chan,ierr)

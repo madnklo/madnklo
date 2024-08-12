@@ -1320,11 +1320,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 if all_3p_K1_ct[i][j] ==  0:
                     continue
                 if j <= 2:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                 else:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                 # Extract underlying real string
@@ -1344,11 +1344,11 @@ c       %s
                 if all_3p_K2_ct[i][j] ==  0:
                     continue
                 if j <= 2:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                 else:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                 # Extract underlying Born string
@@ -1371,27 +1371,27 @@ c       %s
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
                 if j <= 3:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 3 and j <= 7:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 7 and j <= 11:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 11 and j <= 14:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 17 and j <= 20:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 if all_3p_K12_ct[i][j] not in ct_list:
@@ -1608,11 +1608,11 @@ c       %s
                 if all_4p_K1_ct[i][j] ==  0:
                     continue
                 if j <= 2:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                 else:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                 # Extract underlying real string        
@@ -1632,7 +1632,7 @@ c       %s
                 if all_4p_K2_ct[i][j] ==  0:
                     continue
                 else:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                 # Extract underlying Born string
@@ -1654,27 +1654,27 @@ c       %s
                 else:
                     lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
                 if j <= 2:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 2 and j <= 5:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 5 and j <= 8:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 8 and j <= 11:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(lsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 11 and j <= 14:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,lsec,%s,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 if all_4p_K12_ct[i][j] not in ct_list:
@@ -2401,12 +2401,12 @@ c     soft-collinear limit
         proc_str += """PROC_FILES=  get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         
-        for i in range(0,len(overall_sector_info)):
-            if not overall_sector_info[i]['path_to_Born']:
-                continue
-            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-                continue
-            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
+        # for i in range(0,len(overall_sector_info)):
+        #     if not overall_sector_info[i]['path_to_Born']:
+        #         continue
+        #     if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
+        #         continue
+        #     proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
 
         replace_dict['proc_str'] = proc_str
  
@@ -2419,25 +2419,75 @@ c     soft-collinear limit
             replace_dict['jsec'] = jsec
             replace_dict['ksec'] = ksec
             replace_dict['lsec'] = lsec
-            files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
-            files_str += 'driver_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-            files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-            files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
-
-            files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-            files_str += 'NNLO_K_%d_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec, lsec)
-            all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
-            sector_str += """
+            if(lsec != 0):
+                files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
+                if(overall_sector_info[i]['Born_str'] == ''):
+                    overall_sector_info[i]['Born_str'] = 'dummy'
+                files_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                files_str += 'testRR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                files_str += 'NNLO_K_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
+                sector_str += """
 sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
 sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)    
+""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec) 
+            else:
+                files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
+                if(overall_sector_info[i]['Born_str'] == ''):
+                    overall_sector_info[i]['Born_str'] = 'dummy'
+                files_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                files_str += 'driver_RR_%d_%d_%d.o ' % (isec, jsec, ksec)
+                files_str += 'NNLO_RRsub_%d_%d_%d.o ' % (isec, jsec, ksec)
+                files_str += 'NNLO_IR_limits_%d_%d_%d.o ' % (isec, jsec, ksec)
+                files_str += 'testRR_%d_%d_%d.o ' % (isec, jsec, ksec)
+                files_str += 'NNLO_K_%d_%d_%d.o ' % (isec, jsec, ksec)
+                all_str += ' sector_%d_%d_%d' % (isec, jsec, ksec)
+                sector_str += """
+sector_%d_%d_%d_libs: libs sector_%d_%d_%d
+
+sector_%d_%d_%d: $(FILES_%d_%d_%d)
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+""" %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec) 
+            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                if(overall_sector_info[i]['Born_str']==''):
+                    overall_sector_info[i]['Born_str'] = 'dummy'
+                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
+                files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % overall_sector_info[i]['Born_str']
+
+#             if(lsec != 0 ):
+#                 files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+#                 files_str += 'NNLO_K_%d_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec, lsec)
+#                 all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
+#                 sector_str += """
+# sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
+
+# sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec) 
+#             else:
+#                 files_str += 'testR_%d_%d_%d.o ' % (isec, jsec, ksec)
+#                 files_str += 'NNLO_K_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec)
+#                 all_str += ' sector_%d_%d_%d' % (isec, jsec, ksec)
+#                 sector_str += """
+# sector_%d_%d_%d_libs: libs sector_%d_%d_%d
+
+# sector_%d_%d_%d: $(FILES_%d_%d_%d)
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+# """ %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec) 
+
+#             sector_str += """
+# sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
+
+# sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)    
 
         object_str = """
 %.o: %.f $(INCLUDE)

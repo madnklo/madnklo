@@ -32,7 +32,7 @@ LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext)
 
-LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIR)R_libdhelas.$(libext)
+LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIR)RR_libdhelas.$(libext)
 
 OPT=O3
 
@@ -77,7 +77,7 @@ USR_FILES=alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o
 
 .PHONY: clean libs
 clean:
-	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/R_libdhelas.a
+	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/RR_libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:

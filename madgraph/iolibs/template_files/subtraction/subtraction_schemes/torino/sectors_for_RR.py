@@ -1754,7 +1754,7 @@ c       %s
 
 ######### Write makefile_npt_template
         
-
+        self.write_makefile_RR_file(writer, dirpath, dirmadnklo, defining_process, overall_sector_info)
 ######### Write ajob_isec_jsec_ksec_lsec
         
 
@@ -2095,8 +2095,7 @@ c       %s
         # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
         # mapping: ((isec,jsec,iref),(jsec,ksec,iref))
         if K1_ct[i][0] != 0 : #Si
-            limit_str += """
-            
+            limit_str += """           
 c
 c     soft limit for isec particle going soft
       e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
@@ -2166,7 +2165,7 @@ c   mapping ((i,j,r),(j,k,r))
 """%(isec,jsec,ksec,lsec)
         if K2_ct[i][1] != 0: # Sik limit to check
             limit_str += """
-    c
+c
 c     double soft limit for (isec,ksec) particles going soft
       e = [1d0,1d0,0d0,1d0,1d0] ! Sik limit
       l = [0d0,0d0,0d0,1d0,0d0]
@@ -2174,7 +2173,7 @@ c     double soft limit for (isec,ksec) particles going soft
 """%(isec,jsec,ksec,lsec)
         if K2_ct[i][2] != 0: # Sjk limit to check
             limit_str += """
-    c
+c
 c     double soft limit for (jsec,ksec) particles going soft
       e = [1d0,1d0,0d0,1d0,1d0] ! Sjk limit
       l = [1d0,0d0,0d0,1d0,0d0]
@@ -2399,7 +2398,7 @@ c     soft-collinear limit
         files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
+        proc_str += """PROC_FILES=  get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         
         for i in range(0,len(overall_sector_info)):
@@ -2414,27 +2413,31 @@ c     soft-collinear limit
         for i in range(0,len(overall_sector_info)):
             isec = overall_sector_info[i]['isec']
             jsec = overall_sector_info[i]['jsec']
+            ksec = overall_sector_info[i]['ksec']
+            lsec = overall_sector_info[i]['lsec']
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
-            files_str += 'FILES_%d_%d= ' % (isec, jsec)
-            files_str += 'driver_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
+            replace_dict['ksec'] = ksec
+            replace_dict['lsec'] = lsec
+            files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
+            files_str += 'driver_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+            files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+            files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
                 files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
                 files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
                 files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
 
-            files_str += 'testR_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
-            all_str += ' sector_%d_%d' % (isec, jsec) 
+            files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+            files_str += 'NNLO_K_%d_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec, lsec)
+            all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
             sector_str += """
-sector_%d_%d_libs: libs sector_%d_%d
+sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
-sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
+sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
+""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)    
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -2456,7 +2459,7 @@ sector_%d_%d: $(FILES_%d_%d)
 
         # write makefile
         filename = pjoin(dirpath, 'makefile' )
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npt_template")).read()
         file = file % replace_dict
         writer(filename).write(file)
 
@@ -2488,72 +2491,4 @@ sector_%d_%d: $(FILES_%d_%d)
         return True
 
     
-    def write_makefile_RR_file(self, writer, dirpath, dirmadnklo, defining_process, overall_sector_info):
-
-        replace_dict = {}
-        proc_str = ''
-        files_str = ''
-        sector_str = ''
-        all_str = 'all: libs'
-        proc_str += """PROC_FILES= get_Born_PDGs.o matrix_%s.o """ % defining_process.shell_string(
-            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-        
-        for i in range(0,len(overall_sector_info)):
-            if not overall_sector_info[i]['path_to_Born']:
-                continue
-            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-                continue
-            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
-
-        replace_dict['proc_str'] = proc_str
- 
-        for i in range(0,len(overall_sector_info)):
-            isec = overall_sector_info[i]['isec']
-            jsec = overall_sector_info[i]['jsec']
-            replace_dict['isec'] = isec
-            replace_dict['jsec'] = jsec
-            files_str += 'FILES_%d_%d= ' % (isec, jsec)
-            files_str += 'driver_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
-            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
-
-            files_str += 'testR_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
-            all_str += ' sector_%d_%d' % (isec, jsec) 
-            sector_str += """
-sector_%d_%d_libs: libs sector_%d_%d
-
-sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)    
-
-        object_str = """
-%.o: %.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
-
-#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
-#\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
-
-%.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
-
-%.o: $(PATH_TO_USR_FILES)/%.cc
-\t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
-"""
-        replace_dict['object_str'] = object_str
-        replace_dict['sector_str'] = sector_str
-        replace_dict['all_str'] = all_str
-        replace_dict['files_str'] = files_str
-
-        # write makefile
-        filename = pjoin(dirpath, 'makefile' )
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
-        file = file % replace_dict
-        writer(filename).write(file)
-
-        return True
+    

@@ -5,6 +5,7 @@ c     iU is the unresolved parton associated
 c     with the soft singularity
 c     npart = n+1
       implicit none
+      include 'nexternal.inc'
       include 'coupl.inc'
       include 'math.inc'
       double precision xx(3)
@@ -29,7 +30,7 @@ c$$$      logical isLOQCDparton(npart-1)
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
       double precision vel
-      double precision pmass(npart)
+      double precision pmass(nexternal)
       include 'pmass.inc'
 c
 c     initialise

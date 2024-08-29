@@ -231,35 +231,16 @@ c     build Z_NNLO
             write(*,*)'Wrong indices in Z_NNLO',a,b,c,d
             stop
          endif
-         if(d.eq.0) then
-            if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
-     &           xs(a,b)*xs(a,c)*xs(b,c).ne.0d0)then
-               ea=(xs(a,1)+xs(a,2))/sCM
-               eb=(xs(b,1)+xs(b,2))/sCM
-               ec=(xs(c,1)+xs(c,2))/sCM
-               wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
-               wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
-               wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
-            else
-               goto 999
-            endif
-         elseif(d.ne.0) then
-            if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
-     &           (xs(d,1)+xs(d,2))*xs(a,b)*xs(a,c)*xs(a,d)*xs(b,c)*
-     &           xs(b,d)*xs(c,d).ne.0d0)then
-               ea=(xs(a,1)+xs(a,2))/sCM
-               eb=(xs(b,1)+xs(b,2))/sCM
-               ec=(xs(c,1)+xs(c,2))/sCM
-               wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
-               wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
-               wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
-               ed=(xs(d,1)+xs(d,2))/sCM
-               wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
-               wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
-               wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
-            else
-               goto 999
-            endif
+         if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
+     &        xs(a,b)*xs(a,c)*xs(b,c).ne.0d0)then
+            ea=(xs(a,1)+xs(a,2))/sCM
+            eb=(xs(b,1)+xs(b,2))/sCM
+            ec=(xs(c,1)+xs(c,2))/sCM
+            wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
+            wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
+            wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
+         else
+            goto 999
          endif
          if(d.eq.0)then
             sigma_abcd=(1d0/ea/wab)**alpha*(1d0/(ea+eb)+1d0/ec)*1d0/wbc
@@ -268,34 +249,40 @@ c     build Z_NNLO
      &                +(1d0/ec/wac)**alpha*(1d0/(ea+ec)+1d0/eb)*1d0/wab
      &                +(1d0/eb/wbc)**alpha*(1d0/(eb+ec)+1d0/ea)*1d0/wac
      &                +(1d0/ec/wbc)**alpha*(1d0/(eb+ec)+1d0/ea)*1d0/wab
+            sigma = sigma + sigma_abcd
+            if( (a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.i4.eq.0) .or.
+     &          (a.eq.i1.and.b.eq.i3.and.c.eq.i2.and.i4.eq.0) .or.
+     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.i4.eq.0) .or.
+     &          (a.eq.i2.and.b.eq.i3.and.c.eq.i1.and.i4.eq.0) .or.
+     &          (a.eq.i3.and.b.eq.i1.and.c.eq.i2.and.i4.eq.0) .or.
+     &          (a.eq.i3.and.b.eq.i2.and.c.eq.i1.and.i4.eq.0) ) num = num + sigma_abcd
          else
+            if((xs(d,1)+xs(d,2))*xs(a,d)*xs(b,d)*xs(c,d).ne.0d0)then
+               ed=(xs(d,1)+xs(d,2))/sCM
+               wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
+               wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
+               wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
+            else
+               goto 999
+            endif
             sigma_abcd=((1d0/ea/wab)**alpha+(1d0/eb/wab)**alpha)*(1d0/ec+1d0/ed)*1d0/wcd
      &                +((1d0/ec/wcd)**alpha+(1d0/ed/wcd)**alpha)*(1d0/ea+1d0/eb)*1d0/wab
+            sigma = sigma + sigma_abcd
+            if( (a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.d.eq.i4.and.i4.ne.0) .or.
+     &          (a.eq.i1.and.b.eq.i2.and.c.eq.i4.and.d.eq.i3.and.i4.ne.0) .or.
+     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.d.eq.i4.and.i4.ne.0) .or.
+     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i4.and.d.eq.i3.and.i4.ne.0) .or.
+     &          (a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2.and.i4.ne.0) .or.
+     &          (a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1.and.i4.ne.0) .or.
+     &          (a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2.and.i4.ne.0) .or.
+     &          (a.eq.i4.and.b.eq.i3.and.c.eq.i2.and.d.eq.i1.and.i4.ne.0) ) num = num + sigma_abcd
          endif
-         sigma = sigma + sigma_abcd
-         if(i4.eq.0)then
-            if( (a.eq.i1.and.b.eq.i2.and.c.eq.i3) .or.
-     &          (a.eq.i1.and.b.eq.i3.and.c.eq.i2) .or.
-     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i3) .or.
-     &          (a.eq.i2.and.b.eq.i3.and.c.eq.i1) .or.
-     &          (a.eq.i3.and.b.eq.i1.and.c.eq.i2) .or.
-     &          (a.eq.i3.and.b.eq.i2.and.c.eq.i1) ) num = num + sigma_abcd
-         else
-            if( (a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.d.eq.i4) .or.
-     &          (a.eq.i1.and.b.eq.i2.and.c.eq.i4.and.d.eq.i3) .or.
-     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.d.eq.i4) .or.
-     &          (a.eq.i2.and.b.eq.i1.and.c.eq.i4.and.d.eq.i3) .or.
-     &          (a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2) .or.
-     &          (a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1) .or.
-     &          (a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2) .or.
-     &           (a.eq.i4.and.b.eq.i3.and.c.eq.i2.and.d.eq.i1) ) num = num + sigma_abcd
-         endif
-         enddo
-         if(sigma.le.0d0)then
-            write(*,*)'Wrong sigma in Z_NNLO',sigma
-            stop
-         endif
-         Z_NNLO = num/sigma
+      enddo
+      if(sigma.le.0d0)then
+         write(*,*)'Wrong sigma in Z_NNLO',sigma
+         stop
+      endif
+      Z_NNLO = num/sigma
 c
 c     sanity check
       if(abs(Z_NNLO).ge.huge(1d0).or.isnan(Z_NNLO))then
@@ -374,36 +361,39 @@ c     build ZSS_NNLO
      &      b.ne.i1.and.b.ne.i2.and.b.ne.i3.and.b.ne.i4.and.
      &      c.ne.i1.and.c.ne.i2.and.c.ne.i3.and.c.ne.i4.and.
      &      d.ne.i1.and.d.ne.i2.and.d.ne.i3.and.d.ne.i4)cycle
-         if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*(xs(d,1)+xs(d,2))*
-     &      xs(a,b)*xs(a,c)*xs(a,d)*xs(b,c)*xs(b,d)*xs(c,d).ne.0d0)then
+         if((xs(a,1)+xs(a,2))*(xs(b,1)+xs(b,2))*(xs(c,1)+xs(c,2))*
+     &      xs(a,b)*xs(a,c)*xs(b,c).ne.0d0)then
             ea=(xs(a,1)+xs(a,2))/sCM
             eb=(xs(b,1)+xs(b,2))/sCM
             ec=(xs(c,1)+xs(c,2))/sCM
-            ed=(xs(d,1)+xs(d,2))/sCM
             wab=sCM*xs(a,b)/(xs(a,1)+xs(a,2))/(xs(b,1)+xs(b,2))
             wac=sCM*xs(a,c)/(xs(a,1)+xs(a,2))/(xs(c,1)+xs(c,2))
-            wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
             wbc=sCM*xs(b,c)/(xs(b,1)+xs(b,2))/(xs(c,1)+xs(c,2))
-            wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
-            wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
          else
             goto 999
          endif
-         if(i4.eq.0)then
-c SHOULD IT BE d=0 OR i4=0???
+         if(d.eq.0)then
             if(a.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/ea/wab)**alpha*1d0/ec*1d0/wbc + (1d0/ea/wac)**alpha*1d0/(ea+ec)*1d0/wbc
             if(a.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wbc)**alpha*1d0/ea*1d0/wab + (1d0/ec/wac)**alpha*1d0/(ea+ec)*1d0/wab
             if(a.eq.i1.and.b.eq.i3) sigma = sigma + (1d0/ea/wac)**alpha*1d0/eb*1d0/wbc + (1d0/ea/wab)**alpha*1d0/(ea+eb)*1d0/wbc
             if(a.eq.i3.and.b.eq.i1) sigma = sigma + (1d0/eb/wbc)**alpha*1d0/ea*1d0/wac + (1d0/eb/wab)**alpha*1d0/(ea+eb)*1d0/wac
             if(b.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/eb/wab)**alpha*1d0/ec*1d0/wac + (1d0/eb/wbc)**alpha*1d0/(eb+ec)*1d0/wac
             if(b.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wac)**alpha*1d0/eb*1d0/wab + (1d0/ec/wbc)**alpha*1d0/(eb+ec)*1d0/wab
-            if(a.eq.i1.and.b.eq.i2.and.c.eq.i3) num = num + (1d0/ea/wab)**alpha*1d0/ec*1d0/wbc + (1d0/ea/wac)**alpha*1d0/(ea+ec)*1d0/wbc
-            if(a.eq.i3.and.b.eq.i2.and.c.eq.i1) num = num + (1d0/ec/wbc)**alpha*1d0/ea*1d0/wab + (1d0/ec/wac)**alpha*1d0/(ea+ec)*1d0/wab
-            if(a.eq.i1.and.b.eq.i3.and.c.eq.i2) num = num + (1d0/ea/wac)**alpha*1d0/eb*1d0/wbc + (1d0/ea/wab)**alpha*1d0/(ea+eb)*1d0/wbc
-            if(a.eq.i3.and.b.eq.i1.and.c.eq.i2) num = num + (1d0/eb/wbc)**alpha*1d0/ea*1d0/wac + (1d0/eb/wab)**alpha*1d0/(ea+eb)*1d0/wac
-            if(a.eq.i2.and.b.eq.i1.and.c.eq.i3) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wac + (1d0/eb/wbc)**alpha*1d0/(eb+ec)*1d0/wac
-            if(a.eq.i2.and.b.eq.i3.and.c.eq.i1) num = num + (1d0/ec/wac)**alpha*1d0/eb*1d0/wab + (1d0/ec/wbc)**alpha*1d0/(eb+ec)*1d0/wab
+            if(a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.i4.eq.0) num = num + (1d0/ea/wab)**alpha*1d0/ec*1d0/wbc + (1d0/ea/wac)**alpha*1d0/(ea+ec)*1d0/wbc
+            if(a.eq.i3.and.b.eq.i2.and.c.eq.i1.and.i4.eq.0) num = num + (1d0/ec/wbc)**alpha*1d0/ea*1d0/wab + (1d0/ec/wac)**alpha*1d0/(ea+ec)*1d0/wab
+            if(a.eq.i1.and.b.eq.i3.and.c.eq.i2.and.i4.eq.0) num = num + (1d0/ea/wac)**alpha*1d0/eb*1d0/wbc + (1d0/ea/wab)**alpha*1d0/(ea+eb)*1d0/wbc
+            if(a.eq.i3.and.b.eq.i1.and.c.eq.i2.and.i4.eq.0) num = num + (1d0/eb/wbc)**alpha*1d0/ea*1d0/wac + (1d0/eb/wab)**alpha*1d0/(ea+eb)*1d0/wac
+            if(a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.i4.eq.0) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wac + (1d0/eb/wbc)**alpha*1d0/(eb+ec)*1d0/wac
+            if(a.eq.i2.and.b.eq.i3.and.c.eq.i1.and.i4.eq.0) num = num + (1d0/ec/wac)**alpha*1d0/eb*1d0/wab + (1d0/ec/wbc)**alpha*1d0/(eb+ec)*1d0/wab
          else
+            if((xs(d,1)+xs(d,2))*xs(a,d)*xs(b,d)*xs(c,d).ne.0d0)then
+               ed=(xs(d,1)+xs(d,2))/sCM
+               wad=sCM*xs(a,d)/(xs(a,1)+xs(a,2))/(xs(d,1)+xs(d,2))
+               wbd=sCM*xs(b,d)/(xs(b,1)+xs(b,2))/(xs(d,1)+xs(d,2))
+               wcd=sCM*xs(c,d)/(xs(c,1)+xs(c,2))/(xs(d,1)+xs(d,2))
+            else
+               goto 999
+            endif
             if(a.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/ea/wab)**alpha*1d0/ec*1d0/wcd
             if(a.eq.i3.and.c.eq.i1) sigma = sigma + (1d0/ec/wcd)**alpha*1d0/ea*1d0/wab
             if(b.eq.i1.and.c.eq.i3) sigma = sigma + (1d0/eb/wab)**alpha*1d0/ec*1d0/wcd
@@ -412,14 +402,14 @@ c SHOULD IT BE d=0 OR i4=0???
             if(a.eq.i3.and.d.eq.i1) sigma = sigma + (1d0/ed/wcd)**alpha*1d0/ea*1d0/wab
             if(b.eq.i1.and.d.eq.i3) sigma = sigma + (1d0/eb/wab)**alpha*1d0/ed*1d0/wcd
             if(b.eq.i3.and.d.eq.i1) sigma = sigma + (1d0/ed/wcd)**alpha*1d0/eb*1d0/wab
-            if(a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.d.eq.i4) num = num + (1d0/ea/wab)**alpha*1d0/ec*1d0/wcd
-            if(a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2) num = num + (1d0/ec/wcd)**alpha*1d0/ea*1d0/wab
-            if(a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.d.eq.i4) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wcd
-            if(a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2) num = num + (1d0/ec/wcd)**alpha*1d0/eb*1d0/wab
-            if(a.eq.i1.and.b.eq.i2.and.c.eq.i4.and.d.eq.i3) num = num + (1d0/ea/wab)**alpha*1d0/ed*1d0/wcd
-            if(a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1) num = num + (1d0/ed/wcd)**alpha*1d0/ea*1d0/wab
-            if(a.eq.i2.and.b.eq.i1.and.c.eq.i4.and.d.eq.i3) num = num + (1d0/eb/wab)**alpha*1d0/ed*1d0/wcd
-            if(a.eq.i4.and.b.eq.i3.and.d.eq.i2.and.d.eq.i1) num = num + (1d0/ed/wcd)**alpha*1d0/eb*1d0/wab
+            if(a.eq.i1.and.b.eq.i2.and.c.eq.i3.and.d.eq.i4.and.i4.ne.0) num = num + (1d0/ea/wab)**alpha*1d0/ec*1d0/wcd
+            if(a.eq.i3.and.b.eq.i4.and.c.eq.i1.and.d.eq.i2.and.i4.ne.0) num = num + (1d0/ec/wcd)**alpha*1d0/ea*1d0/wab
+            if(a.eq.i2.and.b.eq.i1.and.c.eq.i3.and.d.eq.i4.and.i4.ne.0) num = num + (1d0/eb/wab)**alpha*1d0/ec*1d0/wcd
+            if(a.eq.i4.and.b.eq.i3.and.c.eq.i1.and.d.eq.i2.and.i4.ne.0) num = num + (1d0/ec/wcd)**alpha*1d0/eb*1d0/wab
+            if(a.eq.i1.and.b.eq.i2.and.c.eq.i4.and.d.eq.i3.and.i4.ne.0) num = num + (1d0/ea/wab)**alpha*1d0/ed*1d0/wcd
+            if(a.eq.i3.and.b.eq.i4.and.c.eq.i2.and.d.eq.i1.and.i4.ne.0) num = num + (1d0/ed/wcd)**alpha*1d0/ea*1d0/wab
+            if(a.eq.i2.and.b.eq.i1.and.c.eq.i4.and.d.eq.i3.and.i4.ne.0) num = num + (1d0/eb/wab)**alpha*1d0/ed*1d0/wcd
+            if(a.eq.i4.and.b.eq.i3.and.d.eq.i2.and.d.eq.i1.and.i4.ne.0) num = num + (1d0/ed/wcd)**alpha*1d0/eb*1d0/wab
          endif
       enddo
       if(sigma.le.0d0)then

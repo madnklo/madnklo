@@ -44,6 +44,7 @@ c
 
 
       subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e,l)
+      use sectors2_module
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -72,7 +73,6 @@ c
       double precision xsave(3)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-      DOUBLE PRECISION Z_NLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
@@ -92,7 +92,6 @@ c     initialise
       xjac=0d0
       sNLO=0d0
       sLO=0d0
-      Z_NLO=0d0
       wgt_chan=1d0
 c
 c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
@@ -139,8 +138,8 @@ c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
-         CALL GET_Z_NLO(SNLO,SCM,ALPHAZ,%(isec)d,%(jsec)d,Z_NLO,IERR)
-         if(ierr.eq.1)cycle
+         call get_sig2(SNLO,alphaZ,nexternal)
+         CALL GET_Z_NLO(%(isec)d,%(jsec)d)
 c
 c     counterterm
          call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)

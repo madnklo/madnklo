@@ -1,6 +1,7 @@
       double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
+      use sectors2_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -12,7 +13,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,ZS_NLO,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -70,14 +71,13 @@ c     get PDGs
 c
 c     call Z soft
       if(i.eq.isec) then
-         CALL GET_ZS_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS_NLO,IERR)
+         CALL GET_ZS_NLO(ISEC,JSEC)
       elseif(i.eq.jsec) then
-         CALL GET_ZS_NLO(XS,SCM,ALPHAZ,JSEC,ISEC,ZS_NLO,IERR)
+         CALL GET_ZS_NLO(JSEC,ISEC)
       else
          write(*,*)'In M2_S_g i should be = isec or = jsec',i,isec,jsec
          stop
       endif
-      if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)

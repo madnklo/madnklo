@@ -1333,10 +1333,10 @@ sector_%d_%d: $(FILES_%d_%d)
 %.o: %.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
 
-#%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
-#\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
-
 %.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f90 $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
 %.o: $(PATH_TO_USR_FILES)/%.cc

@@ -2894,7 +2894,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             #cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
             #cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
         elif strdirpath[-1][0] == 'N':
-            common_files += ['sectors.f']
+            common_files += ['sectors.f', 'sectors2_module.f90']
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
             #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni

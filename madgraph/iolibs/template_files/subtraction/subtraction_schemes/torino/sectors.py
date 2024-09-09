@@ -1320,7 +1320,7 @@ c     spurious collinear limit
                 files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
 
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec)
+            files_str += '$(USR_FILES) NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
             sector_str += """
 sector_%d_%d_libs: libs sector_%d_%d

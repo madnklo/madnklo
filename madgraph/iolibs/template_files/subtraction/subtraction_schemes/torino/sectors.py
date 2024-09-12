@@ -1310,7 +1310,7 @@ c     spurious collinear limit
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
             files_str += 'FILES_%d_%d= ' % (isec, jsec)
-            files_str += 'driver_%d_%d.o ' % (isec, jsec)
+            files_str += '$(USR_FILES) driver_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_IR_limits_%d_%d.o ' % (isec, jsec)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
@@ -1320,7 +1320,7 @@ c     spurious collinear limit
                 files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
 
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
-            files_str += '$(USR_FILES) NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
+            files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec) 
             sector_str += """
 sector_%d_%d_libs: libs sector_%d_%d

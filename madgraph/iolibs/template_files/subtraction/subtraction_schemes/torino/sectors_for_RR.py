@@ -1313,24 +1313,45 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iA2 = 1 ! default azimuth for NLO
             """ % (mapping[0][0], mapping[1][0], mapping[4][0], mapping[1][0],mapping[2][0],mapping[4][0])
 
+            # # write NNLO_IR_limits
+            # # GB TODO : test on UB strings
+            # NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
+            # filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
+            # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
+            # file = file % replace_dict_limits
+            # writer(filename).writelines(file)
+           
+            # Initialise NLO_IR_limits.f for every sector [ij]
+            string = "c Collection of relevant limits for sector [%d,%d,%d]" %(isec,jsec,ksec)
+            NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
+            os.system('echo ' + string + ' > ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f') 
 
             # loop on K1 cts
             ct_list = []
             for j in range(0, len(all_3p_K1_ct[i])):
                 if all_3p_K1_ct[i][j] ==  0:
                     continue
-                if j <= 2:
+                if j <= 2: # Soft ct
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    if(j==0):
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
-
+                if(len(UReal_procs)!= 0):   
+                    UReal_matrix = 'matrix_%s.f' %(UReal_procs[0])
+                    #print(path_UReal_procs[0] + '/' + UReal_matrix)
+                    os.system('cp ' + path_UReal_procs[0] + '/' + UReal_matrix + ' ' + dirpath)
+                else:
+                    UReal_matrix = 'matrix_dummy'
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1347,6 +1368,8 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path 
+                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
@@ -1462,16 +1485,24 @@ c       %s
             
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
+            # import pdb
+            # pdb.set_trace()
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
                                     i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
             
-            # write NNLO_IR_limits
-            # GB TODO : test on UB strings
-            NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
-            filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
-            file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
+            # # write NNLO_IR_limits
+            # # GB TODO : test on UB strings
+            # NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
+            # filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
+            # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
+            # file = file % replace_dict_limits
+            # writer(filename).writelines(file)
+            filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec,ksec))
+            #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
+            file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
+            #os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
            
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
@@ -1741,8 +1772,8 @@ c       %s
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
 
-            self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-                                    i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
+            # self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
+            #                         i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
            
 
 #---------- Functions outside loop on sectors ----------#
@@ -2196,7 +2227,7 @@ c     single soft double collinear limit SCjik
         l=[1d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if K2_ct[i][5] != 0 : # SHCkij
+            if K2_ct[i][5] != 0 : # SHCkij
                     limit_str += """
 c
 c     single soft double collinear limit SCkij
@@ -2204,7 +2235,7 @@ c     single soft double collinear limit SCkij
         l=[0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij   ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                if K2_ct[i][6] != 0 : # HCijk
+            if K2_ct[i][6] != 0 : # HCijk
                     limit_str += """
 c
 c       double collinear limit Cijk
@@ -2423,7 +2454,7 @@ c     soft-collinear limit
                 files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
                 if(overall_sector_info[i]['Born_str'] == ''):
                     overall_sector_info[i]['Born_str'] = 'dummy'
-                files_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
                 files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
@@ -2440,7 +2471,7 @@ sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
                 files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
                 if(overall_sector_info[i]['Born_str'] == ''):
                     overall_sector_info[i]['Born_str'] = 'dummy'
-                files_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
                 files_str += 'driver_RR_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_RRsub_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d.o ' % (isec, jsec, ksec)
@@ -2459,7 +2490,7 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
                 files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
                 files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
                 files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % overall_sector_info[i]['Born_str']
+                files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES)\n' % overall_sector_info[i]['Born_str']
 
 #             if(lsec != 0 ):
 #                 files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
@@ -2495,6 +2526,9 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
 
 #%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
 #\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+
+%.o: $(PATH_TO_USR_FILES)/%.f90 $(INCLUDE)
+	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
 %.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<

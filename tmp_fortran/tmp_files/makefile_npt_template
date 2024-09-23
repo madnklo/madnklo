@@ -65,7 +65,7 @@ COMMON_FILES= CSmapping.o imap.o  gen_double_real_phase_space.o  vegas.o  fjcore
 COMMON_FILES+= genps.o invarients.o transpole.o myamp.o idenparts.o dsample.o ranmar.o
 
 
-USR_FILES=alphaS.o kinematics.o  sectors.o analysis.o hbook.o cuts.o
+USR_FILES=alphaS.o kinematics.o  sectors2_module.o sectors.o analysis.o hbook.o cuts.o
 
 %(proc_str)s
 

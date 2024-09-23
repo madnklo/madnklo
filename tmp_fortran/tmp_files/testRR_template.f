@@ -45,6 +45,7 @@ c
 
 
       subroutine do_limit_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,limstr,x0,e,l)
+      USE SECTORS3_MODULE
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -76,7 +77,7 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       double precision xsave(5)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-      DOUBLE PRECISION Z_NNLO
+c      DOUBLE PRECISION Z_NNLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
@@ -157,7 +158,11 @@ c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
-         call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+
+         call get_sigNNLO(SNNLO,alphaz,nexternal)
+         call get_Z_NNLO(isec,jsec,ksec,lsec)
+         
          if(ierr.eq.1)cycle
 c
 c     counterterm

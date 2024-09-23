@@ -1,6 +1,7 @@
       double precision function int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(x,wgt)
 c     (n+2)-body NNLO integrand for vegas
       implicit none
+      USE SECTORS3_MODULE
       include 'coupl.inc'
       include 'math.inc'
       include 'nexternal.inc'
@@ -21,7 +22,7 @@ c     (n+2)-body NNLO integrand for vegas
       double precision sNNLO(nexternal,nexternal)
       double precision sNLO(nexternal-1,nexternal-1),sminNLO
       double precision sLO(nexternal-2,nexternal-2)
-      double precision Z_NNLO
+c      double precision Z_NNLO
       double precision alphaZ
       parameter(alphaZ=1d0)
       double precision RNNLO,KNNLO
@@ -155,7 +156,10 @@ c     double real
       endif
 c
 c     double real sector function
-      call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+c      call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+      call get_sigNNLO(SNNLO,alphaz,nexternal)
+      call get_Z_NNLO(isec,jsec,ksec,lsec)
+
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong Z_NNLO', Z_NNLO

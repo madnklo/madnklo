@@ -84,7 +84,7 @@ c      DOUBLE PRECISION Z_NNLO
       integer %(NNLO_proc_str)sfl_factor 
       common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
       DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=1D0)
+      PARAMETER(ALPHAZ=2D0)
       common/cxsave/xsave
       double precision e(5),l(5)
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)

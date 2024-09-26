@@ -31,10 +31,10 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
-      integer %(proc_prefix_real)s_fl_factor
-      common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
-      integer %(proc_prefix_real)s_den
-      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_rr)s_fl_factor
+      common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
+      integer %(proc_prefix_rr)s_den
+      common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_HC_gg)s_den
       common/%(proc_prefix_HC_gg)s_iden/%(proc_prefix_HC_gg)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
@@ -97,7 +97,7 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir) 
       if(ir.ge.2)then
@@ -108,7 +108,7 @@ c     recoiler position (ir)
       M2tmp=M2tmp*damp
       M2_HC_gg=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
-      M2_HC_gg=M2_HC_gg*%(proc_prefix_real)s_fl_factor
+      M2_HC_gg=M2_HC_gg*%(proc_prefix_rr)s_fl_factor
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

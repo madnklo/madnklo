@@ -20,15 +20,15 @@ c     it returns 0 if i is not a gluon
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,y,z,x,damp
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
-      logical isLOQCDparton(nexternal-1)
+      logical ismappedQCDparton(nexternal-1)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
       logical docut
-      integer %(proc_prefix_real)s_fl_factor
-      common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
+      integer %(proc_prefix_rr)s_fl_factor
+      common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
@@ -38,13 +38,12 @@ c     external
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_g)s_GET_CCBLO
-      integer %(proc_prefix_real)s_den
-      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_rr)s_den
+      common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_S_g)s_den
       common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
       INCLUDE 'pmass.inc'
@@ -71,7 +70,7 @@ c     get PDGs
 c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
 
-      CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+      CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISMAPPEDQCDPARTON)
 c
 c     call Z soft
       if(i.eq.isec) then
@@ -90,10 +89,10 @@ c     overall kernel prefix
 c
 c     eikonal double sum
       do m=1,nexternal
-         if(.not.isNLOQCDparton(m))cycle
+         if(.not.ismappedQCDparton(m))cycle
          if(m.eq.i)cycle
          do l=1,nexternal
-            if(.not.isNLOQCDparton(l))cycle
+            if(.not.ismappedQCDparton(l))cycle
             if(l.eq.i)cycle
             if(l.eq.m)cycle
 c
@@ -101,7 +100,7 @@ c
             mb=mapped_labels(m)
 c
 c         check labels and pdgs
-          IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
+          IF(.NOT.(ISMAPPEDQCDPARTON(LB).AND.ISMAPPEDQCDPARTON(MB)))THEN
             WRITE(*,*)'Wrong indices 1 in M2_S_g',LB,MB
             STOP
           ENDIF
@@ -143,7 +142,7 @@ c     eikonal
             M2TMP=SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
+            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
 c
 c     damping factors
             if(m.gt.2.and.l.gt.2)then
@@ -163,14 +162,14 @@ c     damping factors
 c
 c     plot
             wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
+            wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
          enddo 
       enddo
 c
 c     apply flavour factor
-      M2_S_g = M2_S_g * %(proc_prefix_real)s_fl_factor
+      M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

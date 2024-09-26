@@ -26,12 +26,12 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
-      integer %(proc_prefix_real)s_fl_factor
-      common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
+      integer %(proc_prefix_rr)s_fl_factor
+      common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
       double precision alphas,alpha_qcd
       integer,parameter :: HEL = - 1
-      integer %(proc_prefix_real)s_den
-      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_rr)s_den
+      common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_HC_gq)s_den
       common/%(proc_prefix_HC_gq)s_iden/%(proc_prefix_HC_gq)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
@@ -80,7 +80,7 @@ c     call Born
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0-x**alpha))
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -91,7 +91,7 @@ c     recoiler position (ir)
       M2tmp=M2tmp*damp
       M2_HC_gq=M2tmp*pref/sab*xj*extra
 c     apply flavour factor
-      M2_HC_gq=M2_HC_gq*%(proc_prefix_real)s_fl_factor
+      M2_HC_gq=M2_HC_gq*%(proc_prefix_rr)s_fl_factor
 c
 c     plot
       wgtpl=-M2_HC_gq*wgt/nit*wgt_chan

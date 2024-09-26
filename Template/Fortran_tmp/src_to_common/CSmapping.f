@@ -209,6 +209,7 @@ c
 c     TODO: add mappings for initial state
 c
       implicit none
+      include 'nexternal.inc'
       include 'coupl.inc'
       include 'math.inc'
       integer i,j,iU,iS,iB,npart
@@ -221,7 +222,7 @@ c     TODO: change name to isunderlyingqcdparton()
 c$$$      logical isLOQCDparton(npart-1)
       double precision lam1,lam2,mS2,mB2,miUiS2
       double precision lambda,vel,sdip,z_minus,z_plus
-      double precision pmass(npart)
+      double precision pmass(nexternal)
       include 'pmass.inc'
 c
 c     initialise

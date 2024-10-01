@@ -1346,12 +1346,13 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
-                if(len(UReal_procs)!= 0):   
-                    UReal_matrix = 'matrix_%s.f' %(UReal_procs[0])
-                    #print(path_UReal_procs[0] + '/' + UReal_matrix)
-                    os.system('cp ' + path_UReal_procs[0] + '/' + UReal_matrix + ' ' + dirpath)
-                else:
-                    UReal_matrix = 'matrix_dummy'
+                # if(len(UReal_procs)!= 0):   
+                #     UReal_matrix = 'matrix_%s.f' %(UReal_procs[0])
+                #     #print(path_UReal_procs[0] + '/' + UReal_matrix)
+                #     os.system('cp ' + path_UReal_procs[0] + '/' + UReal_matrix + ' ' + dirpath)
+                # else:
+                #     UReal_matrix = 'matrix_dummy'
+
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
                     tmp_str = """ 
@@ -1464,6 +1465,7 @@ c       %s
             # print('path_to_Real : ' + str(overall_sector_info[i]['path_to_Real']))
             # print('alt_Real_str : ' + str(overall_sector_info[i]['alt_Real_str']))
             # print('alt_Real_path : ' + str(overall_sector_info[i]['alt_Real_path']))
+            # print(' ')
             
             # write NNLO_RRsub
             if sector_info['Born_str']:
@@ -2055,53 +2057,66 @@ c       %s
         for i in range(0,len(overall_sector_info)):
 
             # copy born stuff
-            if not overall_sector_info[i]['Born_str']:
+            if (overall_sector_info[i]['Born_str'] == 'dummy' and not overall_sector_info[i]['path_to_Born']):
                 continue
-            
-            # Set up links to additional files related to the 'Born_str', independent of flavour-dependent Born string
-            if not glob.glob(dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']):
-                os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % overall_sector_info[i]['Born_str'],
-                           dirpath + '/ngraphs_%s.inc' % overall_sector_info[i]['Born_str']) 
-                os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % overall_sector_info[i]['Born_str'],
-                           dirpath + '/configs_%s.f' % overall_sector_info[i]['Born_str'])
-                os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % overall_sector_info[i]['Born_str'],
-                           dirpath + '/props_%s.f' % overall_sector_info[i]['Born_str'])
-                os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % overall_sector_info[i]['Born_str'],
-                           dirpath + '/decayBW_%s.f' % overall_sector_info[i]['Born_str'])
-                os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % overall_sector_info[i]['Born_str'],
-                           dirpath + '/leshouche_%s.f' % overall_sector_info[i]['Born_str'])
                 
             # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
-            if not overall_sector_info[i]['path_to_Born']:
-                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
-                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']), 
-                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str']) )
-                    os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'], 
-                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'] )
-                continue
+            elif (not overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str'] != 'dummy'):
+                string = overall_sector_info[i]['Born_str']
+                string2 = overall_sector_info[i]['alt_Born_str']
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
+                    os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
+                    
+                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
 
-            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']), 
-                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
-                os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'], 
-                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
+            elif (overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str'] != 'dummy'):
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                    string = overall_sector_info[i]['Born_str']
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], string), "%s/matrix_%s.f" % (dirpath, string) )
+                    os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
+
+                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
                 
             # copy real stuff
-            if not overall_sector_info[i]['Real_str']:
-                continue
-            if not overall_sector_info[i]['path_to_Real']:
-                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Real_str'])):
-                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], overall_sector_info[i]['alt_Real_str']), 
-                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Real_str']) )
-                    os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Real_str'], 
-                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Real_str'] )
-                continue
+            if (overall_sector_info[i]['Real_str'] == 'dummy' and not overall_sector_info[i]['path_to_Real']):
+                continue        
+            elif (not overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str'] != 'dummy'):
+                string = overall_sector_info[i]['Real_str']
+                string2 = overall_sector_info[i]['alt_Real_str']
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
+                    os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
 
-            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
-                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], overall_sector_info[i]['Real_str']), 
-                            "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str']) )
-                os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'], 
-                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
+                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
+
+            elif (overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str'] != 'dummy'):
+                if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
+                    string = overall_sector_info[i]['Real_str']
+                    os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], string), "%s/matrix_%s.f" % (dirpath, string) )
+                    os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
+
+                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
 
 
     #===========================================================================
@@ -2453,8 +2468,10 @@ c     soft-collinear limit
             if(lsec != 0):
                 files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
                 if(overall_sector_info[i]['Born_str'] == ''):
-                    overall_sector_info[i]['Born_str'] = 'dummy'
-                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                #    overall_sector_info[i]['Born_str'] = 'dummy'
+                    files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
+                else:
+                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
                 files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
@@ -2470,8 +2487,10 @@ sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
             else:
                 files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
                 if(overall_sector_info[i]['Born_str'] == ''):
-                    overall_sector_info[i]['Born_str'] = 'dummy'
-                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                    #overall_sector_info[i]['Born_str'] = 'dummy'
+                    files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
+                else:
+                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
                 files_str += 'driver_RR_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_RRsub_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d.o ' % (isec, jsec, ksec)

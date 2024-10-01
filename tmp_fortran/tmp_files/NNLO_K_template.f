@@ -1,4 +1,4 @@
-      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,KNNLO,wgt_chan,ierr)
+      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,KNNLO,wgt_chan,ierr)
 c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl      
       implicit none
       include 'nexternal.inc'
@@ -16,7 +16,7 @@ c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl
       KNNLO = 0d0
 
       call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
-      call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,K2,wgt_chan,ierr)
+      call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
       call local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,K12,wgt_chan,ierr)
 
 c     combination
@@ -62,7 +62,7 @@ c
       return
       end
 
-      subroutine local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,K2,wgt_chan,ierr)
+      subroutine local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
 c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'

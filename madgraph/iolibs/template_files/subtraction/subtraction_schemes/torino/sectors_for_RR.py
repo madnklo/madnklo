@@ -1335,7 +1335,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    if(j==0):
+                    if(j==0): # just one call to the kernel is needed
                         os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
@@ -1346,6 +1346,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
+                
                 # if(len(UReal_procs)!= 0):   
                 #     UReal_matrix = 'matrix_%s.f' %(UReal_procs[0])
                 #     #print(path_UReal_procs[0] + '/' + UReal_matrix)
@@ -1471,22 +1472,35 @@ c       %s
             if sector_info['Born_str']:
                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
             else:
+                # Set dummy calls to bypass Born multichannelling
                 if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/matrix_dummy.f', dirpath + '/matrix_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')  
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/configs_dummy.f', dirpath + '/configs_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/props_dummy.f', dirpath + '/props_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/leshouche_dummy.f', dirpath + '/leshouche_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
+            # old
+            # if sector_info['Born_str']:
+            #     replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+            # else:
+            #     replace_dict_double_real['UBgraphs'] = 'dummy'
+            #     if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
+            #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+            #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
                 
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
-            UBgraphs = overall_sector_info[i]['Born_str']
             writer(filename).writelines(file)
 
-            # write driver_RR
-
-            
+            # write driver_RR        
+            UBgraphs = overall_sector_info[i]['Born_str']
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
+            # write test_RR 
             # import pdb
             # pdb.set_trace()
             self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
@@ -1759,10 +1773,16 @@ c       %s
 
             # write NNLO_RRsub
             if sector_info['Born_str']:
-                replace_dict_double_real['UBgraphs'] = overall_sector_info[i+len(all_3p_sector_list)]['Born_str']
+                replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
             else:
+                # Set dummy calls to bypass Born multichannelling
                 if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/matrix_dummy.f', dirpath + '/matrix_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')  
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/configs_dummy.f', dirpath + '/configs_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/props_dummy.f', dirpath + '/props_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/leshouche_dummy.f', dirpath + '/leshouche_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
 
             filename = []
@@ -1770,7 +1790,7 @@ c       %s
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
-            UBgraphs = overall_sector_info[i+len(all_3p_sector_list)]['Born_str']
+            UBgraphs = overall_sector_info[i+len(all_4p_sector_list)]['Born_str']
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
 
@@ -2056,14 +2076,15 @@ c       %s
 
         for i in range(0,len(overall_sector_info)):
 
-            # copy born stuff
-            if (overall_sector_info[i]['Born_str'] == 'dummy' and not overall_sector_info[i]['path_to_Born']):
+            # copy Born stuff
+            if (not overall_sector_info[i]['Born_str'] and not overall_sector_info[i]['path_to_Born']):
+                # No underlying Born
                 continue
-                
-            # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
-            elif (not overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str'] != 'dummy'):
+
+            elif (not overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str']):
                 string = overall_sector_info[i]['Born_str']
                 string2 = overall_sector_info[i]['alt_Born_str']
+                # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
                     os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
@@ -2075,9 +2096,10 @@ c       %s
                     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
 
-            elif (overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str'] != 'dummy'):
+            elif (overall_sector_info[i]['path_to_Born'] and overall_sector_info[i]['Born_str']):
+                string = overall_sector_info[i]['Born_str']
+                # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                    string = overall_sector_info[i]['Born_str']
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], string), "%s/matrix_%s.f" % (dirpath, string) )
                     os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 
@@ -2088,35 +2110,39 @@ c       %s
                     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
                 
-            # copy real stuff
-            if (overall_sector_info[i]['Real_str'] == 'dummy' and not overall_sector_info[i]['path_to_Real']):
+            # copy Real stuff
+            if (not overall_sector_info[i]['Real_str'] and not overall_sector_info[i]['path_to_Real']):
+                # No underlying Real
                 continue        
-            elif (not overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str'] != 'dummy'):
+
+            elif (not overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str']):
                 string = overall_sector_info[i]['Real_str']
                 string2 = overall_sector_info[i]['alt_Real_str']
+                # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
                     os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
 
-                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
-                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
+                # if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                #     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
 
-            elif (overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str'] != 'dummy'):
+            elif (overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str']):
+                string = overall_sector_info[i]['Real_str']
+                # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
-                    string = overall_sector_info[i]['Real_str']
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], string), "%s/matrix_%s.f" % (dirpath, string) )
                     os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 
-                if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
-                    os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
-                    os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
+                # if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
+                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                #     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
+                #     os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
 
 
     #===========================================================================
@@ -2465,18 +2491,43 @@ c     soft-collinear limit
             replace_dict['jsec'] = jsec
             replace_dict['ksec'] = ksec
             replace_dict['lsec'] = lsec
-            if(lsec != 0):
+
+            # 4-p sectors
+            if (lsec != 0):
                 files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
-                if(overall_sector_info[i]['Born_str'] == ''):
-                #    overall_sector_info[i]['Born_str'] = 'dummy'
+                # Born ME
+                if (overall_sector_info[i]['Born_str'] == '' and overall_sector_info[i]['alt_Born_str'] == ''):
                     files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
-                else:
+                    string = 'dummy'
+                elif (overall_sector_info[i]['Born_str'] != '' and overall_sector_info[i]['alt_Born_str'] == ''):
                     files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                    string = overall_sector_info[i]['Born_str']
+                else:
+                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['alt_Born_str'] + '.o '
+                    string = overall_sector_info[i]['Born_str']
+
+                files_str += 'configs_%s.o ' % string
+                files_str += 'props_%s.o ' % string
+                files_str += 'decayBW_%s.o ' % string
+                files_str += 'leshouche_%s.o ' % string
+
+                # Real ME
+                if (overall_sector_info[i]['alt_Real_str'] == ''):
+                    files_str += 'matrix_' + overall_sector_info[i]['Real_str'] + '.o '
+                else:
+                    files_str += 'matrix_' + overall_sector_info[i]['alt_Real_str'] + '.o '
+
+                #files_str += 'configs_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'props_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Real_str']
+
                 files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'testRR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_K_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
+                files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
                 all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
                 sector_str += """
 sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
@@ -2484,18 +2535,43 @@ sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
 """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec) 
+                
+            # 3-p sectors
             else:
                 files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
-                if(overall_sector_info[i]['Born_str'] == ''):
-                    #overall_sector_info[i]['Born_str'] = 'dummy'
+                # Born ME
+                if (overall_sector_info[i]['Born_str'] == '' and overall_sector_info[i]['alt_Born_str'] == ''):
                     files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
-                else:
+                    string = 'dummy'
+                elif (overall_sector_info[i]['Born_str'] != '' and overall_sector_info[i]['alt_Born_str'] == ''):
                     files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                    string = overall_sector_info[i]['Born_str']
+                else:
+                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['alt_Born_str'] + '.o '
+                    string = overall_sector_info[i]['Born_str']
+
+                files_str += 'configs_%s.o ' % string
+                files_str += 'props_%s.o ' % string
+                files_str += 'decayBW_%s.o ' % string
+                files_str += 'leshouche_%s.o ' % string
+
+                # Real ME
+                if (overall_sector_info[i]['alt_Real_str'] == ''):
+                    files_str += 'matrix_' + overall_sector_info[i]['Real_str'] + '.o '
+                else:
+                    files_str += 'matrix_' + overall_sector_info[i]['alt_Real_str'] + '.o '
+
+                #files_str += 'configs_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'props_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Real_str']
+                #files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Real_str']
+
                 files_str += 'driver_RR_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_RRsub_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_IR_limits_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'testRR_%d_%d_%d.o ' % (isec, jsec, ksec)
                 files_str += 'NNLO_K_%d_%d_%d.o ' % (isec, jsec, ksec)
+                files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
                 all_str += ' sector_%d_%d_%d' % (isec, jsec, ksec)
                 sector_str += """
 sector_%d_%d_%d_libs: libs sector_%d_%d_%d
@@ -2503,13 +2579,17 @@ sector_%d_%d_%d_libs: libs sector_%d_%d_%d
 sector_%d_%d_%d: $(FILES_%d_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
 """ %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec) 
-            if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                if(overall_sector_info[i]['Born_str']==''):
-                    overall_sector_info[i]['Born_str'] = 'dummy'
-                files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'props_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Born_str']
-                files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES)\n' % overall_sector_info[i]['Born_str']
+
+            # # Add files necessary to Born ME    
+            # if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+            #     if (overall_sector_info[i]['Born_str'] == ''):
+            #         string = 'dummy'
+            #     else:
+            #         string = overall_sector_info[i]['Born_str']
+            #     files_str += 'configs_%s.o ' % string
+            #     files_str += 'props_%s.o ' % string
+            #     files_str += 'decayBW_%s.o ' % string
+            #     files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES)\n' % string
 
 #             if(lsec != 0 ):
 #                 files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)

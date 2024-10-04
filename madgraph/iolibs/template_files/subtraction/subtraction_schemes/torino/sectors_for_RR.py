@@ -1269,8 +1269,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             # Initialise ct routines to 'dummy'
             # TODO: remove since useless
-            for k in range(0, len(necessary_default_3p_ct_list)):
-                replace_dict_limits['proc_prefix_%s' % necessary_default_3p_ct_list[k]] = 'dummy'
+            # for k in range(0, len(necessary_default_3p_ct_list)):
+            #     replace_dict_limits['proc_prefix_%s' % necessary_default_3p_ct_list[k]] = 'dummy'
             
             # Update sector_info dictionary
             sector_info = {
@@ -1338,7 +1338,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if(j==0): # just one call to the kernel is needed
                         os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -1471,6 +1471,7 @@ c       %s
             # write NNLO_RRsub
             if sector_info['Born_str']:
                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+                replace_dict_limits['proc_prefix_Born'] = overall_sector_info[i]['Born_str']
             else:
                 # Set dummy calls to bypass Born multichannelling
                 if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:

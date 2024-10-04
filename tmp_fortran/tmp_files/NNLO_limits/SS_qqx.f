@@ -44,11 +44,13 @@ c     external
       double precision alphaZ
       parameter(alphaZ=2d0)
       integer, parameter :: HEL = - 1
-      double precision  %(proc_prefix_S_g)s_GET_CCBLO
+      double precision   %(proc_prefix_Born)s_GET_CCBLO
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
-      integer %(proc_prefix_S_g)s_den
-      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
+c      integer (proc_prefix_S_g)s_den
+c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
+      integer %(proc_prefix_Born)s_den
+      common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
@@ -154,8 +156,8 @@ c     safety check
 c
 c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born
-            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lbb,mbb)
+            call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c
 c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
@@ -163,7 +165,7 @@ c     (c,d) -> (m,l)
             M2tmp = 2d0*TR*(((sil*sjm-sim*sjl)**2-slm*sij*(sil+sjl)*(sim+sjm))/(sij**2*(sil+sjl)**2*(sim+sjm)**2))
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
+            M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj

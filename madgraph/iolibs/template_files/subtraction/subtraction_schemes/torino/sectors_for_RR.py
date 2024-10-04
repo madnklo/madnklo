@@ -1373,9 +1373,11 @@ c       %s
                     os.system('cat ' + NNLO_IR_limits_tmp_path 
                               + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path 
+                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 # Extract underlying Born string
                 # TODO: can I have more then one underlying born x sector?
                 self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 

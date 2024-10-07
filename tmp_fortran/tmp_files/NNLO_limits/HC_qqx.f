@@ -4,6 +4,7 @@
 c     hard-collinear limit C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
+      USE SECTORS2_MODULE
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -16,7 +17,7 @@ c     for sectors (ia,ib)+(ib,ia)
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,KKBLO
+      double precision RNLO,KKRNLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
@@ -48,13 +49,21 @@ c     initialise
       ierr=0
       damp=0d0
 c
+c     check
+      if(.not.((ia.eq.isec.and.ib.eq.jsec).or.
+     &         (ia.eq.jsec.and.ib.eq.isec).or.
+     &         (ia.eq.ksec.and.ib.eq.lsec).or.
+     &         (ia.eq.lsec.and.ib.eq.ksec))) then
+         write(*,*)'Wrong indices in M2_HC_qqx'
+         write(*,*)ia,ib,isec,jsec,ksec,lsec
+         stop
+      endif
+c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
 
       IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
-
-
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -83,7 +92,7 @@ c     safety check
 c
 c     call Born
       call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
+      RNLO = ANS(0)
 c
       call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
@@ -92,9 +101,12 @@ c
          stop
       endif
 c
-      KKBLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+      CALL GET_SIG2(XSB,1D0,NEXTERNAL-1)
+      CALL GET_Z_NLO(PARENT_LEG,MAPPED_LABELS(KSEC))
+c
+      KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2tmp=TR*(BLO-4d0/sab*KKBLO)
+      M2tmp=TR*(RNLO-4d0/sab*KKRNLO)*Z_NLO
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to

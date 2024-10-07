@@ -14,6 +14,9 @@ c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl
       double precision KNNLO, K1, K2, K12, wgt_chan
 
       KNNLO = 0d0
+      K1 = 0d0
+      K2 = 0d0
+      K12 = 0d0 
 
       call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
       call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)

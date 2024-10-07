@@ -75,6 +75,7 @@ c
             mapped_labels(i)=i-1
          endif
       enddo
+c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
       if(leg_pdgs(a)+leg_pdgs(b).eq.0)mapped_flavours(b)=21
       if(leg_pdgs(b).eq.21)mapped_flavours(b)=leg_pdgs(a)
 c

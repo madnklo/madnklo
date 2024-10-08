@@ -127,7 +127,7 @@ end module sectors2_module
 
 
 
-module sectors3_module
+module sectors4_module
   implicit none
   integer, public :: n_ext
   double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO
@@ -340,4 +340,4 @@ contains
   end subroutine sector2_sanity_checks
 
 
-end module sectors3_module
+end module sectors4_module

@@ -3,7 +3,7 @@
       double precision function M2_SS_qqx(i,j,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     double-soft limit S_(i,j) * ZSS_NNLO
 c     it returns 0 if i is not a gluon
-      use sectors3_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'

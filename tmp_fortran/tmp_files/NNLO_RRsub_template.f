@@ -1,6 +1,6 @@
       double precision function int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(x,wgt)
 c     (n+2)-body NNLO integrand for vegas
-      USE SECTORS3_MODULE
+      USE SECTORS4_MODULE
       implicit none
       include 'coupl.inc'
       include 'math.inc'

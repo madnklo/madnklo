@@ -45,7 +45,7 @@ c
 
 
       subroutine do_limit_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,limstr,x0,e,l)
-      USE SECTORS3_MODULE
+      USE SECTORS4_MODULE
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'

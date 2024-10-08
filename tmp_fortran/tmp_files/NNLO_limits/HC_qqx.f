@@ -14,7 +14,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'leg_PDGs.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
-      integer ia,ib,ir,ierr,nit,parent_leg
+      integer ia,ib,ir,ic,id,ierr,nit,parent,sec_index(2)
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision RNLO,KKRNLO
@@ -48,15 +48,39 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
+      ic=0
+      id=0
 c
-c     check
-      if(.not.((ia.eq.isec.and.ib.eq.jsec).or.
-     &         (ia.eq.jsec.and.ib.eq.isec).or.
-     &         (ia.eq.ksec.and.ib.eq.lsec).or.
-     &         (ia.eq.lsec.and.ib.eq.ksec))) then
-         write(*,*)'Wrong indices in M2_HC_qqx'
-         write(*,*)ia,ib,isec,jsec,ksec,lsec
-         stop
+c     initial checks and label assignment
+      if(lsec.eq.0)then
+         if((ia.eq.isec.and.ib.eq.jsec).or.
+     &      (ia.eq.jsec.and.ib.eq.isec)) then
+            ic = ksec
+         elseif((ia.eq.isec.and.ib.eq.ksec).or.
+     &          (ia.eq.ksec.and.ib.eq.isec)) then
+            ic = jsec
+         elseif((ia.eq.jsec.and.ib.eq.ksec).or.
+     &          (ia.eq.ksec.and.ib.eq.jsec)) then
+            ic = isec
+         else
+            write(*,*)'Wrong indices 1 in M2_HC_qqx',
+            write(*,*)ia,ib,isec,jsec,ksec
+            stop
+         endif
+      else
+         if((ia.eq.isec.and.ib.eq.jsec).or.
+     &      (ia.eq.jsec.and.ib.eq.isec)) then
+            ic = ksec
+            id = lsec
+         elseif((ia.eq.ksec.and.ib.eq.lsec).or.
+     &          (ia.eq.lsec.and.ib.eq.ksec)) then
+            ic = isec
+            id = jsec
+         else
+            write(*,*)'Wrong indices 2 in M2_HC_qqx',
+            write(*,*)ia,ib,isec,jsec,ksec,lsec
+            stop
+         endif
       endif
 c
 c     possible cuts
@@ -94,17 +118,26 @@ c     call Born
       call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       RNLO = ANS(0)
 c
+c     assign mapped labels and flavours
       call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
-      parent_leg = mapped_labels(ib)
+      parent = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
          stop
       endif
 c
+c     call remapped sector function
       CALL GET_SIG2(XSB,1D0,NEXTERNAL-1)
-      CALL GET_Z_NLO(PARENT_LEG,MAPPED_LABELS(KSEC))
+      if(lsec.eq.0)then
+         sec_index(1) = parent
+         sec_index(2) = mapped_labels(ic)
+      else
+         sec_index(1) = mapped_labels(ic)
+         sec_index(2) = mapped_labels(id)
+      endif
+      CALL GET_ZHC_NNLO(sec_index(1),sec_index(2),list............)
 c
-      KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(RNLO-4d0/sab*KKRNLO)*Z_NLO
 c     Including correct multiplicity factor

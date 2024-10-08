@@ -53,31 +53,26 @@ c     initialise
 c
 c     initial checks and label assignment
       if(lsec.eq.0)then
-         if((ia.eq.isec.and.ib.eq.jsec).or.
-     &      (ia.eq.jsec.and.ib.eq.isec)) then
+         if((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)) then
             ic = ksec
-         elseif((ia.eq.isec.and.ib.eq.ksec).or.
-     &          (ia.eq.ksec.and.ib.eq.isec)) then
+         elseif((ia.eq.isec.and.ib.eq.ksec).or.(ia.eq.ksec.and.ib.eq.isec)) then
             ic = jsec
-         elseif((ia.eq.jsec.and.ib.eq.ksec).or.
-     &          (ia.eq.ksec.and.ib.eq.jsec)) then
+         elseif((ia.eq.jsec.and.ib.eq.ksec).or.(ia.eq.ksec.and.ib.eq.jsec)) then
             ic = isec
          else
-            write(*,*)'Wrong indices 1 in M2_HC_qqx',
+            write(*,*)'Wrong indices 1 in M2_HC_qqx'
             write(*,*)ia,ib,isec,jsec,ksec
             stop
          endif
       else
-         if((ia.eq.isec.and.ib.eq.jsec).or.
-     &      (ia.eq.jsec.and.ib.eq.isec)) then
+         if((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)) then
             ic = ksec
             id = lsec
-         elseif((ia.eq.ksec.and.ib.eq.lsec).or.
-     &          (ia.eq.lsec.and.ib.eq.ksec)) then
+         elseif((ia.eq.ksec.and.ib.eq.lsec).or.(ia.eq.lsec.and.ib.eq.ksec)) then
             ic = isec
             id = jsec
          else
-            write(*,*)'Wrong indices 2 in M2_HC_qqx',
+            write(*,*)'Wrong indices 2 in M2_HC_qqx'
             write(*,*)ia,ib,isec,jsec,ksec,lsec
             stop
          endif

@@ -335,7 +335,7 @@ contains
 !!$    enddo
 !!$    ZSS_NNLO = num/sigma
 !!$    call sector2_sanity_checks(sigma,ZSS_NNLO)
-  end subroutine get_ZSS_NNLO
+  end subroutine get_ZHC_NNLO
 
   
   subroutine sector4_global_checks(i1,i2,i3,i4)

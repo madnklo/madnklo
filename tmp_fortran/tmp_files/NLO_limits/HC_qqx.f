@@ -47,6 +47,16 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
+c     Check over (ia,ib)
+c     They must be equal to (isec,jsec)
+
+      if(.not.((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec))) then
+         write (*,*) 'Wrong indices in M2_HC_qqx:'
+         write(*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
+         stop
+      endif
+
+      
 c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)

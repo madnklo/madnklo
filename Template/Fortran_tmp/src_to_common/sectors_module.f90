@@ -125,10 +125,10 @@ end module sectors2_module
 module sectors4_module
   implicit none
   integer, public :: n_ext
-  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO
+  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO
+  public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO, get_ZHC_NNLO
   private
 
 contains
@@ -295,46 +295,28 @@ contains
   end subroutine get_ZSS_NNLO
   
 
-  subroutine get_ZHC_NNLO(i1,i2,list)
+  subroutine get_ZHC_NNLO(i1,i2,sec_list)
     !     NNLO 2-index mapped sector function relevant to the barHCij limit
     use sectors2_module
     implicit none
+    include 'nexternal.inc'
     integer i,a,b,i1,i2
     double precision num,sigma
+    ! This list contains the pairs (bar{isec}, bar{jsec})
+    ! The second entry runs over the number of final state NLO particles
+    integer sec_list(2,nexternal-3) 
 
     num = sig2(i1,i2) + sig2(i2,i1)
     sigma = 0d0
-!!$    do i=1,lensectors
-!!$       a=all_sector_list(1,i)
-!!$       b=all_sector_list(2,i)
-!!$       c=all_sector_list(3,i)
-!!$       d=all_sector_list(4,i)
-!!$       if(d.eq.0) then
-!!$          if(a.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(a,b,c,b) + sigNNLO(a,c,c,b) + sigNNLO(c,b,a,b) + sigNNLO(c,a,a,b)
-!!$!          if(a.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,b,a,b) + sigNNLO(c,a,a,b)
-!!$          if(a.eq.i1.and.b.eq.i3) sigma = sigma + sigNNLO(a,c,b,c) + sigNNLO(a,b,b,c) + sigNNLO(b,c,a,c) + sigNNLO(b,a,a,c)
-!!$!          if(a.eq.i3.and.b.eq.i1) sigma = sigma + sigNNLO(b,c,a,c) + sigNNLO(b,a,a,c)
-!!$          if(b.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(b,a,c,a) + sigNNLO(b,c,c,a) + sigNNLO(c,a,b,a) + sigNNLO(c,b,b,a)
-!!$!          if(b.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,a,b,a) + sigNNLO(c,b,b,a)
-!!$       elseif(d.ne.0) then
-!!$          if(a.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(a,b,c,d)
-!!$          if(a.eq.i1.and.d.eq.i3) sigma = sigma + sigNNLO(a,b,d,c)
-!!$          if(b.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(b,a,c,d)
-!!$          if(b.eq.i1.and.d.eq.i3) sigma = sigma + sigNNLO(b,a,d,c)
-!!$          if(a.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,d,a,b)
-!!$          if(b.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,d,b,a)
-!!$          if(a.eq.i3.and.d.eq.i1) sigma = sigma + sigNNLO(d,c,a,b)
-!!$          if(b.eq.i3.and.d.eq.i1) sigma = sigma + sigNNLO(d,c,b,a)
-!!$       else
-!!$          write(*,*) 'get_ZSS_NNLO: error in the construction of denominator'
-!!$          write(*,*) 'Negative value for 4th sector index i4...'
-!!$          write(*,*) 'i4 = ', i4
-!!$          write(*,*) 'exit...'
-!!$          stop
-!!$       endif
-!!$    enddo
-!!$    ZSS_NNLO = num/sigma
-!!$    call sector2_sanity_checks(sigma,ZSS_NNLO)
+
+    do i=1,nexternal-3
+       a = sec_list(1,i)
+       b = sec_list(2,i)
+       sigma = sigma + sig2(a,b) + sig2(b,a)
+    enddo
+    Z_HC_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,Z_HC_NNLO)
+    
   end subroutine get_ZHC_NNLO
 
   

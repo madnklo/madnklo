@@ -42,6 +42,8 @@ c     set logical doplot
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
+      integer mapped_sec(2,nexternal)
+      integer i,j,k
 c
 c     initialise
       M2_HC_qqx=0d0
@@ -130,7 +132,21 @@ c     call remapped sector function
          sec_index(1) = mapped_labels(ic)
          sec_index(2) = mapped_labels(id)
       endif
-      CALL GET_ZHC_NNLO(sec_index(1),sec_index(2),list............)
+
+c     Fill  mapped_sec_list(2,nexternal) with the pairs of all the
+c     final state particles after mapping n+2 --> n+1
+
+      k = 0
+      do i=3,nexternal-1
+         do j=i+1,nexternal
+            k=k+1
+            mapped_sec(1,k) = mapped_labels(i)
+            mapped_sec(2,k) = mapped_labels(j)
+         enddo
+      enddo
+
+      
+      CALL GET_ZHC_NNLO(sec_index(1),sec_index(2),mapped_sec)
 c
       KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2

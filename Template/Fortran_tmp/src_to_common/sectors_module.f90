@@ -304,14 +304,15 @@ contains
     double precision num,sigma
     ! This list contains the pairs (bar{isec}, bar{jsec})
     ! The second entry runs over the number of final state NLO particles
-    integer sec_list(2,nexternal-3) 
+    integer sec_list(2,nexternal) 
 
     num = sig2(i1,i2) + sig2(i2,i1)
     sigma = 0d0
 
-    do i=1,nexternal-3
+    do i=1,nexternal
        a = sec_list(1,i)
        b = sec_list(2,i)
+       if(a.eq.0.or.b.eq.0) cycle
        sigma = sigma + sig2(a,b) + sig2(b,a)
     enddo
     Z_HC_NNLO = num/sigma

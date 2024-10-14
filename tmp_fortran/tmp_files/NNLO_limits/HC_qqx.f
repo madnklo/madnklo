@@ -151,7 +151,7 @@ c     final state particles after mapping n+2 --> n+1
 c
       KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2tmp=TR*(RNLO-4d0/sab*KKRNLO)*Z_NLO
+      M2tmp=TR*(RNLO-4d0/sab*KKRNLO)*Z_HC_NNLO
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to

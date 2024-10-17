@@ -45,6 +45,9 @@ c     set logical doplot
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       integer mapped_sec(2,nexternal)
       integer i,j,k
+      double precision xpb_mapped(0:3,nexternal-1)
+      double precision aux(0:3)
+
 c
 c     initialise
       M2_HC_qqx=0d0
@@ -53,6 +56,8 @@ c     initialise
       damp=0d0
       ic=0
       id=0
+      xpb_mapped = 0d0
+      aux = 0d0
 c
 c     initial checks and label assignment
       if(lsec.eq.0)then
@@ -82,9 +87,12 @@ c     initial checks and label assignment
       endif
 c
 c     possible cuts
-c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
-
+c     assign mapped labels and flavours
+      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+c     Reshuffle momenta and labels according to underlying_leg_pdgs
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+c      
       IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
@@ -116,8 +124,7 @@ c     call Born
       call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       RNLO = ANS(0)
 c
-c     assign mapped labels and flavours
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+
       parent = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)

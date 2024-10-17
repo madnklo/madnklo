@@ -74,14 +74,46 @@ c
          else
             mapped_labels(i)=i-1
          endif
-      enddo
+       enddo
 c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
       if(leg_pdgs(a)+leg_pdgs(b).eq.0)mapped_flavours(b)=21
       if(leg_pdgs(b).eq.21)mapped_flavours(b)=leg_pdgs(a)
-c
+
+
+
       return
       end
 
+
+
+      subroutine reshuffle_momenta(n,leg_pdgs,mapped_flavours,mapped_labels,xpb)
+      implicit none
+      integer i,j,n
+      integer leg_pdgs(n-1), mapped_labels(n),mapped_flavours(n)
+      double precision xpb(0:3,n-1), xpb_mapped(0:3,n-1)
+
+      xpb_mapped(:,:) = 0d0
+      
+      
+      do i=1,n-1
+         do j=1,n
+            if(leg_pdgs(i).eq.mapped_flavours(j)) then
+               if(mapped_flavours(j).eq.0) cycle
+               xpb_mapped(:,mapped_labels(j)) = xpb(:,i)
+               mapped_labels(j) = i
+               exit
+            endif
+         enddo
+      enddo
+      xpb(:,:) = xpb_mapped(:,:)
+      
+      return
+      end
+      
+
+
+
+      
 c$$$
 c$$$      if(maptype.eq.'S')then
 c$$$         call get_soft_mapped_labels(a,b,c,n,leg_pdgs,mapped_labels,

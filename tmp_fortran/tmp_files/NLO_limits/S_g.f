@@ -73,6 +73,9 @@ c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
 
       CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
+c     Reshuffle momenta and labels according to underlying_leg_pdgs
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+
 c
 c     call Z soft
       CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)

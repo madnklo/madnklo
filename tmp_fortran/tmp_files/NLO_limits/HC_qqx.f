@@ -52,7 +52,7 @@ c     They must be equal to (isec,jsec)
 
       if(.not.((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec))) then
          write (*,*) 'Wrong indices in M2_HC_qqx:'
-         write(*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
+         write(*,*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
          stop
       endif
 
@@ -61,10 +61,10 @@ c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
-
+      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+c     Reshuffle momenta and labels according to underlying_leg_pdgs
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
       IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
-
-
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -95,7 +95,6 @@ c     call Born
       call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)

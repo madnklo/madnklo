@@ -52,6 +52,10 @@ c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UnderLying_LEG_PDGS)
+      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
+c     Reshuffle momenta and labels according to underlying_leg_pdgs
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+
 
       IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
       
@@ -85,7 +89,6 @@ c     call Born
       call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
       parent_leg = mapped_labels(ib)
       if(mapped_flavours(ib).ne.21)then
          write(*,*) 'M2_HC_gg: '

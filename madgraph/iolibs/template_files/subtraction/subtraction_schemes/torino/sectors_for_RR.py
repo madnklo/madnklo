@@ -1412,6 +1412,8 @@ c       %s
                 elif j > 11 and j <= 14:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
+                    os.system('cat ' + NNLO_IR_limits_tmp_path 
+                              + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 

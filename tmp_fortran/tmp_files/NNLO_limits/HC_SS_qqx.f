@@ -13,7 +13,8 @@ c     it returns 0 if i is not a gluon
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      INCLUDE 'run.inc'
+      integer i,j
       integer ia,ib,ik,ir,l,m,ierr,nit,idum
       integer jb,lb,mb
       integer jbb,lbb,mbb
@@ -22,7 +23,7 @@ c     it returns 0 if i is not a gluon
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision xpbb(0:3,nexternal-2)
+      double precision xpbb(0:3,nexternal-2), kt(0:3)
       double precision sab,sar,sbr
       double precision wa,wb,wr
       double precision sblm,sbjl,sbjm,ktkl,ktkm,kt2
@@ -199,8 +200,8 @@ c     (c,d) in the paper --> (m,l)
             
 c
 c     safety check
-          IF(SIJ.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.OR.KT2.LE.0D0)THEN
-            WRITE(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',SIJ, SBJL, SBJM, KT2
+          IF(SAB.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.OR.KT2.LE.0D0)THEN
+            WRITE(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',SAB, SBJL, SBJM, KT2
             GOTO 999
           ENDIF
 c
@@ -212,7 +213,7 @@ c
 c     eikonal
 c     See eq.1617 in file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l)
-            M2tmp = TR*(sblm/(sij*sbjl*sbjm)+4d0*x*(1d0-x)/(kt2*sab)*(ktkl/sbjl-ktkm/sjm)**2)
+            M2tmp = TR*(sblm/(sab*sbjl*sbjm)+4d0*x*(1d0-x)/(kt2*sab)*(ktkl/sbjl-ktkm/sbjm)**2)
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -232,8 +233,8 @@ c     apply flavour factor
       M2_HC_SS_QQX = M2_HC_SS_QQX * %(proc_prefix_rr)s_fl_factor
 c
 c     sanity check
-      if(abs(M2_SS_qqx).ge.huge(1d0).or.isnan(M2_SS_qqx))then
-         write(77,*)'Exception caught in M2_SS_qqx',M2_SS_qqx
+      if(abs(M2_HC_SS_QQX).ge.huge(1d0).or.isnan(M2_HC_SS_QQX))then
+         write(77,*)'Exception caught in M2_HC_SS_QQX',M2_HC_SS_QQX
          goto 999
       endif
 c

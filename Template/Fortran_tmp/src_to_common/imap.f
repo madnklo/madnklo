@@ -88,15 +88,16 @@ c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
 
       subroutine reshuffle_momenta(n,leg_pdgs,mapped_flavours,mapped_labels,xpb)
       implicit none
+      include 'nexternal.inc'
       integer i,j,n
-      integer leg_pdgs(n-1), mapped_labels(n),mapped_flavours(n)
+      integer leg_pdgs(n-1), mapped_labels(nexternal),mapped_flavours(nexternal)
       double precision xpb(0:3,n-1), xpb_mapped(0:3,n-1)
 
       xpb_mapped(:,:) = 0d0
       
       
       do i=1,n-1
-         do j=1,n
+         do j=1,nexternal
             if(leg_pdgs(i).eq.mapped_flavours(j)) then
                if(mapped_flavours(j).eq.0) cycle
                xpb_mapped(:,mapped_labels(j)) = xpb(:,i)

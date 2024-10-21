@@ -125,10 +125,10 @@ end module sectors2_module
 module sectors4_module
   implicit none
   integer, public :: n_ext
-  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO
+  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO, get_ZHC_NNLO
+  public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO, get_ZHC_NNLO, get_ZS_NNLO
   private
 
 contains
@@ -295,6 +295,35 @@ contains
   end subroutine get_ZSS_NNLO
   
 
+
+  subroutine get_ZS_NNLO(i1,i2,sec_list)
+    !     NNLO 2-index mapped sector function relevant to the barHCijbarSij limit
+    use sectors2_module
+    implicit none
+    include 'nexternal.inc'
+    integer i,a,b,i1,i2
+    double precision num,sigma
+    ! This list contains the pairs (bar{isec}, bar{jsec})
+    ! The second entry runs over the number of final state NLO particles
+    integer sec_list(2,nexternal) 
+    
+    
+    num = sig2(i1,i2)
+    sigma = 0d0
+
+    
+    do i=1,nexternal
+       a = sec_list(1,i)
+       b = sec_list(2,i)
+       if(a.eq.0.or.b.eq.0) cycle
+       if(a.eq.i1) sigma = sigma + sig2(a,b)
+       if(b.eq.i1) sigma = sigma + sig2(b,a)
+    enddo
+    ZS_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,ZS_NNLO)
+  end subroutine get_ZS_NNLO
+
+  
   subroutine get_ZHC_NNLO(i1,i2,sec_list)
     !     NNLO 2-index mapped sector function relevant to the barHCij limit
     use sectors2_module

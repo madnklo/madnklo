@@ -3,6 +3,7 @@
       double precision function M2_HC_SS_QQX(ia,ib,ik,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     double-soft limit S_(i,j) * ZSS_NNLO
 c     it returns 0 if i is not a gluon
+      use sectors2_module
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -14,8 +15,8 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
-      integer i,j
-      integer ia,ib,ik,ir,l,m,ierr,nit,idum
+      integer i,j,k,r
+      integer ia,ib,ik,ir,l,m,ierr,nit,idum,parent,sec_index(2)
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
@@ -24,7 +25,7 @@ c     it returns 0 if i is not a gluon
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2), kt(0:3)
-      double precision sab,sar,sbr
+      double precision sij,sir,sjr
       double precision wa,wb,wr
       double precision sblm,sbjl,sbjm,ktkl,ktkm,kt2
       double precision x,y,xinit,damp
@@ -61,6 +62,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       DOUBLE PRECISION PMASS(NEXTERNAL)
+      integer mapped_sec(2,nexternal)
+      integer ic,id
       INCLUDE 'pmass.inc'
 c
 c     initialise
@@ -72,9 +75,9 @@ c     initialise
       wa = 0d0
       wb = 0d0
       wr = 0d0
-      sab = 0d0
-      sar = 0d0
-      sbr = 0d0
+      sij = 0d0
+      sir = 0d0
+      sjr = 0d0
       x   = 0d0
       y   = 0d0
       xinit = 0d0
@@ -86,9 +89,42 @@ c     initialise
       ktkl = 0d0
       ktkm = 0d0
       kt2 = 0d0
+      ic = 0
+      id = 0
 c
 c     return if not a qqb pair
-      if((leg_pdgs(i) + leg_pdgs(j)).ne.0)return
+      if((leg_pdgs(ia) + leg_pdgs(ib)).ne.0)return
+
+c     initial checks and label assignment
+      if(lsec.eq.0)then
+         if((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)) then
+            ic = ksec
+         elseif((ia.eq.isec.and.ib.eq.ksec).or.(ia.eq.ksec.and.ib.eq.isec)) then
+            ic = jsec
+         elseif((ia.eq.jsec.and.ib.eq.ksec).or.(ia.eq.ksec.and.ib.eq.jsec)) then
+            ic = isec
+         else
+            write(*,*)'Wrong indices 1 in M2_HC_qqx'
+            write(*,*)ia,ib,isec,jsec,ksec
+            stop
+         endif
+      else
+         if((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)) then
+            ic = ksec
+            id = lsec
+         elseif((ia.eq.ksec.and.ib.eq.lsec).or.(ia.eq.lsec.and.ib.eq.ksec)) then
+            ic = isec
+            id = jsec
+         else
+            write(*,*)'Wrong indices 2 in M2_HC_qqx'
+            write(*,*)ia,ib,isec,jsec,ksec,lsec
+            stop
+         endif
+      endif
+
+
+
+      
 c
 c     safety check on PDGs
       IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
@@ -103,7 +139,8 @@ c     get PDGs
       CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
       call reshuffle_momenta(nexternal,real_leg_pdgs,nlo_mapped_flavours,nlo_mapped_labels,xpb)
 
-      JB = NLO_MAPPED_LABELS(J)
+      JB = NLO_MAPPED_LABELS(j)
+      PARENT = JB
       do l=1,nexternal
          if(l.eq.isec) cycle
           if(abs(NLO_mapped_flavours(l)).le.6.or.NLO_mapped_flavours(l).eq.21)isNLOmappedQCDparton(NLO_mapped_labels(l)) = .true.
@@ -137,14 +174,34 @@ c     safety check
       endif
 c
 c
-c     call Z functions ---> TODO
-c      call get_sigNNLO(XS,alphaz,nexternal)
-c      CALL GET_ZSS_NNLO(I,KSEC,J,LSEC)
-      if(ierr.eq.1)goto 999
+      call get_sig2(xsb,1d0,nexternal-1)
+      if(lsec.eq.0)then
+         sec_index(1) = parent
+         sec_index(2) = nlo_mapped_labels(ic)
+      else
+         sec_index(1) = nlo_mapped_labels(ic)
+         sec_index(2) = nlo_mapped_labels(id)
+      endif
+c     Fill  mapped_sec_list(2,nexternal) with the pairs of all the
+c     final state particles after mapping n+2 --> n+1
+
+      k = 0
+      do i=3,nexternal-1
+         do j=i+1,nexternal
+            k=k+1
+            mapped_sec(1,k) = nlo_mapped_labels(i)
+            mapped_sec(2,k) = nlo_mapped_labels(j)
+         enddo
+      enddo
+
+     call get_ZS_NNLO(sec_index(1),sec_index(2),mapped_sec)
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
       pref = -32d0*pi**2*alphas**2
+      call phase_space_CS_inv(ia,ib,ir,xp,xpb,nexternal,leg_PDGs,xjCS1)
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -177,12 +234,9 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-          call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1)
+
           call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2)
           if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
-c
-          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-          if(ierr.eq.1)goto 999
           call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
           if(ierr.eq.1)goto 999
 c
@@ -191,17 +245,17 @@ c     possible cuts
 c
 c     invariant quantities
 c     (c,d) in the paper --> (m,l)
-            sblm = xsb(l,m)
-            sbjl = xsb(ib,l)
-            sbjm = xsb(ib,m)
-            ktkl = dot(kt(:),xpb(:,l))
-            ktkm = dot(kt(:),xpb(:,m))
+            sblm = xsb(lb,mb)
+            sbjl = xsb(jb,lb)
+            sbjm = xsb(jb,mb)
+            ktkl = dot(kt(:),xpb(:,lb))
+            ktkm = dot(kt(:),xpb(:,mb))
             kt2=dot(kt(:),kt(:))
             
 c
 c     safety check
-          IF(SAB.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.OR.KT2.LE.0D0)THEN
-            WRITE(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',SAB, SBJL, SBJM, KT2
+          IF(SIJ.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.or.kt2.eq.0d0)THEN
+            WRITE(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',SIJ, SBJL, SBJM, KT2
             GOTO 999
           ENDIF
 c
@@ -211,19 +265,19 @@ c     TODO: fix strings for the associated underlying Born
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c
 c     eikonal
-c     See eq.1617 in file K2_I2_G_v2.pdf in the DropBox directory
+c     See eq.1618 in file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l)
-            M2tmp = TR*(sblm/(sab*sbjl*sbjm)+4d0*x*(1d0-x)/(kt2*sab)*(ktkl/sbjl-ktkm/sbjm)**2)
+            M2tmp = TR*(sblm/(sbjl*sbjm)+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_HC_SS_QQX=M2_HC_SS_QQX+pref*M2tmp*ZSS_NNLO*extra
+            M2_HC_SS_QQX=M2_HC_SS_QQX+pref*M2tmp*ZS_NNLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZSS_NNLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*ZSS_NNLO*extra*wgt/sab/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,wgtpl)
          enddo 

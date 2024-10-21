@@ -880,7 +880,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print(necessary_3p_ct12_list)
                 all_3p_K12_ct.append(necessary_3p_ct12_list)
 
-        ######## 3p #########
+        ######## 4p #########
         all_4p_local_counterterms_list = []
         all_4p_K1_ct = []
         all_4p_K2_ct = []
@@ -1328,6 +1328,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             # loop on K1 cts
             ct_list = []
+            write_S = True
+            write_HC = True
             for j in range(0, len(all_3p_K1_ct[i])):
                 if all_3p_K1_ct[i][j] ==  0:
                     continue
@@ -1335,13 +1337,17 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    if(j==0): # just one call to the kernel is needed
+                    #if (j==0): # just one call to the kernel is needed
+                    if (write_S): # just one call to the kernel is needed
+                        write_S = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_HC): # just one call to the kernel is needed
+                        write_HC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
@@ -1523,6 +1529,7 @@ c       %s
             file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
+            # TODO: maybe safer to reinstate this command
             #os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
            
 

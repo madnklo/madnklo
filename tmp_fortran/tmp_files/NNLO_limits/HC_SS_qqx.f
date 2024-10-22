@@ -198,39 +198,33 @@ c     final state particles after mapping n+2 --> n+1
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-      pref = -32d0*pi**2*alphas**2
+      pref = -64d0*pi**2*alphas**2
       call phase_space_CS_inv(ia,ib,ir,xp,xpb,nexternal,leg_PDGs,xjCS1)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
 c     eikonal double sum
-      do m=1,nexternal
-         if(.not.ISNNLOQCDPARTON(M))cycle
-         if(m.eq.i.or.m.eq.j)cycle
-         do l=1,nexternal
-            if(.not.ISNNLOQCDPARTON(L))cycle
-            if(l.eq.i.or.l.eq.j.or.l.eq.m)cycle
+      do mb=1,nexternal-1
+         if(.not.ISNLOQCDPARTON(MB))cycle
+         if(mb.eq.jb)cycle
+         do lb=1,nexternal-1
+            if(.not.ISNLOQCDPARTON(LB))cycle
+            if(lb.eq.jb.or.lb.eq.mb)cycle
 c
-            lb  = NLO_mapped_labels(l)
-            mb  = NLO_mapped_labels(m)
             lbb = LO_mapped_labels(lb)
             mbb = LO_mapped_labels(mb)
 c     
 c         check labels and pdgs
-            IF(.NOT.(ISNLOMAPPEDQCDPARTON(LB).AND.ISNLOMAPPEDQCDPARTON(MB)))THEN
-               WRITE(*,*)'Wrong indices 1 in M2_HC_SS_QQX',LB,MB
-               STOP
-            ENDIF
             IF(.NOT.(ISLOMAPPEDQCDPARTON(LBB).AND.ISLOMAPPEDQCDPARTON(MBB)))THEN
-               WRITE(*,*)'Wrong indices 2 in M2_HC_SS_QQX',LBB,MBB
+               WRITE(*,*)'Wrong indices 1 in M2_HC_SS_QQX',LBB,MBB
                STOP
             ENDIF
-          IF(leg_pdgs(l).ne.born_leg_pdgs(lbb).or.leg_pdgs(m).ne.born_leg_pdgs(mbb))THEN
-            WRITE(*,*)'Wrong indices 3 in M2_HC_SS_QQX',L,M,LBB,MBB
+          IF(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb))THEN
+            WRITE(*,*)'Wrong indices 2 in M2_HC_SS_QQX',LB,MB,LBB,MBB
             STOP
           ENDIF
 c
-c     phase-space mapping according to l and m, at fixed radiation
+c     phase-space mapping according to lb and mb, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
@@ -273,11 +267,11 @@ c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
-            M2tmp=M2tmp*damp*xj
+            M2tmp=M2tmp*damp*xj/sab
             M2_HC_SS_QQX=M2_HC_SS_QQX+pref*M2tmp*ZS_NNLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZSS_NNLO*extra*wgt/sab/nit*wgt_chan
+            wgtpl=-pref*M2tmp*ZS_NNLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,wgtpl)
          enddo 

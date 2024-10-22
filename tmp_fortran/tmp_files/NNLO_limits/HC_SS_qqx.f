@@ -25,7 +25,7 @@ c     it returns 0 if i is not a gluon
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2), kt(0:3)
-      double precision sij,sir,sjr
+      double precision sab,sar,sbr
       double precision wa,wb,wr
       double precision sblm,sbjl,sbjm,ktkl,ktkm,kt2
       double precision x,y,xinit,damp
@@ -75,9 +75,9 @@ c     initialise
       wa = 0d0
       wb = 0d0
       wr = 0d0
-      sij = 0d0
-      sir = 0d0
-      sjr = 0d0
+      sab = 0d0
+      sar = 0d0
+      sbr = 0d0
       x   = 0d0
       y   = 0d0
       xinit = 0d0
@@ -139,7 +139,7 @@ c     get PDGs
       CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
       call reshuffle_momenta(nexternal,real_leg_pdgs,nlo_mapped_flavours,nlo_mapped_labels,xpb)
 
-      JB = NLO_MAPPED_LABELS(j)
+      JB = NLO_MAPPED_LABELS(IB)
       PARENT = JB
       do l=1,nexternal
          if(l.eq.isec) cycle
@@ -205,10 +205,10 @@ c     overall kernel prefix
 c
 c     eikonal double sum
       do mb=1,nexternal-1
-         if(.not.ISNLOQCDPARTON(MB))cycle
+         if(.not.ISNLOMAPPEDQCDPARTON(MB))cycle
          if(mb.eq.jb)cycle
          do lb=1,nexternal-1
-            if(.not.ISNLOQCDPARTON(LB))cycle
+            if(.not.ISNLOMAPPEDQCDPARTON(LB))cycle
             if(lb.eq.jb.or.lb.eq.mb)cycle
 c
             lbb = LO_mapped_labels(lb)
@@ -248,8 +248,8 @@ c     (c,d) in the paper --> (m,l)
             
 c
 c     safety check
-          IF(SIJ.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.or.kt2.eq.0d0)THEN
-            WRITE(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',SIJ, SBJL, SBJM, KT2
+          IF(SAB.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.or.kt2.eq.0d0)THEN
+            WRITE(77,*)'Inaccuracy 2 in M2_HC_SS_QQX',SAB, SBJL, SBJM, KT2
             GOTO 999
           ENDIF
 c

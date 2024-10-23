@@ -7,7 +7,6 @@ c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl
       double precision xs(nexternal,nexternal), xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1), xpb(0:3,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2), xpbb(0:3,nexternal-2)
-      double precision ZSi, ZSj
       double precision wgt,xj,xjB
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
@@ -39,7 +38,7 @@ c     local NNLO counterterm K1 for sector [isec,jsec,ksec,lsec]
       double precision xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xpb(0:3,nexternal-1)
-      double precision wgt,ZSi,ZSj,xj,xjB
+      double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision KS,KHC,K1,wgt_chan%(str_defK1)s
@@ -78,7 +77,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       double precision xpb(0:3,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision xpbb(0:3,nexternal-2)
-      double precision wgt,ZSi,ZSj,xj,xjB
+      double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K2,wgt_chan
@@ -107,7 +106,7 @@ c
       return
       end
 
-      subroutine local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,ZSi,ZSj,xj,xjB,x,K12,wgt_chan,ierr)
+      subroutine local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
 c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'
@@ -120,7 +119,7 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       double precision xpb(0:3,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision xpbb(0:3,nexternal-2)
-      double precision wgt,ZSi,ZSj,xj,xjB
+      double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K12,wgt_chan

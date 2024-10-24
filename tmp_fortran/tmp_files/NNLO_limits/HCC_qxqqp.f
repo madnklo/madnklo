@@ -65,9 +65,7 @@ c     initialise
 
 c     Check over flavours
 
-      if(.not.(leg_PDGs(i).eq.(-leg_PDGs(j)).and.abs(leg_PDGs(i)).ne.abs(leg_PDGs(k)))) return
-      
-      
+      if(.not.(leg_PDGs(i).eq.(-leg_PDGs(j)).and.abs(leg_PDGs(i)).ne.abs(leg_PDGs(k)).and.abs(leg_PDGs(k)).le.6)) return
 c
 c     possible cuts
       call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)

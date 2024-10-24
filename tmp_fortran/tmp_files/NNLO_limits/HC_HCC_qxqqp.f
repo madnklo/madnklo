@@ -14,6 +14,7 @@ c     for sectors (ia,ib,ic)+permutations...
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,j,k,r,ierr,nit,parent_leg
+      integer jb,kb,rb
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -23,7 +24,8 @@ c     for sectors (ia,ib,ic)+permutations...
       double precision x,y,xinit,damp
       double precision wa,wb,wr
       double precision ANS(0:NSQSO_BORN)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
+      integer lo_mapped_labels(nexternal), lo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
       logical doplot
@@ -42,9 +44,10 @@ c     set logical doplot
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
-      double precision sij, sir, sjr, sbjk, sbjr 
+      double precision sij, sir, sjr, sbjk, sbjr, sbkr
       double precision zi, zj
       double precision zbj, zbk
+      integer ic,id
 c
 c     initialise
       M2_HC_HCC_qxqqp=0d0
@@ -61,6 +64,8 @@ c     initialise
       zj   = 0d0
       zbj  = 0d0
       zbk  = 0d0
+      ic = 0
+      id = 0
 
 c     Check over flavours
 
@@ -138,7 +143,7 @@ c     Reshuffle momenta and labels according to underlying_leg_pdgs
       parent_leg = nlo_mapped_labels(jb)
 c
       call get_collinear_mapped_labels(jb,kb,nexternal-1,real_leg_PDGs,LO_mapped_labels,LO_mapped_flavours)
-      if(LO_mapped_flavours(jb).ne.NLO_mapped_flavours(k))then
+      if(LO_mapped_flavours(kb).ne.NLO_mapped_flavours(k))then
          write(*,*) 'Wrong parent particle label 2!', jb,k,LO_mapped_flavours(jb),NLO_mapped_flavours(k)
          stop
       endif

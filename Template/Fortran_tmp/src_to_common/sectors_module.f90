@@ -301,18 +301,17 @@ contains
     use sectors2_module
     implicit none
     include 'nexternal.inc'
-    integer i,a,b,i1,i2
+    integer i,a,b,i1,i2,numsec
     double precision num,sigma
     ! This list contains the pairs (bar{isec}, bar{jsec})
     ! The second entry runs over the number of final state NLO particles
-    integer sec_list(2,nexternal) 
-    
+    integer sec_list(2,(nexternal-2)*(nexternal-3)/2)
     
     num = sig2(i1,i2)
     sigma = 0d0
-
+    numsec = (nexternal-2)*(nexternal-3)/2
     
-    do i=1,nexternal
+    do i=1,numsec
        a = sec_list(1,i)
        b = sec_list(2,i)
        if(a.eq.0.or.b.eq.0) cycle

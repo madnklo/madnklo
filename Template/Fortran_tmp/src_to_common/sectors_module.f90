@@ -270,18 +270,21 @@ contains
        c=all_sector_list(3,i)
        d=all_sector_list(4,i)
        if(d.eq.0) then
-          if(a.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(a,b,c,b) + sigNNLO(a,c,c,b) + sigNNLO(c,b,a,b) + sigNNLO(c,a,a,b)
-          if(a.eq.i1.and.b.eq.i3) sigma = sigma + sigNNLO(a,c,b,c) + sigNNLO(a,b,b,c) + sigNNLO(b,c,a,c) + sigNNLO(b,a,a,c)
-          if(b.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(b,a,c,a) + sigNNLO(b,c,c,a) + sigNNLO(c,a,b,a) + sigNNLO(c,b,b,a)
+          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma+sigNNLO(a,b,c,b) &
+               +sigNNLO(a,c,c,b)+sigNNLO(c,b,a,b)+sigNNLO(c,a,a,b)
+          if((a.eq.i1.and.b.eq.i3).or.(a.eq.i3.and.b.eq.i1)) sigma = sigma+sigNNLO(a,c,b,c) &
+               +sigNNLO(a,b,b,c)+sigNNLO(b,c,a,c)+sigNNLO(b,a,a,c)
+          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma+sigNNLO(b,a,c,a) &
+               +sigNNLO(b,c,c,a)+sigNNLO(c,a,b,a)+sigNNLO(c,b,b,a)
        elseif(d.ne.0) then
-          if(a.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(a,b,c,d)
-          if(a.eq.i1.and.d.eq.i3) sigma = sigma + sigNNLO(a,b,d,c)
-          if(b.eq.i1.and.c.eq.i3) sigma = sigma + sigNNLO(b,a,c,d)
-          if(b.eq.i1.and.d.eq.i3) sigma = sigma + sigNNLO(b,a,d,c)
-          if(a.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,d,a,b)
-          if(b.eq.i3.and.c.eq.i1) sigma = sigma + sigNNLO(c,d,b,a)
-          if(a.eq.i3.and.d.eq.i1) sigma = sigma + sigNNLO(d,c,a,b)
-          if(b.eq.i3.and.d.eq.i1) sigma = sigma + sigNNLO(d,c,b,a)
+          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + sigNNLO(a,b,c,d) &
+               +sigNNLO(c,d,a,b)
+          if((a.eq.i1.and.d.eq.i3).or.(a.eq.i3.and.d.eq.i1)) sigma = sigma + sigNNLO(a,b,d,c) &
+               +sigNNLO(d,c,a,b)
+          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + sigNNLO(b,a,c,d) &
+               +sigNNLO(c,d,b,a)
+          if((b.eq.i1.and.d.eq.i3).or.(b.eq.i3.and.d.eq.i1)) sigma = sigma + sigNNLO(b,a,d,c) &
+               +sigNNLO(d,c,b,a)
        else
           write(*,*) 'get_ZSS_NNLO: error in the construction of denominator'
           write(*,*) 'Negative value for 4th sector index i4...'

@@ -1,4 +1,4 @@
-      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,KNNLO,wgt_chan,ierr)
+      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
 c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl      
       implicit none
       include 'nexternal.inc'

@@ -60,6 +60,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/comich/ich
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
+      double precision K1,K2,K12
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
@@ -175,7 +176,7 @@ c     plot real
  555  continue
 c
 c     counterterm
-      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
+      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
          write(77,*) 'Something wrong in the counterterm', KNNLO

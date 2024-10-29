@@ -4,7 +4,6 @@
 c     hard-collinear limit C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
-      USE SECTORS2_MODULE
       USE SECTORS4_MODULE
       implicit none
       include 'nexternal.inc'
@@ -92,6 +91,8 @@ c     assign mapped labels and flavours
       call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
       call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
 c      
       IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
 c
@@ -132,7 +133,7 @@ c
       endif
 c
 c     call remapped sector function
-      CALL GET_SIG2(XSB,1D0,NEXTERNAL-1)
+      CALL GET_SIGNNLO(XSB,1D0,NEXTERNAL-1)
       if(lsec.eq.0)then
          sec_index(1) = parent
          sec_index(2) = mapped_labels(ic)

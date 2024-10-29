@@ -3,7 +3,6 @@
       double precision function M2_HC_SS_QQX(ia,ib,ik,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     double-soft limit S_(i,j) * ZSS_NNLO
 c     it returns 0 if i is not a gluon
-      use sectors2_module
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -174,7 +173,7 @@ c     safety check
       endif
 c
 c
-      call get_sig2(xsb,1d0,nexternal-1)
+      call get_signnlo(xsb,1d0,nexternal-1)
       if(lsec.eq.0)then
          sec_index(1) = parent
          sec_index(2) = nlo_mapped_labels(ic)

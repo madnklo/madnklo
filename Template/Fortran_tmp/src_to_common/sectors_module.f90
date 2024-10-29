@@ -29,12 +29,10 @@ contains
     do i=3,n_ext
        do j=3,n_ext
           if(i.eq.j)cycle
-          if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))* &
-               xs_mod(i,j)*xs_mod(1,2).ne.0d0 )then
+          if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(i,j)*xs_mod(1,2).ne.0d0 )then
              ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
              ej=(xs_mod(j,1)+xs_mod(j,2))/xs_mod(1,2)
-             wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/ &
-                  (xs_mod(j,1)+xs_mod(j,2))
+             wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
              sig2(i,j)=(1d0/ei/wij)**alpha_mod
           endif
        enddo
@@ -65,8 +63,8 @@ contains
     !     NLO soft sector functions ZS(i1,i2) = barS_i1 Z(i1,i2)
     implicit none
     include 'all_sector_list.inc'
-    integer i,a,b,i1,i2
-    double precision num,sigma
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
     call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
@@ -124,9 +122,10 @@ end module sectors2_module
 
 module sectors4_module
   implicit none
-  integer, public :: n_ext
+  integer, public :: n_ext,num_sec
   double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
+  double precision, allocatable, dimension(:,:), public :: sig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
   public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO, get_ZHC_NNLO, get_ZS_NNLO
   private
@@ -136,44 +135,47 @@ contains
   subroutine get_sigNNLO(xs_in,alpha_in,n_ext_in)
     implicit none
     ! global
+    include 'nexternal.inc'
     integer :: n_ext_in
     double precision :: alpha_in
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
     ! local
-    integer :: i,j,k,l
-    integer del_jk
+    integer :: i,j,k,l,del_jk
     double precision :: ei,ej,ek
     double precision :: wij, wik, wjk, wkl
     
     ! set global module variables
     n_ext=n_ext_in
+!    num_sec=(n_ext-2)*(n_ext-3)/2
+    num_sec=(nexternal-2)*(nexternal-3)/2
     if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
+    if (.not.allocated(sig2)) allocate(sig2(3:n_ext,3:n_ext))
     if (.not.allocated(sigNNLO)) allocate(sigNNLO(3:n_ext,3:n_ext,3:n_ext,3:n_ext))
     xs_mod=xs_in
     alpha_mod=alpha_in
-    ! calculate 4-index sigma
+    ! calculate 2-index and 4-index sigma
+    sig2=0d0
     sigNNLO=0d0
     do i=3,n_ext
        do j=3,n_ext
+          if(i.eq.j)cycle
+          if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(i,j)*xs_mod(1,2).ne.0d0 ) then
+             ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
+             wij=xs_mod(1,2)*xs_mod(i,j)/&
+                  (xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
+             sig2(i,j)=(1d0/ei/wij)**alpha_mod
+          endif
           do k=3,n_ext
-              del_jk=0
+             if(k.eq.i)cycle
+             del_jk=0
              if(j.eq.k) del_jk = 1
              do l=3,n_ext
-                if(i.eq.j.or.i.eq.k.or.k.eq.l.or.i.eq.l)cycle
-                if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))* &
-                     xs_mod(i,j)*xs_mod(1,2).ne.0d0 .or. &
-                     (xs_mod(k,1)+xs_mod(k,2))*(xs_mod(l,1)+xs_mod(l,2))* &
-                     xs_mod(k,l)*xs_mod(1,2).ne.0d0)then
-
-                   ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
+                if(l.eq.i.or.l.eq.k)cycle
+                if( (xs_mod(k,1)+xs_mod(k,2))*(xs_mod(l,1)+xs_mod(l,2))*xs_mod(k,l)*xs_mod(1,2).ne.0d0 )then
                    ek=(xs_mod(k,1)+xs_mod(k,2))/xs_mod(1,2)
-                   wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/ &
-                        (xs_mod(j,1)+xs_mod(j,2))
-                   wkl=xs_mod(1,2)*xs_mod(k,l)/(xs_mod(k,1)+xs_mod(k,2))/ &
-                        (xs_mod(l,1)+xs_mod(l,2))
-                   
-                   sigNNLO(i,j,k,l) = 1d0/(ei*wij)**alpha_mod &
-                        *1d0/(ek+del_jk*ei)/wkl
+                   wkl=xs_mod(1,2)*xs_mod(k,l)/&
+                        (xs_mod(k,1)+xs_mod(k,2))/(xs_mod(l,1)+xs_mod(l,2))
+                   sigNNLO(i,j,k,l) = sig2(i,j)*1d0/(ek+del_jk*ei)/wkl
                 endif
              enddo
           enddo
@@ -190,17 +192,25 @@ contains
     double precision :: num,sigma
     call sector4_global_checks(i1,i2,i3,i4)
     if(i4.eq.0) then
-       num = sigNNLO(i1,i2,i2,i3) + sigNNLO(i1,i2,i3,i2)  &
-           + sigNNLO(i1,i3,i3,i2) + sigNNLO(i1,i3,i2,i3)  &
-           + sigNNLO(i2,i1,i1,i3) + sigNNLO(i2,i1,i3,i1)  &
-           + sigNNLO(i2,i3,i3,i1) + sigNNLO(i2,i3,i1,i3)  &
-           + sigNNLO(i3,i1,i1,i2) + sigNNLO(i3,i1,i2,i1)  &
-           + sigNNLO(i3,i2,i2,i1) + sigNNLO(i3,i2,i1,i2)
+       num = sigNNLO(i1,i2,i2,i3) + &
+             sigNNLO(i1,i2,i3,i2) + &
+             sigNNLO(i1,i3,i3,i2) + &
+             sigNNLO(i1,i3,i2,i3) + &
+             sigNNLO(i2,i1,i1,i3) + &
+             sigNNLO(i2,i1,i3,i1) + &
+             sigNNLO(i2,i3,i3,i1) + &
+             sigNNLO(i2,i3,i1,i3) + &
+             sigNNLO(i3,i1,i1,i2) + &
+             sigNNLO(i3,i1,i2,i1) + &
+             sigNNLO(i3,i2,i2,i1) + &
+             sigNNLO(i3,i2,i1,i2)
     elseif(i4.ne.0) then
-       num = sigNNLO(i1,i2,i3,i4) + sigNNLO(i1,i2,i4,i3) &
-            +sigNNLO(i2,i1,i3,i4) + sigNNLO(i2,i1,i4,i3) &
-            +sigNNLO(i3,i4,i1,i2) + sigNNLO(i3,i4,i1,i2) &
-            +sigNNLO(i4,i3,i1,i2) + sigNNLO(i4,i3,i2,i1)
+       num = sigNNLO(i1,i2,i3,i4)  + &
+             sigNNLO(i1,i2,i4,i3)  + &
+             sigNNLO(i3,i4,i1,i2)  + &
+             sigNNLO(i3,i4,i2,i1)  + &
+             sigNNLO(i4,i3,i1,i2)  + &
+             sigNNLO(i4,i3,i2,i1)
     else 
        write(*,*) 'get_Z_NNLO: error in the numerator construction...'
        write(*,*) 'negative value for 4th sector index i4...'
@@ -215,19 +225,29 @@ contains
        c=all_sector_list(3,i)
        d=all_sector_list(4,i)
        if(d.eq.0) then
-          sigma = sigma &
-           + sigNNLO(a,b,b,c) + sigNNLO(a,b,c,b)  &    
-           + sigNNLO(a,c,c,b) + sigNNLO(a,c,b,c)  &
-           + sigNNLO(b,a,a,c) + sigNNLO(b,a,c,a)  &
-           + sigNNLO(b,c,c,a) + sigNNLO(b,c,a,c)  &
-           + sigNNLO(c,a,a,b) + sigNNLO(c,a,b,a)  &
-           + sigNNLO(c,b,b,a) + sigNNLO(c,b,a,b)
+          sigma = sigma + &
+               sigNNLO(a,b,b,c) + &
+               sigNNLO(a,b,c,b) + &
+               sigNNLO(a,c,c,b) + &
+               sigNNLO(a,c,b,c) + &
+               sigNNLO(b,a,a,c) + &
+               sigNNLO(b,a,c,a) + &
+               sigNNLO(b,c,c,a) + &
+               sigNNLO(b,c,a,c) + &
+               sigNNLO(c,a,a,b) + &
+               sigNNLO(c,a,b,a) + &
+               sigNNLO(c,b,b,a) + &
+               sigNNLO(c,b,a,b)
        elseif(d.ne.0) then
-          sigma = sigma &
-            + sigNNLO(a,b,c,d) + sigNNLO(a,b,d,c) &    
-            + sigNNLO(b,a,c,d) + sigNNLO(b,a,d,c) &
-            + sigNNLO(c,d,a,b) + sigNNLO(c,d,b,a) &
-            + sigNNLO(d,c,a,b) + sigNNLO(d,c,b,a)
+          sigma = sigma + &
+               sigNNLO(a,b,c,d) + &
+               sigNNLO(a,b,d,c) + &
+               sigNNLO(b,a,c,d) + &
+               sigNNLO(b,a,d,c) + &
+               sigNNLO(c,d,a,b) + &
+               sigNNLO(c,d,b,a) + &
+               sigNNLO(d,c,a,b) + &
+               sigNNLO(d,c,b,a)
        else
           write(*,*) 'get_Z_NNLO: error in the denominator construction...'
           write(*,*) 'negative value for 4th sector index d...'
@@ -245,17 +265,16 @@ contains
     !     NNLO double-soft sector functions ZSS(i1,i2,i3,i4) = barS_i1i3 Z(i1,i2,i3,i4)
     implicit none
     include 'all_sector_list.inc'
-    integer i,a,b,c,d,i1,i2,i3,i4
-    double precision num,sigma
+    integer :: i,a,b,c,d,i1,i2,i3,i4
+    double precision :: num,sigma
     call sector4_global_checks(i1,i2,i3,i4)
     if(i4.eq.0) then
-       num = sigNNLO(i1,i2,i3,i2) &
-           + sigNNLO(i1,i3,i3,i2) &
-           + sigNNLO(i3,i1,i1,i2) &
-           + sigNNLO(i3,i2,i1,i2)
+       num = sigNNLO(i1,i2,i3,i2) + &
+             sigNNLO(i1,i3,i3,i2) + &
+             sigNNLO(i3,i1,i1,i2) + &
+             sigNNLO(i3,i2,i1,i2)
     elseif(i4.ne.0) then
-       num = sigNNLO(i1,i2,i3,i4) &
-           + sigNNLO(i3,i4,i1,i2)
+       num = sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i4,i1,i2)
     else
        write(*,*) 'get_ZSS_NNLO: error in the construction of numerator'
        write(*,*) 'Negative value for 4th sector index i4...'
@@ -270,21 +289,25 @@ contains
        c=all_sector_list(3,i)
        d=all_sector_list(4,i)
        if(d.eq.0) then
-          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma+sigNNLO(a,b,c,b) &
-               +sigNNLO(a,c,c,b)+sigNNLO(c,b,a,b)+sigNNLO(c,a,a,b)
-          if((a.eq.i1.and.b.eq.i3).or.(a.eq.i3.and.b.eq.i1)) sigma = sigma+sigNNLO(a,c,b,c) &
-               +sigNNLO(a,b,b,c)+sigNNLO(b,c,a,c)+sigNNLO(b,a,a,c)
-          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma+sigNNLO(b,a,c,a) &
-               +sigNNLO(b,c,c,a)+sigNNLO(c,a,b,a)+sigNNLO(c,b,b,a)
+          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + &
+               sigNNLO(a,b,c,b) + sigNNLO(a,c,c,b) +  &
+               sigNNLO(c,b,a,b) + sigNNLO(c,a,a,b)
+          if((a.eq.i1.and.b.eq.i3).or.(a.eq.i3.and.b.eq.i1)) sigma = sigma + &
+               sigNNLO(a,c,b,c) + sigNNLO(a,b,b,c) + &
+               sigNNLO(b,c,a,c) + sigNNLO(b,a,a,c)
+          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + &
+               sigNNLO(b,a,c,a) + sigNNLO(b,c,c,a) + &
+               sigNNLO(c,a,b,a) + sigNNLO(c,b,b,a)
+
        elseif(d.ne.0) then
-          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + sigNNLO(a,b,c,d) &
-               +sigNNLO(c,d,a,b)
-          if((a.eq.i1.and.d.eq.i3).or.(a.eq.i3.and.d.eq.i1)) sigma = sigma + sigNNLO(a,b,d,c) &
-               +sigNNLO(d,c,a,b)
-          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + sigNNLO(b,a,c,d) &
-               +sigNNLO(c,d,b,a)
-          if((b.eq.i1.and.d.eq.i3).or.(b.eq.i3.and.d.eq.i1)) sigma = sigma + sigNNLO(b,a,d,c) &
-               +sigNNLO(d,c,b,a)
+          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + &
+               sigNNLO(a,b,c,d) + sigNNLO(c,d,a,b)
+          if((a.eq.i1.and.d.eq.i3).or.(a.eq.i3.and.d.eq.i1)) sigma = sigma + &
+               sigNNLO(a,b,d,c) + sigNNLO(d,c,a,b)
+          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + &
+               sigNNLO(b,a,c,d) + sigNNLO(c,d,b,a)
+          if((b.eq.i1.and.d.eq.i3).or.(b.eq.i3.and.d.eq.i1)) sigma = sigma + &
+               sigNNLO(b,a,d,c) + sigNNLO(d,c,b,a)
        else
           write(*,*) 'get_ZSS_NNLO: error in the construction of denominator'
           write(*,*) 'Negative value for 4th sector index i4...'
@@ -301,20 +324,16 @@ contains
 
   subroutine get_ZS_NNLO(i1,i2,sec_list)
     !     NNLO 2-index mapped sector function relevant to the barHCijbarSij limit
-    use sectors2_module
     implicit none
-    include 'nexternal.inc'
-    integer i,a,b,i1,i2,numsec
-    double precision num,sigma
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
     ! This list contains the pairs (bar{isec}, bar{jsec})
     ! The second entry runs over the number of final state NLO particles
-    integer sec_list(2,(nexternal-2)*(nexternal-3)/2)
+    integer, dimension (2,num_sec) :: sec_list
     
     num = sig2(i1,i2)
     sigma = 0d0
-    numsec = (nexternal-2)*(nexternal-3)/2
-    
-    do i=1,numsec
+    do i=1,num_sec
        a = sec_list(1,i)
        b = sec_list(2,i)
        if(a.eq.0.or.b.eq.0) cycle
@@ -328,19 +347,16 @@ contains
   
   subroutine get_ZHC_NNLO(i1,i2,sec_list)
     !     NNLO 2-index mapped sector function relevant to the barHCij limit
-    use sectors2_module
     implicit none
-    include 'nexternal.inc'
-    integer i,a,b,i1,i2
+    integer :: i,a,b,i1,i2
     double precision num,sigma
     ! This list contains the pairs (bar{isec}, bar{jsec})
     ! The second entry runs over the number of final state NLO particles
-    integer sec_list(2,nexternal) 
+    integer, dimension (2,num_sec) :: sec_list
 
     num = sig2(i1,i2) + sig2(i2,i1)
     sigma = 0d0
-
-    do i=1,nexternal
+    do i=1,num_sec
        a = sec_list(1,i)
        b = sec_list(2,i)
        if(a.eq.0.or.b.eq.0) cycle
@@ -348,7 +364,6 @@ contains
     enddo
     Z_HC_NNLO = num/sigma
     call sector2_sanity_checks(sigma,Z_HC_NNLO)
-    
   end subroutine get_ZHC_NNLO
 
   

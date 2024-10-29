@@ -87,6 +87,7 @@ c      DOUBLE PRECISION Z_NNLO
       PARAMETER(ALPHAZ=2D0)
       common/cxsave/xsave
       double precision e(5),l(5)
+      double precision K1,K2,K12
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     
@@ -166,7 +167,7 @@ c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
          if(ierr.eq.1)cycle
 c
 c     counterterm
-         call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
+         call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNNLO

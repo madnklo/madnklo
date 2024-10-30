@@ -173,6 +173,14 @@ c     safety check
       endif
 c
 c
+c
+c     overall kernel prefix
+      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      pref = -64d0*pi**2*alphas**2
+      call phase_space_CS_inv(ia,ib,ir,xp,xpb,nexternal,leg_PDGs,xjCS1)
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
+
       call get_signnlo(xsb,1d0,nexternal-1)
       if(lsec.eq.0)then
          sec_index(1) = parent
@@ -194,13 +202,10 @@ c     final state particles after mapping n+2 --> n+1
       enddo
 
      call get_ZS_NNLO(sec_index(1),sec_index(2),mapped_sec)
-c
-c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-      pref = -64d0*pi**2*alphas**2
-      call phase_space_CS_inv(ia,ib,ir,xp,xpb,nexternal,leg_PDGs,xjCS1)
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
+
+
+
+      
 c
 c     eikonal double sum
       do mb=1,nexternal-1

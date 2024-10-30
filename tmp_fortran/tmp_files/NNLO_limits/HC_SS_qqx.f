@@ -177,7 +177,6 @@ c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
       pref = -64d0*pi**2*alphas**2
-      call phase_space_CS_inv(ia,ib,ir,xp,xpb,nexternal,leg_PDGs,xjCS1)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 

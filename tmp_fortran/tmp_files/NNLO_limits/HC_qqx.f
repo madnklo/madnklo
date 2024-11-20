@@ -44,9 +44,7 @@ c     set logical doplot
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       integer mapped_sec(2,nexternal)
       integer i,j,k
-      double precision xpb_mapped(0:3,nexternal-1)
-      double precision aux(0:3)
-
+      double precision xpbsave(0:3,nexternal-1)
 c
 c     initialise
       M2_HC_qqx=0d0
@@ -55,8 +53,7 @@ c     initialise
       damp=0d0
       ic=0
       id=0
-      xpb_mapped = 0d0
-      aux = 0d0
+      xpbsave = xpb
 c
 c     initial checks and label assignment
       if(lsec.eq.0)then
@@ -90,11 +87,11 @@ c     possible cuts
 c     assign mapped labels and flavours
       call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
+      call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c      
-      IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
+      IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,1))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -122,7 +119,7 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
       RNLO = ANS(0)
 c
 
@@ -157,7 +154,7 @@ c     final state particles after mapping n+2 --> n+1
       
       CALL GET_ZHC_NNLO(sec_index(1),sec_index(2),mapped_sec)
 c
-      KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent,xpb,kt)
+      KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent,xpbsave,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(RNLO-4d0/sab*KKRNLO)*Z_HC_NNLO
 c     Including correct multiplicity factor
@@ -176,7 +173,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+      if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
 c
 c     sanity check
       if(abs(M2_HC_qqx).ge.huge(1d0).or.isnan(M2_HC_qqx))then

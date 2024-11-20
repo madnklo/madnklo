@@ -168,7 +168,7 @@ c
 c     plot
             wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
 c
          enddo 
       enddo

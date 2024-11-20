@@ -48,6 +48,7 @@ c     set logical doplot
       double precision zi, zj
       double precision zbj, zbk
       integer ic,id
+      double precision xpbsave(0:3,nexternal-1), xpbbsave(0:3,nexternal-2)
 c
 c     initialise
       M2_HC_HCC_qxqqp=0d0
@@ -66,6 +67,8 @@ c     initialise
       zbk  = 0d0
       ic = 0
       id = 0
+      xpbsave  = xpb
+      xpbbsave = xpbb
 
 c     Check over flavours
 
@@ -104,7 +107,7 @@ c     possible cuts
       call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)
       call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
 
-      IF(DOCUT(XPBB,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
+      IF(DOCUT(XPBBSAVE,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -129,8 +132,8 @@ c     safety check
          stop
       endif
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpb)
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpbsave)
+      call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
       jb = NLO_mapped_labels(j)
       kb = NLO_mapped_labels(k)
@@ -148,12 +151,12 @@ c
          stop
       endif
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal-1,Born_leg_pdgs,LO_mapped_flavours,LO_mapped_labels,xpbb)
-      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+      call reshuffle_momenta(nexternal-1,Born_leg_pdgs,LO_mapped_flavours,LO_mapped_labels,xpbbsave)
+      call invariants_from_p(xpbbsave,nexternal-2,xsbb,ierr)
       if(ierr.eq.1)goto 999
 C
 C     Call Born
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbbsave,hel,alphas,ANS)
       BLO = ANS(0)
 c
 c     Formula (C.45) of 2212.11190v2
@@ -169,7 +172,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_HC_HCC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,wgtpl)
+      if(doplot)call histo_fill(xpbbsave,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
 c
 c     sanity check
       if(abs(M2_HC_HCC_qxqqp).ge.huge(1d0).or.isnan(M2_HC_HCC_qxqqp))then

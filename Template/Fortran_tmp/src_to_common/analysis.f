@@ -26,7 +26,7 @@ c
       end
 
 
-      subroutine histo_fill(p,xs,nexternal,www)
+      subroutine histo_fill(p,xs,nexternal,part_pdgs,www)
       implicit none
 c      include 'jets.inc'
       include 'run.inc'
@@ -39,6 +39,7 @@ c      include 'jets.inc'
       double precision rfj,sycut,palg,pQCD(0:3,nexternal),etamax
       double precision, parameter :: tiny=1d-8
       double precision eta
+      integer part_pdgs(npart)
 c      integer maxdim
 c      parameter(maxdim=20)
 c      integer njet,jet(maxdim)
@@ -63,6 +64,8 @@ c
 c     cluster partons into jets
       nQCD=0
       do j=3,nexternal
+         if(abs(part_pdgs(j)) .le. maxjetflavor .or. part_pdgs(j)
+     $        .eq. 21) then
          nQCD=nQCD+1
          do i=0,3
             pQCD(i,nQCD)=p(i,j)

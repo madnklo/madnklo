@@ -91,7 +91,7 @@ c     apply flavour factor
 c     plot
       wgtpl=int_Born*wgt/nitB
       wgts(1)=wgtpl
-      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
+      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
 c      if(doplot)call analysis_fill(p,sLO,nexternal,wgts)
 c
 c     print out current run progress

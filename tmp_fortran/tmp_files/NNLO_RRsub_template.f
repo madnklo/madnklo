@@ -138,7 +138,7 @@ c     in order to implement the multi channel
       WGT_CHAN=AMP2(ICH)
 c
 c     possible cuts
-      IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
+      IF(DOCUT(P,NEXTERNAL,leg_pdgs,2))GOTO 555
 c
 c     test matrix elements
       if(ntested.lt.ntest)then
@@ -172,7 +172,7 @@ c     full real in the combination of sectors
 c
 c     plot real
       wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan
-      if(doplot)call histo_fill(p,sNNLO,nexternal,wgtpl)
+      if(doplot)call histo_fill(p,sNNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
 c
 c     counterterm

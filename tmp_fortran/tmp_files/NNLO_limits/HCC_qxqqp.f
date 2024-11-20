@@ -130,7 +130,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_HCC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
 c
 c     sanity check
       if(abs(M2_HCC_qxqqp).ge.huge(1d0).or.isnan(M2_HCC_qxqqp))then

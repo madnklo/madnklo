@@ -166,7 +166,7 @@ c     Multi channeling
 c
 c     plot
       wgtpl=int_virtual*wgt/nitV
-      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
+      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
 c
 c     print out current run progress
 c     999  ievt=ievt+1

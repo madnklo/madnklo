@@ -26,17 +26,17 @@ c
       end
 
 
-      subroutine histo_fill(p,xs,nexternal,part_pdgs,www)
+      subroutine histo_fill(p,xs,npart,part_pdgs,www)
       implicit none
 c      include 'jets.inc'
       include 'run.inc'
       include 'cuts.inc'
-      integer nexternal,i,j,nQCD
-      double precision xs(nexternal,nexternal)
-      double precision p(0:3,nexternal),www
+      integer npart,i,j,nQCD
+      double precision xs(npart,npart)
+      double precision p(0:3,npart),www
       double precision xsec,thrust
       double precision getthrust_3body,getrapidity,getpseudorap
-      double precision rfj,sycut,palg,pQCD(0:3,nexternal),etamax
+      double precision rfj,sycut,palg,pQCD(0:3,npart),etamax
       double precision, parameter :: tiny=1d-8
       double precision eta
       integer part_pdgs(npart)
@@ -52,7 +52,7 @@ c      REAL*8 PTL,ETAL,DRLL,DRLL_SF,MLL,MLL_SF ! lepton cuts
 c
 c     observables
       xsec=1d0
-c$$$c      thrust=getthrust_3body(p,nexternal)
+c$$$c      thrust=getthrust_3body(p,npart)
 c     jets
       pjet=0d0
       jet=0
@@ -63,13 +63,14 @@ c     jets
 c
 c     cluster partons into jets
       nQCD=0
-      do j=3,nexternal
+      do j=3,npart
          if(abs(part_pdgs(j)) .le. maxjetflavor .or. part_pdgs(j)
      $        .eq. 21) then
-         nQCD=nQCD+1
-         do i=0,3
-            pQCD(i,nQCD)=p(i,j)
-         enddo
+            nQCD=nQCD+1
+            do i=0,3
+               pQCD(i,nQCD)=p(i,j)
+            enddo
+         endif
       enddo
 c     
 c     clustering parameters

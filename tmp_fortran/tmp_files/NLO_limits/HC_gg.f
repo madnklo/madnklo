@@ -41,6 +41,7 @@ c     set logical doplot
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
+      double precision xpbsave(0:3,nexternal-1)
 
 c
 c     initialise
@@ -48,16 +49,18 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
+      xpbsave=xpb
 c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UnderLying_LEG_PDGS)
       call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1) goto 999
 
-
-      IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
+      IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
       
 c
 c     overall kernel prefix
@@ -86,7 +89,7 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
       BLO = ANS(0)
 c
       parent_leg = mapped_labels(ib)
@@ -96,7 +99,7 @@ c
          stop
       endif
 c
-      KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpbsave,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0-x**alpha)*BLO+(1d0-x)/x*(1d0-(1d0-x)**alpha)*BLO)
 c     Including correct multiplicity factor
@@ -115,7 +118,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
 c
 c     sanity check
       if(abs(M2_HC_gg).ge.huge(1d0).or.isnan(M2_HC_gg))then

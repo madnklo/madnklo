@@ -48,6 +48,7 @@ c     external
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
+      double precision xpbsave(0:3,nexternal-1)
       INCLUDE 'pmass.inc'
       
 c
@@ -57,6 +58,7 @@ c     initialise
       ierr=0
       damp=0d0
       idum=0
+      xpbsave=xpb
 c
 c     return if not gluon
       if(leg_pdgs(I).ne.21)return
@@ -74,7 +76,10 @@ c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
 
       CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpb)
+      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
+      call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
+      if(ierr.eq.1) goto 999
+
 
 c
 c     call Z soft
@@ -118,13 +123,13 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpbsave,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
-            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+            call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPB,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))CYCLE
+            IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -140,7 +145,7 @@ c     safety check
             endif
 c
 c     call colour-connected Born
-            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
@@ -168,7 +173,7 @@ c
 c     plot
             wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+            if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
 c
          enddo 
       enddo

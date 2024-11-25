@@ -1404,29 +1404,29 @@ c       %s
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
                 if j <= 3:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 3 and j <= 7:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 7 and j <= 11:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 11 and j <= 14:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     os.system('cat ' + NNLO_IR_limits_tmp_path 
                               + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 17 and j <= 20:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 if all_3p_K12_ct[i][j] not in ct_list:
@@ -1530,7 +1530,7 @@ c       %s
             file = file % replace_dict_limits
             writer(filename).writelines(file)
             # TODO: maybe safer to reinstate this command
-            #os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+            os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
            
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
@@ -2296,6 +2296,46 @@ c       double collinear limit Cijk
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
+                    
+        # Test for spurious singularities
+        # Z_ijk  : 6 -> [Cir, Cjr, Ckr, Cijr, Cikr, Cjkr] 
+        # mapping ((isec,ksec,iref),(jsec,ksec,iref))
+                    
+        # TODO: the following are specific for Zcc~u sector
+                    
+        # Ckr
+        limit_str += """           
+c
+c     spurious collinear limit Ckr
+      e = [0d0,0d0,0d0,1d0,0d0] ! Ckr limit
+      l = [0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Ckr     ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        # Cijr
+        limit_str += """           
+c
+c     spurious collinear limit Cijr
+      e = [0d0,0d0,0d0,1d0,0d0] ! Cijr limit
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cijr    ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        # Cikr
+        limit_str += """           
+c
+c     spurious collinear limit Cikr
+      e = [1d0,0d0,0d0,1d0,0d0] ! Cikr limit
+      l = [0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cikr    ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+        # Cjkr
+        limit_str += """           
+c
+c     spurious collinear limit Cjkr
+      e = [1d0,0d0,0d0,1d0,0d0] ! Cjkr limit
+      l = [1d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cjkr    ',x0,e,l)
+"""%(isec,jsec,ksec,lsec)
+
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')

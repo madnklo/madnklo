@@ -180,7 +180,7 @@ c check
          write(*,*)'Wrong nQCD in cuts.f ',nQCD,nexternal,nincoming
          stop
       endif
-      if (nUnres .ne. 0 .and. nUnres .ne. 1) then
+      if (nUnres .ne. 0 .and. nUnres .ne. 1 .and. nUnres.ne.2) then
          write(*,*)'Wrong nUnres in cuts.f ',nUnres
          stop
       endif
@@ -189,6 +189,7 @@ c check
          docut = .true.
          return
       endif
+
 
 
 c$$$

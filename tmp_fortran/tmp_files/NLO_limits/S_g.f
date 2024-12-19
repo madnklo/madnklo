@@ -77,10 +77,6 @@ c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
       CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
 c     Reshuffle momenta and labels according to underlying_leg_pdgs
       call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
-      call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
-      if(ierr.eq.1) goto 999
-
-
 c
 c     call Z soft
       CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)

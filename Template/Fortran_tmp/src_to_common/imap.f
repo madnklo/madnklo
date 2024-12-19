@@ -92,21 +92,24 @@ c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
       integer i,j,n
       integer leg_pdgs(n-1), mapped_labels(nexternal),mapped_flavours(nexternal)
       double precision xpb(0:3,n-1), xpb_mapped(0:3,n-1)
+      integer aux_labels(nexternal)
 
       xpb_mapped(:,:) = 0d0
-      
-      
+      aux_labels(:) = 0
+
       do i=1,n-1
          do j=1,nexternal
             if(leg_pdgs(i).eq.mapped_flavours(j)) then
-               if(mapped_flavours(j).eq.0) cycle
+               if(mapped_flavours(j).eq.0.or.aux_labels(j).ne.0) cycle
                xpb_mapped(:,mapped_labels(j)) = xpb(:,i)
-               mapped_labels(j) = i
+               aux_labels(j) = i
                exit
             endif
          enddo
       enddo
+
       xpb(:,:) = xpb_mapped(:,:)
+      mapped_labels(:) = aux_labels(:)
       
       return
       end

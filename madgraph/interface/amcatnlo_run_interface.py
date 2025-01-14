@@ -1285,6 +1285,9 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
             
         
     def run(self, mode, options):
+
+        from datetime import datetime
+
         """runs aMC@NLO. Returns the name of the event file created"""
         logger.info('Starting run')
 
@@ -1306,6 +1309,15 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
 
         contr_dir = [d for d in \
                 open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
+
+        
+        content=[]
+
+        with open(pjoin(self.me_dir,'SubProcesses','TIME.txt'),'w') as res_file:
+            now=datetime.now()
+            dt_string = now.strftime("START = %d/%m/%Y %H:%M:%S")
+            content.append(dt_string)
+            res_file.write('\n'.join(content))
 
         p_dirs = [d for d in \
                 open(pjoin(self.me_dir, 'contributions.mg')).read().split('\n') if d]
@@ -1355,6 +1367,14 @@ Please read http://amcatnlo.cern.ch/FxFx_merging.htm for more details.""")
                     break
             # We are done.
             self.finalise_run_FO(folder_names[mode],jobs_to_collect)
+            
+            with open(pjoin(self.me_dir,'SubProcesses','TIME.txt'),'w') as res_file:
+                now=datetime.now()
+                dt_string = now.strftime("END   = %d/%m/%Y %H:%M:%S")
+                content.append(dt_string)
+                res_file.write('\n'.join(content))
+
+            
             self.update_status('Run complete', level='parton', update_results=True)
             return
 
@@ -1956,6 +1976,9 @@ RESTART = %(mint_mode)s
         For fixed order: determines which jobs need higher precision and
                          returns those with the newly requested precision.
         """
+
+
+        
         err=self.cross_sect_dict['errt']
         tot=self.cross_sect_dict['xsect']
         tot = tot+1e-8
@@ -2118,6 +2141,11 @@ RESTART = %(mint_mode)s
 
 
     def write_res_txt_file(self,jobs,integration_step):
+
+        from datetime import datetime
+
+        
+
         """writes the res.txt files in the SubProcess dir"""
         #jobs.sort(key = lambda job: -job['errorABS'])
         content=[]
@@ -2154,8 +2182,13 @@ RESTART = %(mint_mode)s
                            (totABS, math.sqrt(errABS), math.sqrt(errABS)/totABS *100.,\
                             tot, math.sqrt(err), math.sqrt(err)/tot *100.))
         with open(pjoin(self.me_dir,'SubProcesses','res_%s.txt' % integration_step),'w') as res_file:
+            now=datetime.now()
+            dt_string = now.strftime("END=%d/%m/%Y %H:%M:%S")
             res_file.write('\n'.join(content))
+            res_file.write(dt_string)
         randinit=self.get_randinit_seed()
+       
+        
 
         return {'xsect':tot,'xseca':totABS,'errt':math.sqrt(err),\
                 'erra':math.sqrt(errABS),'randinit':randinit}
@@ -2337,7 +2370,7 @@ RESTART = %(mint_mode)s
                 #command.append(pjoin(job['p_dir'],'MADatNLO.HwU'))
                 lsfiles=os.listdir(job['p_dir'])
                 for files in lsfiles:
-                    if('plot_R' in files):
+                    if('plot_R' or 'plot_V' or 'plot_B' in files):
                         command.append(pjoin(job['p_dir'],files))
         command.append("--out="+out)
         command.append("--gnuplot")

@@ -1381,7 +1381,7 @@ sector_%d_%d: $(FILES_%d_%d)
             #replace_dict['jsec'] = jsec
             sec_str += 'isec=%d\n' %isec
             sec_str += 'jsec=%d\n' %jsec
-            sec_str += './sector_%d_%d\n' %(isec,jsec)
+            sec_str += 'nohup ./sector_%d_%d 2>&1 &\n' %(isec,jsec)
 #             files_str += 'FILES_%d_%d= ' % (isec, jsec)
 #             files_str += 'driver_%d_%d.o ' % (isec, jsec)
 #             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)

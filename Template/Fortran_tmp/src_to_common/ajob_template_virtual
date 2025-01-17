@@ -105,5 +105,8 @@ for i in $channel ; do
     # exit $status
     cd -
 done
+T="$(date +%s)"
 ./virtual
-
+status=$?
+T="$(($(date +%s)-T))"
+echo "Time in seconds: ${T}" >>log.txt

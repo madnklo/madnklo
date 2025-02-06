@@ -130,6 +130,7 @@ c
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
+         write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ich,nitR,nclR1
          write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
          write(iu9,*)
 c     

@@ -114,7 +114,7 @@ c     main loop over channels
          nclVth1=max(1000,int(nclVth*err_v_a(ich)/sum_err_v_a))
          call vegas(region,ndim,int_virtual,init,nclVth1,nitVth,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c         write(iu,*)'V warmup: channel, itns, calls = ',ich,nitVth,nclVth1
+         write(iu8,*)'V warmup: channel, itns, calls = ',ich,nitVth,nclVth1
 c
          write(*,*)'Virtual for channel',ich
          write(iu7,*)'Failures for virtual, channel',ich

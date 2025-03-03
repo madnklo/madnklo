@@ -91,14 +91,14 @@ c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
       nclRth0=max(10000,int(nclRth/5d0))
-      nitRth0=max(5,int(nitRth/2d0))
+      nitRth0=max(5,int(nitRth/1d0))
       sum_err_r_a=0d0
       do i=1,N_MAX_CG
          ich=i
          init=0
          doplot=.false.
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth0,nitRth0,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         err_r_a(ich) = err_r
+         err_r_a(ich) = err_r**2d0
          sum_err_r_a = sum_err_r_a + err_r_a(ich)
       enddo
 c
@@ -113,7 +113,7 @@ c     main loop over channels
          write(iu1,*)'============================='
          init=0
          doplot=.false.
-         nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
+         nclRth1=max(2000,int(nclRth*err_r_a(ich)/sum_err_r_a))
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth1
 c
@@ -125,7 +125,7 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-         nclR1=max(1000,int(nclR*err_r_a(ich)/sum_err_r_a))
+         nclR1=max(4000,int(nclR*err_r_a(ich)/sum_err_r_a))
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r

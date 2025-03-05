@@ -1,4 +1,5 @@
       program driver_%(isec)d_%(jsec)d
+      use init_R_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -11,19 +12,15 @@
       parameter(mxdim=30)
       integer ndim,i,j,idum
       integer isec,jsec
-      double precision s_had
       common/cdim/ndim
       double precision int_real_%(isec)d_%(jsec)d
       double precision err_r,res_r
       external int_real_%(isec)d_%(jsec)d
       integer order
-      logical doplot
-      common/cdoplot/doplot
       double precision rescale_plot_R
       character*100 line
-      integer nitRth,nclRth,nitR,nclR
+      integer nitRth,nclRth,nclR
       integer nitRth0,nclRth0,nclR0,nclRth1,nclR1
-      COMMON/iterations/NITR
 c
 c     vegas declarations
       integer ndmx,nprn,ndo,init,it
@@ -49,7 +46,6 @@ c
 c     read inputs
       region=0d0
       order=1
-      s_had = (EBEAM(1)+EBEAM(2))**2
       NITRTH = NITERS_FO_GRID
       NCLRTH = NPOINTS_FO_GRID
       NITR = NITERS_FO

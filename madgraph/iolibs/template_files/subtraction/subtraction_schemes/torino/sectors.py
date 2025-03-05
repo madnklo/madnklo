@@ -681,7 +681,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if id_isec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % isec)
                     list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_M2.append('K%s=K%s+M2_%s(isec,xs,xp,wgt,xj,xjB,1d0,wgt_chan,ierr)\n' 
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits 
@@ -690,14 +690,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if id_jsec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % jsec)
                     # list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_M2.append('K%s=K%s+M2_%s(jsec,xs,xp,wgt,xj,xjB,1d0,wgt_chan,ierr)\n' 
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                 elif j == 2:
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' 
+                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,1d0,wgt_chan,ierr)\n' 
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits 

@@ -1,6 +1,7 @@
       double precision function int_real_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NLO integrand for vegas
       use sectors2_module
+      use init_R_module
       implicit none
       include 'coupl.inc'
       include 'math.inc'
@@ -27,8 +28,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision wgt,wgtpl,wgt_chan
       logical dotechcut
       double precision tinycut
-      logical doplot
-      common/cdoplot/doplot
       logical docut
       integer iU,iS,iB,iA,iref
       integer isec,jsec,ksec,lsec
@@ -41,8 +40,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cscm/sCM
       integer counter
       save counter
-      integer nitr
-      common/iterations/nitr
       integer %(NLO_proc_str)sfl_factor 
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
       double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 

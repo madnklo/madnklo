@@ -1,9 +1,10 @@
 
       
-      double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Zsoft
 c     it returns 0 if i is not a gluon
       use sectors2_module
+      use init_R_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -14,7 +15,7 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
-      integer i,l,m,lb,mb,ierr,nit,idum
+      integer i,l,m,lb,mb,ierr,idum
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
@@ -22,9 +23,6 @@ c     it returns 0 if i is not a gluon
       double precision sil,sim,slm,ml2,mm2,y,z,x,damp
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
       logical isLOQCDparton(nexternal-1)
-c     set logical doplot
-      logical doplot
-      common/cdoplot/doplot
       logical docut
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
@@ -160,7 +158,7 @@ c     damping factors
             M2_S_g=M2_S_g+pref*M2tmp*ZS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nitR*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c

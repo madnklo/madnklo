@@ -1,6 +1,6 @@
 
 
-      double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,extra,wgt_chan,ierr)
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib) - S_(ib)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
@@ -13,7 +13,7 @@ c     for sectors (ia,ib)+(ib,ia)
       include 'leg_PDGs.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
-      integer ia,ib,ir,ierr,nit,parent_leg
+      integer ia,ib,ir,ierr,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
@@ -25,9 +25,6 @@ c     for sectors (ia,ib)+(ib,ia)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
       double precision %(proc_prefix_HC_gg)s_GET_KKBLO
-c     set logical doplot
-      logical doplot
-      common/cdoplot/doplot
       logical docut
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
@@ -109,7 +106,7 @@ c     apply flavour factor
       M2_HC_gg=M2_HC_gg*%(proc_prefix_real)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_HC_gg*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_gg*wgt/nitR*wgt_chan
       if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
 c
 c     sanity check

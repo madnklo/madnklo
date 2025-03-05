@@ -3,8 +3,6 @@ c     local NLO counterterm for sector [isec,jsec]
       implicit none
       include 'nexternal.inc'
       integer isec,jsec,iref,ierr
-      integer nitR
-      common/iterations/nitR
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1)

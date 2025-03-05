@@ -100,7 +100,7 @@ c
       
       integer npart
       double precision pi
-      parameter       (pi=3.1415926d0)
+      parameter       (pi=3.1415926535897932385d0)
 c
 c     Arguments
 c

@@ -12,12 +12,11 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer i
       integer ierr
-      integer ievt,nthres,ntest
+      integer ievt,nthres,ntest,ntested
+      save ievt,nthres,ntested
+      parameter(ntest=20)
       integer iunit
       common/ciunitNLO/iunit
-      integer ntested
-      parameter(ntest=20)
-      save ievt,nthres,ntested
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
@@ -40,10 +39,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
-      double precision xsave(3)
       double precision sCM
       common/cscm/sCM
-      common/cxsave/xsave
       integer counter
       save counter
       integer nitr
@@ -73,9 +70,6 @@ c     initialise
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
-      do i=1,3
-         xsave(i)=x(i)
-      enddo
 c
 c     specify phase-space mapping
       %(mapping_str)s
@@ -95,7 +89,15 @@ c     phase space and invariants
       call props_%(strUB)s
       call decaybw_%(strUB)s
       call getleshouche_%(strUB)s
-      
+c
+c     test IR limits matrix elements
+c     TODO: test_only option
+      if(ntested.lt.ntest)then
+         ntested=ntested+1
+         call test_R_%(isec)d_%(jsec)d(iunit,ntested)
+      endif
+c      
+c     call phase space
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real: '
@@ -114,6 +116,7 @@ c     phase space and invariants
          write(77,*) 'Wrong LO invariants ', sLO
          goto 999
       endif
+      call get_sig2(SNLO,alphaZ,nexternal)
 c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
@@ -127,13 +130,6 @@ c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
 c
-c     test matrix elements
-      if(ntested.lt.ntest)then
-         ntested=ntested+1
-         call test_R_%(isec)d_%(jsec)d(iunit,x)
-      endif
-c     TODO: implement flag 'test_only' to stop here
-c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
@@ -144,7 +140,6 @@ c     real
       endif
 c
 c     real sector function
-      call get_sig2(SNLO,alphaZ,nexternal)
       call get_Z_NLO(isec,jsec)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
@@ -163,7 +158,7 @@ c
       %(str_int_real)s
 c
 c     counterterm
-      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
+      call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,KNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
          write(77,*) 'Something wrong in the counterterm', KNLO
@@ -173,15 +168,6 @@ c
 c     subtraction (phase-space jacobian included in counterterm definition)
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*wgt_chan
-c
-c     print out current run progress
-c     TODO: adapt progress bar
-c 999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodR*1d0)),' done'
-c         nthres=nthres+int(nprodR/rfactR)
-c      endif
-c 111  format(a1,i3,a6,$)
 c
  999  return
       end

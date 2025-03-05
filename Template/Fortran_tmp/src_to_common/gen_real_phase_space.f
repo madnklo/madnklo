@@ -5,7 +5,8 @@ c     iU is the unresolved parton associated with the soft singularity
       include 'math.inc'
       include 'nexternal.inc'
       include 'leg_PDGs.inc'
-      double precision x(3*nexternal-10),shat
+      include 'genps.inc'
+      double precision x(maxinvar),shat
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
@@ -23,11 +24,10 @@ C     Hard coded settings for gen_mom
       mincfig = 1
       maxcfig = 1
       invar = 2
-      call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar,nexternal-1)
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4:maxinvar),pbar,nexternal-1)
 c
 c     call radiation phase space
-c$$$      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,'C',xjacCS)
-      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS)
+      call phase_space_CS(x(1:3),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS)
 c
 c     total jacobian
       xjac=xjacB*xjacCS

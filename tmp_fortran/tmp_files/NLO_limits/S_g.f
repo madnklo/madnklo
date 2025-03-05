@@ -25,8 +25,6 @@ c     it returns 0 if i is not a gluon
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
-      double precision sCM
-      common/cscm/sCM
       logical docut
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor

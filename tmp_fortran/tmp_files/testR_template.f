@@ -1,4 +1,4 @@
-      subroutine test_R_%(isec)d_%(jsec)d(iunit,ievnt)
+      subroutine test_R_%(isec)d_%(jsec)d(ievnt)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -11,27 +11,27 @@
       integer i,iU,iS,iB,iA,iref
       common/cNLOmaplabels/iU,iS,iB,iA,iref
       integer iUtmp,iStmp
-      integer iunit,ievnt
+      integer ievnt
       character*10 dash10
       double precision e(2), l(2)
 c
       dash10='----------'
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)' EVENT NUMBER ',ievnt
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)' EVENT NUMBER ',ievnt
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
 %(limit_str)s
 c
-      write(iunit,*)
-      write(iunit,*)
-      write(iunit,*)
+      write(88,*)
+      write(88,*)
+      write(88,*)
 c
       return
       end
 
 
-      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,e,l)
+      subroutine do_limit_R_%(isec)d_%(jsec)d(limstr,e,l)
       use sectors2_module
       implicit none
       INCLUDE 'coupl.inc'
@@ -40,7 +40,7 @@ c
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer iitn,i,j,maxitn,iunit,ierr
+      integer iitn,i,j,maxitn,ierr
       integer isec,jsec,ksec,lsec
       common/csecindices/isec,jsec,ksec,lsec
       integer iU,iS,iB,iA,iref
@@ -85,10 +85,10 @@ c     initialise
       xr=x0
 c
 c     start testing
-      write(iunit,*)
-      write(iunit,*)
-      write(iunit,*)'LIM = '//trim(limstr)
-      write(iunit,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
+      write(88,*)
+      write(88,*)
+      write(88,*)'LIM = '//trim(limstr)
+      write(88,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
 c
 c     loop to get closer and closer to the limit
       do iitn=1,maxitn
@@ -122,9 +122,9 @@ c     counterterm
          single_real=RNLO*Z_NLO*xjac
          
          if(abs(lim).gt.0d0)then
-            write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
+            write(88,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
          else
-            write(iunit,*)lam,single_real,lim,single_real,' *** '
+            write(88,*)lam,single_real,lim,single_real,' *** '
          endif
       enddo
 c

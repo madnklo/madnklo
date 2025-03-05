@@ -1168,7 +1168,7 @@ c     soft limit"""
                 limit_str += """
       e=[1d0,1d0] 
       l=[0d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Si      ',e,l)
+      call do_limit_R_%d_%d('Si      ',e,l)
 """%(isec,jsec)
         if necessary_ct_list[i][1] != 0 : #Sj limit
             #TODO for future: massive recoiler to be implemented
@@ -1177,7 +1177,7 @@ c
 c     soft limit
       e=[1d0,1d0] 
       l=[1d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Sj      ',e,l)
+      call do_limit_R_%d_%d('Sj      ',e,l)
 """%(isec,jsec)
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
@@ -1187,21 +1187,21 @@ c
 c     collinear limit
         e=[0d0,1d0]
         l=[0d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Cij     ',e,l)
+      call do_limit_R_%d_%d('Cij     ',e,l)
 """%(isec,jsec)
             limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]
         l=[0d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Cir     ',e,l)
+      call do_limit_R_%d_%d('Cir     ',e,l)
 """%(isec,jsec)
             limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]
         l=[1d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Cjr     ',e,l)
+      call do_limit_R_%d_%d('Cjr     ',e,l)
 """%(isec,jsec)
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectors.py """

@@ -15,8 +15,6 @@ c     (n+1)-body NLO integrand for vegas
       integer ievt,nthres,ntest,ntested
       save ievt,nthres,ntested
       parameter(ntest=20)
-      integer iunit
-      common/ciunitNLO/iunit
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal),sminNLO
       double precision sLO(nexternal-1,nexternal-1)
@@ -94,7 +92,7 @@ c     test IR limits matrix elements
 c     TODO: test_only option
       if(ntested.lt.ntest)then
          ntested=ntested+1
-         call test_R_%(isec)d_%(jsec)d(iunit,ntested)
+         call test_R_%(isec)d_%(jsec)d(ntested)
       endif
 c      
 c     call phase space

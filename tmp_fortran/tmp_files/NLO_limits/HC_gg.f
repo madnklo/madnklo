@@ -4,6 +4,7 @@
 c     hard-collinear limit C_(ia,ib) - S_(ia)C_(ia,ib) - S_(ib)C_(ia,ib)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib)+(ib,ia)
+      use init_R_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'

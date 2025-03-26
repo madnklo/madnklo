@@ -174,7 +174,7 @@ c
 c     plot
             wgtpl=-pref*M2tmp*ZSS_NNLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
-            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,wgtpl)
+            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
          enddo 
       enddo
 c

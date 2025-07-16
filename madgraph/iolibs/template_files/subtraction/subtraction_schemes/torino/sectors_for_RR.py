@@ -1922,24 +1922,25 @@ c       %s
         if len(all_3p_sector_list_with_0) != len(all_3p_sector_list):
             print('WARNING: Wrong number of 3p sectors!')
             return
-        
+
         all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
+        lensectors = len(all_sector_list)
 
-        replace_dict = {}
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        flat_list = [str(x) for sector in all_sector_list for x in sector]
+        data_line = "      DATA all_sector_list/{}{}".format(
+            ",".join(flat_list),
+            "/"
+        )
+        lines = [
+            "      INTEGER, PARAMETER :: lensectors = {}".format(lensectors),
+            "      INTEGER all_sector_list(4, lensectors)",
+            data_line
+        ]
+        file_content = "\n".join(lines) + "\n"
 
-        file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer all_sector_list(4,lensectors)
-          data all_sector_list/%(all_sector_list)s/""" % replace_dict
-        
         filename = pjoin(dirpath, 'all_sector_list.inc')
-        writer(filename).writelines(file)
-
-        return True
-    
-
+        with open(filename, 'w') as f:
+            f.write(file_content)
 
     #===========================================================================
     # write 'get_Born_PDGs.f' & 'get_Real_PDGs.f' to find labels/flavours of n(+1)-body kinematics

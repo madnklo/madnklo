@@ -869,16 +869,19 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print('K1 3p sector')
                 print(necessary_3p_ct1_list)
                 all_3p_K1_ct.append(necessary_3p_ct1_list)
+                all_3p_K1_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K1_ct for seen in [[]]]
                 uB_all_3p_K1_ct.append(necessary_3p_ct1)
 
                 print('K2 3p sector')
                 print(necessary_3p_ct2_list)
                 all_3p_K2_ct.append(necessary_3p_ct2_list)
+                all_3p_K2_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K2_ct for seen in [[]]]
                 uB_all_3p_K2_ct.append(necessary_3p_ct2)
                     
                 print('K12 3p sector')
                 print(necessary_3p_ct12_list)
                 all_3p_K12_ct.append(necessary_3p_ct12_list)
+                all_3p_K12_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K12_ct for seen in [[]]]
 
         ######## 4p #########
         all_4p_local_counterterms_list = []
@@ -1340,15 +1343,15 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     #if (j==0): # just one call to the kernel is needed
                     if (write_S): # just one call to the kernel is needed
                         write_S = False
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                     if (write_HC): # just one call to the kernel is needed
                         write_HC = False
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
@@ -1376,14 +1379,14 @@ c       %s
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path 
-                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path
+                              + all_3p_K2_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path 
-                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path
+                              + all_3p_K2_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 # Extract underlying Born string
                 # TODO: can I have more then one underlying born x sector?
                 self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
@@ -1418,8 +1421,8 @@ c       %s
                 elif j > 11 and j <= 14:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                    os.system('cat ' + NNLO_IR_limits_tmp_path 
-                              + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    os.system('cat ' + NNLO_IR_limits_tmp_path
+                              + all_3p_K12_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 

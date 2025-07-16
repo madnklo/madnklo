@@ -43,7 +43,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision sijk, sij, sik, sjk
-      double precision zi, zj, zk, zij, zik, zjk
+      double precision zi, zj, zk, zij, zjk, zik
       double precision sir, sjr, skr
 c
 c     initialise
@@ -62,8 +62,8 @@ c     initialise
       zj   = 0d0
       zk   = 0d0
       zij  = 0d0
-      zik  = 0d0
       zjk  = 0d0
+      zik  = 0d0
 
 c     Check over flavours
 
@@ -96,11 +96,11 @@ c
 c     safety check
 
       IF(SIJ.LE.0D0.OR.SIJK.LE.0d0.or.ZIJ.LE.0D0.OR.ZI.LE.0D0.OR.ZJ.LE.0D0.OR.ZK.LE.0D0)THEN
-        WRITE(77,*)'Inaccuracy 1 in M2_HC_qqx',SIJ,SIJK,ZIJ,ZI,ZJ,ZK
+        WRITE(77,*)'Inaccuracy 1 in M2_HCC_qqx',SIJ,SIJK,ZIJ,ZI,ZJ,ZK
         GOTO 999
       ENDIF
-C
-C     Call Born
+c
+c     Call Born
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
       BLO = ANS(0)
 c
@@ -111,28 +111,28 @@ c
          stop
       endif
 c
-c     If q=qp, the kernel is given by (30) in CG/9810389
-c     P^(0g)(I,J,K) + P^(0g)(I,K,J) + P^(0g,id)
-c
-c     P^(0g) first term in (30) or [B.16 in 2212.11190v2]
-      M2TMP = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-c
-c     P^(0g) second term in (30) or [B.16 in 2212.11190v2] with J<>K
-      M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
-c
-c     P^(0g,id) third term in (30) or [B.17 in 2212.11190v2]
-      if (LEG_PDGS(K).EQ.LEG_PDGS(I)) then
-         M2TMP = M2TMP + CF*(2D0*CF-CA)*(-SIJK**2*ZK/(2D0*SJK*SIK)*(1D0+ZK**2)/(ZJK*ZIK)+(SIJ/SJK+SIJ/SIK)+SIJK/(2D0*SJK)*((1D0+ZK**2)/ZIK-2D0*ZJ/ZJK)+SIJK/(2D0*SIK)*((1D0+ZK**2)/ZJK-2D0*ZI/ZIK))
-      elseif (LEG_PDGS(K).EQ.-LEG_PDGS(I)) then
-         M2TMP = M2TMP + CF*(2D0*CF-CA)*(-SIJK**2*ZI/(2D0*SIJ*SIK)*(1D0+ZI**2)/(ZIJ*ZIK)+(SJK/SIJ+SJK/SIK)+SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ)+SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK/ZIK))
-      endif
-
+c     Reference 2212.11190v2 => B.14 and ff for kernels
+c     if-choice follows this order
+c     1. IJK = QX Q Q
+c     2. IJK = QX Q QX
+       if (leg_pdgs(I).EQ.-leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
+         M2TMP = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
+         M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ) /ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+         M2TMP = M2TMP + (2D0*CF**2-CA*CF)*(-SIJK**2*ZI/(2D0*SIK*SIJ)*(1D0+ZI**2) /(ZIK*ZIJ)+ (SJK/SIK+SJK/SIJ) + SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK /ZIK)+ SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ ))
+       else if (leg_pdgs(I).EQ.leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
+         M2TMP = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+         M2TMP = M2TMP +CF*TR*(-SIJK**2/(2D0*SJK**2)*(SIJ/SIJK-SIK/SIJK+(ZK-ZJ)/ZJK)**2+SIJK/SJK*(2D0*(ZI-ZK*ZJ)/ZJK+ZJK)-1D0/2D0)
+         M2TMP = M2TMP +CF*(2D0*CF-CA)*(-SIJK**2*ZJ/(2D0*SJK*SIJ)*(1D0+ZJ**2)/ZJK/ZIJ + SIK/SJK+SIK/SIJ+ SIJK/2D0/SJK*((1D0+ZJ**2)/ZIJ-2D0*ZK/ZJK) +  SIJK/2D0/SIJ*((1D0+ZJ**2)/ZJK-2D0*ZI/ZIJ))
+       else
+         write(*,*) 'Unknown flavour combination in HCC_QXQQ ', leg_pdgs(I), leg_pdgs(J), leg_pdgs(k)
+         goto 999
+      end if
       M2TMP = M2TMP/SIJK**2*BLO
-
+c
 c     Subtract double soft limit
-
       M2TMP = M2tmp - (-CF*(2D0*TR*(((SIK*SJR-SIR*SJK)**2-SKR*SIJ*(SIK+SJK)*(SIR+SJR))/(SIJ**2*(SIK+SJK)**2*(SIR+SJR)**2))))*BLO
-C     Including correct multiplicity factor
+c
+c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)

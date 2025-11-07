@@ -347,24 +347,28 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if j.get('number') == i.get('number') :
                     continue
                 # if i is not a gluon, then j must not be a final state gluon
-                if i['id'] != 21 and j['id'] == 21 and j['state']:
-                    continue
-# gl
+                # if i['id'] != 21 and j['id'] == 21 and j['state']:
+                #    continue
+
                 # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                if i['id'] == 21 and j['id'] == 21 and j['state']:
-                    if j.get('number') < i.get('number') :
-                        continue
+                # if i['id'] == 21 and j['id'] == 21 and j['state']:
+                #     if j.get('number') < i.get('number') :
+                #         continue
 
                 # if j and i are quarks and antiquark in the final state, let j be the quark
                 #   this is needed in order to comply with the fct combine_ij inside fks_common
-                if i['id'] == -j['id'] and j['state']:
-                    if j['id'] < 0:
-                        continue
+                # if i['id'] == -j['id'] and j['state']:
+                #     if j['id'] < 0:
+                #         continue
 
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
-                
+                if not ijlist:
+                    ijlist = fks_common.combine_ij(fks_common.to_fks_leg(j, model),
+                                                   fks_common.to_fks_leg(i, model),
+                                                   model, pert_dict)
+
                 # print('list of ij : ' + str(ijlist))
 
                 for ij in ijlist:

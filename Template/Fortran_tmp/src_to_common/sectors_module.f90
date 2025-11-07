@@ -1,10 +1,10 @@
 module sectors2_module
   implicit none
   integer, public :: n_ext
-  double precision, public :: alpha_mod, Z_NLO, ZS_NLO
+  double precision, public :: alpha_mod, W_NLO, WS_NLO, WC_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
-  public :: get_sig2, get_Z_NLO, get_ZS_NLO
+  public :: get_sig2, get_W_NLO, get_WS_NLO, get_WC_NLO
   private
 
 contains
@@ -40,27 +40,8 @@ contains
   end subroutine get_sig2
 
 
-  subroutine get_Z_NLO(i1,i2)
-    !     NLO sector functions Z(i1,i2)
-    implicit none
-    include 'all_sector_list.inc'
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    call sector2_global_checks(i1,i2)
-    num = sig2(i1,i2) + sig2(i2,i1)
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b) + sig2(b,a)
-    enddo
-    Z_NLO = num/sigma
-    call sector2_sanity_checks(sigma,Z_NLO)
-  end subroutine get_Z_NLO
-
-
-  subroutine get_ZS_NLO(i1,i2)
-    !     NLO soft sector functions ZS(i1,i2) = barS_i1 Z(i1,i2)
+  subroutine get_W_NLO(i1,i2)
+    !     NLO sector functions W(i1,i2)
     implicit none
     include 'all_sector_list.inc'
     integer :: i,a,b,i1,i2
@@ -71,18 +52,47 @@ contains
     do i=1,lensectors
        a=all_sector_list(1,i)
        b=all_sector_list(2,i)
-       ! check
-       ! 3=g, 4=g, 5=q, sectors ab = 34, 35, 45
-       ! sector 34 -> ZS(i1=3,i2=4) = S3.Z34 = sig2(3,4) / (sig2(3,4) + sig2(3,5))
-       ! sector 34 -> ZS(i1=4,i2=3) = S4.Z34 = sig2(4,3) / (sig2(4,3) + sig2(4,5))
-       ! sector 35 -> ZS(i1=3,i2=5) = S3.Z35 = sig2(3,5) / (sig2(3,4) + sig2(3,5))
-       ! sector 45 -> ZS(i1=4,i2=5) = S4.Z45 = sig2(4,5) / (sig2(4,3) + sig2(4,5))
-       if(a.eq.i1) sigma = sigma + sig2(a,b)
-       if(b.eq.i1) sigma = sigma + sig2(b,a)
+       sigma = sigma + sig2(a,b)
     enddo
-    ZS_NLO = num/sigma
-    call sector2_sanity_checks(sigma,ZS_NLO)
-  end subroutine get_ZS_NLO
+    W_NLO = num/sigma
+    call sector2_sanity_checks(sigma,W_NLO)
+  end subroutine get_W_NLO
+
+  subroutine get_WS_NLO(i1,i2)
+    !     NLO soft sector functions WS(i1,i2) = barS_i1 W(i1,i2)
+    implicit none
+    include 'all_sector_list.inc'
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
+    call sector2_global_checks(i1,i2)
+    num = sig2(i1,i2)
+    sigma = 0d0
+    do i=1,lensectors
+       a=all_sector_list(1,i)
+       b=all_sector_list(2,i)
+       if(a.eq.i1) sigma = sigma + sig2(a,b)
+       !if(b.eq.i1) sigma = sigma + sig2(b,a)
+    enddo
+    WS_NLO = num/sigma
+    call sector2_sanity_checks(sigma,WS_NLO)
+  end subroutine get_WS_NLO
+
+  subroutine get_WC_NLO(xs_in,ia,ib,ir,alphaz,n_ext_in)
+    !     NLO collinear sector functions WC(ia,ib,ir)
+    implicit none
+    include 'all_sector_list.inc'
+    integer :: ia,ib,ir
+    integer :: n_ext_in
+    double precision :: ei,ej,wij,wir,wjr,alphaz
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
+    ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
+    wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
+    wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
+    wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
+    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
+  end subroutine get_WC_NLO
+
 
 
   subroutine sector2_global_checks(i1,i2)
@@ -143,7 +153,7 @@ contains
     integer :: i,j,k,l,del_jk
     double precision :: ei,ej,ek
     double precision :: wij, wik, wjk, wkl
-    
+
     ! set global module variables
     n_ext=n_ext_in
 !    num_sec=(n_ext-2)*(n_ext-3)/2
@@ -211,7 +221,7 @@ contains
              sigNNLO(i3,i4,i2,i1)  + &
              sigNNLO(i4,i3,i1,i2)  + &
              sigNNLO(i4,i3,i2,i1)
-    else 
+    else
        write(*,*) 'get_Z_NNLO: error in the numerator construction...'
        write(*,*) 'negative value for 4th sector index i4...'
        write(*,*) 'i4 = ', i4
@@ -319,7 +329,7 @@ contains
     ZSS_NNLO = num/sigma
     call sector2_sanity_checks(sigma,ZSS_NNLO)
   end subroutine get_ZSS_NNLO
-  
+
 
 
   subroutine get_ZS_NNLO(i1,i2,sec_list)
@@ -330,7 +340,7 @@ contains
     ! This list contains the pairs (bar{isec}, bar{jsec})
     ! The second entry runs over the number of final state NLO particles
     integer, dimension (2,num_sec) :: sec_list
-    
+
     num = sig2(i1,i2)
     sigma = 0d0
     do i=1,num_sec
@@ -344,7 +354,7 @@ contains
     call sector2_sanity_checks(sigma,ZS_NNLO)
   end subroutine get_ZS_NNLO
 
-  
+
   subroutine get_ZHC_NNLO(i1,i2,sec_list)
     !     NNLO 2-index mapped sector function relevant to the barHCij limit
     implicit none
@@ -366,7 +376,7 @@ contains
     call sector2_sanity_checks(sigma,Z_HC_NNLO)
   end subroutine get_ZHC_NNLO
 
-  
+
   subroutine sector4_global_checks(i1,i2,i3,i4)
     implicit none
     integer :: i1,i2,i3,i4

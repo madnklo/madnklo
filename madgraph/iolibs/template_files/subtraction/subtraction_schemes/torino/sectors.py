@@ -433,8 +433,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         #gl
         all_local_counterterms_list = []
-        necessary_ct_list = [] # [S_gi, S_gj, HC_ij]
-        necessary_ct = [0] * (5*len(all_sectors))
+        necessary_ct_list = [] # [S_gi, S_gj, C_ij, SC_ij]
+        necessary_ct = [0] * (7*len(all_sectors))
         i = 0
         for s in all_sectors:
             #print('s in sectors : ' + str(s))
@@ -447,7 +447,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             if counterterms is not None:
                 s['counterterms'] = []
-                necessary_ct_list_one = [0]*3
+                necessary_ct_list_one = [0]*4
                 for i_ct, ct in enumerate(counterterms):
                     #print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
                     #print('ct : ' + str(ct))
@@ -477,11 +477,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_ct_list_one[2] = 'HC_gg' # 1
+                                    necessary_ct_list_one[2] = 'C_gg' # 1
+                                    necessary_ct_list_one[3] = 'SC_gg' # 1
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_ct_list_one[2] = 'HC_gq' # 1
+                                    necessary_ct_list_one[2] = 'C_gq' # 1
+                                    necessary_ct_list_one[3] = 'SC_gq' # 1
+                                elif s['sector'].id[1] == 21 and s['sector'].id[0] != 21:
+                                    necessary_ct_list_one[2] = 'C_gq' # 1
                                 else :
-                                    necessary_ct_list_one[2] = 'HC_qqx' # 1
+                                    necessary_ct_list_one[2] = 'C_qqx' # 1
                                 necessary_ct[i+2] = ct
 #                         else:
 #                             #soft-collinear CT: include only if, on top of the previous condition,
@@ -489,20 +493,21 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 #                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
 #                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
 #                                 s['counterterms'].append(i_ct)
-#                                 necessary_ct_list[i,j+3] = 1
-#                                 necessary_ct[i,j+3] = ct
+#                                 necessary_ct_list[3] = 'SC_gq'
+#                                 necessary_ct[i+3] = ct
 # # # gl
 #                             if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
 #                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
 #                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
 #                                     s['counterterms'].append(i_ct)
-#                                     necessary_ct_list[i+4] = 1
-#                                     necessary_ct[i+4] = ct
+#                                     necessary_ct_list[3] = 'SC_gg'
+#                                     necessary_ct[i+3] = ct
+
 
                 all_local_counterterms_list.append(s['counterterms'])
                 necessary_ct_list.append(necessary_ct_list_one)
 
-            # index of necessary_ct_list    
+            # index of necessary_ct_list
             i += 5
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
@@ -614,8 +619,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         path_Born_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx']
-        
+        necessary_default_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'SC_gg', 'SC_gq']
+
 
         for i in range(0,len(all_sector_list)):
             list_M2 = []

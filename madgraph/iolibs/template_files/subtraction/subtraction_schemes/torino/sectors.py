@@ -650,9 +650,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #    replace_dict_limits['proc_prefix_%s' % necessary_default_ct_list[k]] = 'dummy'
 
             # replace_dict_limits['proc_prefix_S_g'] = 'dummy'
-            # replace_dict_limits['proc_prefix_HC_gg'] = 'dummy'
-            # replace_dict_limits['proc_prefix_HC_gq'] = 'dummy'
-            # replace_dict_limits['proc_prefix_HC_qqx'] = 'dummy'
+            # replace_dict_limits['proc_prefix_C_gg'] = 'dummy'
+            # replace_dict_limits['proc_prefix_C_gq'] = 'dummy'
+            # replace_dict_limits['proc_prefix_C_qqx'] = 'dummy'
+            # replace_dict_limits['proc_prefix_SC_gg'] = 'dummy'
+            # replace_dict_limits['proc_prefix_SC_gq'] = 'dummy'
 
             # Update sector_info dictionary
             sector_info = {
@@ -707,12 +709,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
                 elif j == 1:
-                    if id_jsec != 21:
-                        raise MadEvent7Error('%d is not a gluon!' % jsec)
-                    # list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' 
-                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                    list_M2.append('if(ierr.eq.1)goto 999\n')
+                    continue
+                    # if id_jsec != 21:
+                    #     raise MadEvent7Error('%d is not a gluon!' % jsec)
+                    # # list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                    # list_M2.append('K%s=K%s+M2_%s(jsec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n'
+                    #                    % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                    # list_M2.append('if(ierr.eq.1)goto 999\n')
                 elif j == 2:
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
@@ -722,6 +725,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
+                elif j == 3:
+                    if (isec == iref) or (jsec == iref):
+                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
+                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                    list_M2.append('if(ierr.eq.1)goto 999\n')
 
 
                 # if necessary_ct_list[i][j] == 0:
@@ -890,7 +900,65 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
                     flag = False
                     for j in range(0,len(uB_proc)):
-                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])                        
+                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
+                        if os.path.exists(dirpathLO):
+                            replace_dict_int_real['strUB'] = uB_proc[j]
+                            replace_dict_limits[tmp_proc] = uB_proc[j]
+                            overall_sector_info[i]['Born_str'] = uB_proc[j]
+                            overall_sector_info[i]['path_to_Born'] = dirpathLO
+                            if uB_proc[j] not in Born_processes:
+                                Born_processes.append(uB_proc[j])
+                                path_Born_processes.append(dirpathLO)
+                            break
+                        else:
+                            list_proc = []
+                            filepdg = pjoin(dirpathLO_head,'../SubProcesses/Born_PDGs.py')
+                            f = open(filepdg,"r")
+                            while(True):
+                                line = f.readline()
+                                if(line != ''):
+                                    list_proc.append(line)
+                                else:
+                                    break
+                            f.close()
+                            for k in range(len(list_proc)):
+                                if(uB_proc[j] in list_proc[k]):
+                                    extra_uB_proc = uB_proc[j]
+                                    replace_dict_int_real['strUB'] = extra_uB_proc
+                                    replace_dict_limits[tmp_proc] = extra_uB_proc
+                                    overall_sector_info[i]['Born_str'] = extra_uB_proc
+
+                                    #gl
+                                    tmp_extra_uB_proc = extra_uB_proc.split("_")
+                                    fs_flavours = [x for x in tmp_extra_uB_proc[-1]]
+                                    for m in range(len(fs_flavours)):
+                                        if fs_flavours[m] == 's':
+                                            fs_flavours[m] = 'd'
+                                        elif fs_flavours[m] == 'c':
+                                            fs_flavours[m] = 'u'
+                                    fs_flavours = "".join(fs_flavours)
+                                    tmp_extra_uB_proc[-1] = fs_flavours
+                                    overall_sector_info[i]['alt_Born_str'] = "_".join(tmp_extra_uB_proc)
+                                    overall_sector_info[i]['alt_Born_path'] = pjoin(dirpathLO_head, 'SubProcesses', "P%s"
+                                                                                    % "_".join(['1',overall_sector_info[i]['alt_Born_str']]))
+                                    #print(overall_sector_info[i]['alt_Born_str'])
+                                    #print(overall_sector_info[i]['alt_Born_path'])
+
+                                    flag = True
+                                    break
+                            if(flag == True):
+                                break
+
+            if necessary_ct_list[i][3] != 0 : #== 1:
+                # Loop over sectors with final state particles only
+                if isec > 2 and jsec > 2:
+                    tmp_proc = 'proc_prefix_%s' % necessary_ct_list[i][3]
+                    uB_proc = necessary_ct[i*5+2].current.shell_string_user(
+                                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                    uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    flag = False
+                    for j in range(0, len(uB_proc)):
+                        dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
                         if os.path.exists(dirpathLO):
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]

@@ -1,7 +1,7 @@
 
       
       double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
-c     single-soft limit S_(i) * Zsoft
+c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       use sectors2_module
       implicit none
@@ -81,9 +81,9 @@ c
 c     call Z soft
       CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)
       if(i.eq.isec) then
-         CALL GET_ZS_NLO(ISEC,JSEC)
+         CALL GET_WS_NLO(ISEC,JSEC)
       elseif(i.eq.jsec) then
-         CALL GET_ZS_NLO(JSEC,ISEC)
+         CALL GET_WS_NLO(JSEC,ISEC)
       else
          write(*,*)'In M2_S_g i should be = isec or = jsec',i,isec,jsec
          stop
@@ -164,10 +164,10 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_g=M2_S_g+pref*M2tmp*ZS_NLO*extra
+            M2_S_g=M2_S_g+pref*M2tmp*WS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZS_NLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
 c

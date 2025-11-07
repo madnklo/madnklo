@@ -145,15 +145,15 @@ c     real
 c
 c     real sector function
       call get_sig2(SNLO,alphaZ,nexternal)
-      call get_Z_NLO(isec,jsec)
+      call get_W_NLO(isec,jsec)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '
-         write(77,*) 'Wrong Z_NLO', Z_NLO
+         write(77,*) 'Wrong W_NLO', W_NLO
          goto 999
       endif
 c
 c     full real in the combination of sectors
-      int_real_no_cnt=RNLO*Z_NLO*xjac
+      int_real_no_cnt=RNLO*W_NLO*xjac
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan

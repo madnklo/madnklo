@@ -62,7 +62,7 @@ c
       double precision x0(mxdim),x(mxdim)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
-      double precision KS,KHC,KNLO
+      double precision KS,KC,KSC,KNLO
       double precision lam,lim,RNLO,single_real
       character*5 str5
       character*8 limstr
@@ -139,14 +139,14 @@ c     real
          RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
          call get_sig2(SNLO,alphaZ,nexternal)
-         CALL GET_Z_NLO(%(isec)d,%(jsec)d)
+         CALL GET_W_NLO(%(isec)d,%(jsec)d)
 c
 c     counterterm
          call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNLO
-         single_real=RNLO*Z_NLO*xjac
+         single_real=RNLO*W_NLO*xjac
          
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)

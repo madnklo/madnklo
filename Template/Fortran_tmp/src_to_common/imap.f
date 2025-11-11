@@ -101,7 +101,7 @@ c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
          do j=1,nexternal
             if(leg_pdgs(i).eq.mapped_flavours(j)) then
                if(mapped_flavours(j).eq.0.or.aux_labels(j).ne.0) cycle
-               xpb_mapped(:,mapped_labels(j)) = xpb(:,i)
+               xpb_mapped(:,i) = xpb(:,mapped_labels(j))
                aux_labels(j) = i
                exit
             endif

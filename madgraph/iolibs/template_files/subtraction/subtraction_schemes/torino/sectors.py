@@ -1382,12 +1382,12 @@ c     spurious collinear limit
         proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
-        for i in range(0,len(overall_sector_info)):
-            if not overall_sector_info[i]['path_to_Born']:
-                continue
-            if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-                continue
-            proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
+        seen_born = set()
+        for item in overall_sector_info:
+            born_str = item['Born_str']
+            if item.get('path_to_Born') and born_str not in seen_born:
+                proc_str += ' matrix_' + born_str + '.o'
+                seen_born.add(born_str)
 
         replace_dict['proc_str'] = proc_str
 

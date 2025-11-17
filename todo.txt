@@ -226,4 +226,29 @@ TODO 1/7/24 towards eejj @NNLO
 
 
 
+================================
+===============================
+TODO 17/11/25
+
+- NLOV and NNLORV: define poles array as (-2:0)
+- NLO check xjac = Gevtopb in NLO_V
+- NLO R -> multichannel wrt to the real matrix element and not the Born
+- NLO V inside NNLO misses ML5_1_1_spin_correlations.inc'
+- Fortran runtime error: Index '0' of dimension 1 of array 'islomappedqcdparton' below lower bound of 1
+- incorporate NLO_Vsub inside NLO_V
+- error bars in the histograms
+
+structure in the NNLO_RV directory
+- driver (as the NLO_R driver) DONE
+- RV matrix element (like the NLO_R matrix element + loop) DONE
+- KRV (like the NLO_K)
+- I1 (like the NLO_I in the virtulal)
+- I12 (like the NLO_I in the virtulal)
+- RV_sub -> to combine the four objects, like NLO_R_sub
+- tests for the phase space limits (RV - K_RV) and (I1-I12) together?
+- pole cancellation for RV + I1 and for KRV + I12 together?
+
+
+
+
 

@@ -152,7 +152,7 @@ c     test coefficients of epsilon poles
          write(50,*)
       endif
 c
-c     subtracted vrtual
+c     subtracted virtual
       int_virtual=(VNLO(1)+INLO(1))*xjac
 c
 c     apply flavour multiplicity factor

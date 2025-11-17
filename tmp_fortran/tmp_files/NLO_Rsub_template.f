@@ -118,14 +118,14 @@ c
 c     tiny technical phase-space cut to avoid fluctuations
       tinycut=tiny1
       if(dotechcut(snlo,nexternal,tinycut)) goto 999
+c
+c     possible cuts
+      IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
       call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
       WGT_CHAN=AMP2(ICH)
-c
-c     possible cuts
-      IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
 c
 c     test matrix elements
       if(ntested.lt.ntest)then
@@ -152,7 +152,7 @@ c     real sector function
          goto 999
       endif
 c
-c     full real in the combination of sectors
+c     full real in sector Wij
       int_real_no_cnt=RNLO*W_NLO*xjac
 c
 c     plot real

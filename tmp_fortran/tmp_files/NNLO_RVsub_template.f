@@ -18,8 +18,8 @@ c     (n+1)-body NNLO integrand for vegas
       common/niterationsrv/nitRV
       integer %(NLO_proc_str)sfl_factor 
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
-      double precision int_real_virtual,RVNNLO(3),KRVNNLO(3)
-      double precision I1NNLO(3),I12NNLO(3)
+      double precision int_real_virtual,RVNNLO(-2:0),KRVNNLO(-2:0)
+      double precision I1NNLO(-2:0),I12NNLO(-2:0)
       double precision sNLO(nexternal,nexternal)
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
@@ -189,7 +189,7 @@ c     real sector function
       endif
 c
 c     full real virtual in sector Wij
-      int_real_virtual_no_cnt=RVNNLO(1)*W_NLO*xjac
+      int_real_virtual_no_cnt=RVNNLO(0)*W_NLO*xjac
 c
 c     plot real virtual
       wgtpl=int_real_virtual_no_cnt*wgt/nitRV*wgt_chan
@@ -219,17 +219,17 @@ c     test coefficients of epsilon poles
          ntested=ntested+1
          write(50,*)
          write(50,*)'Testing point # ', ntested
-         write(50,*)'Double pole RV, I1, sum', RVNNLO(3), I1NNLO(3), RVNNLO(3)+I1NNLO(3)
-         write(50,*)'Single pole RV, I1, sum', RVNNLO(2), I1NNLO(2), RVNNLO(2)+I1NNLO(2)
+         write(50,*)'Double pole RV, I1, sum', RVNNLO(-2), I1NNLO(-2), RVNNLO(-2)+I1NNLO(-2)
+         write(50,*)'Single pole RV, I1, sum', RVNNLO(-1), I1NNLO(-1), RVNNLO(-1)+I1NNLO(-1)
          write(50,*)
-         write(50,*)'Double pole KRV, I12, sum', KRVNNLO(3), I12NNLO(3), KRVNNLO(3)+I12NNLO(3)
-         write(50,*)'Single pole KRV, I12, sum', KRVNNLO(2), I12NNLO(2), KRVNNLO(2)+I12NNLO(2)
+         write(50,*)'Double pole KRV, I12, sum', KRVNNLO(-2), I12NNLO(-2), KRVNNLO(-2)+I12NNLO(-2)
+         write(50,*)'Single pole KRV, I12, sum', KRVNNLO(-1), I12NNLO(-1), KRVNNLO(-1)+I12NNLO(-1)
          write(50,*)
          write(50,*)
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_real_virtual_%(isec)d_%(jsec)d=(int_real_virtual_no_cnt+I1NNLO(1)) - (KRVNNLO(1)+I12NNLO(1))
+      int_real_virtual_%(isec)d_%(jsec)d=(int_real_virtual_no_cnt+I1NNLO(0)) - (KRVNNLO(0)+I12NNLO(0))
       int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d*wgt_chan
 
 c     Multi channeling

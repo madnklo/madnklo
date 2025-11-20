@@ -147,10 +147,10 @@ c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 555
 
-c     Call the Underlying Real matrix element to fill the amp2 array,
-c     in order to implement the multi channel
-      call %(long_proc_prefix)s_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,dummy_ANS)
-      WGT_CHAN=AMP2(ICH)
+c$$$c     Call the Underlying Real matrix element to fill the amp2 array,
+c$$$c     in order to implement the multi channel
+c$$$      call %(long_proc_prefix)s_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,dummy_ANS)
+c$$$      WGT_CHAN=AMP2(ICH)
 c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
@@ -170,7 +170,7 @@ c     real virtual
 !        INCLUDE 'pmass.inc'
       ENDIF
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      RVNNLO(1:3) = MATELEM(1:3,0) * %(NLO_proc_str)sfl_factor
+      RVNNLO(-2:0) = MATELEM(1:3,0) * %(NLO_proc_str)sfl_factor
       do i=1,3
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
@@ -192,7 +192,7 @@ c     full real virtual in sector Wij
       int_real_virtual_no_cnt=RVNNLO(0)*W_NLO*xjac
 c
 c     plot real virtual
-      wgtpl=int_real_virtual_no_cnt*wgt/nitRV*wgt_chan
+      wgtpl=int_real_virtual_no_cnt*wgt/nitRV  !*wgt_chan
       if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
 c
@@ -207,11 +207,11 @@ c     real-virtual counterterm
       endif
 c
 c     1-unresolved integrated counterterm
-      call int_counter_I1_NNLO(p,sNLO,I1NNLO,ierr)
+      call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,I1NNLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     12-unresolved integrated counterterm
-      call int_counter_I12_NNLO(p,sNLO,I12NNLO,ierr)
+      call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,I12NNLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     test coefficients of epsilon poles

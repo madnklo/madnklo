@@ -15,11 +15,12 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer i,l,m,q,lb,mb,qb,ierr,nit,idum
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,ccBLO,VLO,ccVLO,extra
+      double precision BLO,ccBLO,triBLO,VLO(-2:0),ccVLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,ml2,mm2,y,z,x,damp
+      double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
+      double precision eik0,eik1(-2:0),eik2(-2:0)
       integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
       logical isLOQCDparton(nexternal-1)
 c     set logical doplot
@@ -39,6 +40,7 @@ c     external
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_g)s_GET_CCBLO
+      double precision  %(proc_prefix_S_g)s_GET_TRIBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S_g)s_den
@@ -155,8 +157,8 @@ c     eikonal
             EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/scale**2)**2-5d0*zeta2)
 
             M2TMP(-2:0) = M2TMP(-2:0) + CCVLO(-2:0)*EIK0
-            M2TMP(-2:0) = M2TMP(-2:0) - alphas/(2d0*Pi)*CCBLO*EIK1(-2:0)
-            M2TMP(-1)   = M2TMP(-1) - alphas*beta0/(4d0*Pi)*CCBLO*EIK0
+            M2TMP(-2:0) = M2TMP(-2:0) - alphas/2d0/pi*CCBLO*EIK1(-2:0)
+            M2TMP(-1)   = M2TMP(-1) - alphas*beta0/4d0/pi*CCBLO*EIK0
 
             do q=1,nexternal
                if(.not.isNLOQCDparton(q))cycle
@@ -186,7 +188,7 @@ c              invariant quantities
 
 
 c     Including correct multiplicity factor
-            M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
+            M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)
 c
 c     damping factors
 c     TODO: adapt damping factors

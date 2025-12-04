@@ -37,11 +37,11 @@ class MadEvent7Error(Exception):
     pass
 
 
-logger = logging.getLogger('madgraph')  
+logger = logging.getLogger('madgraph')
 
 #==================================================================================
 #  Necessary template files for real subprocess directories
-# 
+#
 #      ? - all_sector_list.inc
 #      ? - NLO_K_template.f
 #      ? - NLO_Rsub_template.f
@@ -54,7 +54,7 @@ logger = logging.getLogger('madgraph')
 #
 #      ? - links from Born to Real subproc directories
 #      ? - links from Born to Virtual subproc directories
-# 
+#
 #==================================================================================
 
 
@@ -99,6 +99,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         # First divide according to the possibility of having 3 or 4 particle topologies
 
+        # at NNLO: from i,j,k to ijk
+        #      3) [g0 g1 g1 g2], (3)
+        #         [g0 g1 g1 q], [g0 g1 q g1], [q <-> bq],  (2)
+        #         [g q q bq], [g q bq q], [q g g bq] (1)
+        #         [bq q q'], [bq q bq'], [bq q q], [bq q bq] (0)
+
         ####################################################
         # 3-particle sectors
         fks_j_i = {}
@@ -138,11 +144,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                                model, pert_dict)
 
                 if len(ijlist)==0:
-                    continue 
+                    continue
 
                 #print('i, j : ' + str(i['id']) + ', ' + str(j['id']))
                 #print('3P ijlist : ' + str(ijlist))
-                
+
                 for ij in ijlist:
                     # copy the defining process, remove i and j
                     # and replace them by ij.
@@ -168,7 +174,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             'recoiler' : None
                         }
                         a_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'), j.get('number')))
-                        # TODO: define recoiler 
+                        # TODO: define recoiler
                         #a_sector['recoiler'] = None
                         a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                         all_sector_recoilers.append(a_sector['recoiler'].get('number'))
@@ -194,7 +200,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         if col_k == 1:
                             continue
                         if not k.get('state'):
-                            continue                 
+                            continue
 # gl
                         # if both i and j are gluons, then keep just the case in which i (number) < j (number)
                         if ij['id'] == 21 and k['id'] == 21 and k['state']:
@@ -214,7 +220,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                                     model, pert_dict)
 
                         if len(ijklist)==0:
-                            continue 
+                            continue
 
                         #print('ij, k : ' + str(ij['id']) + ', ' + str(k['id']))
                         #print('3P ijklist : ' + str(ijklist))
@@ -246,7 +252,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     'recoiler' : None
                                 }
                                 a_sector['sector'] = sectors.Sector(leg_numbers=(ij.get('number'), k.get('number')))
-                                # TODO: define recoiler 
+                                # TODO: define recoiler
                                 #a_sector['recoiler'] = None
                                 a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                                 all_sector_recoilers.append(a_sector['recoiler'].get('number'))
@@ -258,7 +264,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 a_sector['sector'].masses = (model.get('particle_dict')[ij.get('id')]['mass'],
                                                      model.get('particle_dict')[k.get('id')]['mass'])
                                 #print('Masses : ' + str(a_sector['sector'].masses))
-# gl
+
                                 # keep track of the particles' identity
                                 a_sector['sector'].id = (ij.get('id'), k.get('id'))
                                 all_sector_id_legs.append(ij.get('id'))
@@ -268,40 +274,57 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 all_sectors.append(a_sector)
 
 
-                        # TODO: remove redundant sectors; in the symmetrised case
-                        # Zijkl = ijkl + ijlk + jikl + jilk + klij + klji + lkij + lkji
                         tmp_sector = [i.get('number'),j.get('number'),k.get('number')]
                         tmp_sector_id = [i.get('id'),j.get('id'),k.get('id')]
 
                         if len(threep_sectors) == 0 or tmp_sector not in combs:
+                            ### ijjk topology ###
                             a_3p_sector = {
                             'sector': None,
                             'counterterms': None,
                             'integrated_counterterms': None,
                             'recoiler' : None
                             }
-                            a_3p_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'),j.get('number'),k.get('number')))
+                            a_3p_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'),j.get('number'),j.get('number'),k.get('number')))
                             a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number'),k.get('number')))
                             all_3p_sector_recoilers.append(a_sector['recoiler'].get('number'))
                             # keep track of the masses
                             #a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                             #                         model.get('particle_dict')[j.get('id')]['mass'])
-# gl
+
                             # keep track of the particles' identity
-                            a_3p_sector['sector'].id = (i.get('id'), j.get('id'),k.get('id'))
+                            a_3p_sector['sector'].id = (i.get('id'),j.get('id'),j.get('id'),k.get('id'))
                             all_3p_sectors.append(a_3p_sector)
-                            logger.info('NNLO sector found, legs %d, %d, %d' % a_3p_sector['sector'].leg_numbers)
+                            logger.info('NNLO sector found, legs %d, %d, %d, %d' % a_3p_sector['sector'].leg_numbers)
 
+                            ### ijkj topology ###
+                            a_3p_sector = {
+                            'sector': None,
+                            'counterterms': None,
+                            'integrated_counterterms': None,
+                            'recoiler' : None
+                            }
+                            a_3p_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'),j.get('number'),k.get('number'),j.get('number')))
+                            a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number'),k.get('number')))
+                            all_3p_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                            # keep track of the masses
+                            #a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
+                            #                         model.get('particle_dict')[j.get('id')]['mass'])
 
-                            threep_sectors.append(tmp_sector)
-                            threep_sectors_id.append(tmp_sector_id)
-                            combs.append([i.get('number'),j.get('number'),k.get('number')])     #ijk
-                            combs.append([i.get('number'),k.get('number'),j.get('number')])     #ikj
-                            combs.append([j.get('number'),i.get('number'),k.get('number')])     #jik
-                            combs.append([j.get('number'),k.get('number'),i.get('number')])     #jki
-                            combs.append([k.get('number'),i.get('number'),j.get('number')])     #kij
-                            combs.append([k.get('number'),j.get('number'),i.get('number')])     #kji
-                                
+                            # keep track of the particles' identity
+                            a_3p_sector['sector'].id = (i.get('id'),j.get('id'),k.get('id'),j.get('id'))
+                            all_3p_sectors.append(a_3p_sector)
+                            logger.info('NNLO sector found, legs %d, %d, %d, %d' % a_3p_sector['sector'].leg_numbers)
+
+                            threep_sectors.append([i.get('number'),j.get('number'),j.get('number'),k.get('number')])  #ijjk
+                            threep_sectors_id.append([i.get('id'),j.get('id'),j.get('id'),k.get('id')])
+                            threep_sectors.append([i.get('number'),j.get('number'),k.get('number'),j.get('number')])  #ijkj
+                            threep_sectors_id.append([i.get('id'),j.get('id'),k.get('id'),j.get('id')])
+
+                            combs.append([i.get('number'),j.get('number'),k.get('number')])
+                            #combs.append([i.get('number'),j.get('number'),j.get('number'),k.get('number')])     #ijjk in combs
+                            #combs.append([i.get('number'),j.get('number'),k.get('number'),j.get('number')])     #ijkj in combs
+
                         elif tmp_sector in combs:
                             continue
 
@@ -349,10 +372,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
-                
+
                 if len(ijlist)==0:
-                    continue 
-                
+                    continue
+
                 for ij in ijlist:
                     # copy the defining process, remove i and j
                     # and replace them by ij.
@@ -376,7 +399,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             'recoiler' : None
                         }
                         a_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'), j.get('number')))
-                        # TODO: define recoiler 
+                        # TODO: define recoiler
                         a_sector['recoiler'] = None
                         #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                         #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
@@ -387,13 +410,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         # keep track of the masses
                         a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                                                      model.get('particle_dict')[j.get('id')]['mass'])
-                        #print('Masses : ' + str(a_sector['sector'].masses))
-# gl
+
                         # keep track of the particles' identity
                         a_sector['sector'].id = (i.get('id'), j.get('id'))
                         all_sector_id_legs.append(i.get('id'))
                         all_sector_id_legs.append(j.get('id'))
-                        #print('Identities : ' + str(a_sector['sector'].id))
 
                         all_sectors.append(a_sector)
                         #logger.info('First part of 4p NNLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
@@ -415,17 +436,17 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         if l.get('number') == k.get('number') or l.get('number') == i.get('number') or l.get('number') == j.get('number'):
                             continue
                         # if k is not a gluon, then l must not be a final state gluon
-                        if k['id'] != 21 and l['id'] == 21 and l['state']:
+                        if k['id'] != 21 and l['id'] == 21 and l['state']:  # [g q] [q g]
                             continue
-# gl
+
                         # if both k and l are gluons, then keep just the case in which k (number) < l (number)
-                        if k['id'] == 21 and l['id'] == 21 and l['state']:
+                        if k['id'] == 21 and l['id'] == 21 and l['state']: # [g1 g2] [g2 g1]
                             if l.get('number') < k.get('number') :
                                 continue
 
                         # if j and i are quarks and antiquark in the final state, let j be the quark
                         #   this is needed in order to comply with the fct combine_ij inside fks_common
-                        if k['id'] == -l['id'] and l['state']:
+                        if k['id'] == -l['id'] and l['state']: # [q qb] [qb q]
                             if l['id'] < 0:
                                 continue
 
@@ -459,11 +480,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     'recoiler' : None
                                 }
                                 a_sector['sector'] = sectors.Sector(leg_numbers=(k.get('number'), l.get('number')))
-                                # TODO: define recoiler 
+                                # TODO: define recoiler
                                 a_sector['recoiler'] = None
                                 #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                                 #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
- 
+
                                 all_sector_legs.append(k.get('number'))
                                 all_sector_legs.append(l.get('number'))
                                 # keep track of the masses
@@ -473,14 +494,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 a_sector['sector'].id = (k.get('id'), l.get('id'))
                                 all_sector_id_legs.append(k.get('id'))
                                 all_sector_id_legs.append(l.get('id'))
-                                #print('Identities : ' + str(a_sector['sector'].id))
 
                                 all_sectors.append(a_sector)
                                 #logger.info('Second part of 4p NNLO sector found, legs %d, %d' % a_sector['sector'].leg_numbers)
- 
 
-                        # TODO: remove redundant sectors; in the symmetrised case
-                        # Zijkl = ijkl + ijlk + jikl + jilk + klij + klji + lkij + lkji
+
                         tmp_sector = [i.get('number'),j.get('number'),k.get('number'),l.get('number')]
                         tmp_sector_id = [i.get('id'),j.get('id'),k.get('id'),l.get('id')]
 
@@ -497,7 +515,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             # keep track of the masses
                             #a_sector['sector'].masses = (model.get('particle_dict')[i.get('id')]['mass'],
                             #                         model.get('particle_dict')[j.get('id')]['mass'])
-# gl
+
                             # keep track of the particles' identity
                             a_4p_sector['sector'].id = (i.get('id'), j.get('id'),k.get('id'),l.get('id'))
                             all_4p_sectors.append(a_4p_sector)
@@ -506,37 +524,27 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             fourp_sectors.append(tmp_sector)
                             fourp_sectors_id.append(tmp_sector_id)
                             combs.append([i.get('number'),j.get('number'),k.get('number'),l.get('number')])     #ijkl
-                            combs.append([j.get('number'),i.get('number'),k.get('number'),l.get('number')])     #jikl
-                            combs.append([i.get('number'),j.get('number'),l.get('number'),k.get('number')])     #ijlk
-                            combs.append([j.get('number'),i.get('number'),l.get('number'),k.get('number')])     #jilk
-                            combs.append([k.get('number'),l.get('number'),i.get('number'),j.get('number')])     #klij
-                            combs.append([k.get('number'),l.get('number'),j.get('number'),i.get('number')])     #klji
-                            combs.append([l.get('number'),k.get('number'),i.get('number'),j.get('number')])     #lkij
-                            combs.append([l.get('number'),k.get('number'),j.get('number'),i.get('number')])     #lkji
-                                
+
                         elif tmp_sector in combs:
                             continue
 
-                        #fourp_sectors.append([i.get('number'),j.get('number'),k.get('number'),l.get('number')])
-                        #fourp_sectors_id.append([i.get('id'),j.get('id'),k.get('id'),l.get('id')])
-
         if not all_4p_sectors:
             logger.critical('WARNING, no 4p_sectors found for %s' % defining_process.nice_string())
-   
+
         print('All sectors for RR NNLO : ' + str(fourp_sectors))
         print('All sectors id for RR NNLO : ' + str(fourp_sectors_id))
 
 
         # Now for each sector we need to find the corresponding counterterms
 
-        all_3p_sector_list = [s['sector'].leg_numbers for s in all_3p_sectors]  
+        all_3p_sector_list = [s['sector'].leg_numbers for s in all_3p_sectors]
         all_3p_sector_id_list = [s['sector'].id for s in all_3p_sectors]
-        all_4p_sector_list = [s['sector'].leg_numbers for s in all_4p_sectors]  
+        all_4p_sector_list = [s['sector'].leg_numbers for s in all_4p_sectors]
         all_4p_sector_id_list = [s['sector'].id for s in all_4p_sectors]
 
 
         ######## 3p #########
-        all_3p_local_counterterms_list = []
+        label = ''
         all_3p_K1_ct = []
         all_3p_K2_ct = []
         all_3p_K12_ct = []
@@ -545,28 +553,43 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         for s in all_3p_sectors:
             s['sector'].all_3p_sector_list = all_3p_sector_list
             s['sector'].all_3p_sector_id_list = all_3p_sector_id_list
+            leg_numbers = s['sector'].leg_numbers
 
             if counterterms is not None:
                 s['counterterms'] = []
-                necessary_3p_ct1_list = [0] * (6)
-                necessary_3p_ct1 = [0] * (6)
-                necessary_3p_ct2_list = [0] * (10)
-                necessary_3p_ct2 = [0] * (10)
-                necessary_3p_ct12_list = [0] * (21)
+                necessary_3p_ct1_list = [0] * (3)
+                necessary_3p_ct1 = [0] * (3)
+                necessary_3p_ct12_list = [0] * (13)
+                if (leg_numbers[1] == leg_numbers[2]):  #ijjk
+                    label = 'ijjk'
+                    ileg = leg_numbers[0]
+                    jleg = leg_numbers[1]
+                    kleg = leg_numbers[3]
+                    i_id = s['sector'].id[0]
+                    j_id = s['sector'].id[1]
+                    k_id = s['sector'].id[3]
+                    necessary_3p_ct2_list = [0] * (7)
+                    necessary_3p_ct2 = [0] * (7)
+                elif (leg_numbers[1] == leg_numbers[3]):  #ijkj
+                    label = 'ijkj'
+                    ileg = leg_numbers[0]
+                    jleg = leg_numbers[1]
+                    kleg = leg_numbers[2]
+                    i_id = s['sector'].id[0]
+                    j_id = s['sector'].id[1]
+                    k_id = s['sector'].id[2]
+                    necessary_3p_ct2_list = [0] * (11)
+                    necessary_3p_ct2 = [0] * (11)
 
                 print('****** NEW SECTOR ******')
-                print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]))
-                print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]))
+                print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]) + ' ' + str(s['sector'].leg_numbers[3]))
+                print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]) + ' ' + str(s['sector'].id[3]))
 
                 for i_ct, ct in enumerate(counterterms):
                     current = ct.nodes[0].current
                     n_subs = current.get('singular_structure').substructures
                     singular_structure = current.get('singular_structure').substructures[0]
                     all_legs = singular_structure.get_all_legs()
-                    leg_numbers = s['sector'].leg_numbers
-                    ileg = leg_numbers[0]
-                    jleg = leg_numbers[1]
-                    kleg = leg_numbers[2]
 
                     # safety check
                     if (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg,jleg,kleg])) and \
@@ -578,313 +601,316 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([kleg])) :
                         continue
 
-                    #print('GOOD CT')
-                    #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    #print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg))
-                    #print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]))
-                    # if len(current.get('singular_structure').substructures) > 1 :
-                    #     print('# of subs : ' + str(len(current.get('singular_structure').substructures)))
-                    #     for i in range(0,len(current.get('singular_structure').substructures)):
-                    #         #print(i)
-                    #         subs = current.get('singular_structure').substructures[i-1]
-                    #         print('subs ' + ' : ' + str(subs))
-
-                    #         n = len(subs.substructures) 
-                    #         for j in range(1,n) :
-                    #             print('subs.sub : ' + str(subs.substructures[j-1]))
-                    # else :
-                    #     print('singular_structure  : ' + str(singular_structure))
-                    #     n = len(singular_structure.substructures) 
-                    #     if n > 0 :
-                    #         for k in range(0,n) :
-                    #             print('subs.sub1 : ' + str(singular_structure.substructures[k-1]))
-                    #             m = len(singular_structure.substructures[k-1].substructures) 
-                    #             if m > 0 :
-                    #                 print('subs.sub2 : ' + str(singular_structure.substructures[k-1].substructures[0]))
-                                    
-
-                    # Identify cts for L1_ijk
-                    # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
+                    ### Identify cts for L1_ij
+                    # L1_ij  : 3  -> [Si, Cij, SiCij]
+                    # Ref. eq. 3.15, 1st line
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
                         # Si
                         if s['sector'].id[0] == 21 :
                             s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[0] = 'S_g' 
+                            necessary_3p_ct1_list[0] = 'S_g'
                             necessary_3p_ct1[0] = ct
-                        # Sj
-                        if s['sector'].id[1] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[1] = 'S_g' 
-                            necessary_3p_ct1[1] = ct
-                        # Sk
-                        if s['sector'].id[2] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_3p_ct1_list[2] = 'S_g' 
-                            necessary_3p_ct1[2] = ct
-                    
+
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
                             # Cij
                             if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_3p_ct1_list[3] = 'HC_gg' 
+                                    necessary_3p_ct1_list[1] = 'C_gg'
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_3p_ct1_list[3] = 'HC_gq' 
+                                    necessary_3p_ct1_list[1] = 'C_gq'
                                 else :
-                                    necessary_3p_ct1_list[3] = 'HC_qqx' 
-                                necessary_3p_ct1[3] = ct
-                            # Cik
-                            if sorted([l.n for l in all_legs]) == (sorted([ileg,kleg])):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[2] == 21:
-                                    necessary_3p_ct1_list[4] = 'HC_gg' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[2] != 21:
-                                    necessary_3p_ct1_list[4] = 'HC_gq' 
-                                else :
-                                    necessary_3p_ct1_list[4] = 'HC_qqx' 
-                                necessary_3p_ct1[4] = ct
-                            # Cjk
-                            if sorted([l.n for l in all_legs]) == (sorted([jleg,kleg])):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                    necessary_3p_ct1_list[5] = 'HC_gg' 
-                                elif s['sector'].id[1] == 21 and s['sector'].id[2] != 21:
-                                    necessary_3p_ct1_list[5] = 'HC_gq' 
-                                else :
-                                    necessary_3p_ct1_list[5] = 'HC_qqx' 
-                                necessary_3p_ct1[5] = ct
+                                    necessary_3p_ct1_list[1] = 'C_qqx'
+                                necessary_3p_ct1[1] = ct
 
-                    # Identify cts for L2_ijk
-                    # L2_ijk  : 10 -> [Sij, Sik, Sjk,
-                    #                  SHCijk, SHCjik, SHCkij, 
-                    #                  HCijk, 
-                    #                  CijkSHCijk, CijkSHCjik, CijkSHCkij]  
-                    
-                    if len(n_subs) == 1 and len(singular_structure.substructures) == 0 :
+                    # SiCij
+                    necessary_3p_ct1_list[2] = (''.join(('S_',necessary_3p_ct1_list[1])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0) else 0)
+                    necessary_3p_ct1[2] = necessary_3p_ct1[1]
 
-                        if singular_structure.name()=='S' and len(all_legs)==2:
-                            if not singular_structure.substructures:
-                                # Sij
-                                if sorted([l.n for l in all_legs]) == sorted([ileg,jleg]):
-                                    s['counterterms'].append(i_ct)
-                                    if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                        necessary_3p_ct2_list[0] =  'SS_gg' 
-                                    else:
-                                        necessary_3p_ct2_list[0] =  'SS_qqx' 
-                                    necessary_3p_ct2[0] = ct
-                                # Sik
-                                if sorted([l.n for l in all_legs]) == sorted([ileg,kleg]):
-                                    s['counterterms'].append(i_ct)
-                                    if s['sector'].id[0] == 21 and s['sector'].id[2] == 21:
-                                        necessary_3p_ct2_list[1] = 'SS_gg' 
-                                    else:
-                                        necessary_3p_ct2_list[1] = 'SS_qqx' 
-                                    necessary_3p_ct2[1] = ct
-                                # Sjk
-                                if sorted([l.n for l in all_legs]) == sorted([jleg,kleg]):
-                                    s['counterterms'].append(i_ct)
-                                    if s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                        necessary_3p_ct2_list[2] = 'SS_gg' 
-                                    else:
-                                        necessary_3p_ct2_list[2] = 'SS_qqx' 
-                                    necessary_3p_ct2[2] = ct
+                    #### Identify cts for K2 ####
 
-                        if singular_structure.name()=='C' and len(all_legs)==3:
-                            # Cijk
-                            if sorted([l.n for l in all_legs]) == sorted([ileg,jleg,kleg]):
+                    if (label == 'ijjk'):
+                        # K2
+                        # L2_ijjk : 7 -> [Sij,
+                        #                 SCijk, SijSCijk,
+                        #                 Cijk, SijCijk, SCijkCijk, SijSCijkCijk]
+                        # # Ref. eq. 3.15, 2nd line
+
+                        if len(n_subs) == 1 and len(singular_structure.substructures) == 0 :
+
+                            if singular_structure.name()=='S' and len(all_legs)==2:
+                                if not singular_structure.substructures:
+                                    # Sij
+                                    if sorted([l.n for l in all_legs]) == sorted([ileg,jleg]):
+                                        s['counterterms'].append(i_ct)
+                                        if (i_id == 21 and j_id == 21):
+                                            necessary_3p_ct2_list[0] =  'SS_gg'
+                                        else:
+                                            necessary_3p_ct2_list[0] =  'SS_qqx'
+                                        necessary_3p_ct2[0] = ct
+
+                            if singular_structure.name()=='C' and len(all_legs)==3:
+                                # Cijk
+                                if sorted([l.n for l in all_legs]) == sorted([ileg,jleg,kleg]):
+                                    s['counterterms'].append(i_ct)
+                                    if (i_id == 21 and j_id == 21 and k_id == 21):
+                                        necessary_3p_ct2_list[3] = 'CC_ggg'
+                                    elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                        necessary_3p_ct2_list[3] = 'CC_ggq'
+                                    elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                        necessary_3p_ct2_list[3] = 'CC_gqqx'
+                                    else:
+                                        if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
+                                            necessary_3p_ct2_list[3] = 'CC_qxqq'
+                                        else:
+                                            necessary_3p_ct2_list[3] = 'CC_qxqqp'
+                                    necessary_3p_ct2[3] = ct
+
+                        if len(n_subs) == 2 :
+                            # here singular_structure = coll_sub -> C(i,j)
+                            all_legs_C = current.get('singular_structure').substructures[1].get_all_legs()
+
+                            # SCijk
+                            if (i_id == 21 and sorted([l.n for l in all_legs_C]) == sorted([jleg,kleg])) :
                                 s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                    necessary_3p_ct2_list[6] = 'HCC_ggg' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and s['sector'].id[2] != 21:
-                                    necessary_3p_ct2_list[6] = 'HCC_ggq' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21 and  s['sector'].id[1] == (- s['sector'].id[2]):
-                                    necessary_3p_ct2_list[6] = 'HCC_gqqx' 
+                                if (j_id == 21 and k_id == 21):
+                                    necessary_3p_ct2_list[1] = 'SC_ggg'
+                                elif (j_id == 21 and k_id != 21):
+                                    necessary_3p_ct2_list[1] = 'SC_ggq'
                                 else:
-                                    if abs(s['sector'].id[0]) == abs(s['sector'].id[1]) and abs(s['sector'].id[1]) == abs(s['sector'].id[2]):
-                                        necessary_3p_ct2_list[6] = 'HCC_qxqq' 
+                                    necessary_3p_ct2_list[1] = 'SC_gqqx'
+                                necessary_3p_ct2[1] = ct
+
+                        # SijSCijk
+                        necessary_3p_ct2_list[2] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        necessary_3p_ct2[2] = necessary_3p_ct2[1]
+                        # SijCijk
+                        necessary_3p_ct2_list[4] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        necessary_3p_ct2[4] = necessary_3p_ct2[3]
+                        # SCijkCijk
+                        necessary_3p_ct2_list[5] = (''.join((necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        necessary_3p_ct2[5] = necessary_3p_ct2[3]
+                        # SijSCijkCijk
+                        necessary_3p_ct2_list[6] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        necessary_3p_ct2[6] = necessary_3p_ct2[3]
+
+
+                    elif (label == 'ijkj'):
+                        # K2
+                        # L2_ijkj : 11 -> [Sik,
+                        #                  SCijk, SCkij, SikSCijk, SikSCkij,
+                        #                  Cijk, SikCijk, SCijkCijk, SikSCijkCijk, SCkijCijk, SikSCkijCijk]
+                        # Ref. eq. 3.15, 3rd line
+
+                        if len(n_subs) == 1 and len(singular_structure.substructures) == 0 :
+
+                            if singular_structure.name()=='S' and len(all_legs)==2:
+                                if not singular_structure.substructures:
+                                    # Sij
+                                    if sorted([l.n for l in all_legs]) == sorted([ileg,kleg]):
+                                        s['counterterms'].append(i_ct)
+                                        if (i_id == 21 and k_id == 21):
+                                            necessary_3p_ct2_list[0] =  'SS_gg'
+                                        else:
+                                            necessary_3p_ct2_list[0] =  'SS_qqx'
+                                        necessary_3p_ct2[0] = ct
+
+                            if singular_structure.name()=='C' and len(all_legs)==3:
+                                # Cijk
+                                if sorted([l.n for l in all_legs]) == sorted([ileg,jleg,kleg]):
+                                    s['counterterms'].append(i_ct)
+                                    if (i_id == 21 and j_id == 21 and k_id == 21):
+                                        necessary_3p_ct2_list[5] = 'CC_ggg'
+                                    elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                        necessary_3p_ct2_list[5] = 'CC_ggq'
+                                    elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                        necessary_3p_ct2_list[5] = 'CC_gqqx'
                                     else:
-                                        necessary_3p_ct2_list[6] = 'HCC_qxqqp' 
-                                necessary_3p_ct2[6] = ct
+                                        if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
+                                            necessary_3p_ct2_list[5] = 'CC_qxqq'
+                                        else:
+                                            necessary_3p_ct2_list[5] = 'CC_qxqqp'
+                                    necessary_3p_ct2[5] = ct
 
-                    if len(n_subs) == 2 : 
-                        # here singular_structure = coll_sub -> C(i,j)
-                        all_legs_C = current.get('singular_structure').substructures[1].get_all_legs()
+                        if len(n_subs) == 2 :
+                            # here singular_structure = coll_sub -> C(i,j)
+                            all_legs_C = current.get('singular_structure').substructures[1].get_all_legs()
 
-                        # SCijk 
-                        if s['sector'].id[0] == 21 and sorted([l.n for l in all_legs_C]) == sorted([jleg,kleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                necessary_3p_ct2_list[3] = 'SHC_ggg' 
-                            elif s['sector'].id[1] == 21 and s['sector'].id[2] != 21:
-                                necessary_3p_ct2_list[3] = 'SHC_ggq' 
-                            else:
-                                necessary_3p_ct2_list[3] = 'SHC_gqqx' 
-                            necessary_3p_ct2[3] = ct
-                        # SCjik
-                        if s['sector'].id[1] == 21 and sorted([l.n for l in all_legs_C]) == sorted([ileg,kleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[0] == 21 and s['sector'].id[2] == 21:
-                                necessary_3p_ct2_list[4] = 'SHC_ggg' 
-                            elif s['sector'].id[0] == 21 and s['sector'].id[2] != 21:
-                                necessary_3p_ct2_list[4] = 'SHC_ggq' 
-                            else:
-                                necessary_3p_ct2_list[4] = 'SHC_gqqx' 
-                            necessary_3p_ct2[4] = ct
-                        # SCkij
-                        if s['sector'].id[2] == 21 and sorted([l.n for l in all_legs_C]) == sorted([ileg,jleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                necessary_3p_ct2_list[5] = 'SHC_ggg' 
-                            elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                necessary_3p_ct2_list[5] = 'SHC_ggq' 
-                            else:
-                                necessary_3p_ct2_list[5] = 'SHC_gqqx' 
-                            necessary_3p_ct2[5] = ct
+                            # SCijk
+                            if (i_id == 21 and sorted([l.n for l in all_legs_C]) == sorted([jleg,kleg])) :
+                                s['counterterms'].append(i_ct)
+                                if (j_id == 21 and k_id == 21):
+                                    necessary_3p_ct2_list[1] = 'SC_ggg'
+                                elif (j_id == 21 and k_id != 21):
+                                    necessary_3p_ct2_list[1] = 'SC_ggq'
+                                else:
+                                    necessary_3p_ct2_list[1] = 'SC_gqqx'
+                                necessary_3p_ct2[1] = ct
+                            # SCkij
+                            if (k_id == 21 and sorted([l.n for l in all_legs_C]) == sorted([ileg,jleg])) :
+                                s['counterterms'].append(i_ct)
+                                if (i_id == 21 and j_id == 21):
+                                    necessary_3p_ct2_list[2] = 'SC_ggg'
+                                elif (i_id == 21 and j_id != 21):
+                                    necessary_3p_ct2_list[2] = 'SC_ggq'
+                                else:
+                                    necessary_3p_ct2_list[2] = 'SC_gqqx'
+                                necessary_3p_ct2[2] = ct
 
-                    if len(n_subs) == 1 and len(singular_structure.substructures) == 1 and \
-                        singular_structure.substructures[0].name() == 'S':
-                        #coll_subsub = singular_structure.substructures[0]
-                        #print(coll_subsub)
-                        #print(sorted([l.n for l in coll_subsub.get_all_legs()]))
-
-                        # CijkSCijk
-                        if s['sector'].id[0] == 21 : #and sorted([l.n for l in all_legs]) == sorted([jleg,kleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                necessary_3p_ct2_list[7] = 'CCSHC_ggg' 
-                            elif s['sector'].id[1] == 21 and s['sector'].id[2] != 21:
-                                necessary_3p_ct2_list[7] = 'CCSHC_ggq' 
-                            else:
-                                necessary_3p_ct2_list[7] = 'CCSHC_gqqx' 
-                            necessary_3p_ct2[7] = ct
-                        # CijkSCjik
-                        if s['sector'].id[1] == 21 : #and sorted([l.n for l in coll_subsub.get_all_legs()]) == sorted([ileg,kleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[0] == 21 and s['sector'].id[2] == 21:
-                                necessary_3p_ct2_list[8] = 'CCSHC_ggg' 
-                            elif s['sector'].id[0] == 21 and s['sector'].id[2] != 21:
-                                necessary_3p_ct2_list[8] = 'CCSHC_ggq'
-                            else:
-                                necessary_3p_ct2_list[8] = 'CCSHC_gqqx'
-                            necessary_3p_ct2[8] = ct
-                        # CijkSCkij
-                        if s['sector'].id[2] == 21 : # and sorted([l.n for l in coll_subsub.get_all_legs()]) == sorted([ileg,jleg]) :
-                            s['counterterms'].append(i_ct)
-                            if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                necessary_3p_ct2_list[9] = 'CCSHC_ggg'
-                            elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                necessary_3p_ct2_list[9] = 'CCSHC_ggq'
-                            else:
-                                necessary_3p_ct2_list[9] = 'CCSHC_gqqx'
-                            necessary_3p_ct2[9] = ct
+                        # SikSCijk
+                        necessary_3p_ct2_list[3] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        necessary_3p_ct2[3] = necessary_3p_ct2[1]
+                        # SikSCkij
+                        necessary_3p_ct2_list[4] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[2])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        necessary_3p_ct2[4] = necessary_3p_ct2[2]
+                        # SikCijk
+                        necessary_3p_ct2_list[6] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        necessary_3p_ct2[6] = necessary_3p_ct2[5]
+                        # SCijkCijk
+                        necessary_3p_ct2_list[7] = (''.join((necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        necessary_3p_ct2[7] = necessary_3p_ct2[5]
+                        # SikSCijkCijk
+                        necessary_3p_ct2_list[8] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        necessary_3p_ct2[8] = necessary_3p_ct2[5]
+                        # SCkijCijk
+                        necessary_3p_ct2_list[9] = (''.join((necessary_3p_ct2_list[2],'_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct2_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        necessary_3p_ct2[9] = necessary_3p_ct2[5]
+                        # SikSCkijCijk
+                        necessary_3p_ct2_list[10] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[2],'_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        necessary_3p_ct2[10] = necessary_3p_ct2[5]
 
 
-                    # Identify cts for L12_ijk
-                    # L12_ijk : 21 -> [Si Sij, Si Sik, Si SHCijk, Si HCijk',
-                    #                  Sj Sij, Sj Sjk, Sj SHCjik, Sj HCijk', 
-                    #                  Sk Sik, Sk Sjk, Sk SHCkij, Sk HCijk',     12              
-                    #                  HCij Sij, HCij SCkij, HCij HCCijk,
-                    #                  HCik Sik, HCik SCjik, HCik HCCijk,
-                    #                  HCjk Sjk, HCjk SCijk, HCjk HCCijk]  9                   
+                    #### Identify cts for K12 ####
 
-                    # Si Sij
-                    necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0) 
-                    # Si Sik
-                    necessary_3p_ct12_list[1] = (''.join(('S_',necessary_3p_ct2_list[1])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0) 
-                    # Si SHCijk = Si SCijk(1-Sij-Sik)
-                    necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[3])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)  
-                    # Si HCijk' = Si Cijk(1-Sij-Sik)
-                    necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[6])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)  
+                    if (label == 'ijjk'):
+                        # K12
+                        # L12_ijjk : 13 -> [Si Sij, Si SCijk, Si SijSCijk,
+                        #                   Si Cijk, Si SijCijk, Si SCijkCijk, Si SijSCijkCijk,
+                        #                   Cij Sij, Cij Cijk, Cij SijCijk,
+                        #                   SiCij Sij, SiCij Cijk, SiCij SijCijk]
+                        # Ref. eq. 3.15, 5th line
 
-                    # Sj Sij
-                    necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[0])) \
-                                                if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)  
-                    # Sj Sjk
-                    necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[2])) \
-                                                if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0) 
-                    # Sj SHCjik = Sj SCjik(1-Sij-Sjk)
-                    necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[4])) \
-                                                if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0) 
-                    # Sj HCijk' = Sj Cijk(1-Sij-Sjk)
-                    necessary_3p_ct12_list[7] = (''.join(('S_',necessary_3p_ct2_list[6])) \
-                                                if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[6] != 0) else 0) 
+                        # Si Sij
+                        necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        # Si SCijk
+                        necessary_3p_ct12_list[1] = (''.join(('S_',necessary_3p_ct2_list[1])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        # Si SijSCijk
+                        necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[2])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        # Si Cijk
+                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        # Si SijCijk
+                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[4])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
+                        # Si SCijkCijk
+                        necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        # Si SijSCijkCijk
+                        necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[6])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
+                        # Cij Sij
+                        necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[0])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        # Cij Cijk
+                        necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        # Cij SijCijk
+                        necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[4])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
+                        # SiCij Sij
+                        necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[0])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        # SiCij Cijk
+                        necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        # SiCij SijCijk
+                        necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[4])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
 
-                    # Sk Sik
-                    necessary_3p_ct12_list[8] = (''.join(('S_',necessary_3p_ct2_list[1])) \
-                                                if (necessary_3p_ct1_list[2] != 0 and necessary_3p_ct2_list[1] != 0) else 0) 
-                    # Sk Sjk
-                    necessary_3p_ct12_list[9] = (''.join(('S_',necessary_3p_ct2_list[2])) \
-                                                if (necessary_3p_ct1_list[2] != 0 and necessary_3p_ct2_list[2] != 0) else 0) 
-                    # Sk SHCkij = Sk SCkij(1-Sik-Sjk)
-                    necessary_3p_ct12_list[10] = (''.join(('S_',necessary_3p_ct2_list[5])) \
-                                                if (necessary_3p_ct1_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0) 
-                    # Sk HCijk' = Sk Cijk(1-Sik-Sjk)
-                    necessary_3p_ct12_list[11] = (''.join(('S_',necessary_3p_ct2_list[6])) \
-                                                if (necessary_3p_ct1_list[2] != 0 and necessary_3p_ct2_list[6] != 0) else 0) 
+                    elif (label == 'ijkj'):
+                        # K12
+                        # L12_ijkj : 13 -> [Si Sik, Si SCijk, Si SikSCijk,
+                        #                   Si Cijk, Si SikCijk, Si SCijkCijk, Si SikSCijkCijk,
+                        #                   Cij SCkij, Cij Cijk, Cij SCkijCijk,
+                        #                   SiCij SCkij, SiCij Cijk, SiCij SCkijCijk]
+                        # Ref. eq. 3.15, 6th line
 
-                    # HCij Sij
-                    necessary_3p_ct12_list[12] = (''.join(('HC_',necessary_3p_ct2_list[0])) \
-                                                    if (necessary_3p_ct1_list[3] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
-                    # HCik Sik
-                    necessary_3p_ct12_list[15] = (''.join(('HC_',necessary_3p_ct2_list[1])) \
-                                                    if (necessary_3p_ct1_list[4] != 0 and necessary_3p_ct2_list[1] != 0) else 0) 
-                    # HCjk Sjk
-                    necessary_3p_ct12_list[18] = (''.join(('HC_',necessary_3p_ct2_list[2])) \
-                                                    if (necessary_3p_ct1_list[5] != 0 and necessary_3p_ct2_list[2] != 0) else 0) 
+                        # Si Sik
+                        necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        # Si SCijk
+                        necessary_3p_ct12_list[1] = (''.join(('S_',necessary_3p_ct2_list[1])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        # Si SikSCijk
+                        necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[3])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        # Si Cijk
+                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        # Si SikCijk
+                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[6])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
+                        # Si SCijkCijk
+                        necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[7])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[7] != 0) else 0)
+                        # Si SikSCijkCijk
+                        necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[8])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[8] != 0) else 0)
+                        # Cij SCkij
+                        necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[2])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        # Cij Cijk
+                        necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        # Cij SCkijCijk
+                        necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[9])) \
+                                                 if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
+                        # SiCij SCkij
+                        necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[2])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        # SiCij Cijk
+                        necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[5])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        # SiCij SCkijCijk
+                        necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[9])) \
+                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
 
-                    # HCij SCkij
-                    necessary_3p_ct12_list[13] = (''.join(('HC_',necessary_3p_ct2_list[5])) \
-                                                    if (necessary_3p_ct1_list[3] != 0 and necessary_3p_ct2_list[5] != 0)else 0) 
-                    # HCik SCjik
-                    necessary_3p_ct12_list[16] = (''.join(('HC_',necessary_3p_ct2_list[4])) \
-                                                    if (necessary_3p_ct1_list[4] != 0 and necessary_3p_ct2_list[4] != 0) else 0) 
-                    # HCjk SCijk
-                    necessary_3p_ct12_list[19] = (''.join(('HC_',necessary_3p_ct2_list[3])) \
-                                                    if (necessary_3p_ct1_list[5] != 0 and necessary_3p_ct2_list[3] != 0) else 0) 
-                    # HCij Cijk
-                    necessary_3p_ct12_list[14] = (''.join(('HC_',necessary_3p_ct2_list[6])) \
-                                                    if (necessary_3p_ct1_list[3] != 0 and necessary_3p_ct2_list[6] != 0) else 0) 
-                    # HCik Cijk
-                    necessary_3p_ct12_list[17] = (''.join(('HC_',necessary_3p_ct2_list[6])) \
-                                                    if (necessary_3p_ct1_list[4] != 0 and necessary_3p_ct2_list[6] != 0) else 0) 
-                    # HCjk Cijk 
-                    necessary_3p_ct12_list[20] = (''.join(('HC_',necessary_3p_ct2_list[6])) \
-                                                    if (necessary_3p_ct1_list[5] != 0 and necessary_3p_ct2_list[6] != 0) else 0) 
-                    # HCij CijkSCkij
-                    #necessary_3p_ct12_list[15] = (''.join(('HC_',necessary_3p_ct2_list[9])) \
-                    #                                if (necessary_3p_ct1_list[3] != 0 and necessary_3p_ct2_list[9] != 0) else 0) 
-                    # HCik CijkSCjik
-                    #necessary_3p_ct12_list[19] = (''.join(('HC_',necessary_3p_ct2_list[8])) \
-                    #                                if (necessary_3p_ct1_list[4] != 0 and necessary_3p_ct2_list[8] != 0) else 0) 
-                    # HCjk CijkSCijk
-                    #necessary_3p_ct12_list[23] = (''.join(('HC_',necessary_3p_ct2_list[7])) \
-                    #                                if (necessary_3p_ct1_list[5] != 0 and necessary_3p_ct2_list[7] != 0) else 0) 
 
+                # Collect all sector information
                 print('K1 3p sector')
                 print(necessary_3p_ct1_list)
                 all_3p_K1_ct.append(necessary_3p_ct1_list)
-                all_3p_K1_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K1_ct for seen in [[]]]
                 uB_all_3p_K1_ct.append(necessary_3p_ct1)
 
                 print('K2 3p sector')
                 print(necessary_3p_ct2_list)
                 all_3p_K2_ct.append(necessary_3p_ct2_list)
-                all_3p_K2_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K2_ct for seen in [[]]]
                 uB_all_3p_K2_ct.append(necessary_3p_ct2)
-                    
+
                 print('K12 3p sector')
                 print(necessary_3p_ct12_list)
                 all_3p_K12_ct.append(necessary_3p_ct12_list)
-                all_3p_K12_ct_seen = [[x if x not in seen and not seen.append(x) else '0' for x in sub] for sub in all_3p_K12_ct for seen in [[]]]
+                all_3p_K12_ct.append(necessary_3p_ct12_list)
+
 
         ######## 4p #########
-        all_4p_local_counterterms_list = []
         all_4p_K1_ct = []
         all_4p_K2_ct = []
         all_4p_K12_ct = []
@@ -896,14 +922,13 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             if counterterms is not None:
                 s['counterterms'] = []
-                necessary_4p_ct1_list = [0] * (6)
-                necessary_4p_ct1 = [0] * (6)
+                necessary_4p_ct1_list = [0] * (3)
+                necessary_4p_ct1 = [0] * (3)
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
-                necessary_4p_ct12_list = [0] * (18)
+                necessary_4p_ct12_list = [0] * (9)
 
                 print('****** NEW SECTOR ******')
-                #print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]) \
                       + ' ' + str(s['sector'].leg_numbers[3]))
                 print(str(s['sector'].id[0]) + ' ' + str(s['sector'].id[1]) + ' ' + str(s['sector'].id[2]) + ' ' + str(s['sector'].id[3]))
@@ -918,6 +943,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     jleg = leg_numbers[1]
                     kleg = leg_numbers[2]
                     lleg = leg_numbers[3]
+                    i_id = s['sector'].id[0]
+                    j_id = s['sector'].id[1]
+                    k_id = s['sector'].id[2]
+                    l_id = s['sector'].id[3]
 
                     # safety check
                     if (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg,jleg,kleg,lleg])) and \
@@ -933,62 +962,41 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([lleg])) :
                         continue
 
-                    # print('GOOD CT')
-                    # print('ict + ct : ' + str(i_ct) + ' ' + str(ct))
-                    # print(str(ileg) + ' ' + str(jleg) + ' ' + str(kleg) + ' ' + str(lleg))
-                    # print(str(len(n_subs)) + ', ' + str(len(singular_structure.substructures)))
 
-                    # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
+                    # L1_ijkl  : 3 -> [Si, Cij, SiCij]
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
                         # Si
-                        if s['sector'].id[0] == 21 :
+                        if i_id == 21 :
                             s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[0] = 'S_g' 
+                            necessary_4p_ct1_list[0] = 'S_g'
                             necessary_4p_ct1[0] = ct
-                        # Sj
-                        if s['sector'].id[1] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[1] = 'S_g' 
-                            necessary_4p_ct1[1] = ct
-                        # Sk
-                        if s['sector'].id[2] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[2] = 'S_g' 
-                            necessary_4p_ct1[2] = ct
-                        # Sl
-                        if s['sector'].id[3] == 21 :
-                            s['counterterms'].append(i_ct)
-                            necessary_4p_ct1_list[3] = 'S_g' 
-                            necessary_4p_ct1[3] = ct
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
                             # Cij
                             if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
                                 s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_4p_ct1_list[4] = 'HC_gg' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_4p_ct1_list[4] = 'HC_gq' 
+                                if (i_id == 21 and j_id == 21):
+                                    necessary_4p_ct1_list[1] = 'C_gg'
+                                elif (i_id == 21 and j_id != 21):
+                                    necessary_4p_ct1_list[1] = 'C_gq'
                                 else :
-                                    necessary_4p_ct1_list[4] = 'HC_qqx' 
-                                necessary_4p_ct1[4] = ct
+                                    necessary_4p_ct1_list[1] = 'C_qqx'
+                                necessary_4p_ct1[1] = ct
                             # Ckl
+                            Ckl_flag = False
                             if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[2] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct1_list[5] = 'HC_gg' 
-                                elif s['sector'].id[2] == 21 and s['sector'].id[3] != 21:
-                                    necessary_4p_ct1_list[5] = 'HC_gq' 
-                                else :
-                                    necessary_4p_ct1_list[5] = 'HC_qqx' 
-                                necessary_4p_ct1[5] = ct
+                                Ckl_flag = True
 
-                    # L2_ijkl  : 9  ->  [Sik, Sil, Sjk, Sjl, 
-                    #                    SHCikl, SHCjkl, SHCkij, SHClij, 
-                    #                    HCCijkl]
-                    #                    with HCC_ijkl=Cijkl(1+Sik+Sil+Sjk+Sjl-SCikl-SCjkl-SCkij-SClij)] 
+                    # SiCij
+                    necessary_4p_ct1_list[2] = (''.join(('S_',necessary_4p_ct1_list[1])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0) else 0)
+                    necessary_4p_ct1[2] = necessary_4p_ct1[1]
+
+
+                    # L2_ijkl  : 9  ->  [Sik, SCikl, SCkij, SikSCikl, SikSCkij,
+                    #                    Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
 
                     if len(n_subs) == 1 and len(singular_structure.substructures) == 0 :
 
@@ -996,156 +1004,111 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             # Sik
                             if sorted([l.n for l in all_legs]) == sorted([ileg,kleg]):
                                 s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[2] == 21:
-                                    necessary_4p_ct2_list[0] =  'SS_gg' 
+                                if (i_id == 21 and k_id == 21):
+                                    necessary_4p_ct2_list[0] =  'SS_gg'
                                 else:
-                                    necessary_4p_ct2_list[0] =  'SS_qqx' 
+                                    necessary_4p_ct2_list[0] =  'SS_qqx'
                                 necessary_4p_ct2[0] = ct
-                            # Sil
-                            if sorted([l.n for l in all_legs]) == sorted([ileg,lleg]):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct2_list[1] = 'SS_gg' 
-                                else:
-                                    necessary_4p_ct2_list[1] = 'SS_qqx' 
-                                necessary_4p_ct2[1] = ct
-                            # Sjk
-                            if sorted([l.n for l in all_legs]) == sorted([jleg,kleg]):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[1] == 21 and s['sector'].id[2] == 21:
-                                    necessary_4p_ct2_list[2] = 'SS_gg' 
-                                else:
-                                    necessary_4p_ct2_list[2] = 'SS_qqx' 
-                                necessary_4p_ct2[2] = ct
-
-                            # Sjl
-                            if sorted([l.n for l in all_legs]) == sorted([jleg,lleg]):
-                                s['counterterms'].append(i_ct)
-                                if s['sector'].id[1] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct2_list[3] = 'SS_gg' 
-                                else:
-                                    necessary_4p_ct2_list[3] = 'SS_qqx' 
-                                necessary_4p_ct2[3] = ct
 
                     if len(n_subs) == 2 and len(singular_structure.substructures) == 0 :
 
                         if n_subs[0].name()=='S' and n_subs[1].name()=='C':
-                            # SHCikl
-                            if s['sector'].id[0] == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])):
-                                if s['sector'].id[2] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct2_list[4] = 'SHC_ggg' 
-                                elif s['sector'].id[2] == 21 and s['sector'].id[3] != 21:
-                                    necessary_4p_ct2_list[4] = 'SHC_ggq' 
+                            # SCikl
+                            if i_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])):
+                                if (k_id == 21 and l_id == 21):
+                                    necessary_4p_ct2_list[1] = 'SC_ggg'
+                                elif (k_id == 21 and l_id != 21):
+                                    necessary_4p_ct2_list[1] = 'SC_ggq'
                                 else:
-                                    necessary_4p_ct2_list[4] = 'SHC_gqqx' 
-                                necessary_4p_ct2[4] = ct
-                            # SHCjkl
-                            if s['sector'].id[1] == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])):
-                                if s['sector'].id[2] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct2_list[5] = 'SHC_ggg' 
-                                elif s['sector'].id[2] == 21 and s['sector'].id[3] != 21:
-                                    necessary_4p_ct2_list[5] = 'SHC_ggq' 
+                                    necessary_4p_ct2_list[1] = 'SC_gqqx'
+                                necessary_4p_ct2[1] = ct
+                            # SCkij
+                            if k_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg])):
+                                if (i_id == 21 and j_id == 21):
+                                    necessary_4p_ct2_list[2] = 'SC_ggg'
+                                elif (i_id == 21 and j_id != 21):
+                                    necessary_4p_ct2_list[2] = 'SC_ggq'
                                 else:
-                                    necessary_4p_ct2_list[5] = 'SHC_gqqx' 
-                                necessary_4p_ct2[5] = ct
-                            # SHkij
-                            if s['sector'].id[2] == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg])):
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_4p_ct2_list[6] = 'SHC_ggg' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_4p_ct2_list[6] = 'SHC_ggq' 
-                                else:
-                                    necessary_4p_ct2_list[6] = 'SHC_gqqx' 
-                                necessary_4p_ct2[6] = ct
-                            # SHlij
-                            if s['sector'].id[3] == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg])):
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_4p_ct2_list[7] = 'SHC_ggg' 
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_4p_ct2_list[7] = 'SHC_ggq' 
-                                else:
-                                    necessary_4p_ct2_list[7] = 'SHC_gqqx' 
-                                necessary_4p_ct2[7] = ct
+                                    necessary_4p_ct2_list[2] = 'SC_gqqx'
+                                necessary_4p_ct2[2] = ct
 
-                        # HCCijkl
+                        # Cijkl
                         if n_subs[0].name()=='C' and n_subs[1].name()=='C':
                             if sorted([l.n for l in n_subs[0].get_all_legs()]) == (sorted([ileg,jleg])) and \
                                 sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])) and \
-                                necessary_4p_ct1_list[4] != 0 and necessary_4p_ct1_list[5] != 0:
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and \
-                                    s['sector'].id[2] == 21 and s['sector'].id[3] == 21:
-                                    necessary_4p_ct2_list[8] = 'HCC_gggg'
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and \
-                                    s['sector'].id[2] == 21 and s['sector'].id[3] != 21:
-                                    necessary_4p_ct2_list[8] = 'HCC_gggq'
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] == 21 and \
-                                    abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
-                                    necessary_4p_ct2_list[8] = 'HCC_ggqxq'
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21 and \
-                                    s['sector'].id[2] == 21 and s['sector'].id[3] != 21:
-                                    necessary_4p_ct2_list[8] = 'HCC_gqgq'
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21 and \
-                                    abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
-                                    necessary_4p_ct2_list[8] = 'HCC_gqqxq'
-                                elif abs(s['sector'].id[0]) == abs(s['sector'].id[1]) and \
-                                    abs(s['sector'].id[2]) == abs(s['sector'].id[3]):
-                                    necessary_4p_ct2_list[8] = 'HCC_qxqqxq'
-                                necessary_4p_ct2[8] = ct
+                                    Ckl_flag == True:
+                                if i_id == 21 and j_id == 21 and k_id == 21 and l_id == 21:
+                                    necessary_4p_ct2_list[5] = 'CC_gggg'
+                                elif i_id == 21 and j_id == 21 and k_id == 21 and l_id != 21:
+                                    necessary_4p_ct2_list[5] = 'CC_gggq'
+                                elif k_id == 21 and l_id == 21 and i_id == 21 and j_id != 21:
+                                    necessary_4p_ct2_list[5] = 'CC_gqgg'
+                                elif i_id == 21 and j_id == 21 and abs(k_id) == abs(l_id):
+                                    necessary_4p_ct2_list[5] = 'CC_ggqxq'
+                                elif k_id == 21 and l_id == 21 and abs(i_id) == abs(j_id):
+                                    necessary_4p_ct2_list[5] = 'CC_qxqgg'
+                                elif i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
+                                    necessary_4p_ct2_list[5] = 'CC_gqgq'
+                                elif i_id == 21 and j_id != 21 and abs(k_id) == abs(l_id):
+                                    necessary_4p_ct2_list[5] = 'CC_gqqxq'
+                                elif k_id == 21 and l_id != 21 and abs(i_id) == abs(j_id):
+                                    necessary_4p_ct2_list[5] = 'CC_qxqgq'
+                                elif abs(i_id) == abs(j_id) and abs(k_id) == abs(l_id):
+                                    necessary_4p_ct2_list[5] = 'CC_qxqqxq'
+                                necessary_4p_ct2[5] = ct
 
-                    # L12_ijkl : 18  ->  [Si Sik, Si Sil, Si SHCikl, 
-                    #                     Sj Sjk, Sj Sjl, Sj SHCjkl,
-                    #                     Sk Sik, Sk Sjk, Sk SHCkij,
-                    #                     Sl Sil, Sl Sjl, Sl SHClij,
-                    #                     HCij SCkij, HCij SClij, HCij HCCijkl,
-                    #                     HCkl SCikl, HCkl SCjkl, HCkl HCCijkl]
- 
-                    if necessary_4p_ct1_list[0] != 0:
-                        # Si Sik
-                        necessary_4p_ct12_list[0] = (''.join(('S_',necessary_4p_ct2_list[0])) if (necessary_4p_ct2_list[0] != 0) else 0)
-                        # Si Sil
-                        necessary_4p_ct12_list[1] = (''.join(('S_',necessary_4p_ct2_list[1])) if (necessary_4p_ct2_list[1] != 0) else 0)
-                        # Si SHCikl
-                        necessary_4p_ct12_list[2] = (''.join(('S_',necessary_4p_ct2_list[4])) if (necessary_4p_ct2_list[4] != 0) else 0)
+                    # SikSCikl
+                    necessary_4p_ct2_list[3] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[1])) \
+                                                 if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0)
+                    necessary_4p_ct2[3] = necessary_4p_ct2[1]
+                    # SikSCkij
+                    necessary_4p_ct2_list[4] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[2])) \
+                                                 if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
+                    necessary_4p_ct2[4] = necessary_4p_ct2[2]
+                    # SikCijkl
+                    necessary_4p_ct2_list[6] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[5])) \
+                                                 if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    necessary_4p_ct2[6] = necessary_4p_ct2[5]
+                    # SCiklCijkl
+                    necessary_4p_ct2_list[7] = (''.join((necessary_4p_ct2_list[1],'_',necessary_4p_ct2_list[5])) \
+                                                 if (necessary_4p_ct2_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    necessary_4p_ct2[7] = necessary_4p_ct2[5]
+                    # SCkijCijkl
+                    necessary_4p_ct2_list[8] = (''.join((necessary_4p_ct2_list[2],'_',necessary_4p_ct2_list[5])) \
+                                                 if (necessary_4p_ct2_list[2] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    necessary_4p_ct2[8] = necessary_4p_ct2[5]
 
-                    if necessary_4p_ct1_list[1] != 0:
-                        # Sj Sjk 
-                        necessary_4p_ct12_list[3] = (''.join(('S_',necessary_4p_ct2_list[2])) if (necessary_4p_ct2_list[2] != 0) else 0)
-                        # Sj Sjl 
-                        necessary_4p_ct12_list[4] = (''.join(('S_',necessary_4p_ct2_list[3])) if (necessary_4p_ct2_list[3] != 0) else 0)
-                        # Sj SHCjkl
-                        necessary_4p_ct12_list[5] = (''.join(('S_',necessary_4p_ct2_list[5])) if (necessary_4p_ct2_list[5] != 0) else 0)
-                    
-                    if necessary_4p_ct1_list[2] != 0:
-                        # Sk Sik 
-                        necessary_4p_ct12_list[6] = (''.join(('S_',necessary_4p_ct2_list[0])) if (necessary_4p_ct2_list[0] != 0) else 0)
-                        # Sk Sjk 
-                        necessary_4p_ct12_list[7] = (''.join(('S_',necessary_4p_ct2_list[2])) if (necessary_4p_ct2_list[2] != 0) else 0)
-                        # Sk SHCkij
-                        necessary_4p_ct12_list[8] = (''.join(('S_',necessary_4p_ct2_list[6])) if (necessary_4p_ct2_list[6] != 0) else 0)
-                    
-                    if necessary_4p_ct1_list[3] != 0:
-                        # Sl Sil 
-                        necessary_4p_ct12_list[9] = (''.join(('S_',necessary_4p_ct2_list[1])) if (necessary_4p_ct2_list[1] != 0) else 0)
-                        # Sl Sjl 
-                        necessary_4p_ct12_list[10] = (''.join(('S_',necessary_4p_ct2_list[3])) if (necessary_4p_ct2_list[3] != 0) else 0)
-                        # Sl SHClij
-                        necessary_4p_ct12_list[11] = (''.join(('S_',necessary_4p_ct2_list[7])) if (necessary_4p_ct2_list[7] != 0) else 0)
+                    # L12_ijkl : 9  ->  [Si Sik, Si Scikl, Si SikSCikl
+                    #                    Cij SCkij, Cij Cijkl, Cij SCkijCijkl,
+                    #                    SiCij SCkij, SiCij Cijkl, SiCij SCkijCijkl]
 
-                    if necessary_4p_ct1_list[4] != 0:
-                        # HCij SCkij 
-                        necessary_4p_ct12_list[12] = (''.join(('HC_',necessary_4p_ct2_list[6])) if (necessary_4p_ct2_list[6] != 0) else 0)
-                        # HCij SClij 
-                        necessary_4p_ct12_list[13] = (''.join(('HC_',necessary_4p_ct2_list[7])) if (necessary_4p_ct2_list[7] != 0) else 0)
-                        # HCij HCCijkl
-                        necessary_4p_ct12_list[14] = (''.join(('HC_',necessary_4p_ct2_list[8])) if (necessary_4p_ct2_list[8] != 0) else 0)
-
-                    if necessary_4p_ct1_list[5] != 0:
-                        # HCkl SCikl 
-                        necessary_4p_ct12_list[15] = (''.join(('HC_',necessary_4p_ct2_list[4])) if (necessary_4p_ct2_list[4] != 0) else 0)
-                        # HCkl SCjkl
-                        necessary_4p_ct12_list[16] = (''.join(('HC_',necessary_4p_ct2_list[5])) if (necessary_4p_ct2_list[5] != 0) else 0) 
-                        # HCkl HCCijkl
-                        necessary_4p_ct12_list[17] = (''.join(('HC_',necessary_4p_ct2_list[6])) if (necessary_4p_ct2_list[6] != 0) else 0)
+                    # Si Sik
+                    necessary_4p_ct12_list[0] = (''.join(('S_',necessary_4p_ct2_list[0])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[0] != 0) else 0)
+                    # Si SCikl
+                    necessary_4p_ct12_list[1] = (''.join(('S_',necessary_4p_ct2_list[1])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0)
+                    # Si SikSCikl
+                    necessary_4p_ct12_list[2] = (''.join(('S_',necessary_4p_ct2_list[3])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[3] != 0) else 0)
+                    # Cij SCkij
+                    necessary_4p_ct12_list[3] = (''.join(('C_',necessary_4p_ct2_list[2])) \
+                                                 if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
+                    # Cij Cijkl
+                    necessary_4p_ct12_list[4] = (''.join(('C_',necessary_4p_ct2_list[5])) \
+                                                 if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    # Cij SCkijCijkl
+                    necessary_4p_ct12_list[5] = (''.join(('C_',necessary_4p_ct2_list[8])) \
+                                                 if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
+                    # SiCij SCkij
+                    necessary_4p_ct12_list[6] = (''.join(('SC_',necessary_4p_ct2_list[2])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
+                    # SiCij Cijkl
+                    necessary_4p_ct12_list[7] = (''.join(('SC_',necessary_4p_ct2_list[5])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    # SiCij SCkijCijkl
+                    necessary_4p_ct12_list[8] = (''.join(('SC_',necessary_4p_ct2_list[8])) \
+                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
 
                 print('K1 4p sector')
                 print(necessary_4p_ct1_list)
@@ -1156,10 +1119,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 print(necessary_4p_ct2_list)
                 all_4p_K2_ct.append(necessary_4p_ct2_list)
                 uB_all_4p_K2_ct.append(necessary_4p_ct2)
-                    
+
                 print('K12 4p sector')
                 print(necessary_4p_ct12_list)
-                all_4p_K12_ct.append(necessary_4p_ct12_list)                
+                all_4p_K12_ct.append(necessary_4p_ct12_list)
 
 
 ######### Set writer
@@ -1185,47 +1148,66 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         path_UReal_procs = []
         dirpathB_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         dirpathR_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
-            
-######### Write NNLO_K_isec_jsec_ksec.f (3-particle sector)
-        
+
+# ######### Write NNLO_K_isec_jsec_ksec.f (3-particle sector)
+
         # Set replace_dict for NNLO_K
         replace_dict_ct = {}
         replace_dict_limits = {}
         replace_dict_double_real = {}
-        necessary_default_3p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
+        necessary_default_3p_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'S_C_gg', 'S_C_gq', \
                                         'SS_gg', 'SS_qqx', \
-                                        'SHC_ggg', 'SHC_ggq', 'SHC_gqqx', \
-                                        'HCC_ggg', 'HCC_ggq', 'HCC_gqqx', 'HCC_qxqq', 'HCC_qxqqp', \
-                                        'CCSHC_ggg', 'CCSHC_ggq', 'CCSHC_gqqx', \
-                                        'S_SS_gg',  'S_SHC_ggg', 'S_SHC_ggq', 'S_SHC_gqqx', \
-                                        'S_HCC_ggg', 'S_HCC_ggq', 'S_HCC_gqqx', \
-                                        'HC_SS_gg', 'HC_SS_qqx', 'HC_SHC_ggg', 'HC_SHC_ggq', 'HC_SHC_gqqx', \
-                                        'HC_HCC_ggg', 'HC_HCC_ggq', 'HC_HCC_gqqx', 'HC_HCC_qxqq', 'HC_HCC_qxqqp', \
-                                        'HC_CCSHC_ggg', 'HC_CCSHC_ggq', 'HC_CCSHC_gqqx']
-        K1_labels = ['S_i', 'S_j', 'S_k', 'HC_ij=C_ij(1-S_i-S_j)', 'HC_ik=C_ik(1-S_i-S_k)', 'HC_jk=C_jk(1-S_j-S_k)']
-        K2_labels = ['SS_ij', 'SS_ik', 'SS_jk', \
-                     'SHC_ijk=SC_ijk(1-SS_ij-SS_ik)', 'SHC_jik=SC_kij(1-SS_ij-SS_jk)', 'SHC_kij=SC_kij(1-SS_ik-SS_jk)', \
-                     'HCC_ijk=CC_ijk(1-SS_ij-SS_jk-SS_ik)', \
-                     'CCSHC_ijk=CC_ijk SC_ijk(1-SS_ij-SS_ik)', 'CCSHC_jik=CC_jik SC_jik(1-SS_ij-SS_jk)', 'CCSHC_kij=CC_kij SC_kij(1-SS_ik-SS_jk)'] 
-        K12_labels = ['S_i SS_ij', 'S_i SS_ik', 'S_i SHC_ijk=S_i SC_ijk(1-SS_ij-SS_ik)', 'S_i HCC_ijk=S_i CC_ijk(1-SS_ij-SS_ik)(1-SC_ijk)', \
-                      'S_j SS_ij', 'S_j SS_jk', 'S_j SHC_jik=S_j SC_jik(1-SS_ij-SS_jk)', 'S_j HCC_jik=S_j CC_jik(1-SS_ij-SS_jk)(1-SC_jik)', \
-                      'S_k SS_ik', 'S_k SS_jk', 'S_k SHC_kij=S_k SC_kij(1-SS_ik-SS_jk)', 'S_k HCC_kij=S_k CC_kij(1-SS_ik-SS_jk)(1-SC_kij)', \
-                      'HC_ij SS_ij=C_ij(1-S_i-S_j) SS_ij', 'HC_ij SC_kij', 'HC_ij HCC_kij=C_ij(1-S_i-S_j) CC_ijk(1-Sij-SCkij)', \
-                      'HC_ik SS_ik=C_ik(1-S_i-S_k) SS_ik', 'HC_ik SC_jik', 'HC_ik HCC_jik=C_ik(1-S_i-S_k) CC_ijk(1-Sik-SCjik)', \
-                      'HC_jk SS_jk=C_jk(1-S_j-S_k) SS_jk', 'HC_jk SC_ijk', 'HC_jk HCC_ijk=C_jk(1-S_j-S_k) CC_ijk(1-Sjk-SCijk)']  
-        
-        K1_3p_indices = ['isec', 'jsec', 'ksec', 'isec,jsec', 'isec,ksec', 'jsec,ksec']
-        K2_3p_indices = ['isec,jsec', 'isec,ksec', 'jsec,ksec', \
-                         'isec,jsec,ksec', 'jsec,isec,ksec', 'ksec,isec,jsec', \
-                         'isec,jsec,ksec', \
-                         'isec,jsec,ksec', 'jsec,isec,ksec', 'ksec,isec,jsec']
-        K12_3p_indices = ['isec,jsec', 'isec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', \
-                          'isec,jsec', 'jsec,ksec', 'jsec,isec,ksec', 'jsec,isec,ksec', \
-                          'isec, ksec', 'jsec,ksec', 'ksec,isec,jsec', 'ksec,isec,jsec', \
-                          'isec,jsec', 'ksec,isec,jsec', 'ksec,isec,jsec', \
-                          'isec,ksec', 'jsec,isec,ksec', 'jsec,isec,ksec', \
-                          'jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec']
+                                        'SC_ggg', 'SC_ggq', 'SC_gqqx', \
+                                        'SS_gg_SC_ggg', 'SS_gg_SC_ggq', \
+                                        'CC_ggg', 'CC_ggq', 'CC_gqqx', 'CC_qxqq', 'CC_qxqqp', \
+                                        'SS_gg_CC_ggg', 'SS_gg_CC_ggq', 'SS_qqx_CC_qxqq', 'SS_qqx_CC_qxqqp', \
+                                        'SC_ggg_C_ggg', 'SC_ggq_CC_ggq', 'SC_gqqx_CC_gqqx', \
+                                        'SS_gg_SC_ggg_C_ggg', 'SS_gg_SC_ggq_CC_ggq', \
+                                        'S_SS_gg', 'S_SC_ggg', 'S_SC_ggq', 'S_SC_gqqx', \
+                                        'S_SS_gg_SC_ggg', 'S_SS_gg_SC_ggq', \
+                                        'S_CC_ggg', 'S_CC_ggq', 'S_CC_gqqx', \
+                                        'S_SS_gg_CC_ggg', 'S_SS_gg_CC_ggq', \
+                                        'S_SC_ggg_C_ggg', 'S_SC_ggq_CC_ggq', 'S_SC_gqqx_CC_gqqx', \
+                                        'S_SS_gg_SC_ggg_C_ggg', 'S_SS_gg_SC_ggq_CC_ggq', \
+                                        'C_SS_gg', 'C_SS_qqx', \
+                                        'C_SC_ggg', 'C_SC_ggq', 'C_SC_gqqx', \
+                                        'C_CC_ggg', 'C_CC_ggq', 'C_CC_gqqx', 'C_CC_qxqq', 'C_CC_qxqqp', \
+                                        'C_SS_gg_CC_ggg', 'C_SS_gg_CC_ggq', 'C_SS_qqx_CC_qxqq', 'C_SS_qqx_CC_qxqqp', \
+                                        'C_SC_ggg_C_ggg', 'C_SC_ggq_CC_ggq', 'C_SC_gqqx_CC_gqqx', \
+                                        'SC_SS_gg', \
+                                        'SC_SC_ggg', 'SC_SC_ggq', 'SC_SC_gqqx', \
+                                        'SC_CC_ggg', 'SC_CC_ggq', 'SC_CC_gqqx', \
+                                        'SC_SS_gg_CC_ggg', 'SC_SS_gg_CC_ggq', \
+                                        'SC_SC_ggg_C_ggg', 'SC_SC_ggq_CC_ggq', 'SC_SC_gqqx_CC_gqqx']
 
+        K1_labels = ['S_i', 'C_ij', 'S_i C_ij']
+        K2_labels_ijjk = ['SS_ij', 'SC_ijk', 'SS_ij SC_ijk', 'CC_ijk', 'SS_ij CC_ijk', 'SC_ijk CC_ijk', 'SS_ij SC_ijk CC_ijk']
+        K2_labels_ijkj = ['SS_ik', 'SC_ijk', 'SC_kij', 'SS_ik SC_ijk', 'SS_ik SCkij', \
+                          'CC_ijk', 'SS_ik CC_ijk', 'SC_ijk CC_ijk', 'SS_ik SC_ijk CC_ijk', 'SC_kij CC_ijk', 'SS_ik SC_kij CC_ijk']
+        K12_labels_ijjk = ['S_i SS_ij', 'S_i SC_ijk', 'S_i SS_ij SC_ijk', \
+                           'S_i CC_ijk', 'S_i SS_ij CC_ijk', 'S_i SC_ijk CC_ijk', 'S_i SS_ij SC_ijk CC_ijk', \
+                           'C_ij SS_ij', 'C_ij CC_ijk', 'C_ij SS_ij CC_ijk', \
+                           'S_i C_ij SS_ij', 'S_i C_ij CC_ijk', 'S_i C_ij SS_ij CC_ijk']
+        K12_labels_ijkj = ['S_i SS_ik', 'S_i SC_ijk', 'S_i SS_ik SC_ijk', \
+                           'S_i CC_ijk', 'S_i SS_ik CC_ijk', 'S_i SC_ijk CC_ijk', 'S_i SS_ik SC_ijk CC_ijk', \
+                           'C_ij SC_kij', 'C_ij CC_ijk', 'C_ij SC_kij CC_ijk', \
+                           'S_i C_ij SC_kij', 'S_i C_ij CC_ijk', 'S_i C_ij SC_kij CC_ijk']
+
+        # Rule: examples
+        # Cijk      -> isec,jsec,ksec
+        # Sik SCijk -> isec,ksec,jsec
+        # Cij SCkij -> ksec,isec,jsec
+        K1_3p_indices = ['isec', 'isec,jsec', 'isec,jsec']
+        K2_3p_indices_ijjk = ['isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec']
+        K2_3p_indices_ijkj = ['isec,ksec', 'isec,jsec,ksec', 'ksec,isec,jsec', 'isec,ksec,jsec', 'ksec,isec,jsec', \
+                              'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'ksec,isec,jsec', 'ksec,isec,jsec']
+        K12_3p_indices_ijjk = ['isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', \
+                               'isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec']
+        K12_3p_indices_ijkj = ['isec,ksec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', \
+                               'ksec,isec,jsec', 'isec,jsec,ksec', 'ksec,isec,jsec', \
+                               'ksec,isec,jsec', 'isec,jsec,ksec', 'ksec,isec,jsec']
+
+        label = ''
         for i in range(0,len(all_3p_sector_list)):
             list_str_defK1 = []
             list_str_M2_K1 = []
@@ -1234,18 +1216,37 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             list_str_defK12 = []
             list_str_M2_K12 = []
             mapping = []
-            isec = all_3p_sector_list[i][0]
-            jsec = all_3p_sector_list[i][1]
-            ksec = all_3p_sector_list[i][2]
             lsec = 0
-            id_isec = all_3p_sector_id_list[i][0]
-            id_jsec = all_3p_sector_id_list[i][1]
-            id_ksec = all_3p_sector_id_list[i][2]
+            if (all_3p_sector_list[i][1] == all_3p_sector_list[i][2]):
+                label = 'ijjk'
+                isec = all_3p_sector_list[i][0]
+                jsec = all_3p_sector_list[i][1]
+                ksec = all_3p_sector_list[i][3]
+                id_isec = all_3p_sector_id_list[i][0]
+                id_jsec = all_3p_sector_id_list[i][1]
+                id_ksec = all_3p_sector_id_list[i][3]
+                K2_labels = K2_labels_ijjk
+                K12_labels = K12_labels_ijjk
+                K2_3p_indices = K2_3p_indices_ijjk
+                K12_3p_indices = K12_3p_indices_ijjk
+            elif (all_3p_sector_list[i][1] == all_3p_sector_list[i][3]):
+                label = 'ijkj'
+                isec = all_3p_sector_list[i][0]
+                jsec = all_3p_sector_list[i][1]
+                ksec = all_3p_sector_list[i][2]
+                id_isec = all_3p_sector_id_list[i][0]
+                id_jsec = all_3p_sector_id_list[i][1]
+                id_ksec = all_3p_sector_id_list[i][2]
+                K2_labels = K2_labels_ijkj
+                K12_labels = K12_labels_ijkj
+                K2_3p_indices = K2_3p_indices_ijkj
+                K12_3p_indices = K12_3p_indices_ijkj
+
             # Extract the reference particle leg from recoiler_function.py
             iref = all_3p_sector_recoilers[i]
             replace_dict_ct['iref'] = iref
             if (isec == iref) or (jsec == iref) or (ksec == iref):
-                        raise MadEvent7Error('Wrong recoiler %d,%d,%d, %d!' % (isec,jsec,ksec,iref))
+                        raise MadEvent7Error('Wrong recoiler %d,%d,%d,%d!' % (isec,jsec,ksec,iref))
             # Check sector indicies
             if isec == jsec or isec == ksec or jsec == ksec:
                 raise MadEvent7Error('Wrong sector indices %d,%d,%d!' % (isec,jsec,ksec))
@@ -1253,19 +1254,19 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             replace_dict_ct['isec'] = isec
             replace_dict_ct['jsec'] = jsec
             replace_dict_ct['ksec'] = ksec
-            replace_dict_ct['lsec'] = lsec
+            replace_dict_ct['lsec'] = lsec      # tmp?
             replace_dict_double_real['isec'] = isec
             replace_dict_double_real['jsec'] = jsec
             replace_dict_double_real['ksec'] = ksec
-            replace_dict_double_real['lsec'] = lsec
             replace_dict_double_real['iref'] = iref
+            replace_dict_double_real['lsec'] = lsec      # tmp?
             replace_dict_limits['isec'] = isec
             replace_dict_limits['jsec'] = jsec
             replace_dict_limits['ksec'] = ksec
-            replace_dict_limits['lsec'] = lsec
-            replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
+            replace_dict_limits['lsec'] = lsec      # tmp?
+            replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False))
-            replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
+            replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True,
                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
             replace_dict_double_real['str_UBorn'] = 'dummy'
             replace_dict_double_real['UBgraphs'] = 'dummy'
@@ -1274,7 +1275,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             # TODO: remove since useless
             # for k in range(0, len(necessary_default_3p_ct_list)):
             #     replace_dict_limits['proc_prefix_%s' % necessary_default_3p_ct_list[k]] = 'dummy'
-            
+
             # Update sector_info dictionary
             sector_info = {
                 'isec'          :   0,
@@ -1283,7 +1284,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 'lsec'          :   0,
                 'iref'          :   0,
                 'mapping'       :   [],
-                'Born_str'      :   '', 
+                'Born_str'      :   '',
                 'Born_PDGs'     :   [],
                 'path_to_Born'  :   '',
                 'alt_Born_str'  :   '',
@@ -1292,29 +1293,28 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 'Real_PDGs'     :   [],
                 'path_to_Real'  :   '',
                 'alt_Real_str'  :   '',
-                'alt_Real_path' :   ''             
+                'alt_Real_path' :   ''
             }
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
             sector_info['ksec'] = ksec
-            sector_info['lsec'] = lsec
             sector_info['iref'] = iref
 
             # default mapping
-            mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
+            mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)]
+            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
             # specify ((isec,jsec,iref),(jsec,ksec,iref)) mapping choice
             #try ((isec,jsec,ksec),(jsec,ksec,iref))
             mapping_str = """ \
-                iU1 = %s 
+                iU1 = %s
                 iS1 = %s
                 iB1 = %s
                 iU2 = %s
                 iS2 = %s
-                iB2 = %s 
+                iB2 = %s
                 iA1 = 1 ! default azimuth for NLO
                 iA2 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[4][0], mapping[1][0],mapping[2][0],mapping[4][0])
+            """ % (mapping[0][0], mapping[1][0], mapping[3][0], mapping[1][0],mapping[2][0],mapping[3][0])
 
             # # write NNLO_IR_limits
             # # GB TODO : test on UB strings
@@ -1323,11 +1323,14 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
             # file = file % replace_dict_limits
             # writer(filename).writelines(file)
-           
+
             # Initialise NLO_IR_limits.f for every sector [ij]
-            string = "c Collection of relevant limits for sector [%d,%d,%d]" %(isec,jsec,ksec)
+            if label == 'ijjk':
+                string = "c Collection of relevant limits for sector [%d,%d,%d,%d]" %(isec,jsec,jsec,ksec)
+            elif label == 'ijkj':
+                string = "c Collection of relevant limits for sector [%d,%d,%d,%d]" %(isec,jsec,ksec,jsec)
             NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
-            os.system('echo ' + string + ' > ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f') 
+            os.system('echo ' + string + ' > ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 
             # loop on K1 cts
             ct_list = []
@@ -1337,26 +1340,26 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 if all_3p_K1_ct[i][j] ==  0:
                     continue
                 if j <= 2: # Soft ct
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                     #if (j==0): # just one call to the kernel is needed
                     if (write_S): # just one call to the kernel is needed
                         write_S = False
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                     if (write_HC): # just one call to the kernel is needed
                         write_HC = False
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + '/' + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 
                 # Extract underlying real string
-                self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
+                self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits,
                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
-                
-                # if(len(UReal_procs)!= 0):   
+
+                # if(len(UReal_procs)!= 0):
                 #     UReal_matrix = 'matrix_%s.f' %(UReal_procs[0])
                 #     #print(path_UReal_procs[0] + '/' + UReal_matrix)
                 #     os.system('cp ' + path_UReal_procs[0] + '/' + UReal_matrix + ' ' + dirpath)
@@ -1365,7 +1368,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                 if all_3p_K1_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K1_ct[i][j])
-                    tmp_str = """ 
+                    tmp_str = """
 c       %s
         DOUBLE PRECISION M2_%s""" %(K1_labels[j],all_3p_K1_ct[i][j])
                     list_str_defK1.append(tmp_str)
@@ -1376,25 +1379,25 @@ c       %s
                 if all_3p_K2_ct[i][j] ==  0:
                     continue
                 if j <= 2:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path
-                              + all_3p_K2_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 else:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j].split("_")[0], all_3p_K2_ct[i][j], K2_3p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path
-                              + all_3p_K2_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                              + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                 # Extract underlying Born string
                 # TODO: can I have more then one underlying born x sector?
-                self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
+                self.get_uproc_str('Born', uB_all_3p_K2_ct[i][j], all_3p_K2_ct[i][j], dirpathB_head, replace_dict_limits,
                                        replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
-                
+
                 if all_3p_K2_ct[i][j] not in ct_list:
                     ct_list.append(all_3p_K2_ct[i][j])
-                    tmp_str = """ 
+                    tmp_str = """
 c       %s
         DOUBLE PRECISION M2_%s""" %(K2_labels[j],all_3p_K2_ct[i][j])
                     list_str_defK2.append(tmp_str)
@@ -1407,29 +1410,29 @@ c       %s
                 else:
                     lim = all_3p_K12_ct[i][j].split("_")[0] + '_' + all_3p_K12_ct[i][j].split("_")[1]
                 if j <= 3:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 3 and j <= 7:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 7 and j <= 11:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 11 and j <= 14:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     os.system('cat ' + NNLO_IR_limits_tmp_path
-                              + all_3p_K12_ct_seen[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                              + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 14 and j <= 17:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 elif j > 17 and j <= 20:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
+                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,ksec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (lim, lim, all_3p_K12_ct[i][j], K12_3p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                 if all_3p_K12_ct[i][j] not in ct_list:
@@ -1463,7 +1466,10 @@ c       %s
             replace_dict_double_real['mapping_str'] = mapping_str
 
             # write NNLO_K
-            filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d.f' % (isec, jsec, ksec))
+            if label == 'ijjk':
+                filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, jsec, ksec))
+            elif label == 'ijkj':
+                filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
@@ -1480,7 +1486,7 @@ c       %s
             # print('alt_Real_str : ' + str(overall_sector_info[i]['alt_Real_str']))
             # print('alt_Real_path : ' + str(overall_sector_info[i]['alt_Real_path']))
             # print(' ')
-            
+
             # write NNLO_RRsub
             if sector_info['Born_str']:
                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
@@ -1489,7 +1495,7 @@ c       %s
                 # Set dummy calls to bypass Born multichannelling
                 if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/matrix_dummy.f', dirpath + '/matrix_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')  
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/configs_dummy.f', dirpath + '/configs_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/props_dummy.f', dirpath + '/props_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
@@ -1503,23 +1509,32 @@ c       %s
             #     if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
             #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
             #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
-                
+
             filename = []
-            filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d.f' % (isec, jsec, ksec))
+            if label == 'ijjk':
+                filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, jsec, ksec))
+            elif label == 'ijkj':
+                filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
 
-            # write driver_RR        
+            # write driver_RR
             UBgraphs = overall_sector_info[i]['Born_str']
-            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
+            if label == 'ijjk':
+                self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, jsec, ksec, UBgraphs)
+            elif label == 'ijkj':
+                self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, jsec, UBgraphs)
 
-            # write test_RR 
-            # import pdb
-            # pdb.set_trace()
-            self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-                                    i, isec, jsec, ksec, lsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
-            
+            # write test_RR
+            # TODO: adapt write_testRR function to new limits
+            # if label == 'ijjk':
+            #     self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process,
+            #                         i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+            # elif label == 'ijkj':
+            #     self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process,
+            #                         i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+
             # # write NNLO_IR_limits
             # # GB TODO : test on UB strings
             # NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
@@ -1527,310 +1542,324 @@ c       %s
             # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
             # file = file % replace_dict_limits
             # writer(filename).writelines(file)
-            filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec,ksec))
+            if label == 'ijjk':
+                filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, jsec, ksec))
+            elif label == 'ijkj':
+                filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
             #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
             # TODO: maybe safer to reinstate this command
             os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-           
+
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
-        
+
         # Set replace_dict
         replace_dict_ct = {}
         replace_dict_limits = {}
         replace_dict_double_real ={}
 
-        necessary_default_4p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
+        necessary_default_4p_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'S_C_gg', 'S_C_gq', \
                                         'SS_gg', 'SS_qqx', \
-                                        'SHC_ggg', 'SHC_ggq', 'SHC_gqqx', \
-                                        'HCC_gggg', 'HCC_gggq', 'HCC_ggqqx', 'HCC_qxqqxq', 'HCC_gqgq', 'HCC_gqqxq',\
-                                        'S_SS_gg',  'S_SHC_ggg', 'S_SHC_ggq', 'S_SHC_gqqx', \
-                                        'HC_SHC_ggg', 'HC_SHC_ggq', 'HC_SHC_gqqx', \
-                                        'HC_HCC_gggg', 'HC_HCC_gggq', 'HC_HCC_ggqqx', 'HC_HCC_qxqqxq', 'HC_HCC_gqgq', 'HC_HCC_gqqxq']
-        K1_labels = ['S_i', 'S_j', 'S_k', 'S_l', 'HC_ij=C_ij(1-S_i-S_j)', 'HC_kl=C_kl(1-S_k-S_l)']
-        K1_4p_indices = ['isec', 'jsec', 'ksec', 'lsec', 'isec,jsec', 'ksec,lsec']
-        K2_labels = ['SS_ik', 'SS_il', 'SS_jk', 'SS_jl', \
-                     'SHC_ikl=SC_ijk(1-SS_ik-SS_il)', 'SHC_jkl=SC_ijk(1-SS_jk-SS_jl)', 'SHC_kij=SC_kij(1-SS_ik-SS_jk)', 'SHC_lij=SC_lij(1-SS_il-SS_jl)', \
-                     'HCC_ijkl=CC_ijkl(1+SS_ik+SS_il+SS_jk+SS_jl-SC_ikl-SC_jkl-SC_kij-SC_lij)'] 
-        K2_4p_indices = ['isec,ksec', 'isec,lsec', 'jsec,ksec', 'jsec,lsec', \
-                         'isec,ksec,lsec', 'jsec,ksec,lsec', 'ksec,isec,jsec', 'lsec,isec,jsec', \
-                         'isec,jsec,ksec,lsec']
-        K12_labels = ['S_i SS_ik', 'S_i SS_il', 'S_i SHC_ikl=S_i SC_ikl(1-SS_ik-SS_il)', \
-                      'S_j SS_jk', 'S_j SS_jl', 'S_j SHC_jkl=S_j SC_jkl(1-SS_jk-SS_jl)', \
-                      'S_k SS_ik', 'S_k SS_jk', 'S_k SHC_kij=S_k SC_kij(1-SS_ik-SS_jk)', \
-                      'S_l SS_il', 'S_l SS_jl', 'S_l SHC_lij=S_l SC_lij(1-SS_il-SS_jl)', \
-                      'HC_ij SC_kij', 'HC_ij SC_lij', 'HC_ij HCC_ijkl=C_ij(1-S_i-S_j) CC_ijkl(1-SC_kij-SC_lij)', \
-                      'HC_kl SC_ikl', 'HC_kl SC_jkl', 'HC_kl HCC_ijkl=C_kl(1-S_k-S_l) CC_ijkl(1-SC_ikl-SC_jkl)']         
-        K12_4p_indices = ['isec,ksec', 'isec,lsec', 'isec,ksec,lsec', \
-                          'jsec,ksec', 'jsec,lsec', 'jsec,ksec,lsec', \
-                          'isec,ksec', 'jsec,ksec', 'ksec,isec,jsec', \
-                          'isec,lsec', 'jsec,lsec', 'lsec,isec,jsec', \
-                          'ksec,isec,jsec', 'lsec,isec,jsec', 'isec,jsec,ksec,lsec', \
-                          'isec,ksec,lsec', 'jsec,ksec,lsec', 'isec,jsec,ksec,lsec']
-    
-        for i in range(0,len(all_4p_sector_list)):
-            list_str_defK1 = []
-            list_str_M2_K1 = []
-            list_str_defK2 = []
-            list_str_M2_K2 = []
-            list_str_defK12 = []
-            list_str_M2_K12 = []
-            mapping = []
-            isec = all_4p_sector_list[i][0]
-            jsec = all_4p_sector_list[i][1]
-            ksec = all_4p_sector_list[i][2]
-            lsec = all_4p_sector_list[i][3]
-            id_isec = all_4p_sector_id_list[i][0]
-            id_jsec = all_4p_sector_id_list[i][1]
-            id_ksec = all_4p_sector_id_list[i][2]
-            id_lsec = all_4p_sector_id_list[i][3]
-            # Extract the reference particle leg from recoiler_function.py
-            iref = 1 #all_sector_recoilers[i] #TODO define recoiler
-            replace_dict_ct['iref'] = iref
-            if (isec == iref) or (jsec == iref) or (ksec == iref) or (lsec == iref):
-                        raise MadEvent7Error('Wrong recoiler %d,%d,%d,%d!' % (isec,jsec,ksec,lsec,iref))
-            # Check sector indicies
-            if isec == jsec or isec == ksec or jsec == ksec \
-                or isec == lsec or jsec == lsec or ksec == lsec:
-                raise MadEvent7Error('Wrong sector indices %d,%d,%d,%d!' % (isec,jsec,ksec,lsec))
+                                        'SC_ggg', 'SC_ggq', 'SC_gqqx', \
+                                        'SS_gg_SC_ggg', 'SS_gg_SC_ggq', \
+                                        'CC_gggg', 'CC_gggq', 'CC_ggqqx', 'CC_qxqqxq', 'CC_gqgq', 'CC_gqqxq', \
+                                        'CC_gqgg', 'CC_qqxgg', 'CC_qxqgq', \
+                                        'SS_gg_CC_gggg', 'SS_gg_CC_gggq', 'SS_gg_CC_ggqqx', 'SS_qqx_CC_qxqqxq', \
+                                        'SC_ggg_CC_gggg', 'SC_ggq_CC_gggq', 'SC_gqqx_CC_ggqqx', 'SC_ggq_CC_gqgq', 'SC_gqqx_CC_gqqxq', \
+                                        'SC_ggq_CC_gqgg', 'SC_gqqx_CC_qqxgg', 'SC_gqqx_CC_qxqgq', \
+                                        'S_SS_gg', 'S_SC_ggg', 'S_SC_ggq', 'S_SC_gqqx', \
+                                        'S_SS_gg_SC_ggg', 'S_SS_gg_SC_ggq', \
+                                        'C_SC_ggg', 'C_SC_ggq', 'C_SC_gqqx', \
+                                        'C_CC_gggg', 'C_CC_gggq', 'C_CC_ggqqx', 'C_CC_qxqqxq', 'C_CC_gqgq', 'C_CC_gqqxq', \
+                                        'C_CC_gqgg', 'C_CC_qqxgg', 'C_CC_qxqgq', \
+                                        'C_SC_ggg_CC_gggg', 'C_SC_ggq_CC_gggq', 'C_SC_gqqx_CC_ggqqx', 'C_SC_ggq_CC_gqgq', 'C_SC_gqqx_CC_gqqxq', \
+                                        'C_SC_ggq_CC_gqgg', 'C_SC_gqqx_CC_qqxgg', 'C_SC_gqqx_CC_qxqgq', \
+                                        'SC_SC_ggg', 'SC_SC_ggq', 'SC_SC_gqqx', \
+                                        'SC_CC_gggg', 'SC_CC_gggq', 'SC_CC_ggqqx', 'SC_CC_gqgq', 'SC_CC_gqqxq', 'SC_CC_gqgg', \
+                                        'SC_SC_ggg_CC_gggg', 'SC_SC_ggq_CC_gggq', 'SC_SC_gqqx_CC_ggqqx', 'SC_SC_ggq_CC_gqgq', 'SC_SC_gqqx_CC_gqqxq', \
+                                        'SC_SC_ggq_CC_gqgg']
 
-            replace_dict_ct['isec'] = isec
-            replace_dict_ct['jsec'] = jsec
-            replace_dict_ct['ksec'] = ksec
-            replace_dict_ct['lsec'] = lsec
-            replace_dict_double_real['isec'] = isec
-            replace_dict_double_real['jsec'] = jsec
-            replace_dict_double_real['ksec'] = ksec
-            replace_dict_double_real['lsec'] = lsec
-            replace_dict_double_real['iref'] = iref
-            
-            replace_dict_limits['isec'] = isec
-            replace_dict_limits['jsec'] = jsec
-            replace_dict_limits['ksec'] = ksec
-            replace_dict_limits['lsec'] = lsec
-            replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
-                                        forbid=True, main=False, pdg_order=False, print_id = False))
-            replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True, 
-                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
-            replace_dict_double_real['str_UBorn'] = 'dummy'
-            replace_dict_double_real['UBgraphs'] = 'dummy'
+        K1_labels = ['S_i', 'C_ij', 'S_i C_ij']
+        K2_labels = ['SS_ik', 'SC_ikl', 'SC_kij', 'SS_ik SC_ikl', 'SS_ik SC_kij', \
+                     'CC_ijkl', 'SS_ik CC_ijkl', 'SC_ikl CC_ijkl', 'SC_kij CC_ijkl']
+        K12_labels = ['S_i SS_ik', 'S_i SC_ikl', 'S_i SS_ik SC_ikl', \
+                      'C_ij SC_kij', 'C_ij CC_ijkl', 'C_ij SC_kij CC_ijkl', \
+                      'S_i C_ij SC_kij', 'S_i C_ij CC_ijkl', 'S_i C_ij SC_kij CC_ijkl']
 
-            # Initialise ct routines to 'dummy'
-            # TODO: remove since useless now
-            for k in range(0, len(necessary_default_4p_ct_list)):
-                replace_dict_limits['proc_prefix_%s' % necessary_default_4p_ct_list[k]] = 'dummy'
-            
-            # Update sector_info dictionary
-            sector_info = {
-                'isec'          :   0,
-                'jsec'          :   0,
-                'ksec'          :   0,
-                'lsec'          :   0,
-                'iref'          :   0,
-                'mapping'       :   [],
-                'Born_str'      :   '',
-                'Born_PDGs'     :   [],
-                'path_to_Born'  :   '',
-                'alt_Born_str'  :   '',
-                'alt_Born_path' :   '',
-                'Real_str'      :   '',
-                'Real_PDGs'     :   [],
-                'path_to_Real'  :   '',
-                'alt_Real_str'  :   '',
-                'alt_Real_path' :   ''             
-            }
-            sector_info['isec'] = isec
-            sector_info['jsec'] = jsec
-            sector_info['ksec'] = ksec
-            sector_info['lsec'] = lsec
-            sector_info['iref'] = iref
+        # Rule
+        # CC_ijkl        -> isec,jsec,ksec,lsec
+        # SS_ik CC_ijkl  -> isec,jsec,ksec,lsec
+        # SC_kij CC_ijkl -> ksec,lsec,isec,jsec
+        K1_4p_indices = ['isec', 'isec,jsec', 'isec,jsec']
+        K2_4p_indices = ['isec,ksec', 'isec,ksec,lsec', 'ksec,isec,jsec', 'isec,ksec,lsec', 'ksec,isec,jsec', \
+                         'isec,jsec,ksec,lsec', 'isec,jsec,ksec,lsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec']
+        K12_4p_indices = ['isec,ksec', 'isec,ksec,lsec', 'isec,ksec,lsec', \
+                          'ksec,isec,jsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec', \
+                          'ksec,isec,jsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec' ]
 
+#         for i in range(0,len(all_4p_sector_list)):
+#             list_str_defK1 = []
+#             list_str_M2_K1 = []
+#             list_str_defK2 = []
+#             list_str_M2_K2 = []
+#             list_str_defK12 = []
+#             list_str_M2_K12 = []
+#             mapping = []
+#             isec = all_4p_sector_list[i][0]
+#             jsec = all_4p_sector_list[i][1]
+#             ksec = all_4p_sector_list[i][2]
+#             lsec = all_4p_sector_list[i][3]
+#             id_isec = all_4p_sector_id_list[i][0]
+#             id_jsec = all_4p_sector_id_list[i][1]
+#             id_ksec = all_4p_sector_id_list[i][2]
+#             id_lsec = all_4p_sector_id_list[i][3]
+#             # Extract the reference particle leg from recoiler_function.py
+#             iref = 1 #all_sector_recoilers[i] #TODO define recoiler
+#             replace_dict_ct['iref'] = iref
+#             if (isec == iref) or (jsec == iref) or (ksec == iref) or (lsec == iref):
+#                         raise MadEvent7Error('Wrong recoiler %d,%d,%d,%d!' % (isec,jsec,ksec,lsec,iref))
+#             # Check sector indicies
+#             if isec == jsec or isec == ksec or jsec == ksec \
+#                 or isec == lsec or jsec == lsec or ksec == lsec:
+#                 raise MadEvent7Error('Wrong sector indices %d,%d,%d,%d!' % (isec,jsec,ksec,lsec))
 
-            # default mapping
-            mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)] 
-            sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
-            #specify ((isec,jsec,iref),(ksec,lsec,iref)) mapping choice
-            mapping_str = """ \
-                iU1 = %s 
-                iS1 = %s
-                iB1 = %s
-                iU2 = %s
-                iS2 = %s
-                iB2 = %s 
-                iA1 = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[3][0],mapping[4][0])
+#             replace_dict_ct['isec'] = isec
+#             replace_dict_ct['jsec'] = jsec
+#             replace_dict_ct['ksec'] = ksec
+#             replace_dict_ct['lsec'] = lsec
+#             replace_dict_double_real['isec'] = isec
+#             replace_dict_double_real['jsec'] = jsec
+#             replace_dict_double_real['ksec'] = ksec
+#             replace_dict_double_real['lsec'] = lsec
+#             replace_dict_double_real['iref'] = iref
 
-            replace_dict_double_real['mapping_str'] = mapping_str 
-            # loop on K1 cts
-            ct_list = []
-            for j in range(0, len(all_4p_K1_ct[i])):
-                if all_4p_K1_ct[i][j] ==  0:
-                    continue
-                if j <= 2:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
-                    list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                else:
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
-                    list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                # Extract underlying real string        
-                self.get_uproc_str('Real', uB_all_4p_K1_ct[i][j], all_4p_K1_ct[i][j], dirpathR_head, replace_dict_limits, 
-                                       replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
-                
-                if all_4p_K1_ct[i][j] not in ct_list:
-                    ct_list.append(all_4p_K1_ct[i][j])
-                    tmp_str = """ 
-c       %s
-        DOUBLE PRECISION M2_%s""" %(K1_labels[j],all_4p_K1_ct[i][j])
-                    list_str_defK1.append(tmp_str)
+#             replace_dict_limits['isec'] = isec
+#             replace_dict_limits['jsec'] = jsec
+#             replace_dict_limits['ksec'] = ksec
+#             replace_dict_limits['lsec'] = lsec
+#             replace_dict_limits['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True,
+#                                         forbid=True, main=False, pdg_order=False, print_id = False))
+#             replace_dict_double_real['proc_prefix_rr'] = str(defining_process.shell_string(schannel=True,
+#                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
+#             replace_dict_double_real['str_UBorn'] = 'dummy'
+#             replace_dict_double_real['UBgraphs'] = 'dummy'
 
-            # loop on K2 cts
-            ct_list = []
-            for j in range(0, len(all_4p_K2_ct[i])):
-                if all_4p_K2_ct[i][j] ==  0:
-                    continue
-                else:
-                    list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j], K2_4p_indices[j]))
-                    list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                # Extract underlying Born string
-                self.get_uproc_str('Born', uB_all_4p_K2_ct[i][j], all_4p_K2_ct[i][j], dirpathB_head, replace_dict_limits, 
-                                       replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
-                    
-                if all_4p_K2_ct[i][j] not in ct_list:
-                    ct_list.append(all_4p_K2_ct[i][j])
-                    tmp_str = """ 
-c       %s
-        DOUBLE PRECISION M2_%s""" %(K2_labels[j],all_4p_K2_ct[i][j])
-                    list_str_defK2.append(tmp_str)
+#             # Initialise ct routines to 'dummy'
+#             # TODO: remove since useless now
+#             for k in range(0, len(necessary_default_4p_ct_list)):
+#                 replace_dict_limits['proc_prefix_%s' % necessary_default_4p_ct_list[k]] = 'dummy'
 
-            # loop on K12 cts
-            ct_list = []
-            for j in range(0, len(all_4p_K12_ct[i])):
-                if all_4p_K12_ct[i][j] == 0:
-                    continue
-                else:
-                    lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
-                if j <= 2:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                elif j > 2 and j <= 5:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                elif j > 5 and j <= 8:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                elif j > 8 and j <= 11:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                elif j > 11 and j <= 14:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                elif j > 14 and j <= 17:
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n' 
-                                       % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                if all_4p_K12_ct[i][j] not in ct_list:
-                    ct_list.append(all_4p_K12_ct[i][j])
-                    tmp_str = """
-c       %s
-        DOUBLE PRECISION M2_%s""" %(K12_labels[j],all_4p_K12_ct[i][j])
-                    list_str_defK12.append(tmp_str)
-
-            # update list of sector_info
-            if sector_info['Born_str']:
-                sector_info['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str'])
-            if sector_info['Real_str']:
-                sector_info['Real_PDGs'] = getattr(PDGs_from_Real, "leg_PDGs_%s" % sector_info['Real_str'])
-            overall_sector_info.append(sector_info)
-
-            # define dictionary for NNLO_K
-            str_defK1 = " ".join(list_str_defK1)
-            replace_dict_ct['str_defK1'] = str_defK1
-            str_defK2 = " ".join(list_str_defK2)
-            replace_dict_ct['str_defK2'] = str_defK2
-            str_defK12 = " ".join(list_str_defK12)
-            replace_dict_ct['str_defK12'] = str_defK12
-            str_M2_K1 = " ".join(list_str_M2_K1)
-            replace_dict_ct['str_M2_K1'] = str_M2_K1
-            str_M2_K2 = " ".join(list_str_M2_K2)
-            replace_dict_ct['str_M2_K2'] = str_M2_K2
-            str_M2_K12 = " ".join(list_str_M2_K12)
-            replace_dict_ct['str_M2_K12'] = str_M2_K12
-
-            # write NNLO_K
-            filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
-            file = file % replace_dict_ct
-            writer(filename).writelines(file)
-
-            # # check on sector_info
-            # print('Born_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Born_str']))
-            # print('alt_Born_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Born_str']))
-            # print('Born_PDGs : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Born_PDGs']))
-            # print('path_to_Born : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['path_to_Born']))
-            # print('alt_Born_path : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Born_path']))
-            # print('Real_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Real_str']))
-            # print('Real_PDGs : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Real_PDGs']))
-            # print('path_to_Real : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['path_to_Real']))
-            # print('alt_Real_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Real_str']))
-            # print('alt_Real_path : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Real_path']))
-            # print('  ')
-
-            # write NNLO_RRsub
-            if sector_info['Born_str']:
-                replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            else:
-                # Set dummy calls to bypass Born multichannelling
-                if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/matrix_dummy.f', dirpath + '/matrix_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')  
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/configs_dummy.f', dirpath + '/configs_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/props_dummy.f', dirpath + '/props_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/leshouche_dummy.f', dirpath + '/leshouche_dummy.f')
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
-
-            filename = []
-            filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec,lsec))
-            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
-            file = file % replace_dict_double_real
-            writer(filename).writelines(file)
-            UBgraphs = overall_sector_info[i+len(all_4p_sector_list)]['Born_str']
-            self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
+#             # Update sector_info dictionary
+#             sector_info = {
+#                 'isec'          :   0,
+#                 'jsec'          :   0,
+#                 'ksec'          :   0,
+#                 'lsec'          :   0,
+#                 'iref'          :   0,
+#                 'mapping'       :   [],
+#                 'Born_str'      :   '',
+#                 'Born_PDGs'     :   [],
+#                 'path_to_Born'  :   '',
+#                 'alt_Born_str'  :   '',
+#                 'alt_Born_path' :   '',
+#                 'Real_str'      :   '',
+#                 'Real_PDGs'     :   [],
+#                 'path_to_Real'  :   '',
+#                 'alt_Real_str'  :   '',
+#                 'alt_Real_path' :   ''
+#             }
+#             sector_info['isec'] = isec
+#             sector_info['jsec'] = jsec
+#             sector_info['ksec'] = ksec
+#             sector_info['lsec'] = lsec
+#             sector_info['iref'] = iref
 
 
-            # self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process, 
-            #                         i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
-           
+#             # default mapping
+#             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)]
+#             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1], mapping[4][1]]
+#             #specify ((isec,jsec,iref),(ksec,lsec,iref)) mapping choice
+#             mapping_str = """ \
+#                 iU1 = %s
+#                 iS1 = %s
+#                 iB1 = %s
+#                 iU2 = %s
+#                 iS2 = %s
+#                 iB2 = %s
+#                 iA1 = 1 ! default azimuth for NLO
+#             """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[3][0],mapping[4][0])
 
-#---------- Functions outside loop on sectors ----------#
-######### Write get_Born_PDGs.f & get_Real_PDGs.f
+#             replace_dict_double_real['mapping_str'] = mapping_str
+#             # loop on K1 cts
+#             ct_list = []
+#             for j in range(0, len(all_4p_K1_ct[i])):
+#                 if all_4p_K1_ct[i][j] ==  0:
+#                     continue
+#                 if j <= 2:
+#                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
+#                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+#                 else:
+#                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
+#                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
+#                 # Extract underlying real string
+#                 self.get_uproc_str('Real', uB_all_4p_K1_ct[i][j], all_4p_K1_ct[i][j], dirpathR_head, replace_dict_limits,
+#                                        replace_dict_double_real, UReal_procs, path_UReal_procs, sector_info)
 
-        self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
-        self.write_get_Real_PDGs_file(writer, dirpath, overall_sector_info)
-        self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
+#                 if all_4p_K1_ct[i][j] not in ct_list:
+#                     ct_list.append(all_4p_K1_ct[i][j])
+#                     tmp_str = """
+# c       %s
+#         DOUBLE PRECISION M2_%s""" %(K1_labels[j],all_4p_K1_ct[i][j])
+#                     list_str_defK1.append(tmp_str)
 
-######### Write makefile_npt_template
-        
-        self.write_makefile_RR_file(writer, dirpath, dirmadnklo, defining_process, overall_sector_info)
-######### Write ajob_isec_jsec_ksec_lsec
-        
+#             # loop on K2 cts
+#             ct_list = []
+#             for j in range(0, len(all_4p_K2_ct[i])):
+#                 if all_4p_K2_ct[i][j] ==  0:
+#                     continue
+#                 else:
+#                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j].split("_")[0], all_4p_K2_ct[i][j], K2_4p_indices[j]))
+#                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
+#                 # Extract underlying Born string
+#                 self.get_uproc_str('Born', uB_all_4p_K2_ct[i][j], all_4p_K2_ct[i][j], dirpathB_head, replace_dict_limits,
+#                                        replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
 
-######### Link Born & Real files to each real process directory
+#                 if all_4p_K2_ct[i][j] not in ct_list:
+#                     ct_list.append(all_4p_K2_ct[i][j])
+#                     tmp_str = """
+# c       %s
+#         DOUBLE PRECISION M2_%s""" %(K2_labels[j],all_4p_K2_ct[i][j])
+#                     list_str_defK2.append(tmp_str)
 
-        self.link_files_to_RR_dir(dirpath, overall_sector_info)
+#             # loop on K12 cts
+#             ct_list = []
+#             for j in range(0, len(all_4p_K12_ct[i])):
+#                 if all_4p_K12_ct[i][j] == 0:
+#                     continue
+#                 else:
+#                     lim = all_4p_K12_ct[i][j].split("_")[0] + '_' + all_4p_K12_ct[i][j].split("_")[1]
+#                 if j <= 2:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 elif j > 2 and j <= 5:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 elif j > 5 and j <= 8:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 elif j > 8 and j <= 11:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 elif j > 11 and j <= 14:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(isec,jsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 elif j > 14 and j <= 17:
+#                     list_str_M2_K12.append('K%s=K%s+M2_%s(ksec,lsec,%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+#                                        % (lim, lim, all_4p_K12_ct[i][j], K12_4p_indices[j]))
+#                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
+#                 if all_4p_K12_ct[i][j] not in ct_list:
+#                     ct_list.append(all_4p_K12_ct[i][j])
+#                     tmp_str = """
+# c       %s
+#         DOUBLE PRECISION M2_%s""" %(K12_labels[j],all_4p_K12_ct[i][j])
+#                     list_str_defK12.append(tmp_str)
 
-            
+#             # update list of sector_info
+#             if sector_info['Born_str']:
+#                 sector_info['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str'])
+#             if sector_info['Real_str']:
+#                 sector_info['Real_PDGs'] = getattr(PDGs_from_Real, "leg_PDGs_%s" % sector_info['Real_str'])
+#             overall_sector_info.append(sector_info)
+
+#             # define dictionary for NNLO_K
+#             str_defK1 = " ".join(list_str_defK1)
+#             replace_dict_ct['str_defK1'] = str_defK1
+#             str_defK2 = " ".join(list_str_defK2)
+#             replace_dict_ct['str_defK2'] = str_defK2
+#             str_defK12 = " ".join(list_str_defK12)
+#             replace_dict_ct['str_defK12'] = str_defK12
+#             str_M2_K1 = " ".join(list_str_M2_K1)
+#             replace_dict_ct['str_M2_K1'] = str_M2_K1
+#             str_M2_K2 = " ".join(list_str_M2_K2)
+#             replace_dict_ct['str_M2_K2'] = str_M2_K2
+#             str_M2_K12 = " ".join(list_str_M2_K12)
+#             replace_dict_ct['str_M2_K12'] = str_M2_K12
+
+#             # write NNLO_K
+#             filename = pjoin(dirpath, 'NNLO_K_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
+#             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_K_template.f")).read()
+#             file = file % replace_dict_ct
+#             writer(filename).writelines(file)
+
+#             # # check on sector_info
+#             # print('Born_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Born_str']))
+#             # print('alt_Born_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Born_str']))
+#             # print('Born_PDGs : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Born_PDGs']))
+#             # print('path_to_Born : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['path_to_Born']))
+#             # print('alt_Born_path : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Born_path']))
+#             # print('Real_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Real_str']))
+#             # print('Real_PDGs : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['Real_PDGs']))
+#             # print('path_to_Real : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['path_to_Real']))
+#             # print('alt_Real_str : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Real_str']))
+#             # print('alt_Real_path : ' + str(overall_sector_info[i+len(all_3p_sector_list)]['alt_Real_path']))
+#             # print('  ')
+
+#             # write NNLO_RRsub
+#             if sector_info['Born_str']:
+#                 replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+#             else:
+#                 # Set dummy calls to bypass Born multichannelling
+#                 if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/matrix_dummy.f', dirpath + '/matrix_dummy.f')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/configs_dummy.f', dirpath + '/configs_dummy.f')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/props_dummy.f', dirpath + '/props_dummy.f')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/leshouche_dummy.f', dirpath + '/leshouche_dummy.f')
+#                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
+
+#             filename = []
+#             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec,lsec))
+#             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
+#             file = file % replace_dict_double_real
+#             writer(filename).writelines(file)
+#             #UBgraphs = overall_sector_info[i+len(all_4p_sector_list)]['Born_str']
+#             #self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
+
+
+#             # self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process,
+#             #                         i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
+
+
+# #---------- Functions outside loop on sectors ----------#
+# ######### Write get_Born_PDGs.f & get_Real_PDGs.f
+
+#         self.write_get_Born_PDGs_file(writer, dirpath, overall_sector_info)
+#         self.write_get_Real_PDGs_file(writer, dirpath, overall_sector_info)
+#         self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
+
+# ######### Write makefile_npt_template
+
+#         self.write_makefile_RR_file(writer, dirpath, dirmadnklo, defining_process, overall_sector_info)
+# ######### Write ajob_isec_jsec_ksec_lsec
+
+
+# ######### Link Born & Real files to each real process directory
+
+#         self.link_files_to_RR_dir(dirpath, overall_sector_info)
+
+
         return #all_sectors
 
 
@@ -1842,7 +1871,7 @@ c       %s
     # get the underlying Real/Born process strings
     #===========================================================================
 
-    def get_uproc_str(self, u_str, ct, ct_name, dirpath, replace_dict_limits, replace_dict_double_real, 
+    def get_uproc_str(self, u_str, ct, ct_name, dirpath, replace_dict_limits, replace_dict_double_real,
                       proc_dir, path_proc_dir, sector_info):
 
         UProc = ct.current.shell_string_user(
@@ -1851,7 +1880,7 @@ c       %s
 
         flag = False
         for i in range(0,len(UProc)):
-            dirpathUProc = pjoin(dirpath, 'SubProcesses', "P%s" % UProc_1[i])                    
+            dirpathUProc = pjoin(dirpath, 'SubProcesses', "P%s" % UProc_1[i])
             if os.path.exists(dirpathUProc):
                 replace_dict_double_real['str_U%s' % u_str] = UProc[i]
                 replace_dict_limits['proc_prefix_%s' % ct_name] = UProc[i]
@@ -1871,11 +1900,11 @@ c       %s
                     if(line != ''):
                         list_proc.append(line)
                     else:
-                        break 
+                        break
                 f.close()
                 for k in range(len(list_proc)):
                     if(UProc[i] in list_proc[k]):
-                        extra_UProc = UProc[i]    
+                        extra_UProc = UProc[i]
                         replace_dict_double_real['str_U%s' % u_str] = UProc[i]
                         replace_dict_limits['proc_prefix_%s' % ct_name] = UProc[i]
                         sector_info['%s_str' % u_str] = UProc[i]
@@ -1890,13 +1919,13 @@ c       %s
                         fs_flavours = "".join(fs_flavours)
                         tmp_extra_UProc[-1] = fs_flavours
                         sector_info['alt_%s_str' % u_str] = "_".join(tmp_extra_UProc)
-                        sector_info['alt_%s_path' % u_str] = pjoin(dirpath, 'SubProcesses', "P%s" 
+                        sector_info['alt_%s_path' % u_str] = pjoin(dirpath, 'SubProcesses', "P%s"
                                                                                     % "_".join(['1', sector_info['alt_%s_str' % u_str]]))
-                                    
-                        flag = True 
+
+                        flag = True
                         break
                 if(flag == True):
-                    break 
+                    break
 
             # if no specific underlying directory
             #if i == len(UProc) - 1:
@@ -1924,23 +1953,22 @@ c       %s
             return
 
         all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
-        lensectors = len(all_sector_list)
 
-        flat_list = [str(x) for sector in all_sector_list for x in sector]
-        data_line = "      DATA all_sector_list/{}{}".format(
-            ",".join(flat_list),
-            "/"
-        )
-        lines = [
-            "      INTEGER, PARAMETER :: lensectors = {}".format(lensectors),
-            "      INTEGER all_sector_list(4, lensectors)",
-            data_line
-        ]
-        file_content = "\n".join(lines) + "\n"
+        replace_dict = {}
+        replace_dict['len_sec_list'] = len(all_sector_list)
+        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+
+        file = """ \
+          integer, parameter :: lensectors = %(len_sec_list)d
+          integer all_sector_list(4,lensectors)
+          data all_sector_list/%(all_sector_list)s/""" % replace_dict
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
-        with open(filename, 'w') as f:
-            f.write(file_content)
+        writer(filename).writelines(file)
+
+        return True
+
+
 
     #===========================================================================
     # write 'get_Born_PDGs.f' & 'get_Real_PDGs.f' to find labels/flavours of n(+1)-body kinematics
@@ -1974,7 +2002,7 @@ c       %s
             file += """ \
                %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
                   Born_leg_PDGs = %(tmp_PDGs)s \n""" % replace_dict_tmp
-        
+
         file += """ \
           endif
           return
@@ -1985,7 +2013,7 @@ c       %s
         writer(filename).writelines(file)
 
         return True
-    
+
     def write_get_Real_PDGs_file(self, writer, dirpath, overall_sector_info):
 
         file = ''
@@ -2014,7 +2042,7 @@ c       %s
             file += """ \
                %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
                   Real_leg_PDGs = %(tmp_PDGs)s \n""" % replace_dict_tmp
-        
+
         file += """ \
           endif
           return
@@ -2025,7 +2053,7 @@ c       %s
         writer(filename).writelines(file)
 
         return True
-    
+
 
     def write_get_UnderLying_PDGs_file(self, writer, dirpath, overall_sector_info):
 
@@ -2037,7 +2065,7 @@ c       %s
           integer isec, jsec, ksec, lsec
           integer npart
           integer Underlying_leg_PDGs(npart)
-          integer Born_leg_PDGs(nexternal_UUB), Real_leg_PDGs(nexternal_UB) 
+          integer Born_leg_PDGs(nexternal_UUB), Real_leg_PDGs(nexternal_UB)
           \n"""
 
         for i in range(0,len(overall_sector_info)):
@@ -2061,7 +2089,7 @@ c       %s
                %(if_elseif)s(isec.eq.%(isec)d.and.jsec.eq.%(jsec)d.and.ksec.eq.%(ksec)d.and.lsec.eq.%(lsec)d) then
                   Real_leg_PDGs = %(tmp_Real_PDGs)s
                   Born_leg_PDGs = %(tmp_Born_PDGs)s \n""" % replace_dict_tmp
-        
+
         file += """ \
           endif
           if(npart .eq. nexternal_UB) then
@@ -2073,7 +2101,7 @@ c       %s
             write(*,*) 'npart is neither equal to nexternal_UB nor to nexternal_UUB:'
             write(*,*) 'npart, nexternal_UB, nexternal_UUB = ',  npart, nexternal_UB, nexternal_UUB
             stop
-          endif        
+          endif
           return
           end
           """
@@ -2082,7 +2110,7 @@ c       %s
         writer(filename).writelines(file)
 
         return True
-    
+
 
     #===========================================================================
     # function for linking files to RR subprocess directory
@@ -2104,9 +2132,9 @@ c       %s
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
                     os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
-                    
+
                 if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string)
                     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
@@ -2120,16 +2148,16 @@ c       %s
                     os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 
                 if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                    os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string)
                     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
                     os.symlink(dirpath + '/../../../Common_Files/leshouche_%s.f' % string, dirpath + '/leshouche_%s.f' % string)
-                
+
             # copy Real stuff
             if (not overall_sector_info[i]['Real_str'] and not overall_sector_info[i]['path_to_Real']):
                 # No underlying Real
-                continue        
+                continue
 
             elif (not overall_sector_info[i]['path_to_Real'] and overall_sector_info[i]['Real_str']):
                 string = overall_sector_info[i]['Real_str']
@@ -2140,7 +2168,7 @@ c       %s
                     os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
 
                 # if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
@@ -2154,7 +2182,7 @@ c       %s
                     os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 
                 # if not glob.glob(dirpath + '/ngraphs_%s.inc' % string):
-                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string) 
+                #     os.symlink(dirpath + '/../../../Common_Files/ngraphs_%s.inc' % string, dirpath + '/ngraphs_%s.inc' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/configs_%s.f' % string, dirpath + '/configs_%s.f' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/props_%s.f' % string, dirpath + '/props_%s.f' % string)
                 #     os.symlink(dirpath + '/../../../Common_Files/decayBW_%s.f' % string, dirpath + '/decayBW_%s.f' % string)
@@ -2165,7 +2193,7 @@ c       %s
     # write file for testing limits, 'testRR.f'
     #===========================================================================
 
-    def write_testRR_3p_template_file(self, writer, dirpath, dirmadnklo, defining_process, 
+    def write_testRR_3p_template_file(self, writer, dirpath, dirmadnklo, defining_process,
                                     i, isec, jsec, ksec, lsec, K1_ct, K2_ct,K12_ct):
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -2176,37 +2204,24 @@ c       %s
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''
-    
 
-        # Test for K1_3p (ijk)  
+
+        # Test for K1_3p (ijk)
         # Identify cts for L1_ijk (list starts from 0)
-        # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]    
+        # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]
         # mapping: ((isec,jsec,iref),(jsec,ksec,iref))
         if K1_ct[i][0] != 0 : #Si
-            limit_str += """           
+            limit_str += """
 c
 c     soft limit for isec particle going soft
       e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-        if K1_ct[i][1] != 0 : #Sj
-            limit_str += """
-c
-      e=[1d0,1d0,0d0,0d0,0d0] ! Sj limit
-      l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Sj      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        if K1_ct[i][2] != 0 : #Sk to CHECK
-            limit_str += """
-c
-      e=[0d0,0d0,0d0,1d0,1d0] ! Sk limit
-      l=[0d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Sk      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
-            if K1_ct[i][3] != 0 : # Cij
+            if K1_ct[i][1] != 0 : # Cij
                 limit_str += """
 c
 c     collinear limit Cij
@@ -2214,34 +2229,19 @@ c     collinear limit Cij
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-            if K1_ct[i][4] != 0 : # Cik TO CHECK:
-                limit_str += """
-c
-c     collinear limit Cik ! todo
-      e=[0d0,0d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0,0d0]  
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Cik     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)   
-            if K1_ct[i][-1] != 0 :
-                limit_str += """
-c
-c     collinear limit Cjk ! todo
-      e=[0d0,0d0,0d0,0d0,0d0]
-      l=[0d0,0d0,0d0,0d0,0d0]  
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Cjk     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
 
 
-        # Test for K2_3p(ijk) 
+        # Test for K2_3p(ijk)
         # L2_ijk  : 10 -> [Sij, Sik, Sjk,
-                    #                  SHCijk, SHCjik, SHCkij, 
-                    #                  HCijk, 
-                    #                  CijkSHCijk, CijkSHCjik, CijkSHCkij]  
+                    #                  SHCijk, SHCjik, SHCkij,
+                    #                  HCijk,
+                    #                  CijkSHCijk, CijkSHCjik, CijkSHCkij]
         # mapping ((isec,ksec,iref),(jsec,ksec,iref))
-                    
+
         if K2_ct[i][0] != 0: # Sij limit
             limit_str += """
 c
@@ -2300,15 +2300,15 @@ c       double collinear limit Cijk
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
-                    
+
         # Test for spurious singularities
-        # Z_ijk  : 6 -> [Cir, Cjr, Ckr, Cijr, Cikr, Cjkr] 
+        # Z_ijk  : 6 -> [Cir, Cjr, Ckr, Cijr, Cikr, Cjkr]
         # mapping ((isec,ksec,iref),(jsec,ksec,iref))
-                    
+
         # TODO: the following are specific for Zcc~u sector
-                    
+
         # Ckr
-        limit_str += """           
+        limit_str += """
 c
 c     spurious collinear limit Ckr
       e = [0d0,0d0,0d0,1d0,0d0] ! Ckr limit
@@ -2316,7 +2316,7 @@ c     spurious collinear limit Ckr
       call do_limit_RR_%d_%d_%d_%d(iunit,'Ckr     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         # Cijr
-        limit_str += """           
+        limit_str += """
 c
 c     spurious collinear limit Cijr
       e = [0d0,0d0,0d0,1d0,0d0] ! Cijr limit
@@ -2324,7 +2324,7 @@ c     spurious collinear limit Cijr
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijr    ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         # Cikr
-        limit_str += """           
+        limit_str += """
 c
 c     spurious collinear limit Cikr
       e = [1d0,0d0,0d0,1d0,0d0] ! Cikr limit
@@ -2332,7 +2332,7 @@ c     spurious collinear limit Cikr
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cikr    ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
         # Cjkr
-        limit_str += """           
+        limit_str += """
 c
 c     spurious collinear limit Cjkr
       e = [1d0,0d0,0d0,1d0,0d0] ! Cjkr limit
@@ -2341,20 +2341,20 @@ c     spurious collinear limit Cjkr
 """%(isec,jsec,ksec,lsec)
 
         replace_dict['limit_str'] = limit_str
-        replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+        replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 #         replace_dict['mapping_str'] = mapping_str
 
-        # write testR             
+        # write testR
         filename = pjoin(dirpath, 'testRR_%d_%d_%d.f' %(isec,jsec,ksec) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
         return True
-    
 
-    def write_testRR_4p_template_file(self, writer, dirpath, dirmadnklo, defining_process, 
+
+    def write_testRR_4p_template_file(self, writer, dirpath, dirmadnklo, defining_process,
                                     i, isec, jsec, ksec, lsec, K1_ct, K2_ct,K12_ct):
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -2365,10 +2365,10 @@ c     spurious collinear limit Cjkr
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''
-        
-        # Test for K1_4p (ijkl)  
+
+        # Test for K1_4p (ijkl)
         # Identify cts for L1_ijkl (list starts from 0)
-        # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]  
+        # L1_ijkl  : 6 -> [Si, Sj, Sk, Sl, HCij, HCkl]
         # mapping ((isec,ksec,lsec),(jsec,lsec,iref))
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
@@ -2400,7 +2400,7 @@ c     soft limit
       e=[0d0,0d0,0d0,1d0,1d0] ! Sl limit
       l=[0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sl      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)    
+"""%(isec,jsec,ksec,lsec)
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
             if K1_ct[i][4] != 0 : # Cij
@@ -2418,7 +2418,7 @@ c     collinear limit Cij
       iS1 = iS1tmp
       iU2 = iU2tmp
 """%(isec,jsec,ksec,lsec)
-                if  K1_ct[i][0] != 0:   # SiCij 
+                if  K1_ct[i][0] != 0:   # SiCij
                     limit_str += """
 c
 c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
@@ -2427,7 +2427,7 @@ c     use mapping ((isec,jsec,lsec),(ksec,lsec,iref))  (j <--> k)
       iS1 = iU2
       iU2 = iS1tmp
 c     soft-collinear limit
-      e=[1d0,2d0,0d0,0d0,0d0]  
+      e=[1d0,2d0,0d0,0d0,0d0]
       l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SiCij      ',x0,e,l)
       iS1 = iS1tmp
@@ -2450,11 +2450,11 @@ c     soft-collinear limit
       """%(isec,jsec,ksec,lsec)
             if K1_ct[i][5] != 0 : # Ckl:
                 limit_str += """
-      
+
 c
 c     collinear limit Ckl
       e=[0d0,0d0,0d0,0d0,1d0]
-      l=[0d0,0d0,0d0,0d0,1d0]  
+      l=[0d0,0d0,0d0,0d0,1d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Ckl     ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][2] != 0 : # SkCkl
@@ -2462,7 +2462,7 @@ c     collinear limit Ckl
 c
 c     soft-collinear limit
       e=[1d0,0d0,0d0,0d0,2d0]
-      l=[1d0,0d0,0d0,0d0,1d0] 
+      l=[1d0,0d0,0d0,0d0,1d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SkCkl      ',x0,e,l)
 """%(isec,jsec,ksec,lsec)
                 if K1_ct[i][3] != 0 : # SlCkl
@@ -2470,10 +2470,10 @@ c     soft-collinear limit
 c
 c     soft-collinear limit
       e=[0d0,0d0,0d0,1d0,2d0]
-      l=[0d0,0d0,0d0,1d0,1d0] 
+      l=[0d0,0d0,0d0,1d0,1d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SlCkl      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec) 
-                
+"""%(isec,jsec,ksec,lsec)
+
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
@@ -2481,25 +2481,25 @@ c     soft-collinear limit
 
 
         replace_dict['limit_str'] = limit_str
-        replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True, 
+        replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 #         replace_dict['mapping_str'] = mapping_str
 
-        # write testR             
+        # write testR
         filename = pjoin(dirpath, 'testRR_%d_%d_%d_%d.f' %(isec,jsec,ksec,lsec) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
         return True
-    
+
 
     #===========================================================================
     # write driver_isec_jsec for real subprocess directory
     #===========================================================================
 
     def write_driver_npt_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs):
-        
+
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
@@ -2518,7 +2518,7 @@ c     soft-collinear limit
 
         return True
 
-    
+
     def write_makefile_RR_file(self, writer, dirpath, dirmadnklo, defining_process, overall_sector_info):
 
         replace_dict = {}
@@ -2528,7 +2528,7 @@ c     soft-collinear limit
         all_str = 'all: libs'
         proc_str += """PROC_FILES=  get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-        
+
         # for i in range(0,len(overall_sector_info)):
         #     if not overall_sector_info[i]['path_to_Born']:
         #         continue
@@ -2537,7 +2537,7 @@ c     soft-collinear limit
         #     proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
 
         replace_dict['proc_str'] = proc_str
- 
+
         for i in range(0,len(overall_sector_info)):
             isec = overall_sector_info[i]['isec']
             jsec = overall_sector_info[i]['jsec']
@@ -2584,14 +2584,14 @@ c     soft-collinear limit
                 files_str += 'testRR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += 'NNLO_K_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
                 files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
-                all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
+                all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec)
                 sector_str += """
 sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
 sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec) 
-                
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
+""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
+
             # 3-p sectors
             else:
                 files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
@@ -2633,10 +2633,10 @@ sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
 sector_%d_%d_%d_libs: libs sector_%d_%d_%d
 
 sector_%d_%d_%d: $(FILES_%d_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-""" %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec) 
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
+""" %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec)
 
-            # # Add files necessary to Born ME    
+            # # Add files necessary to Born ME
             # if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
             #     if (overall_sector_info[i]['Born_str'] == ''):
             #         string = 'dummy'
@@ -2650,13 +2650,13 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
 #             if(lsec != 0 ):
 #                 files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
 #                 files_str += 'NNLO_K_%d_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec, lsec)
-#                 all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec) 
+#                 all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec)
 #                 sector_str += """
 # sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
 # sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec) 
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
+# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
 #             else:
 #                 files_str += 'testR_%d_%d_%d.o ' % (isec, jsec, ksec)
 #                 files_str += 'NNLO_K_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec)
@@ -2665,19 +2665,19 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
 # sector_%d_%d_%d_libs: libs sector_%d_%d_%d
 
 # sector_%d_%d_%d: $(FILES_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-# """ %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec) 
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
+# """ %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec)
 
 #             sector_str += """
 # sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
 # sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@ 
-# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)    
+# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
+# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
 
         object_str = """
 %.o: %.f $(INCLUDE)
-\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $< 
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
 #%.o: $(PATH_TO_COMMON_FILES)/%.f $(INCLUDE)
 #\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
@@ -2703,14 +2703,14 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
         writer(filename).write(file)
 
         return True
-    
+
 
     #===========================================================================
     # write driver_isec_jsec for real subprocess directory
     #===========================================================================
 
     def write_driver_npt_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs):
-        
+
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
@@ -2728,6 +2728,3 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
         writer(filename).writelines(file)
 
         return True
-
-    
-    

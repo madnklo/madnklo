@@ -1,8 +1,9 @@
-      subroutine int_counter_NLO(p,sLO,INLO,ierr)
+      subroutine int_counter_I12_NNLO_%(isec)d_%(jsec)(p,sNLO,I12NNLO,ierr)
 c     MSbar integrated counterterm
-c     FINITE_PART = INLO(1)
-c     SINGLE_POLE = INLO(2)
-c     DOUBLE_POLE = INLO(3)
+c     FINITE_PART = I12NNLO(0)
+c     SINGLE_POLE = I12NNLO(-1)
+c     DOUBLE_POLE = I12NNLO(-2)
+      use sectors2_module
       implicit none
       INCLUDE 'nexternal.inc'
       INCLUDE 'damping_factors.inc'
@@ -14,10 +15,11 @@ c     DOUBLE_POLE = INLO(3)
       INCLUDE 'leg_PDGs_%(proc_prefix)s.inc'
       INCLUDE 'colored_partons.inc'
       integer i,j,r
+      integer isec, jsec
       integer ierr
       double precision p(0:3,nexternal)
-      double precision sLO(nexternal,nexternal)
-      double precision INLO(3),pref
+      double precision sNLO(nexternal,nexternal)
+      double precision I12NNLO(-2:0),pref
       double precision BLO,ccBLO
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
@@ -35,38 +37,83 @@ c     DOUBLE_POLE = INLO(3)
 c
 c     initialise
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+      isec = %(isec)d
+      jsec = %(jsec)d
       pref=alphas/(2d0*pi)
-      INLO = 0d0
+      I12NNLO = 0d0
       iref1 = 0
       CCBLO = 0d0
       BLO = 0d0
       res = 0d0
-
+c
+c     Simple Born
       CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       BLO = ANS(0)
 c
-c     TODO: add check 
+c     TODO: add check
       do i=1,len_iref
          iref1(iref(1,i)) = iref(2,i)
       enddo
+c     Tripole Born
+      TRIBLO=GET_TRIBLO(L,M,Q)
+c     Quadruple Born
+      QUABLO=GET_QUABLO(L,M,Q,N)
 c
-c     Born contribution
+c     Soft contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-            INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
-c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])      
-            INLO(1) = INLO(1) + pi**2/12d0 * CA
-            INLO(2) = INLO(2) + gamma_g
-            INLO(3) = INLO(3) + CA
-         elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-            INLO(1) = INLO(1) + (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
-            INLO(1) = INLO(1) + pi**2/12d0 * CF
-            INLO(2) = INLO(2) + gamma_q
-            INLO(3) = INLO(3) + CF
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
+            I12NNLO(-1) = I12NNLO(-1) + gamma_g
+            I12NNLO(-2) = I12NNLO(-2) + CA
+         elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
+            I12NNLO(-1) = I12NNLO(-1) + gamma_q
+            I12NNLO(-2) = I12NNLO(-2) + CF
          endif
       enddo
+c
+c     Collinear contribution
+      do i=1,nexternal
+         if(pmass(i).ne.0d0)cycle
+         if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
+            I12NNLO(-1) = I12NNLO(-1) + gamma_g
+            I12NNLO(-2) = I12NNLO(-2) + CA
+         elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
+            I12NNLO(-1) = I12NNLO(-1) + gamma_q
+            I12NNLO(-2) = I12NNLO(-2) + CF
+         endif
+      enddo
+
+c
+c     Soft-Collinear  contribution
+      do i=1,nexternal
+         if(pmass(i).ne.0d0)cycle
+         if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
+            I12NNLO(-1) = I12NNLO(-1) + gamma_g
+            I12NNLO(-2) = I12NNLO(-2) + CA
+         elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+            I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
+            I12NNLO(-1) = I12NNLO(-1) + gamma_q
+            I12NNLO(-2) = I12NNLO(-2) + CF
+         endif
+      enddo
+
 c
 c     Include damping factors
       A20a=A20(alpha)
@@ -74,11 +121,11 @@ c     Include damping factors
       A20b=A20(beta_FF)
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
-         if(leg_pdgs_%(proc_prefix)s(i).eq.21)INLO(1) = INLO(1) + CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
-         if(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6)INLO(1) = INLO(1) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
+         if(leg_pdgs_%(proc_prefix)s(i).eq.21)I12NNLO(0) = I12NNLO(0) + CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
+         if(leg_pdgs_%(proc_prefix)s(i).ne.0.and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6)I12NNLO(0) = I12NNLO(0) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
 c
-      INLO=INLO*BLO
+      I12NNLO=I12NNLO*BLO
 c
 c     Colour-linked-Born contribution
       do i=1,nexternal
@@ -88,8 +135,8 @@ c     Colour-linked-Born contribution
             if(j.eq.i)cycle
             CCBLO = GET_CCBLO(i,j)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
-               INLO(1) = INLO(1) + ccBLO*log(sLO(i,j)/MU_R**2)*(2d0-log(sLO(i,j)/MU_R**2)/2d0)
-               INLO(2) = INLO(2) + ccBLO*log(sLO(i,j)/MU_R**2)
+               I12NNLO(0) = I12NNLO(0) +ccBLO*log(sNLO(i,j)/MU_R**2)*(2d0-log(sNLO(i,j)/MU_R**2)/2d0)
+               I12NNLO(-1) = I12NNLO(-1) + ccBLO*log(sNLO(i,j)/MU_R**2)
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
@@ -101,34 +148,20 @@ c     Colour-linked-Born contribution
                VV=DSQRT(SS**2-4D0*ML2*MK2)/SS
                Q2=SS+ML2+MK2
                YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
-c     EQ. (39) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*1D0/VV*(DLOG((1D0+VV)/(1D0-VV))*(-YPL+1D0/2D0*DLOG(SS*YPL**2/MK2)+1D0/2D0*DLOG(SS/MU_R**2))+1D0/4D0*DLOG((1D0+VV)/(1D0-VV))**2+DDILOG(-2D0*VV/(1D0-VV)) )
-c               INLO(1) = INLO(1) - CCBLO*1D0/VV*DLOG((1D0+VV)/(1D0-VV))*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL)*(1D0-FF1)
-c     EQ. (40) (MADE FF-DEPENDENT)
-c               INLO(1) = INLO(1) - CCBLO*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL) * FF2
-c     EQ. (43)
-c               INLO(1) = INLO(1) - CCBLO*(-1D0/2D0*DLOG(SS/MU_R**2) -1D0/2D0/SS*((2D0*MK2+SS)*DLOG(MK2)-2D0*SS+SS*DLOG(SS)+2D0*SS*DLOG(YPL)-2D0*(MK2+SS)*DLOG(MK2+SS*YPL)) )
-c     EQ. (44) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*(YPL-SS*YPL/MK2+SS*YPL**2/2D0/MK2+1D0/2D0*DLOG(MK2)-1D0/2D0*DLOG(SS)-DLOG(YPL)+1D0/2D0/VV*DLOG((1D0+VV)/(1D0-VV))-1D0/2D0*DLOG(SS/MU_R**2))
-c
-c     EQ. (44) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*((((8d0*ml2**2*dsqrt(ss**2)*VV-2d0*ml2*ss**2*(-1d0+VV**2)-(ss**3-(ss**2)**1.5d0*VV)*(-1d0+VV**2))*dlog(1d0-(ss*(2d0*ml2+ss-dsqrt(ss**2)*VV)*ypl)/(2d0*ml2*dsqrt(ss**2)*VV)))/((2d0*ml2+ss-dsqrt(ss**2)*VV)*(ss+dsqrt(ss**2)*VV))+((8d0*ml2**2*dsqrt(ss**2)*VV+2d0*ml2*ss**2*(-1d0+VV**2)+(ss**3+(ss**2)**1.5d0*VV)*(-1d0+VV**2))*dlog(1d0+(ss*(2d0*ml2+ss+dsqrt(ss**2)*VV)*ypl)/(2d0*ml2*dsqrt(ss**2)*VV)))/((-ss+dsqrt(ss**2)*VV)*(2d0*ml2+ss+dsqrt(ss**2)*VV)))/(2d0*ss)+(2d0*mk2*ml2*(-(ss*dlog(1d0+(2d0*ss*VV)/(dsqrt(ss**2)-ss*VV)))+2d0*dsqrt(ss**2)*VV*dlog((ss*ypl)/(dsqrt(mk2)*mu_r))))/((ss**2)**1.5d0*VV*(-1d0+VV**2)))
-c               
-c               INLO(1) = INLO(1) - CCBLO*(FF3-1D0)/2D0/SS/MK2*(SS*YPL*(2D0*(1D0-FF3)*MK2-(FF3+1D0)*SS*(2D0-YPL))+2D0*(FF3-1D0)*MK2*(MK2+SS)*DLOG((SS*YPL+MK2)/MK2))
-C     
-               
-            call nlo_v_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
+C
+c           this file was removed in the end - now there is I1 and I12; do we mean rvsub file here? (_y)
+            call nnlo_irv_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
 
-            INLO(1) = INLO(1) + res
-               
-               INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
+            I12NNLO(0) = I12NNLO(0) + res
+
+               I12NNLO(-1) = I12NNLO(-1) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif
          enddo
       enddo
-      INLO = INLO*pref
+      I12NNLO = I12NNLO*pref
 c
-      if(abs(INLO(1)).ge.huge(1d0).or.isnan(INLO(1)))then
-         write(77,*)'Exception caught in int_counter_NLO',INLO(1)
+      if(abs(I12NNLO(0)).ge.huge(1d0).or.isnan(I12NNLO(0)))then
+         write(77,*)'Exception caught in int_counter_I12_NNLO',I12NNLO(0)
          goto 999
       endif
 c
@@ -145,7 +178,7 @@ C     A10(w) = Psi0(w+1) + eulergamma
       IMPLICIT NONE
       DOUBLE PRECISION A10,W
 C
-      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                            
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN
         WRITE(*,*)'Value not coded in A10',W
         STOP
       ENDIF
@@ -166,7 +199,7 @@ C     A20(w) = Psi0(w+2) - 1 + eulergamma
       IMPLICIT NONE
       DOUBLE PRECISION A20,W
 C
-      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                            
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN
          WRITE(*,*)'Value not coded in A20',W
         STOP
       ENDIF
@@ -187,7 +220,7 @@ C     A21(w) = Psi1(w+2) + 1 - Zeta2
       IMPLICIT NONE
       DOUBLE PRECISION A21,W
 C
-      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN                            
+      IF(W.NE.0D0.AND.W.NE.1D0.AND.W.NE.2D0.AND.W.NE.3D0.AND.W.NE.4D0.AND.W.NE.5D0)THEN
         WRITE(*,*)'Value not coded in A21',W
         STOP
       ENDIF
@@ -201,4 +234,3 @@ C
 C
       RETURN
       END
-

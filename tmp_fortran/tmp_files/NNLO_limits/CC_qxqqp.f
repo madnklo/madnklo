@@ -1,9 +1,8 @@
-
-
-      double precision function M2_HCC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr,topo)
 c     hard-collinear limit C_(ia,ib,ic)
 c     this is meant to represent the full hard-collinear
 c     for sectors (ia,ib,ic)+permutations...
+      use sectors2_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -12,7 +11,7 @@ c     for sectors (ia,ib,ic)+permutations...
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      INCLUDE 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -26,7 +25,9 @@ c     for sectors (ia,ib,ic)+permutations...
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
+      logical flavourmatch_ij, flavourmatch_ik, flavourmatch_jk
       logical doplot
+      integer topo
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
@@ -47,7 +48,7 @@ c     set logical doplot
       double precision sir, sjr, skr
 c
 c     initialise
-      M2_HCC_qxqqp=0d0
+      M2_CC_qxqqp=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -62,19 +63,30 @@ c     initialise
       zj   = 0d0
       zk   = 0d0
       zij  = 0d0
-
+c
 c     Check over flavours
-
+c
       if(.not.(leg_PDGs(i).eq.(-leg_PDGs(j)).and.abs(leg_PDGs(i)).ne.abs(leg_PDGs(k)).and.abs(leg_PDGs(k)).le.6)) return
 c
 c     possible cuts
       call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-
+c
       IF(DOCUT(XPBB,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=64d0*pi**2*alphas**2
+c
+c     checking sector topology
+      if(lsec.ne.0) then
+              write (*,*) 'C_ijk called with four indices'
+              stop 1
+      endif
+c
+       if(.not.((ia.eq.isec.and.ib.eq.jsec.and.ic.eq.ksec).or.(ia.eq.isec.and.ib.eq.ksec.and.ic.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec.and.ic.eq.ksec).or.(ia.eq.jsec.and.ib.eq.ksec.and.ic.eq.isec).or.(ia.eq.ksec.and.ib.eq.isec.and.ic.eq.jsec).or.(ia.eq.ksec.and.ib.eq.jsec.and.ic.eq.isec)))  then
+              write (*,*) 'Wrong indices in C_ijk', ia, ib, ic, isec, jsec, ksec
+        stop 1
+      endif
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -85,7 +97,8 @@ c     invariant quantities
       zj   = xs(j,r)/(xs(i,r)+xs(j,r)+xs(k,r))
       zk   = xs(k,r)/(xs(i,r)+xs(j,r)+xs(k,r))
       zij  = zi + zj
-
+      zik  = zi + zk
+      zjk  = zj + zk
       sir = xs(i,r)
       sjr = xs(j,r)
       skr = xs(k,r)
@@ -108,13 +121,27 @@ c
          stop
       endif
 c
-      M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+      flavourmatch_ij=leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
+      flavourmatch_ik=leg_PDGs(k).eq.-leg_PDGs(i).and.abs(leg_PDGs(j)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(j))
+      flavourmatch_jk=leg_PDGs(k).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
+      if(flavourmatch_ij) then
+        M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+      elseif(flavourmatch_ik)
+        M2tmp = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
+      elseif(flavourmatch_jk)
+        M2tmp = CF*TR*(-SIJK**2/(2D0*SJK**2)*(SIJ/SIJK-SIK/SIJK+(ZK-ZJ)/ZJK)**2+SIJK/SJK*(2D0*(ZI-ZK*ZJ)/ZJK+ZJK)-1D0/2D0)
+      else
+        stop 1
+      endif
+c
       M2TMP = M2TMP*BLO
-
-c     Subtract double soft limit
-
-      M2TMP = M2tmp - SIJK**2*(-CF*(2D0*TR*(((SIK*SJR-SIR*SJK)**2-SKR*SIJ*(SIK+SJK)*(SIR+SJR))/(SIJ**2*(SIK+SJK)**2*(SIR+SJR)**2))))*BLO
-C     Including correct multiplicity factor
+c
+c     compute limit of sector function
+      call get_wcc_nnlo(xs,ia,ib,ic,ir,alphaz,nexternal,topo)
+c
+      M2TMP=M2TMP*wcc_nnlo
+c
+c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
@@ -124,17 +151,17 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-      M2_HCC_qxqqp=M2tmp*pref/sijk**2*xj*extra
+      M2_CC_qxqqp=M2tmp*pref/sijk**2*xj*extra
 c     apply flavour factor
-      M2_HCC_qxqqp=M2_HCC_qxqqp*%(proc_prefix_rr)s_fl_factor
+      M2_CC_qxqqp=M2_CC_qxqqp*%(proc_prefix_rr)s_fl_factor
 c
 c     plot
-      wgtpl=-M2_HCC_qxqqp*wgt/nit*wgt_chan
+      wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
 c
 c     sanity check
-      if(abs(M2_HCC_qxqqp).ge.huge(1d0).or.isnan(M2_HCC_qxqqp))then
-         write(77,*)'Exception caught in M2_HCC_qxqqp',M2_HCC_qxqqp
+      if(abs(M2_CC_qxqqp).ge.huge(1d0).or.isnan(M2_CC_qxqqp))then
+         write(77,*)'Exception caught in M2_CC_qxqqp',M2_CC_qxqqp
          goto 999
       endif
 c

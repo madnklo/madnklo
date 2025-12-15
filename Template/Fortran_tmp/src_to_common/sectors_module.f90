@@ -4,7 +4,7 @@ module sectors2_module
   double precision, public :: alpha_mod, W_NLO, WS_NLO, WC_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
-  public :: get_sig2,  get_W_NLO, get_WS_NLO, get_WC_NLO
+  public :: get_sig2, get_W_NLO, get_WS_NLO, get_WC_NLO
   private
 
 contains
@@ -193,7 +193,7 @@ contains
     enddo
   end subroutine get_sigNNLO
 
-  double precision function hatsigNNLO(i,j,k,l,r,xs_in,alpha_in)
+  double precision function hatsigNNLO(i,j,k,l,r,n_ext_in,xs_in,alpha_in)
     implicit none
     ! global
     include 'nexternal.inc'
@@ -221,8 +221,9 @@ contains
     endif
     del_jk=0
     if(j.eq.k)del_jk = 1
-    if((xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(i,j)*xs_mod(1,2) \
-     *(xs_mod(r,1)+xs_mod(r,2))*(xs_mod(k,1)+xs_mod(k,2))*(xs_mod(l,1)+xs_mod(l,2))*xs_mod(k,l).ne.0d0 ) then
+    if((xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*&
+         xs_mod(i,j)*xs_mod(1,2)*(xs_mod(r,1)+xs_mod(r,2))*&
+         (xs_mod(k,1)+xs_mod(k,2))*(xs_mod(l,1)+xs_mod(l,2))*xs_mod(k,l).ne.0d0) then
       ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
       ek=(xs_mod(k,1)+xs_mod(k,2))/xs_mod(1,2)
       wij=xs_mod(1,2)*xs_mod(i,j)/&
@@ -244,26 +245,26 @@ contains
     implicit none
     include 'all_sector_list.inc'
     integer :: ia,ib,ic,ir
-    integer :: n_ext_in
+    integer :: n_ext_in, topo
     double precision :: alphaz, num, sigma, wcc_nnlo
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    if(topo.eq.1)
-      num = hatsigNNLO(ia,ib,ib,ic,ir,xs_in,alphaz)
-    elseif(topo.eq.2)
-      num = hatsigNNLO(ia,ib,ic,ib,ir,xs_in,alphaz)
+    if(topo.eq.1) then
+      num = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz)
+    elseif(topo.eq.2) then
+      num = hatsigNNLO(ia,ib,ic,ib,ir,n_ext_in,xs_in,alphaz)
     endif
-    sigma = hatsigNNLO(ia,ib,ib,ic,ir,xs_in,alphaz) + &
-            hatsigNNLO(ia,ic,ib,ic,ir,xs_in,alphaz) + &
-            hatsigNNLO(ib,ia,ia,ic,ir,xs_in,alphaz) + &
-            hatsigNNLO(ib,ic,ia,ic,ir,xs_in,alphaz) + &
-            hatsigNNLO(ia,ib,ic,ib,ir,xs_in,alphaz) + &
-            hatsigNNLO(ia,ic,ic,ib,ir,xs_in,alphaz) + &
-            hatsigNNLO(ic,ia,ia,ib,ir,xs_in,alphaz) + &
-            hatsigNNLO(ic,ib,ia,ib,ir,xs_in,alphaz) + &
-            hatsigNNLO(ib,ia,ic,ia,ir,xs_in,alphaz) + &
-            hatsigNNLO(ib,ic,ic,ia,ir,xs_in,alphaz) + &
-            hatsigNNLO(ic,ia,ib,ia,ir,xs_in,alphaz) + &
-            hatsigNNLO(ic,ib,ib,ia,ir,xs_in,alphaz)
+    sigma = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ia,ic,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ib,ia,ia,ic,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ib,ic,ia,ic,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ia,ib,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ia,ic,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ic,ia,ia,ib,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ic,ib,ia,ib,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ib,ia,ic,ia,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ib,ic,ic,ia,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ic,ia,ib,ia,ir,n_ext_in,xs_in,alphaz) + &
+            hatsigNNLO(ic,ib,ib,ia,ir,n_ext_in,xs_in,alphaz)
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
 

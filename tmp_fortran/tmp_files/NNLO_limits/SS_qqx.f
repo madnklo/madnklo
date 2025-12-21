@@ -1,7 +1,5 @@
-
-      
       double precision function M2_SS_qqx(i,j,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
-c     double-soft limit S_(i,j) * ZSS_NNLO
+c     double-soft limit S_(i,j) * WSS_NNLO
 c     it returns 0 if i is not a gluon
       use sectors4_module
       implicit none
@@ -13,7 +11,7 @@ c     it returns 0 if i is not a gluon
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      INCLUDE 'run.inc'
       integer i,j,l,m,ierr,nit,idum
       integer jb,lb,mb
       integer jbb,lbb,mbb
@@ -90,9 +88,9 @@ c     get PDGs
           if(abs(LO_mapped_flavours(l)).le.6.or.LO_mapped_flavours(l).eq.21)isLOmappedQCDparton(LO_mapped_labels(l)) = .true.
       enddo
 c
-c     call Z double-soft
+c     call W double-soft
       call get_sigNNLO(XS,alphaz,nexternal)
-      CALL GET_ZSS_NNLO(I,KSEC,J,LSEC)
+      CALL GET_WSS_NNLO(I,KSEC,J,LSEC)
       if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
@@ -111,7 +109,7 @@ c
             mb = NLO_mapped_labels(m)
             lbb = LO_mapped_labels(lb)
             mbb = LO_mapped_labels(mb)
-c     
+c
 c         check labels and pdgs
             IF(.NOT.(ISNLOMAPPEDQCDPARTON(LB).AND.ISNLOMAPPEDQCDPARTON(MB)))THEN
                WRITE(*,*)'Wrong indices 1 in M2_SS_qqx',LB,MB
@@ -161,7 +159,7 @@ c     TODO: fix strings for the associated underlying Born
 c
 c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
-c     (c,d) -> (m,l)      
+c     (c,d) -> (m,l) (verified)
             M2tmp = 2d0*TR*(((sil*sjm-sim*sjl)**2-slm*sij*(sil+sjl)*(sim+sjm))/(sij**2*(sil+sjl)**2*(sim+sjm)**2))
             M2TMP = CCBLO*M2TMP
 c     Including correct multiplicity factor
@@ -169,13 +167,13 @@ c     Including correct multiplicity factor
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_SS_qqx=M2_SS_qqx+pref*M2tmp*ZSS_NNLO*extra
+            M2_SS_qqx=M2_SS_qqx+pref*M2tmp*WSS_NNLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*ZSS_NNLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*WSS_NNLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
-         enddo 
+         enddo
       enddo
 c
 c     apply flavour factor

@@ -1,5 +1,5 @@
-      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
-c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl      
+      subroutine local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
+c     wrapper for 3/4 particle sectors; 3p sector: ijjk & ijkj, 4p sector: ijkl      
       implicit none
       include 'nexternal.inc'
       integer nitRR, ierr
@@ -17,9 +17,9 @@ c     wrapper for 3/4 particle sectors; 3p sector: ijk0, 4p sector: ijkl
       K2 = 0d0
       K12 = 0d0 
 
-      call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
-      call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
-      call local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
+      call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
+      call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
+      call local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
 
 c     combination
       KNNLO = K1+K2-K12
@@ -27,8 +27,8 @@ c     combination
       end subroutine
 
 
-      subroutine local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
-c     local NNLO counterterm K1 for sector [isec,jsec,ksec,lsec]
+      subroutine local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
+c     local NNLO counterterm K1 for sector [%(isec)d,%(jsec)d,%(c3p)d,%(d3p)d]
       implicit none
       include 'nexternal.inc'
       integer isec,jsec,ksec,lsec,iref,ierr
@@ -41,7 +41,7 @@ c     local NNLO counterterm K1 for sector [isec,jsec,ksec,lsec]
       double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision KS,KHC,K1,wgt_chan%(str_defK1)s
+      double precision KS,KC,KSC,K1,wgt_chan%(str_defK1)s
 c
 c     initialise
       isec = %(isec)d
@@ -50,21 +50,22 @@ c     initialise
       lsec = %(lsec)d
       iref = %(iref)d
       KS=0d0
-      KHC=0d0
+      KC=0d0
+      KSC=0d0
       K1=0d0
 c
 c     counterterms
       %(str_M2_K1)s
 c     
 c     combination
-      K1=KS+KHC
+      K1=KS+KC-KSC
 c
       return
  999  ierr=1
       return
       end
 
-      subroutine local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
+      subroutine local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
 c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'
@@ -81,7 +82,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K2,wgt_chan
-      double precision KSS,KSHC,KHCC,KCCSHC%(str_defK2)s
+      double precision KSS,KSC,KCC%(str_defK2)s
 c
 c     initialise
       isec = %(isec)d
@@ -90,23 +91,22 @@ c     initialise
       lsec = %(lsec)d
       iref = %(iref)d
       KSS=0d0
-      KSHC=0d0
-      KHCC=0d0
-      KCCSHC=0d0
+      KSC=0d0
+      KCC=0d0
       K2=0d0
 c
 c     counterterms
       %(str_M2_K2)s
 c     
 c     combination
-      K2=KSS+KSHC+KHCC-KCCSHC
+      K2=KSS+KSC+KCC
 c
       return
  999  ierr=1
       return
       end
 
-      subroutine local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
+      subroutine local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
 c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'
@@ -123,8 +123,8 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision K12,wgt_chan
-      double precision KS_SS, KS_SHC, KS_HCC
-      double precision KHC_SS, KHC_SHC, KHC_HCC%(str_defK12)s
+      double precision KS_SS, KS_SC, KS_CC
+      double precision KHC_SS, KHC_SC, KHC_CC%(str_defK12)s
 c
 c     initialise
       isec = %(isec)d
@@ -133,18 +133,18 @@ c     initialise
       lsec = %(lsec)d
       iref = %(iref)d
       KS_SS=0d0
-      KS_SHC=0d0
-      KS_HCC=0d0
+      KS_SC=0d0
+      KS_CC=0d0
       KHC_SS=0d0
-      KHC_SHC=0d0
-      KHC_HCC=0d0 
+      KHC_SC=0d0
+      KHC_CC=0d0 
       K12=0d0
 c
 c     counterterms
       %(str_M2_K12)s
 c     
 c     combination
-      K12=KS_SS+KS_SHC+KS_HCC+KHC_SS+KHC_SHC+KHC_HCC
+      K12=KS_SS+KS_SC+KS_CC+KHC_SS+KHC_SC+KHC_CC
 c
       return
  999  ierr=1

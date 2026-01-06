@@ -1,4 +1,4 @@
-      double precision function int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(x,wgt)
+      double precision function int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(x,wgt)
 c     (n+2)-body NNLO integrand for vegas
       USE SECTORS4_MODULE
       implicit none
@@ -74,7 +74,7 @@ c     initialise
       ksec = %(ksec)d
       lsec = %(lsec)d
       iref = %(iref)d
-      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d=0d0
+      int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d=0d0
       int_double_real_no_cnt=0d0
       Z_NNLO=0d0
       RNNLO=0d0
@@ -143,7 +143,7 @@ c
 c     test matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
-         call test_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,x)
+         call test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x)
       endif
 c     TODO: implement flag 'test_only' to stop here
 c
@@ -159,7 +159,7 @@ c
 c     double real sector function
 c      call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
       call get_sigNNLO(SNNLO,alphaz,nexternal)
-      call get_Z_NNLO(isec,jsec,ksec,lsec)
+c      call get_Z_NNLO(isec,jsec,ksec,lsec).  !!! GB: move to get_W_NNLO
 
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
@@ -176,7 +176,7 @@ c     plot real
  555  continue
 c
 c     counterterm
-      call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
+      call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
          write(77,*) 'Something wrong in the counterterm', KNNLO
@@ -184,8 +184,8 @@ c     counterterm
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d = int_double_real_no_cnt-KNNLO
-      int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d = int_double_real_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d*wgt_chan
+      int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d = int_double_real_no_cnt-KNNLO
+      int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d = int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d*wgt_chan
 c
 c     print out current run progress
 c     TODO: adapt progress bar

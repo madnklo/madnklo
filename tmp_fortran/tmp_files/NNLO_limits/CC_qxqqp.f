@@ -221,7 +221,7 @@ c     check match of sector indices with function arguments
       match_kij = k.eq.isec.and.i.eq.jsec.and.j.eq.ksec
       match_kji = k.eq.isec.and.j.eq.jsec.and.i.eq.ksec
       if(.not.(match_ijk.or.match_ikj.or.match_jik.or.match_jki.or.match_kij.or.match_kji))then
-        write (*,*) 'Wrong indices in M2_CC_qxqqp',i,j,k,isec,jsec,ksec
+        write (*,*) 'Wrong indices in M2_SSCC_qxqqp',i,j,k,isec,jsec,ksec
         stop 1
       endif
 c

@@ -133,11 +133,11 @@ end module sectors2_module
 module sectors4_module
   implicit none
   integer, public :: n_ext,num_sec
-  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO
+  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO, WCC_NNLO, WSS_NNLO, WSS_CC_NNLO, WC_NNLO, WC_CC_NNLO, WC_SS_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_Z_NNLO, get_ZSS_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO
+  public :: get_sigNNLO, get_Z_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO, get_WC_NNLO, get_WC_CC_NNLO, get_WC_SS_NNLO
   private
 
 contains
@@ -240,19 +240,20 @@ contains
   end function hatsigNNLO
 
 
-  subroutine get_WCC_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in,topo)
+   subroutine get_WCC_NNLO(xs_in,IA,IB,C,D,ir,alphaz,n_ext_in)
     !     NNLO collinear sector functions WCC(ia,ib,ic,ir)
     implicit none
     include 'all_sector_list.inc'
-    integer :: ia,ib,ic,ir
-    integer :: n_ext_in, topo
+    integer :: ia,ib,ic,ir,c,d
+    integer :: n_ext_in
     double precision :: alphaz, num, sigma, wcc_nnlo
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    if(topo.eq.1) then
-      num = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz)
-    elseif(topo.eq.2) then
-      num = hatsigNNLO(ia,ib,ic,ib,ir,n_ext_in,xs_in,alphaz)
-    endif
+    num = hatsigNNLO(IA,IB,C,D,ir,n_ext_in,xs_in,alphaz)
+    if (IB .eq. C) then
+       ic = D
+    elseif (IB .eq. D) then
+       ic = C
+    end if
     sigma = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
             hatsigNNLO(ia,ic,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
             hatsigNNLO(ib,ia,ia,ic,ir,n_ext_in,xs_in,alphaz) + &
@@ -267,6 +268,56 @@ contains
             hatsigNNLO(ic,ib,ib,ia,ir,n_ext_in,xs_in,alphaz)
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
+
+  subroutine get_WSS_CC_NNLO(xs_in,ia,ib,C,D,ir,alphaz,n_ext_in)
+          !     NNLO double-soft collinear sector functions WSSCC(ia,ib,ic,ir)
+    implicit none
+    include 'all_sector_list.inc'
+    integer :: ia,ib,ic,ir,C,D
+    integer :: n_ext_in
+    double precision :: alphaz, num, sigma, wsscc_nnlo
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    num = hatsigNNLO(IA,IB,C,D,ir,n_ext_in,xs_in,alphaz)
+    if(IB.eq.C) then
+      ic = D
+      sigma = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ia,ic,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ib,ia,ia,ic,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ib,ic,ia,ic,ir,n_ext_in,xs_in,alphaz)
+    elseif(IB.eq.D) then
+      ic = C
+      sigma = hatsigNNLO(ia,ib,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ia,ic,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ic,ia,ia,ib,ir,n_ext_in,xs_in,alphaz) + &
+              hatsigNNLO(ic,ib,ia,ib,ir,n_ext_in,xs_in,alphaz)
+    endif
+      wsscc_nnlo=num/sigma
+  end subroutine get_WSS_CC_NNLO
+
+  !(_y)
+  subroutine get_WC_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in)
+    !     NNLO collinear sector functions WC(ia,ib,ir)
+    implicit none
+    include 'all_sector_list.inc'
+    integer :: ia,ib,ic,ir
+    integer :: n_ext_in
+    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nlo,wbar
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
+    ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
+    wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
+    wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
+    wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
+    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
+    wbar=0d0 !(mapped W?)
+    wc_nnlo=wbar*wc_nlo
+  end subroutine get_WC_NNLO
+
+  subroutine get_WC_SS_NNLO
+  end subroutine get_WC_SS_NNLO
+
+  subroutine get_WC_CC_NNLO
+  end subroutine get_WC_CC_NNLO
 
   subroutine get_Z_NNLO(i1,i2,i3,i4)
     !     NNLO sector functions Z(i1,i2,i3,i4)
@@ -344,23 +395,17 @@ contains
     call sector2_sanity_checks(sigma,Z_NNLO)
   end subroutine get_Z_NNLO
 
-
-  subroutine get_ZSS_NNLO(i1,i2,i3,i4)
-    !     NNLO double-soft sector functions ZSS(i1,i2,i3,i4) = barS_i1i3 Z(i1,i2,i3,i4)
+  subroutine get_WSS_NNLO(i1,i2,i3,i4)
+    !     NNLO double-soft sector functions WSS(i1,i2,i3,i4) = barS_i1i3 W(i1,i2,i3,i4) [eq.(C.54)]
     implicit none
     include 'all_sector_list.inc'
     integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
     call sector4_global_checks(i1,i2,i3,i4)
-    if(i4.eq.0) then
-       num = sigNNLO(i1,i2,i3,i2) + &
-             sigNNLO(i1,i3,i3,i2) + &
-             sigNNLO(i3,i1,i1,i2) + &
-             sigNNLO(i3,i2,i1,i2)
-    elseif(i4.ne.0) then
-       num = sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i4,i1,i2)
+    if(i4.ge.0) then
+       num = sigNNLO(i1,i2,i3,i4)
     else
-       write(*,*) 'get_ZSS_NNLO: error in the construction of numerator'
+       write(*,*) 'get_WSS_NNLO: error in the construction of numerator'
        write(*,*) 'Negative value for 4th sector index i4...'
        write(*,*) 'i4 = ', i4
        write(*,*) 'exit...'
@@ -393,16 +438,16 @@ contains
           if((b.eq.i1.and.d.eq.i3).or.(b.eq.i3.and.d.eq.i1)) sigma = sigma + &
                sigNNLO(b,a,d,c) + sigNNLO(d,c,b,a)
        else
-          write(*,*) 'get_ZSS_NNLO: error in the construction of denominator'
+          write(*,*) 'get_WSS_NNLO: error in the construction of denominator'
           write(*,*) 'Negative value for 4th sector index i4...'
           write(*,*) 'i4 = ', i4
           write(*,*) 'exit...'
           stop
        endif
     enddo
-    ZSS_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,ZSS_NNLO)
-  end subroutine get_ZSS_NNLO
+    WSS_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,WSS_NNLO)
+  end subroutine get_WSS_NNLO
 
 
 

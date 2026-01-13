@@ -19,8 +19,7 @@ c     C(i,j,k) limit for sectors (i,j,k) + permutations
       double precision ANS(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
-      logical flavourmatch_ij,flavourmatch_ik,flavourmatch_jk
-      logical match_ijk,match_ikj,match_jik,match_jki,match_kij,match_kji
+      logical flavourmatch
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -53,23 +52,9 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch_ij = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
-      flavourmatch_ik = leg_PDGs(i).eq.-leg_PDGs(k).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(j)).le.5.and.abs(leg_PDGs(j)).ne.abs(leg_PDGs(i))
-      flavourmatch_jk = leg_PDGs(j).eq.-leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(i)).ne.abs(leg_PDGs(j))
-      if(.not.(flavourmatch_ij.or.flavourmatch_ik.or.flavourmatch_jk))then
+      flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
+      if(.not.(flavourmatch))then
         write(*,*) 'flavour mismatch in M2_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
-        stop 1
-      endif
-c
-c     check match of sector indices with function arguments
-      match_ijk = i.eq.isec.and.j.eq.jsec.and.k.eq.ksec
-      match_ikj = i.eq.isec.and.k.eq.jsec.and.j.eq.ksec
-      match_jik = j.eq.isec.and.i.eq.jsec.and.k.eq.ksec
-      match_jki = j.eq.isec.and.k.eq.jsec.and.i.eq.ksec
-      match_kij = k.eq.isec.and.i.eq.jsec.and.j.eq.ksec
-      match_kji = k.eq.isec.and.j.eq.jsec.and.i.eq.ksec
-      if(.not.(match_ijk.or.match_ikj.or.match_jik.or.match_jki.or.match_kij.or.match_kji))then
-        write (*,*) 'Wrong indices in M2_CC_qxqqp',i,j,k,isec,jsec,ksec
         stop 1
       endif
 c
@@ -107,25 +92,12 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-c$$$      call get_collinear_mapped_labels(i,j,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
-c$$$      parent_leg = mapped_labels(j)
-c$$$      if(mapped_flavours(j).ne.21)then
-c$$$         write(*,*) 'Wrong parent particle label!', j, mapped_flavours(j)
-c$$$         stop
-c$$$      endif
-c
 c     double-collinear kernel, eq. (B.16) of 2212.11190
-      if(flavourmatch_ij) then
-         M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-      elseif(flavourmatch_ik)
-         M2tmp = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
-      elseif(flavourmatch_jk)
-         M2tmp = CF*TR*(-SIJK**2/(2D0*SJK**2)*(SIJ/SIJK-SIK/SIJK+(ZK-ZJ)/ZJK)**2+SIJK/SJK*(2D0*(ZI-ZK*ZJ)/ZJK+ZK)-1D0/2D0)
-      endif
+      M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function
-      call get_wcc_nnlo(xs,ia,ib,ic,ir,alphaz,nexternal)
+      call get_wcc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
       M2TMP=M2TMP*WCC_NNLO
 c
 c     include correct multiplicity and flavour factors
@@ -149,7 +121,7 @@ c
       end
 
 
-      double precision function M2_SSCC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j) C(i,j,k) limit for sectors (i,j,k) + permutations
       use sectors4_module
       implicit none
@@ -170,8 +142,7 @@ c     S(i,j) C(i,j,k) limit for sectors (i,j,k) + permutations
       double precision ANS(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
-      logical flavourmatch_ij, flavourmatch_ik, flavourmatch_jk
-      logical match_ijk,match_ikj,match_jik,match_jki,match_kij,match_kji
+      logical flavourmatch
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -204,28 +175,12 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch_ij = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
-      flavourmatch_ik = leg_PDGs(i).eq.-leg_PDGs(k).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(j)).le.5.and.abs(leg_PDGs(j)).ne.abs(leg_PDGs(i))
-      flavourmatch_jk = leg_PDGs(j).eq.-leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(i)).ne.abs(leg_PDGs(j))
-!     TODO: BELOW WE JUST HAVE FLAVOURMATCH_IJ and FLAVOURMATCH_JK. IF ONLY THOSE ARE NEEDED, MODIFY THIS CHECK
-      if(.not.(flavourmatch_ij.or.flavourmatch_ik.or.flavourmatch_jk))then
+      flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
+      if(.not.(flavourmatch))then
         write(*,*) 'flavour mismatch in M2_SSCC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
-c     check match of sector indices with function arguments
-      match_ijk = i.eq.isec.and.j.eq.jsec.and.k.eq.ksec
-      match_ikj = i.eq.isec.and.k.eq.jsec.and.j.eq.ksec
-      match_jik = j.eq.isec.and.i.eq.jsec.and.k.eq.ksec
-      match_jki = j.eq.isec.and.k.eq.jsec.and.i.eq.ksec
-      match_kij = k.eq.isec.and.i.eq.jsec.and.j.eq.ksec
-      match_kji = k.eq.isec.and.j.eq.jsec.and.i.eq.ksec
-      if(.not.(match_ijk.or.match_ikj.or.match_jik.or.match_jki.or.match_kij.or.match_kji))then
-        write (*,*) 'Wrong indices in M2_SSCC_qxqqp',i,j,k,isec,jsec,ksec
-        stop 1
-      endif
-c
-c     possible cuts
 !     TODO: CHECK CORRECT VALUES FOR THE FIRST FOUR ARGUMENTS OF GET_UNDERLYING_PDGS!
       call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
       IF(DOCUT(XPBB,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
@@ -259,29 +214,17 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-c$$$      call get_collinear_mapped_labels(i,j,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
-c$$$      parent_leg = mapped_labels(j)
-c$$$      if(mapped_flavours(j).ne.21)then
-c$$$         write(*,*) 'Wrong parent particle label!', j, mapped_flavours(j)
-c$$$         stop
-c$$$      endif
-c
-!     TODO: CROSS CHECK THIS
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
-      if(j.eq.jsec.and.k.eq.jsec) then     !ijjk
-        Eijkr = (1/sij**2)*((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2) - skr/sij/(sik+sjk)/(sir+sjr)
-        M2TMP = SIJK**2*(CF*(-2d0*TR*Eijkr))
-      elseif(j.eq.jsec.and.k.eq.ksec) then !ijkj
-        Eikjr = (1/sik**2)*((sij*skr+sir*sjk)*((sij+sjk)*(sir+skr))-sij*sjk/(sij+sjk)**2-sir*skr/(sir+skr)**2) - sjr/sik/(sij+sjk)/(sir+skr)
-        M2TMP = SIJK**2*(CF*(-2d0*TR*Eikjr))
-      endif
+      Eijkr = (1/sij**2)*((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2) - skr/sij/(sik+sjk)/(sir+sjr)
+      M2TMP = SIJK**2*(CF*(-2d0*TR*Eijkr))
       M2TMP = M2TMP*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wsscc_nnlo(xs,ia,ib,ic,ir,alphaz,nexternal)
+      call get_wsscc_nnlo(xs,isec,jsec,ksec,lsec,ir,alphaz,nexternal)
       M2TMP=M2TMP*WSSCC_NNLO
 c
 c     include correct multiplicity and flavour factors
+c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_SSCC_qxqqp=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]

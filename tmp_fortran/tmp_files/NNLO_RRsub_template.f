@@ -42,7 +42,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
-      double precision xjac,xjacB,xjacCS1 
+      double precision xjac,xjacB,xjacCS1
       double precision xsave(3)
       double precision sCM
       common/cscm/sCM
@@ -51,9 +51,9 @@ c     TODO: understand x(mxdim) definition by Vegas
       save counter
       integer nitr
       common/iterations/nitr
-      integer %(proc_prefix_rr)sfl_factor 
+      integer %(proc_prefix_rr)sfl_factor
       common/%(proc_prefix_rr)sflavour_factor/%(proc_prefix_rr)sfl_factor
-      double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
+      double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
       integer ich
@@ -61,18 +61,18 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
       double precision K1,K2,K12
-c     TODO: convert to partonic sCM 
+c     TODO: convert to partonic sCM
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c     
+c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
       isec = %(isec)d
       jsec = %(jsec)d
-      ksec = %(ksec)d
-      lsec = %(lsec)d
+      ksec = %(c3p)d
+      lsec = %(d3p)d
       iref = %(iref)d
       int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d=0d0
       int_double_real_no_cnt=0d0
@@ -83,7 +83,7 @@ c     initialise
       enddo
 c
 c     specify phase-space mapping ! TO CHECK
-      %(mapping_str)s 
+      %(mapping_str)s
 
       if(isec.le.2.or.jsec.le.2)then
          write(*,*)'update sCM in int_real'
@@ -96,10 +96,10 @@ c     phase space and invariants
          stop
       endif
 
-      call configs_%(str_UBorn)s 
-      call props_%(str_UBorn)s    
-      call decaybw_%(str_UBorn)s 
-      call getleshouche_%(str_UBorn)s 
+      call configs_%(str_UBorn)s
+      call props_%(str_UBorn)s
+      call decaybw_%(str_UBorn)s
+      call getleshouche_%(str_UBorn)s
 
 
 
@@ -115,13 +115,13 @@ c     phase space and invariants
          write(77,*) 'Wrong NNLO invariants ', sNNLO
          goto 999
       endif
-      call invariants_from_p(pb,nexternal-1,sNLO,ierr)  
+      call invariants_from_p(pb,nexternal-1,sNLO,ierr)
       if(ierr.eq.1) then
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
-      call invariants_from_p(ptilde,nexternal-2,sLO,ierr)  
+      call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
       if(ierr.eq.1) then
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong LO invariants ', sLO
@@ -134,7 +134,7 @@ c     tiny technical phase-space cut to avoid fluctuations
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-      call %(str_UBorn)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS) 
+      call %(str_UBorn)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
       WGT_CHAN=AMP2(ICH)
 c
 c     possible cuts

@@ -163,8 +163,8 @@ c     Formula (C.39) of 2212.11190v2 TODO: complete kernel (_y)
       M2tmp = TR*(1d0-2d0*zi*zj)/sij * !P_jk(r)/sbjk
       M2tmp = M2tmp * BLO
 c
-c     include double-collinear sector function  TODO:  maybe - check (_y)
-      call get_wcc_nnlo(xpbsave,ia,ib,ic,ir,alphaz,nexternal-1)
+c     include double-collinear sector function  TODO:  check indices - notation (_y)
+      call get_wc_cc_nnlo(xpbsave,ia,ib,ic,ir,alphaz,nexternal-1)
       call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
       WCC_NNLO = wc_nlo*wc_nlo_bar
       M2TMP=M2TMP*WCC_NNLO

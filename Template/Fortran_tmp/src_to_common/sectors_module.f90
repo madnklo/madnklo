@@ -295,59 +295,51 @@ contains
   end subroutine get_WSS_CC_NNLO
 
   !(_y)
-  subroutine get_WC_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in)
-    !     NNLO collinear sector functions WC(ia,ib,ir)
-    implicit none
-    include 'all_sector_list.inc'
-    integer :: ia,ib,ic,ir
-    integer :: n_ext_in
-    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nlo,wbar
-    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
-    ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
-    wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
-    wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
-    wbar=0d0 !(mapped W)
-    wc_nnlo=wbar*wc_nlo
-  end subroutine get_WC_NNLO
+!  subroutine get_WC_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in)
+!          ! NNLO collinear sector functions WC(ia,ib,ir)
+!    implicit none
+!    include 'all_sector_list.inc'
+!    integer :: ia,ib,ic,ir
+!    integer :: n_ext_in
+!    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nnlo
+!    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+!    wc_nnlo=0d0
+!          ! The WC_NLO is called directly in the limit file; this is for bar{W_NLO}
+!  end subroutine get_WC_NNLO
 
-  subroutine get_WC_SS_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in)
-          !     NNLO collinear double soft sector functions WC(ia,ib)_SS(ia,ib)
-    implicit none
-    include 'all_sector_list.inc'
-    integer :: ia,ib,ic,ir
-    integer :: n_ext_in
-    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nlo,wsbar
-    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
-    ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
-    wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
-    wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
-    wsbar=0d0 !(mapped W)
-    wc_ss_nnlo=wsbar*wc_nlo
-  end subroutine get_WC_SS_NNLO
-
+!  subroutine get_WC_SS_NNLO(xs_in,ia,ib,alphaz,n_ext_in)
+!          ! NNLO collinear double soft sector functions WC(ia,ib)_SS(ia,ib)
+!    implicit none ! if i do call_get_sig2 with mapped momenta
+!    include 'all_sector_list.inc'
+!    integer :: i,a,b,i1,i2
+!    double precision :: num,sigma,wc_ss_nnlo
+!    num = sig2(i1,i2)
+!    sigma = 0d0
+!    do i=1,lensectors
+!       a=all_sector_list(1,i)
+!       b=all_sector_list(2,i)
+!       if(a.eq.i1) sigma = sigma + sig2(a,b)
+!       !if(b.eq.i1) sigma = sigma + sig2(b,a)
+!    enddo
+!    wc_ss_nnlo = num/sigma
+!          ! The WC_NLO is called directly in the limit file; this is for bar{WS_NLO}
+!  end subroutine get_WC_SS_NNLO
+! TODO: to check this
   subroutine get_WC_CC_NNLO(xs_in,ia,ib,ic,ir,alphaz,n_ext_in)
           ! NNLO collinear triple-collinear sector functions WC(ia,ib)_CC(ia,ib,ic)
     implicit none
     include 'all_sector_list.inc'
     integer :: ia,ib,ic,ir
     integer :: n_ext_in
-    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nlo,wcbar
+    double precision :: ei,ej,wij,wir,wjr,alphaz,wc_nlo_bar
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
     ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
     ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
     wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
     wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
     wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
-    wcbar=0d0 !(mapped W)
-    wc_cc_nnlo=wcbar*wc_nlo
-
+    wc_nlo_bar=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
+          ! The WC_NLO is called directly in the limit file; this is for bar{WC_NLO} required for this sector
   end subroutine get_WC_CC_NNLO
 
   subroutine get_Z_NNLO(i1,i2,i3,i4)

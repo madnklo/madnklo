@@ -1,5 +1,5 @@
       double precision function M2_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j,k) limit for sectors (i,j,k) + permutations
+c     C(i,j,k) kernel: i, j are a q-qb pair with same flavour, while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -46,7 +46,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(lsec.ne.0) then
+      if(lsec.ne.jsec .and. lsec.ne.ksec) then
         write (*,*) 'M2_CC_qxqqp called with four indices',isec,jsec,ksec,lsec
         stop 1
       endif
@@ -122,7 +122,7 @@ c
 
 
       double precision function M2_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     S(i,j) C(i,j,k) limit for sectors (i,j,k) + permutations
+c     S(i,j) C(i,j,k) kernel: i, j are a q-qb pair with same flavour, while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -164,12 +164,12 @@ c     set logical doplot
       double precision zi,zj,zk,zij,zik,zjk
 c
 c     initialise
-      M2_SSCC_qxqqp=0d0
+      M2_SS_qqx_CC_qxqqp=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology
-      if(lsec.ne.0) then
+      if(lsec.ne.jsec .and. lsec.ne.ksec) then
         write (*,*) 'M2_SSCC_qxqqp called with four indices',isec,jsec,ksec,lsec
         stop 1
       endif
@@ -177,7 +177,7 @@ c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
       if(.not.(flavourmatch))then
-        write(*,*) 'flavour mismatch in M2_SSCC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'flavour mismatch in M2_SS_qqx_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -215,27 +215,28 @@ c     call Born matrix element
       BLO = ANS(0)
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
-      Eijkr = (1/sij**2)*((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2) - skr/sij/(sik+sjk)/(sir+sjr)
+c$$$      Eijkr = (1/sij**2)*((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2) - skr/sij/(sik+sjk)/(sir+sjr)
+      Eijkr = (1/sij**2)*((sik*zj+zi*sjk)/((sik+sjk)*zij)-sik*sjk/(sik+sjk)**2-zi*zj/zij**2)-zk/sij/(sik+sjk)/zij
       M2TMP = SIJK**2*(CF*(-2d0*TR*Eijkr))
       M2TMP = M2TMP*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wsscc_nnlo(xs,isec,jsec,ksec,lsec,ir,alphaz,nexternal)
+      call get_wsscc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
       M2TMP=M2TMP*WSSCC_NNLO
 c
 c     include correct multiplicity and flavour factors
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SSCC_qxqqp=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]
+      M2_SS_qqx_CC_qxqqp=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]
 c
 c     plot
-      wgtpl=-M2_SSCC_qxqqp*wgt/nit*wgt_chan
+      wgtpl=-M2_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
       if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
 c
 c     sanity check
-      if(abs(M2_SSCC_qxqqp).ge.huge(1d0).or.isnan(M2_SSCC_qxqqp))then
-         write(77,*)'Exception caught in M2_SSCC_qxqqp',M2_SSCC_qxqqp
+      if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then
+         write(77,*)'Exception caught in M2_SSCC_qxqqp',M2_SS_qqx_CC_qxqqp
          goto 999
       endif
 c

@@ -1,5 +1,6 @@
       double precision function M2_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j,k) kernel: i, j are a q-qb pair with same flavour, while k is a q (or qb) with different flavour
+c     C(i,j,k) kernel times WCC: i, j are a q-qb pair with same flavour
+c     while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -47,14 +48,14 @@ c     initialise
 c
 c     check sector topology
       if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'M2_CC_qxqqp called with four indices',isec,jsec,ksec,lsec
+        write (*,*) 'Wrong topology in M2_CC_qxqqp',isec,jsec,ksec,lsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
       if(.not.(flavourmatch))then
-        write(*,*) 'flavour mismatch in M2_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -122,7 +123,8 @@ c
 
 
       double precision function M2_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     S(i,j) C(i,j,k) kernel: i, j are a q-qb pair with same flavour, while k is a q (or qb) with different flavour
+c     S(i,j) C(i,j,k) kernel times WSSCC: i, j are a q-qb pair with same flavour
+c     while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -170,14 +172,14 @@ c     initialise
 c
 c     check sector topology
       if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'M2_SSCC_qxqqp called with four indices',isec,jsec,ksec,lsec
+        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
       if(.not.(flavourmatch))then
-        write(*,*) 'flavour mismatch in M2_SS_qqx_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_SS_qqx_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -225,7 +227,6 @@ c     include double-soft double-collinear sector function
       M2TMP=M2TMP*WSSCC_NNLO
 c
 c     include correct multiplicity and flavour factors
-c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_SS_qqx_CC_qxqqp=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]
@@ -236,7 +237,7 @@ c     plot
 c
 c     sanity check
       if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then
-         write(77,*)'Exception caught in M2_SSCC_qxqqp',M2_SS_qqx_CC_qxqqp
+         write(77,*)'Exception caught in M2_SS_qqx_CC_qxqqp',M2_SS_qqx_CC_qxqqp
          goto 999
       endif
 c

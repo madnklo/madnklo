@@ -1,6 +1,5 @@
       double precision function M2_SS_qqx(i,j,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
-c     double-soft limit S_(i,j) * WSS_NNLO
-c     it returns 0 if i is not a gluon
+c     S(i,j) kernel times WSS
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -12,7 +11,7 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
-      integer i,j,l,m,ierr,nit,idum
+      integer i,j,l,m,ierr,nit
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
@@ -51,27 +50,19 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      DOUBLE PRECISION PMASS(NEXTERNAL)
-      INCLUDE 'pmass.inc'
+      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
 c
 c     initialise
       M2_SS_qqx=0d0
       M2tmp=0d0
       ierr=0
-      damp=0d0
-      idum=0
 c
-c     return if not a qqb pair
-      if((leg_pdgs(i) + leg_pdgs(j)).ne.0)return
-c
-c     safety check on PDGs
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'M2_SS_qqx:'
-        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-        STOP
-      ENDIF
+c     check flavour match
+      if(leg_pdgs(i).eq.0 .or. (leg_pdgs(i)+leg_pdgs(j)).ne.0) then
+        write(*,*) 'Flavour mismatch in M2_SS_qqx', leg_PDGs(i),leg_PDGs(j)
+        stop 1
+      endif
 c
 c     get PDGs
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)

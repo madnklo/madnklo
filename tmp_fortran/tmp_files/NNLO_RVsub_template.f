@@ -1,4 +1,4 @@
-      function int_real_virtual(x,wgt)
+      function int_real_virtual_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NNLO integrand for vegas
       use sectors2_module
       implicit none
@@ -16,8 +16,8 @@ c     (n+1)-body NNLO integrand for vegas
       save ievt,nthres
       integer nitRV
       common/niterationsrv/nitRV
-      integer %(NLO_proc_str)sfl_factor 
-      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
+      integer %(NNLO_RV_proc_str)sfl_factor
+      common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
       double precision int_real_virtual,RVNNLO(-2:0),KRVNNLO(-2:0)
       double precision I1NNLO(-2:0),I12NNLO(-2:0)
       double precision sNLO(nexternal,nexternal)
@@ -32,7 +32,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision sCM
       integer fl_factor
       common/flavour_factor/fl_factor
-      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
+      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
       LOGICAL INIT
@@ -41,7 +41,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       INTEGER MATELEM_ARRAY_DIM
       REAL*8 , ALLOCATABLE :: MATELEM(:,:)
       REAL*8 SQRTS,AO2PI,TOTMASS
-C     sqrt(s)= center of mass energy 
+C     sqrt(s)= center of mass energy
       REAL*8 PIN(0:3), POUT(0:3)
       CHARACTER*120 BUFF(NEXTERNAL)
       INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
@@ -51,21 +51,13 @@ C     sqrt(s)= center of mass energy
       integer ntested,ntest
       parameter(ntest=20)
       save ntested
-C     
+C
 C     GLOBAL VARIABLES
-C     
+C
 C     This is from ML code for the list of split orders selected by
 C     the process definition
-C     
-      INTEGER NLOOPCHOSEN
-      CHARACTER*20 CHOSEN_LOOP_SO_INDICES(NSQUAREDSO)
-      LOGICAL CHOSEN_LOOP_SO_CONFIGS(NSQUAREDSO)
-      COMMON/%(long_proc_prefix)sCHOSEN_LOOP_SQSO/CHOSEN_LOOP_SO_CONFIGS
-      INTEGER NBORNCHOSEN
-      CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
-      LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
-      COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
-      integer iconfig,mincfig,maxcfig,invar
+C
+C     TODO: add back long_proc_prefix
 
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)
@@ -73,11 +65,11 @@ C
       integer ich
       common/comich/ich
       double precision pmass(nexternal)
-      INCLUDE 'pmass.inc'      
+      INCLUDE 'pmass.inc'
 C
 C     EXTERNAL
 C
-c     TODO: convert to partonic sCM 
+c     TODO: convert to partonic sCM
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -120,7 +112,7 @@ c     phase space and invariants
       call props_%(strUB)s
       call decaybw_%(strUB)s
       call getleshouche_%(strUB)s
-      
+
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real_virtual: '
@@ -133,7 +125,7 @@ c     phase space and invariants
          write(77,*) 'Wrong (n+1)-body invariants ', sNLO
          goto 999
       endif
-      call invariants_from_p(pb,nexternal-1,sLO,ierr)  
+      call invariants_from_p(pb,nexternal-1,sLO,ierr)
       if(ierr.eq.1) then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong n-body invariants ', sLO
@@ -149,7 +141,7 @@ c     possible cuts
 
 c$$$c     Call the Underlying Real matrix element to fill the amp2 array,
 c$$$c     in order to implement the multi channel
-c$$$      call %(long_proc_prefix)s_ME_ACCESSOR_HOOK(P,HEL,ALPHAS,dummy_ANS)
+c$$$      add back long_proc_prefix
 c$$$      WGT_CHAN=AMP2(ICH)
 c
 c     test phase-space singularities of matrix elements
@@ -163,14 +155,11 @@ c
 c     real virtual
       IF (INIT) THEN
         INIT=.FALSE.
-        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
-        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+!       TODO: add back long_proc_prefix
 !        INCLUDE 'pmass.inc'
       ENDIF
-      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      RVNNLO(-2:0) = MATELEM(1:3,0) * %(NLO_proc_str)sfl_factor
+!     RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
+      RVNNLO(-2:0) = (/1d0,1d0,1d0/) * %(NNLO_RV_proc_str)sfl_factor
       do i=1,3
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
@@ -196,7 +185,7 @@ c     plot real virtual
       if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
 c
-      %(str_int_real_virtual)s
+c      str_int_real_virtual ???
 c
 c     real-virtual counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)

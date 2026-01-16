@@ -906,7 +906,7 @@ c     spurious collinear limit
             replace_dict['jsec'] = jsec
             files_str += 'FILES_%d_%d= ' % (isec, jsec)
             files_str += '$(USR_FILES) driver_%d_%d.o ' % (isec, jsec)
-            files_str += 'NLO_RVsub_%d_%d.o ' % (isec, jsec)
+            files_str += 'NNLO_RVsub_%d_%d.o ' % (isec, jsec)
             files_str += 'NNLO_RV_IR_limits_%d_%d.o ' % (isec, jsec)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 files_str += 'configs_%s.o ' % overall_sector_info[i]['Born_str']

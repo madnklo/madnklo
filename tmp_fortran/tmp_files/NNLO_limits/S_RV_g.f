@@ -39,12 +39,12 @@ c     external
       double precision alphaZ
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
-      double precision  %(proc_prefix_S_g)s_GET_CCBLO
-      double precision  %(proc_prefix_S_g)s_GET_TRIBLO
+      double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
+      double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_S_g)s_den
-      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
+      integer %(proc_prefix_S_RV_g)s_den
+      common/%(proc_prefix_S_RV_g)s_iden/%(proc_prefix_S_RV_g)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -144,11 +144,11 @@ c     safety check
 c
 c     call colour-connected Born
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
+            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
 c     call colour-connected Virtual
-            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
-            ccVLO = %(proc_prefix_S_g)s_GET_CCVLO(lb,mb)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
+            ccVLO = %(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c
 c     eikonal
             EIK0=SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -220,7 +220,7 @@ c     apply flavour factor
 c
 c     sanity check
       if(abs(M2_S_RV_g(0)).ge.huge(1d0).or.isnan(M2_S_RV_g(0)))then
-         write(77,*)'Exception caught in finite part of M2_S_RV_g',M2_S_g(0)
+         write(77,*)'Exception caught in finite part of M2_S_RV_g',M2_S_RV_g(0)
          goto 999
       endif
 c

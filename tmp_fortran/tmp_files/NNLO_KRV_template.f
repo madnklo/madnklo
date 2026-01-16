@@ -4,7 +4,7 @@ c     local real-virtual counterterm for sector (isec,jsec)
       include 'nexternal.inc'
       integer isec,jsec,iref,ierr
       integer nitRV
-      common/iterations/nitR
+      common/iterations/nitRV
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)
       double precision xsb(nexternal-1,nexternal-1)

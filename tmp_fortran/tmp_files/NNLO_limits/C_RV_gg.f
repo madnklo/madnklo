@@ -27,8 +27,8 @@ c     for sector (ia,ib)
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=1d0)
-      double precision %(proc_prefix_C_gg)s_GET_KKBLO
-      double precision %(proc_prefix_C_gg)s_GET_KKVLO
+      double precision %(proc_prefix_C_RV_gg)s_GET_KKBLO
+      double precision %(proc_prefix_C_RV_gg)s_GET_KKVLO
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -40,7 +40,7 @@ c     set logical doplot
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_C_RV_gg)s_den
-      common/%(proc_prefix_C_RV_gg)s_iden/%(proc_prefix_C_gg)s_den
+      common/%(proc_prefix_C_RV_gg)s_iden/%(proc_prefix_C_RV_gg)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -103,8 +103,8 @@ c
       endif
 c
 c     TODO: improve ktmuktnuBmunu / kt^2
-      KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpbsave,kt)
-      KKVLO = %(proc_prefix_C_gg)s_GET_KKVLO(parent_leg,xpbsave,kt)
+      KKBLO = %(proc_prefix_C_RV_gg)s_GET_KKBLO(parent_leg,xpbsave,kt)
+      KKVLO = %(proc_prefix_C_RV_gg)s_GET_KKVLO(parent_leg,xpbsave,kt)
       M2TMP0 = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0+1d0-x**alpha)*BLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
 
       M2TMP(-2:0) = M2TMP(-2:0) + CA*2d0*(2d0/sab*KKVLO+x/(1d0-x)*(1d0+1d0-x**alpha)*VLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*VLO)
@@ -128,7 +128,7 @@ c     compute collinear limit of sector function
       
       M2_C_RV_gg(-2:0)=M2tmp(-2:0)*pref/sab*xj*extra*wc_nlo
 c     apply flavour factor
-      M2_C_RV_gg(-2:0)=M2_C_gg(-2:0)*%(proc_prefix_real)s_fl_factor
+      M2_C_RV_gg(-2:0)=M2_C_RV_gg(-2:0)*%(proc_prefix_real)s_fl_factor
 c
 c     plot
       wgtpl=-M2_C_RV_gg(0)*wgt/nit*wgt_chan
@@ -179,8 +179,8 @@ c     set logical doplot
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_SC_gg)s_den
-      common/%(proc_prefix_SC_gg)s_iden/%(proc_prefix_SC_gg)s_den
+      integer %(proc_prefix_SC_RV_gg)s_den
+      common/%(proc_prefix_SC_RV_gg)s_iden/%(proc_prefix_SC_RV_gg)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
@@ -258,7 +258,7 @@ c     recoiler position (ir)
       
       M2_SC_RV_gg(-2:0)=M2tmp(-2:0)*pref*xj*extra
 c     apply flavour factor
-      M2_SC_gg(-2:0)=M2_SC_gg(-2:0)*%(proc_prefix_real)s_fl_factor
+      M2_SC_RV_gg(-2:0)=M2_SC_RV_gg(-2:0)*%(proc_prefix_real)s_fl_factor
 c
 c     plot
       wgtpl=+M2_SC_RV_gg(0)*wgt/nit*wgt_chan

@@ -137,7 +137,7 @@ module sectors4_module
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_Z_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO, get_WC_NNLO, get_WC_CC_NNLO, get_WC_SS_NNLO
+  public :: get_sigNNLO, get_Z_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO, get_WC_CC_NNLO !, get_WC_NNLO, get_WC_SS_NNLO
   private
 
 contains

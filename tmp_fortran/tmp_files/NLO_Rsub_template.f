@@ -29,7 +29,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision x(mxdim)
       double precision wgt,wgtpl,wgt_chan
       logical dotechcut
-      double precision tinycut
       logical doplot
       common/cdoplot/doplot
       logical docut
@@ -57,45 +56,35 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/comich/ich
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
+      logical firsttime
+      data firsttime/.true./
+      save firsttime
+c
+c     call initialisation function
+      if(firsttime)then
+         call initialise_sector()
+         firsttime=.false.
+      endif
+c
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
+      if(sCM.le.0d0)then
+         write(*,*) 'Wrong sCM', sCM
+         stop
+      endif
+c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c     
 c     initialise
       xjac = 0d0
       xjacB = 0d0
-      isec = %(isec)d
-      jsec = %(jsec)d
-      ksec = 0d0
-      lsec = 0d0
-      iref = %(iref)d
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
-      do i=1,3
-         xsave(i)=x(i)
-      enddo
-c
-c     specify phase-space mapping
-      %(mapping_str)s
-
-      if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
-         stop
-      endif
+      xsave(1:3)=x(1:3)
 c
 c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
-
-      call configs_%(strUB)s
-      call props_%(strUB)s
-      call decaybw_%(strUB)s
-      call getleshouche_%(strUB)s
-      
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real: '
@@ -116,8 +105,7 @@ c     phase space and invariants
       endif
 c
 c     tiny technical phase-space cut to avoid fluctuations
-      tinycut=tiny1
-      if(dotechcut(snlo,nexternal,tinycut)) goto 999
+      if(dotechcut(snlo,nexternal,tiny1)) goto 999
 c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
@@ -184,4 +172,37 @@ c      endif
 c 111  format(a1,i3,a6,$)
 c
  999  return
+      end
+
+
+
+      subroutine initialise_sector()
+      implicit none
+      integer iU,iS,iB,iA,iref
+      integer isec,jsec,ksec,lsec
+      common/csecindices/isec,jsec,ksec,lsec
+      common/cNLOmaplabels/iU,iS,iB,iA,iref
+c
+      isec = %(isec)d
+      jsec = %(jsec)d
+      ksec = 0
+      lsec = 0
+      iref = %(iref)d
+c
+c     check we are not in the ISR case
+      if(isec.le.2.or.jsec.le.2)then
+         write(*,*)'update sCM in int_real'
+         stop
+      endif
+c
+c     specify phase-space mapping
+      %(mapping_str)s
+c
+c     configuration files
+      call configs_%(strUB)s
+      call props_%(strUB)s
+      call decaybw_%(strUB)s
+      call getleshouche_%(strUB)s
+c
+      return
       end

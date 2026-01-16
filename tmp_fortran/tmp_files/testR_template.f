@@ -6,11 +6,6 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer isec,jsec,ksec,lsec
-      common/csecindices/isec,jsec,ksec,lsec
-      integer i,iU,iS,iB,iA,iref
-      common/cNLOmaplabels/iU,iS,iB,iA,iref
-      integer iUtmp,iStmp
       integer iunit,ievnt
       INTEGER, PARAMETER :: MXDIM = 30
       double precision x0(mxdim)
@@ -18,7 +13,7 @@
       save ievnt
       double precision xsave(3)
       common/cxsave/xsave
-      double precision e(2), l(2)
+      double precision e(2),l(2)
 c
       dash10='----------'
       ievnt=ievnt+1
@@ -31,9 +26,7 @@ c
 %(limit_str)s
 c     
 c     reinstate original xsave after testing
-      do i=1,3
-         xsave(i)=x0(i)
-      enddo
+      xsave(1:3)=x0(1:3)
 c
       write(iunit,*)
       write(iunit,*)
@@ -117,14 +110,11 @@ c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise 
-         x(1)=abs(l(1)-x0(1)*lam**e(1))
-         x(2)=abs(l(2)-x0(2)*lam**e(2))
+         x(1:2)=abs(l(1:2)-x0(1:2)*lam**e(1:2))
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics
-         do i=1,3
-            xsave(i)=x(i)
-         enddo
+         xsave(1:3)=x(1:3)
 c
 c     recompute momenta after rescaling
          call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)

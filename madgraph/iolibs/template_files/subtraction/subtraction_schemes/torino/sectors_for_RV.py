@@ -599,6 +599,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
+            proc_V_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
+            replace_dict_int_real['long_proc_prefix'] = proc_V_pref
             filename_int_real = pjoin(dirpath, 'NNLO_RVsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RVsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real

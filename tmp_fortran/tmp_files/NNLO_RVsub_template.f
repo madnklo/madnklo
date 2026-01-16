@@ -57,7 +57,15 @@ C
 C     This is from ML code for the list of split orders selected by
 C     the process definition
 C
-C     TODO: add back long_proc_prefix
+      INTEGER NLOOPCHOSEN
+      CHARACTER*20 CHOSEN_LOOP_SO_INDICES(NSQUAREDSO)
+      LOGICAL CHOSEN_LOOP_SO_CONFIGS(NSQUAREDSO)
+      COMMON/%(long_proc_prefix)sCHOSEN_LOOP_SQSO/CHOSEN_LOOP_SO_CONFIGS
+      INTEGER NBORNCHOSEN
+      CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
+      LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
+      COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
+      integer iconfig,mincfig,maxcfig,invar
 
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)

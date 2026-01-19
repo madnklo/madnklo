@@ -2,8 +2,7 @@
 c     local NLO counterterm for sector (isec,jsec)
       implicit none
       include 'nexternal.inc'
-      integer isec,jsec,iref,ierr
-      integer nitR
+      integer ierr,nitR
       common/iterations/nitR
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)
@@ -13,14 +12,13 @@ c     local NLO counterterm for sector (isec,jsec)
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
       double precision KS,KC,KSC,KNLO,wgt_chan
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       logical default_soft
       parameter(default_soft=.true.)
       %(str_def_M2)s
 c
 c     initialise
-      isec = %(isec)d
-      jsec = %(jsec)d
-      iref = %(iref)d
       KS=0d0
       KC=0d0
       KSC=0d0

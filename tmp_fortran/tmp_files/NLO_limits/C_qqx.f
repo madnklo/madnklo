@@ -40,8 +40,8 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_C_qqx)s_den
       common/%(proc_prefix_C_qqx)s_iden/%(proc_prefix_C_qqx)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision xpbsave(0:3,nexternal-1)
@@ -59,9 +59,7 @@ c     They must be equal to (isec,jsec)
          write (*,*) 'Wrong indices in M2_C_qqx:'
          write(*,*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
          stop
-      endif
-
-      
+      endif      
 c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
@@ -71,9 +69,7 @@ c     Reshuffle momenta and labels according to underlying_leg_pdgs
       call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
       call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
       if(ierr.eq.1) goto 999
-
-
-      
+c
       IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
@@ -126,7 +122,7 @@ c     recoiler position (ir)
       M2tmp=M2tmp*damp
 
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
+      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
       
       M2_C_qqx=M2tmp*pref/sab*xj*extra*wc_nlo
 c     apply flavour factor

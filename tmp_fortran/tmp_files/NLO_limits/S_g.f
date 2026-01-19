@@ -43,14 +43,13 @@ c     external
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S_g)s_den
       common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
       double precision xpbsave(0:3,nexternal-1)
-      INCLUDE 'pmass.inc'
-      
+      INCLUDE 'pmass.inc'      
 c
 c     initialise
       M2_S_g=0d0

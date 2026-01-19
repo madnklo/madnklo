@@ -38,12 +38,11 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_C_gq)s_den
       common/%(proc_prefix_C_gq)s_iden/%(proc_prefix_C_gq)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision xpbsave(0:3,nexternal-1)
-
 c
 c     initialise
       M2_C_gq=0d0
@@ -99,7 +98,7 @@ c     recoiler position (ir)
       M2tmp=M2tmp*damp
 
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
+      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
 
       M2_C_gq=M2tmp*pref/sab*xj*extra*wc_nlo
 c     apply flavour factor
@@ -156,12 +155,11 @@ c     set logical doplot
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_SC_gq)s_den
       common/%(proc_prefix_SC_gq)s_iden/%(proc_prefix_SC_gq)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision xpbsave(0:3,nexternal-1)
-
 c
 c     initialise
       M2_SC_gq=0d0

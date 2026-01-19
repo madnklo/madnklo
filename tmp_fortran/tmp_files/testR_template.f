@@ -46,10 +46,10 @@ c
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       integer iitn,i,j,maxitn,iunit,ierr
-      integer isec,jsec,ksec,lsec
-      common/csecindices/isec,jsec,ksec,lsec
-      integer iU,iS,iB,iA,iref
-      common/cnlomaplabels/iU,iS,iB,iA,iref
+      integer iU,iS,iB,iA
+      common/cNLOmaplabels/iU,iS,iB,iA
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)
       double precision x0(mxdim),x(mxdim)

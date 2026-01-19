@@ -93,8 +93,8 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-c     double-collinear kernel, eq. (B.16) of 2212.11190
-      M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+c     double-collinear kernel, eq. (B.17) of 2212.11190
+      M2tmp = CF*(2d0*CF-CA)*(-SIJK**2*ZK/2d0/SJK/SIK*((1+ZK**2)/ZJK/ZIK)+SIJ/SJK+SIJ/SIK+SIJK/2d0/SJK*((1+ZK**2)/ZIK-2d0*ZJ/ZJK)+SIJK/2d0/SIK*((1+ZK**2)/ZJK-2DO*ZI/ZIK))
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function

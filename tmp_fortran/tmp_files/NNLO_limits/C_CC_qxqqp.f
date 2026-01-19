@@ -3,7 +3,6 @@ c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
       implicit none
       use sectors2_module
-      use sectors4_module
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
       include 'math.inc'
@@ -117,7 +116,7 @@ c     invariant quantities
       zbk = 1d0-zbj
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
-c     TODO: check if labels are fine after reshufflings 
+c     TODO: check if labels are fine after reshufflings
       kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
@@ -145,10 +144,12 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2TMP = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
       M2TMP = M2TMP/sij*BLO
 c
-c     include collinear double-collinear sector function
+c     include collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
 c     TODO: check syntax and arguments here!
-      call get_wccc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
-      M2TMP=M2TMP*WCCC_NNLO
+      call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
+      M2TMP=M2TMP*wc_nlo
+      call get_wc_nlo(xsbsave,jb,kb,rb,1d0,nexternal-1)
+      M2TMP=M2TMP*wc_nlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -291,7 +292,7 @@ c     invariant quantities
       zbk = 1d0-zbj
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
-c     TODO: check if labels are fine after reshufflings 
+c     TODO: check if labels are fine after reshufflings
       kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
@@ -319,15 +320,10 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       M2TMP = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
       M2TMP = M2TMP/sij*BLO
 c
-c     include collinear double-collinear sector function
+c     include soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2
 c     TODO: check syntax and arguments here!
-      call get_wssccc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
-      M2TMP=M2TMP*WSSCCC_NNLO
-c$$$c
-c$$$c     include double-collinear sector function Formula (C.83) TODO:  check indices - notation (_y)
-c$$$      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
-c$$$      WC_SS_CC_NNLO = wc_nlo_bar
-c$$$      M2TMP=M2TMP*WC_SS_CC_NNLO
+      call get_wc_nlo(xsbsave,jb,kb,rb,1d0,nexternal-1)
+      M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

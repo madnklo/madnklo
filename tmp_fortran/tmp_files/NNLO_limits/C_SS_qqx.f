@@ -250,10 +250,12 @@ c        collinear double-soft kernel, eq. (C.36) of 2212.11190v2
          M2tmp = Pij*Eblm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
 c        The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
          M2TMP = M2TMP/sij
-c
-c        Include collinear double-soft sector functions TODO:ask paolo
-         call get_WC_SS_NNLO(sec_index(1),sec_index(2),mapped_sec)
-         M2TMP=M2TMP*WCSS_NNLO
+c        TODO: check rguments here
+c        Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
+         call get_ws_nlo(sec_index(1),sec_index(2))
+         M2TMP=M2TMP*WS_NLO
+         call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
+         M2TMP=M2TMP*wc_nlo
 c
 c        Including correct multiplicity factor
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

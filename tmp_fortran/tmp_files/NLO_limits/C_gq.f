@@ -21,9 +21,8 @@ c     for sector (ia,ib)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision ans(0:nsqso_born)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
 c     set logical doplot
-      logical doplot
+      logical doplot,isqg,isgq
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
@@ -40,24 +39,30 @@ c     set logical doplot
       common/%(proc_prefix_C_gq)s_iden/%(proc_prefix_C_gq)s_den
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
-      double precision xpbsave(0:3,nexternal-1)
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_U_PDGs/UNDERLYING_LEG_PDGS
+      integer mapped_labels(nexternal)
+      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
+      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
+      double precision xpb_to_ME(0:3,nexternal-1)
 c
 c     initialise
       M2_C_gq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpbsave=xpb
+      xpb_to_ME=0d0
+c     
+c     return if not qg nor gq
+      isqg=abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ib).eq.21
+      isgq=abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21
+      if(.not.(isqg.or.isgq))then
+         write(*,*)'Wrong pdgs in M2_C_gq',leg_pdgs(ia),leg_pdgs(ib)
+         stop
+      endif
 c
 c     possible cuts
-      call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_pdgs,mapped_labels,mapped_flavours)
-c     reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
-
-      if(docut(xpbsave,nexternal-1,underlying_leg_pdgs,0))return
+      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -67,7 +72,7 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      if(leg_pdgs(ia).eq.21) then
+      if(isgq) then
          x=sbr/(sar+sbr)
       else
          x=sar/(sar+sbr)
@@ -82,7 +87,8 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
+      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
@@ -106,7 +112,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_C_gq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
 c
 c     sanity check
       if(abs(M2_C_gq).ge.huge(1d0).or.isnan(M2_C_gq))then
@@ -140,9 +146,8 @@ c     for sector (ia,ib)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,damp,y,xinit
       double precision ans(0:nsqso_born)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
 c     set logical doplot
-      logical doplot
+      logical doplot,isqg,isgq
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
@@ -157,30 +162,30 @@ c     set logical doplot
       common/%(proc_prefix_SC_gq)s_iden/%(proc_prefix_SC_gq)s_den
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
-      double precision xpbsave(0:3,nexternal-1)
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_U_PDGs/UNDERLYING_LEG_PDGS
+      integer mapped_labels(nexternal)
+      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
+      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
+      double precision xpb_to_ME(0:3,nexternal-1)
 c
 c     initialise
       M2_SC_gq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpbsave=xpb
+      xpb_to_ME=0d0
 c     
-c     return if not gluon
-      if(leg_pdgs(ia).ne.21) then
-        write(77,*)'not a gluon in m2_sc_gq',leg_pdgs(ia)
-        goto 999
+c     return if not qg nor gq
+      isqg=abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ib).eq.21
+      isgq=abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21
+      if(.not.(isqg.or.isgq))then
+         write(*,*)'Wrong pdgs in M2_SC_gq',leg_pdgs(ia),leg_pdgs(ib)
+         stop
       endif
 c     
 c     possible cuts
-      call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_pdgs,mapped_labels,mapped_flavours)
-c     reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
-
-      if(docut(xpbsave,nexternal-1,underlying_leg_pdgs,0))return
+      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -190,7 +195,7 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      if(leg_pdgs(ia).eq.21) then
+      if(isgq) then
          x=sbr/(sar+sbr)
       else
          x=sar/(sar+sbr)
@@ -205,7 +210,8 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_SC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      call %(proc_prefix_SC_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
@@ -226,7 +232,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=+M2_SC_gq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
 c
 c     sanity check
       if(abs(M2_SC_gq).ge.huge(1d0).or.isnan(M2_SC_gq))then

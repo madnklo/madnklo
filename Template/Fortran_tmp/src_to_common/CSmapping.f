@@ -1,4 +1,3 @@
-c$$$      subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,maptype,xjac)
       subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,xjac)
 c     Build n+1 momenta p from n momenta pbar 
 c     iU is the unresolved parton associated
@@ -21,11 +20,8 @@ c     npart = n+1
       double precision dot
       double precision ran2
       integer leg_PDGs(npart)
-c$$$      character*1 maptype
-      integer mapped_labels(npart),mapped_flavours(npart)
-c     TODO: change name to isunderlyingqcdparton()
-c$$$      logical isLOQCDparton(npart-1)
-      integer idum
+      integer mapped_labels(npart)
+      integer idum,idum1(npart-1),idum2(npart-1),idum3(npart-1)
       common/rand/idum
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
@@ -46,9 +42,7 @@ c     input check
 c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
-c$$$      call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
-c$$$     $     mapped_flavours,isLOQCDparton)
-      call get_collinear_mapped_labels(iU,iS,npart,leg_pdgs,mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
       pbB(:)=pbar(:,mapped_labels(iB))
       pbS(:)=pbar(:,mapped_labels(iS))
       pA(:) =pbar(:,mapped_labels(iA))
@@ -199,8 +193,6 @@ c
       end
 
 
-c$$$      subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,leg_PDGs,
-c$$$     & maptype,xjac)
       subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,leg_PDGs,xjac)
 c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
@@ -216,10 +208,8 @@ c
       double precision p(0:3,npart),pbar(0:3,npart-1),Q(0:3)
       integer leg_PDGs(npart)
       double precision yCS,zCS,xjac,GG,Qsq,dot
-c$$$      character*1 maptype
-      integer mapped_labels(npart),mapped_flavours(npart)
-c     TODO: change name to isunderlyingqcdparton()
-c$$$      logical isLOQCDparton(npart-1)
+      integer mapped_labels(npart)
+      integer idum1(npart-1),idum2(npart-1),idum3(npart-1)
       double precision lam1,lam2,mS2,mB2,miUiS2
       double precision lambda,vel,sdip,z_minus,z_plus
       double precision pmass(nexternal)
@@ -237,9 +227,7 @@ c     auxiliary quantities
       Qsq = dot(Q(:),Q(:))
 c
 c     construct pbar from p
-c$$$      call get_mapped_labels(maptype,iU,iS,iB,npart,leg_pdgs,mapped_labels,
-c$$$     $           mapped_flavours,isLOQCDparton)
-      call get_collinear_mapped_labels(iU,iS,npart,leg_pdgs,mapped_labels,mapped_flavours)
+      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
 c
       if(mB2.ne.0d0 .or. mS2.ne.0d0) then
 c     CS massive case

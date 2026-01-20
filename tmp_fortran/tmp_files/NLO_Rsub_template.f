@@ -112,6 +112,7 @@ c     possible cuts
 C
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
+c     TODO: PB IS WRONG HERE, IT SHOULD BE ITS RESHUFFLED VERSION
       call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
       WGT_CHAN=AMP2(ICH)
 c
@@ -178,10 +179,20 @@ c
 
       subroutine initialise_sector()
       implicit none
+      include 'nexternal.inc'
+      include 'leg_PDGs.inc'
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_U_PDGs/UNDERLYING_LEG_PDGS
+      integer mapped_labels_s(nexternal)
+      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
+      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
+      integer mapped_labels_c(nexternal)
+      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
+      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
 c
       isec = %(isec)d
       jsec = %(jsec)d
@@ -203,6 +214,13 @@ c     configuration files
       call props_%(strUB)s
       call decaybw_%(strUB)s
       call getleshouche_%(strUB)s
+c
+c     fill underlying pdgs, labels and flavours
+      call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
+      call get_collinear_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c)
+      if(leg_pdgs(isec).eq.21)then
+         call get_soft_mapped_labels(nexternal,isec,leg_pdgs,underlying_leg_pdgs,mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s)
+      endif
 c
       return
       end

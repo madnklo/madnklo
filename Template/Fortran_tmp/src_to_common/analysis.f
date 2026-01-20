@@ -47,8 +47,6 @@ c      double precision pjet(0:3,maxdim)
 c      double precision ptjet(maxdim),etajet(maxdim),yjet(maxdim)
 c      REAL*8 JETALGO,JETRADIUS,PTJ,ETAJ ! jet cuts
 c      REAL*8 PTL,ETAL,DRLL,DRLL_SF,MLL,MLL_SF ! lepton cuts
-
-
 c
 c     observables
       xsec=1d0

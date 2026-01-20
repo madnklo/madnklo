@@ -26,7 +26,6 @@ C     Hard coded settings for gen_mom
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar,nexternal-1)
 c
 c     call radiation phase space
-c$$$      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,'C',xjacCS)
       call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS)
 c
 c     total jacobian

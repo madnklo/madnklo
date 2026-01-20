@@ -160,7 +160,7 @@ c     double real
 c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,Z_NNLO,ierr)
 
          call get_sigNNLO(SNNLO,alphaz,nexternal)
-         call get_Z_NNLO(asec,bsec,csec,dsec)
+c         call get_Z_NNLO(asec,bsec,csec,dsec)  TO BE UPDATED
          
          if(ierr.eq.1)cycle
 c

@@ -1780,13 +1780,12 @@ c       %s
                 self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, jsec, UBgraphs)
 
             # write test_RR
-            # TODO: adapt write_testRR function to new limits
-            #if label == 'ijjk':
-            #    self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                        i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
-            #elif label == 'ijkj':
-            #    self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                        i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+            if label == 'ijjk':
+               self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                                   i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct)
+            elif label == 'ijkj':
+               self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                                   i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct)
 
             # # write NNLO_IR_limits
             # # GB TODO : test on UB strings
@@ -2581,9 +2580,25 @@ c       %s
 
         limit_str = ''
 
-        ######### NEW FILE
+        # Mapping info
+        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, Cijk, SCijk  
+            limit_str += """
+c
+c     mapping ((i,j,r),(j,k,r))
+"""
+        elif (jsec != c3p and jsec == d3p):   # ijkj: Sik, Cijk, SCijk, SCkij
+            limit_str += """
+c
+c     mapping ((i,j,r),(j,k,r))
+"""
+        elif (jsec != c3p and jsec != d3p):   # ijkl: Sik, Cijkl, SCikl, SCkij
+            limit_str += """
+c
+c     mapping ((i,j,r),(k,l,r))
+"""
+
+        ### K1 limits to test: Si, Cij - common to ijjk,ijkj,ijkl ###
         # From (3.5) in 2212.11190
-        # K1 limits to test: Si, Cij - common to ijjk,ijkj,ijkl
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
 c
@@ -2599,8 +2614,8 @@ c     limit Si
                 limit_str += """
 c
 c     limit Cij
-        e=[0d0,1d0,0d0,0d0,0d0]
-        l=[0d0,0d0,0d0,0d0,0d0]
+      e=[0d0,1d0,0d0,0d0,0d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
 
@@ -2608,130 +2623,138 @@ c     limit Cij
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
 
-        # K2 limits to test 
-        #if (jsec == c3p and jsec != d3p) then         
-            # ijjk: Sij, Cijk, SCijk  
-        #elif (jsec != c3p and jsec == d3p) then       
-            # ijkj: Sik, Cijk, SCijk, SCkij
-        #elif (jsec != c3p and jsec != d3p) then       
-            # ijkl: Sik, Cijkl, SCikl, SCkij
-            
-        #########
+        ### K2 limits to test ###
+        # K2_ijjk  : 7 ->  [Sij, SCijk, SijSCijk, Cijk, SijCijk, SCijkCijk, SijSCijkCijk]
+        # K2_ijkj  : 11 -> [Sik, SCijk, SCkij, SikSCijk, SikSCkij, Cijk, SikCijk, SCijkCijk, SikSCijkCijk, SCkijCijk, SikSCkijCijk]
+        # K2_ijkl  : 9  -> [Sik, SCikl, SCkij, SikSCikl, SikSCkij, Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
 
-
-
-        # Test for K2_3p(ijk)
-        # L2_ijk  : 10 -> [Sij, Sik, Sjk,
-                    #                  SHCijk, SHCjik, SHCkij,
-                    #                  HCijk,
-                    #                  CijkSHCijk, CijkSHCjik, CijkSHCkij]
-        # mapping ((isec,ksec,iref),(jsec,ksec,iref))
-
-        if K2_ct[i][0] != 0: # Sij limit
-            limit_str += """
+        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, SCijk, Cijk  
+            if K2_ct[i][0] != 0: # Sij
+                limit_str += """
 c
-c     double soft limit for (isec,jsec) particles going soft
-c   mapping ((i,j,r),(j,k,r))
-      e = [0d0,1d0,0d0,1d0,1d0] ! Sij limit
+c     limit Sij
+      e = [0d0,1d0,0d0,1d0,1d0] 
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        if K2_ct[i][1] != 0: # Sik limit to check
-            limit_str += """
-c
-c     double soft limit for (isec,ksec) particles going soft
-      e = [1d0,1d0,0d0,1d0,1d0] ! Sik limit
-      l = [0d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        if K2_ct[i][2] != 0: # Sjk limit to check
-            limit_str += """
-c
-c     double soft limit for (jsec,ksec) particles going soft
-      e = [1d0,1d0,0d0,1d0,1d0] ! Sjk limit
-      l = [1d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Sjk     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        if isec > 2 and jsec > 2:
-            if K2_ct[i][3] != 0 : # SHCijk
+"""%(isec,jsec,c3p,d3p)
+            if K2_ct[i][1] != 0: # SCijk
                 limit_str += """
 c
-c     single soft double collinear limit SCijk
-        e=[1d0,1d0,0d0,0d0,1d0]
-        l=[0d0,0d0,0d0,0d0,0d0]
+c     limit SCijk
+      e=[1d0,1d0,0d0,0d0,1d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-            if K2_ct[i][4] != 0 : # SHCjik
+"""%(isec,jsec,c3p,d3p)
+            if K2_ct[i][3] != 0: # Cijk
                 limit_str += """
 c
-c     single soft double collinear limit SCjik
-        e=[1d0,1d0,0d0,0d0,1d0]
-        l=[1d0,0d0,0d0,0d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'SCjik   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-            if K2_ct[i][5] != 0 : # SHCkij
-                    limit_str += """
-c
-c     single soft double collinear limit SCkij
-        e=[0d0,1d0,0d0,1d0,1d0]
-        l=[0d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij   ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-            if K2_ct[i][6] != 0 : # HCijk
-                    limit_str += """
-c
-c       double collinear limit Cijk
+c       limit Cijk
         e=[0d0,1d0,0d0,0d0,1d0]
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+"""%(isec,jsec,c3p,d3p)
+        elif (jsec != c3p and jsec == d3p):   # ijkj: Sik, SCijk, SCkij, Cijk
+            if K2_ct[i][0] != 0: # Sik
+                limit_str += """
+c
+c     limit Sik
+      e = [1d0,1d0,0d0,1d0,1d0] 
+      l = [0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            if K2_ct[i][1] != 0: # SCijk
+                limit_str += """
+c
+c     limit SCijk
+      e=[1d0,1d0,0d0,0d0,1d0]
+      l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCijk   ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            if K2_ct[i][2] != 0: # SCkij
+                limit_str += """
+c
+c     single soft double collinear limit SCkij
+      e=[0d0,1d0,0d0,1d0,1d0]
+      l=[0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'SCkij   ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            if K2_ct[i][5] != 0: # Cijk
+                limit_str += """
+c
+c       limit Cijk
+        e=[0d0,1d0,0d0,0d0,1d0]
+        l=[0d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+        elif (jsec != c3p and jsec != d3p):   # ijkl: Sik, Cijkl, SCikl, SCkij
+            limit_str += """Testing limits for ijkl sector still to be specified in sectorsRR.py """
+            
+
 
         # Test for spurious singularities
-        # Z_ijk  : 6 -> [Cir, Cjr, Ckr, Cijr, Cikr, Cjkr]
-        # mapping ((isec,ksec,iref),(jsec,ksec,iref))
-
-        # TODO: the following are specific for Zcc~u sector
-
-        # Ckr
-        limit_str += """
+        # ijjk: 3 -> [Cir, Cjr, Cijr]
+        # ijkj: 3 -> [Cir, Ckr, Cikr]
+        # ijkl: 2 -> [Cir, Ckr]
+        if (jsec == c3p and jsec != d3p):     # ijjk
+            # Cir
+            limit_str += """
 c
-c     spurious collinear limit Ckr
-      e = [0d0,0d0,0d0,1d0,0d0] ! Ckr limit
-      l = [0d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Ckr     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        # Cijr
-        limit_str += """
+c     spurious limit Cir
+      e = [1d0,0d0,0d0,0d0,0d0]
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cir     ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            # Cjr
+            limit_str += """
 c
-c     spurious collinear limit Cijr
-      e = [0d0,0d0,0d0,1d0,0d0] ! Cijr limit
+c     spurious limit Cjr
+      e = [1d0,0d0,0d0,0d0,0d0]
+      l = [1d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cjr     ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            # Cijr
+            limit_str += """
+c
+c     spurious limit Cijr
+      e = [0d0,0d0,0d0,1d0,0d0] 
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijr    ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        # Cikr
-        limit_str += """
+"""%(isec,jsec,c3p,d3p)
+        elif (jsec != c3p and jsec == d3p):   # ijkj
+            # Cir
+            limit_str += """
 c
-c     spurious collinear limit Cikr
-      e = [1d0,0d0,0d0,1d0,0d0] ! Cikr limit
+c     spurious limit Cir
+      e = [1d0,0d0,0d0,0d0,0d0]
+      l = [0d0,0d0,0d0,0d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Cir     ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            # Ckr
+            limit_str += """
+c
+c     spurious limit Ckr
+      e = [0d0,0d0,0d0,1d0,0d0]
+      l = [0d0,0d0,0d0,1d0,0d0]
+      call do_limit_RR_%d_%d_%d_%d(iunit,'Ckr     ',x0,e,l)
+"""%(isec,jsec,c3p,d3p)
+            # Cikr
+            limit_str += """
+c
+c     spurious limit Cikr
+      e = [1d0,0d0,0d0,1d0,0d0]
       l = [0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cikr    ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
-        # Cjkr
-        limit_str += """
-c
-c     spurious collinear limit Cjkr
-      e = [1d0,0d0,0d0,1d0,0d0] ! Cjkr limit
-      l = [1d0,0d0,0d0,1d0,0d0]
-      call do_limit_RR_%d_%d_%d_%d(iunit,'Cjkr    ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+"""%(isec,jsec,c3p,d3p)
+        elif (jsec != c3p and jsec != d3p):   # ijkl
+            limit_str += """Testing limits for ijkl sector still to be specified in sectorsRR.py """
+
 
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
-#         replace_dict['mapping_str'] = mapping_str
 
         # write testR
-        filename = pjoin(dirpath, 'testRR_%d_%d_%d.f' %(isec,jsec,ksec) )
+        filename = pjoin(dirpath, 'testRR_%d_%d_%d_%d.f' %(isec,jsec,c3p,d3p) )
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/testRR_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)

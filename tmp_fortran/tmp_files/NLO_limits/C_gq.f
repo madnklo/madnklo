@@ -87,7 +87,7 @@ c     safety check
       endif
 c
 c     call Born
-      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
       call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
@@ -210,7 +210,7 @@ c     safety check
       endif
 c
 c     call Born
-      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
       call %(proc_prefix_SC_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy

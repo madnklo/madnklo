@@ -119,7 +119,7 @@ c     safety check
             endif
 c
 c     call colour-connected Born
-            xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+            XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
             call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c

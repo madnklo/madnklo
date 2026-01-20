@@ -90,7 +90,7 @@ c     safety check
       endif
 c
 c     call Born
-      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
       call %(proc_prefix_C_gg)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c
@@ -158,7 +158,6 @@ c     for sector (ia,ib)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sab,sar,sbr,x,damp,y,xinit
       double precision ANS(0:NSQSO_BORN)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
 c     set logical doplot
@@ -217,7 +216,7 @@ c     safety check
       endif
 c
 c     call Born
-      xpb_to_ME(0:3,:)=xpb(0:3,mapped_indices_shuff(:))
+      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
       call %(proc_prefix_SC_gg)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
       BLO = ANS(0)
 c

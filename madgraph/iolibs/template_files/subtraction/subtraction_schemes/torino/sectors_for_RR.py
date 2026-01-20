@@ -1296,13 +1296,13 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
             sector_info['ksec'] = ksec
+            sector_info['lsec'] = lsec
             sector_info['iref'] = iref
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)]
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1], mapping[3][1]]
             # specify ((isec,jsec,iref),(jsec,ksec,iref)) mapping choice
-            # try ((isec,jsec,ksec),(jsec,ksec,iref))
             mapping_str = """ \
                 iU1 = %s
                 iS1 = %s
@@ -1781,12 +1781,12 @@ c       %s
 
             # write test_RR
             # TODO: adapt write_testRR function to new limits
-            # if label == 'ijjk':
-            #     self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                         i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
-            # elif label == 'ijkj':
-            #     self.write_testRR_3p_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                         i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+            #if label == 'ijjk':
+            #    self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+            #                        i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
+            #elif label == 'ijkj':
+            #    self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+            #                        i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct,all_3p_K12_ct)
 
             # # write NNLO_IR_limits
             # # GB TODO : test on UB strings
@@ -2569,46 +2569,55 @@ c       %s
     # write file for testing limits, 'testRR.f'
     #===========================================================================
 
-    def write_testRR_3p_template_file(self, writer, dirpath, dirmadnklo, defining_process,
-                                    i, isec, jsec, ksec, lsec, K1_ct, K2_ct,K12_ct):
+    def write_testRR_template_file(self, writer, dirpath, dirmadnklo, defining_process,
+                                    i, isec, jsec, c3p, d3p, K1_ct, K2_ct):
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
-        replace_dict['ksec'] = ksec
-        replace_dict['lsec'] = lsec
+        replace_dict['c3p'] = c3p
+        replace_dict['d3p'] = d3p
         mass_list = []
         mass_list = 'ZERO' #FIRST ATTEMPT TO SKIP THE IF BELOW
 
         limit_str = ''
 
-
-        # Test for K1_3p (ijk)
-        # Identify cts for L1_ijk (list starts from 0)
-        # L1_ijk  : 6  -> [Si, Sj, Sk, HCij, HCik, HCjk]
-        # mapping: ((isec,jsec,iref),(jsec,ksec,iref))
+        ######### NEW FILE
+        # From (3.5) in 2212.11190
+        # K1 limits to test: Si, Cij - common to ijjk,ijkj,ijkl
         if K1_ct[i][0] != 0 : #Si
             limit_str += """
 c
-c     soft limit for isec particle going soft
-      e = [1d0,1d0,0d0,0d0,0d0] ! Si limit
+c     limit Si
+      e = [1d0,1d0,0d0,0d0,0d0] 
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+"""%(isec,jsec,c3p,d3p)
 
         # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
             if K1_ct[i][1] != 0 : # Cij
                 limit_str += """
 c
-c     collinear limit Cij
+c     limit Cij
         e=[0d0,1d0,0d0,0d0,0d0]
         l=[0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cij     ',x0,e,l)
-"""%(isec,jsec,ksec,lsec)
+"""%(isec,jsec,c3p,d3p)
 
         elif isec > 2 and jsec <= 2:
             limit_str += """Collinear limits still to be specified in sectorsRR.py """
             raise MadEvent7Error('Collinear limits still to be specified in sectorsRR.py. ')
+
+        # K2 limits to test 
+        #if (jsec == c3p and jsec != d3p) then         
+            # ijjk: Sij, Cijk, SCijk  
+        #elif (jsec != c3p and jsec == d3p) then       
+            # ijkj: Sik, Cijk, SCijk, SCkij
+        #elif (jsec != c3p and jsec != d3p) then       
+            # ijkl: Sik, Cijkl, SCikl, SCkij
+            
+        #########
+
 
 
         # Test for K2_3p(ijk)

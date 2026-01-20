@@ -35,10 +35,12 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical doplot
       common/cdoplot/doplot
       logical docut
-      integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
-      common/csecindices/isec,jsec,ksec,lsec
-      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
+      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision ptilde(0:3,nexternal-2)
@@ -69,11 +71,19 @@ c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
+c     cpartindices: 
+c     each sector-relevant particle -> one index
       isec = %(isec)d
       jsec = %(jsec)d
-      ksec = %(c3p)d
-      lsec = %(d3p)d
+      ksec = %(ksec)d
+      lsec = %(lsec)d
       iref = %(iref)d
+c     csecindices: 
+c     ordered list of particle indices identifying the sector
+      asec = %(isec)d
+      bsec = %(jsec)d
+      csec = %(c3p)d
+      dsec = %(d3p)d
       int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d=0d0
       int_double_real_no_cnt=0d0
       Z_NNLO=0d0
@@ -82,11 +92,11 @@ c     initialise
          xsave(i)=x(i)
       enddo
 c
-c     specify phase-space mapping ! TO CHECK
+c     specify phase-space mapping 
       %(mapping_str)s
 
-      if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
+      if(asec.le.2.or.bsec.le.2.or.csec.le.2.or.dsec.le.2)then
+         write(*,*)'ISR: update sCM in int_real'
          stop
       endif
 c
@@ -102,7 +112,7 @@ c     phase space and invariants
       call getleshouche_%(str_UBorn)s
 
 
-
+c     call to phase space
       call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
       if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) then
          write(77,*) 'int_double_real: '
@@ -157,9 +167,9 @@ c     double real
       endif
 c
 c     double real sector function
-c      call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+c      call  get_Z_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,Z_NNLO,ierr)
       call get_sigNNLO(SNNLO,alphaz,nexternal)
-c      call get_Z_NNLO(isec,jsec,ksec,lsec).  !!! GB: move to get_W_NNLO
+c      call get_Z_NNLO(asec,bsec,csec,dsec).  !!! GB: move to get_W_NNLO
 
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '

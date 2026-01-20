@@ -10,7 +10,7 @@
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
-      integer isec,jsec,ksec,lsec
+c      integer isec,jsec,ksec,lsec
       double precision s_had
       integer iu,iu1,iu7,iu8,iu9
       common/cdim/ndim
@@ -76,10 +76,10 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      isec=%(isec)d
-      jsec=%(jsec)d
-      ksec=%(c3p)d
-      lsec=%(d3p)d
+c      isec=%(isec)d
+c      jsec=%(jsec)d
+c      ksec=%(c3p)d
+c      lsec=%(d3p)d
       call histo_init
       open(unit=iu1,file='integration_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')

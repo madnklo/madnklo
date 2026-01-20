@@ -31,10 +31,8 @@ c     combination
 c     local NNLO counterterm K1 for sector [%(isec)d,%(jsec)d,%(c3p)d,%(d3p)d]
       implicit none
       include 'nexternal.inc'
-      integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
-      common/csecindices/isec,jsec,ksec,lsec
-      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
       integer nitRR
       common/iterations/nitRR
       double precision xs(nexternal,nexternal)
@@ -68,6 +66,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'
       integer isec,jsec,ksec,lsec,iref,ierr
+      common/cpartindices/isec,jsec,ksec,lsec,iref
       integer nitRR
       common/iterations/nitRR
       double precision xs(nexternal,nexternal)
@@ -83,11 +82,6 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       double precision KSS,KSC,KCC%(str_defK2)s
 c
 c     initialise
-      isec = %(isec)d
-      jsec = %(jsec)d
-      ksec = %(ksec)d
-      lsec = %(lsec)d
-      iref = %(iref)d
       KSS=0d0
       KSC=0d0
       KCC=0d0
@@ -109,6 +103,7 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       implicit none
       include 'nexternal.inc'
       integer isec,jsec,ksec,lsec,iref,ierr
+      common/cpartindices/isec,jsec,ksec,lsec,iref
       integer nitRR
       common/iterations/nitRR
       double precision xs(nexternal,nexternal)
@@ -125,11 +120,6 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       double precision KHC_SS, KHC_SC, KHC_CC%(str_defK12)s
 c
 c     initialise
-      isec = %(isec)d
-      jsec = %(jsec)d
-      ksec = %(ksec)d
-      lsec = %(lsec)d
-      iref = %(iref)d
       KS_SS=0d0
       KS_SC=0d0
       KS_CC=0d0

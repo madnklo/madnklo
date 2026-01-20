@@ -1,4 +1,4 @@
-      subroutine test_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,x0)
+      subroutine test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x0)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -6,10 +6,6 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
-      integer isec,jsec,ksec,lsec,iref
-      common/csecindices/isec,jsec,ksec,lsec
-      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
       integer iunit,ievnt
       INTEGER, PARAMETER :: MXDIM = 30
       double precision x0(mxdim)
@@ -44,7 +40,7 @@ c
       end
 
 
-      subroutine do_limit_RR_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(iunit,limstr,x0,e,l)
+      subroutine do_limit_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,limstr,x0,e,l)
       USE SECTORS4_MODULE
       implicit none
       INCLUDE 'coupl.inc'
@@ -54,10 +50,12 @@ c
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       integer iitn,i,j,maxitn,iunit,ierr
-      integer isec,jsec,ksec,lsec
-      common/csecindices/isec,jsec,ksec,lsec
-      integer iS1,iB1,iA1,iU1,iS2,iB2,iA2,iU2,iref
-      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,iref
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer iS1,iB1,iA1,iU1,iS2,iB2,iA2,iU2
+      common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
 C      common/cnlomaplabels/iU,iS,iB,iA,iref
       integer, parameter :: mxdim=30
       parameter(maxitn=12)
@@ -159,15 +157,15 @@ c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
-c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,isec,jsec,ksec,lsec,Z_NNLO,ierr)
+c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,Z_NNLO,ierr)
 
          call get_sigNNLO(SNNLO,alphaz,nexternal)
-         call get_Z_NNLO(isec,jsec,ksec,lsec)
+         call get_Z_NNLO(asec,bsec,csec,dsec)
          
          if(ierr.eq.1)cycle
 c
 c     counterterm
-         call local_counter_NNLO_%(isec)d_%(jsec)d_%(ksec)d_%(lsec)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
+         call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
          
          lim=KNNLO

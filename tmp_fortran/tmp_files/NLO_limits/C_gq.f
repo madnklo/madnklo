@@ -22,7 +22,7 @@ c     for sector (ia,ib)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision ans(0:nsqso_born)
 c     set logical doplot
-      logical doplot,isqg,isgq
+      logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
@@ -53,10 +53,8 @@ c     initialise
       damp=0d0
       xpb_to_ME=0d0
 c     
-c     return if not qg nor gq
-      isqg=abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ib).eq.21
-      isgq=abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21
-      if(.not.(isqg.or.isgq))then
+c     return if not gq
+      if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
          write(*,*)'Wrong pdgs in M2_C_gq',leg_pdgs(ia),leg_pdgs(ib)
          stop
       endif
@@ -72,11 +70,7 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      if(isgq) then
-         x=sbr/(sar+sbr)
-      else
-         x=sar/(sar+sbr)
-      endif
+      x=sbr/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
 c
@@ -147,7 +141,7 @@ c     for sector (ia,ib)
       double precision sab,sar,sbr,x,damp,y,xinit
       double precision ans(0:nsqso_born)
 c     set logical doplot
-      logical doplot,isqg,isgq
+      logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
@@ -176,10 +170,8 @@ c     initialise
       damp=0d0
       xpb_to_ME=0d0
 c     
-c     return if not qg nor gq
-      isqg=abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ib).eq.21
-      isgq=abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21
-      if(.not.(isqg.or.isgq))then
+c     return if not gq
+      if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
          write(*,*)'Wrong pdgs in M2_SC_gq',leg_pdgs(ia),leg_pdgs(ib)
          stop
       endif
@@ -195,11 +187,7 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      if(isgq) then
-         x=sbr/(sar+sbr)
-      else
-         x=sar/(sar+sbr)
-      endif
+      x=sbr/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
 c

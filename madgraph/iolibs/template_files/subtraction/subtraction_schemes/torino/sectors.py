@@ -714,7 +714,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    # returns (jsec, isec) if C_gq, (isec, jsec) otherwise; final-state only
+                    # returns (jsec, isec) if C_qg, (isec, jsec) otherwise; final-state only
                     if (all_PDGs[1][jsec-3] == 21 and abs(all_PDGs[1][isec-3]) <= 6 ):
                          list_M2.append('K%s=K%s+M2_%s(jsec,isec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))

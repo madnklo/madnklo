@@ -59,6 +59,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical firsttime
       data firsttime/.true./
       save firsttime
+      integer mapped_labels(nexternal)
+      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
+      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
+      double precision pb_to_ME(0:3,nexternal-1)
 c
 c     call initialisation function
       if(firsttime)then
@@ -82,7 +86,9 @@ c     initialise
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
+      pb_to_ME=0d0
       xsave(1:3)=x(1:3)
+      WGT_CHAN=1d0
 c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
@@ -109,12 +115,12 @@ c     tiny technical phase-space cut to avoid fluctuations
 c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
-C
+c
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-c     TODO: PB IS WRONG HERE, IT SHOULD BE ITS RESHUFFLED VERSION
-      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
-      WGT_CHAN=AMP2(ICH)
+c      PB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=PB(0:3,:)
+c      call %(strUB)s_ME_ACCESSOR_HOOK(PB_TO_ME,HEL,ALPHAS,dummy_ANS)
+c      WGT_CHAN=AMP2(ICH)
 c
 c     test matrix elements
       if(ntested.lt.ntest)then

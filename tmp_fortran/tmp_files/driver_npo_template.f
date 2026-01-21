@@ -38,7 +38,7 @@ c
       integer ich
       common/comich/ich
       double precision sum_r,sum_err_r
-      double precision sum_err_r_a,err_r_a(N_MAX_CG)
+c      double precision sum_err_r_a,err_r_a(N_MAX_CG)
 c
       sum_r=0d0
       sum_err_r=0d0
@@ -86,24 +86,24 @@ c     initialise histograms and open output files
       open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
       line='=================================================='
       write(iu9,*)' Real contribution '
-c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
-      nclRth0=max(10000,int(nclRth/5d0))
-      nitRth0=max(5,int(nitRth/2d0))
-      sum_err_r_a=0d0
-      do i=1,N_MAX_CG
-         ich=i
-         init=0
-         doplot=.false.
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth0,nitRth0,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         err_r_a(ich) = err_r
-         sum_err_r_a = sum_err_r_a + err_r_a(ich)
-      enddo
+c      nclRth0=max(10000,int(nclRth/5d0))
+c      nitRth0=max(5,int(nitRth/2d0))
+c      sum_err_r_a=0d0
+c      do i=1,N_MAX_CG
+c         ich=i
+c         init=0
+c         doplot=.false.
+c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth0,nitRth0,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c         err_r_a(ich) = err_r
+c         sum_err_r_a = sum_err_r_a + err_r_a(ich)
+c      enddo
 c
 c     main loop over channels
-      do i=1,N_MAX_CG
+c      do i=1,N_MAX_CG
+      do i=1,1
          ich=i
          write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ich
          write(iu7,*)'Failures for R%(isec)d%(jsec)d warmup, channel',ich
@@ -113,8 +113,9 @@ c     main loop over channels
          write(iu1,*)'============================='
          init=0
          doplot=.false.
-         nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c         nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
+c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth1
 c
          write(*,*)'Real %(isec)d%(jsec)d for channel',ich
@@ -125,8 +126,9 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-         nclR1=max(1000,int(nclR*err_r_a(ich)/sum_err_r_a))
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c         nclR1=max(1000,int(nclR*err_r_a(ich)/sum_err_r_a))
+c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
@@ -153,7 +155,6 @@ c      write(iu,*)
       close(iu8)
       close(iu9)
 c
-      stop
       end
 
 

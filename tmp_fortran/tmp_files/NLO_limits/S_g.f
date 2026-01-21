@@ -90,9 +90,6 @@ c     eikonal double sum
             if(l.eq.i)cycle
             if(l.eq.m)cycle
 c
-            lb=mapped_labels(l)
-            mb=mapped_labels(m)
-c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
@@ -121,6 +118,8 @@ c
 c     call colour-connected Born
             XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
             call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+            lb=mapped_indices_shuff(mapped_labels(l))
+            mb=mapped_indices_shuff(mapped_labels(m))
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal

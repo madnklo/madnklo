@@ -21,7 +21,7 @@ c     npart = n+1
       double precision ran2
       integer leg_PDGs(npart)
       integer mapped_labels(npart)
-      integer idum,idum1(npart-1),idum2(npart-1),idum3(npart-1)
+      integer idum
       common/rand/idum
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
@@ -42,7 +42,8 @@ c     input check
 c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
-      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
+      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
+c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
       pbB(:)=pbar(:,mapped_labels(iB))
       pbS(:)=pbar(:,mapped_labels(iS))
       pA(:) =pbar(:,mapped_labels(iA))
@@ -209,7 +210,6 @@ c
       integer leg_PDGs(npart)
       double precision yCS,zCS,xjac,GG,Qsq,dot
       integer mapped_labels(npart)
-      integer idum1(npart-1),idum2(npart-1),idum3(npart-1)
       double precision lam1,lam2,mS2,mB2,miUiS2
       double precision lambda,vel,sdip,z_minus,z_plus
       double precision pmass(nexternal)
@@ -227,7 +227,8 @@ c     auxiliary quantities
       Qsq = dot(Q(:),Q(:))
 c
 c     construct pbar from p
-      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
+      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
+c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
 c
       if(mB2.ne.0d0 .or. mS2.ne.0d0) then
 c     CS massive case
@@ -298,5 +299,30 @@ c
       enddo
 
       if(smin/s(1,2).lt.tiny) dotechcut=.true.
+      return
+      end
+
+
+      subroutine get_mapped_labels_reduced(npart,a,b,mapped_labels)
+      implicit none
+      integer npart,a,b,mapped_labels(npart)
+      integer i,i1,i2,ii
+c
+c     preliminary checks
+      if(a.lt.3.or.b.lt.3)then
+         write(*,*)'wrong a, b in reduced_mapped_labels',a,b
+         stop
+      endif
+c
+      i1=min(a,b)
+      i2=max(a,b)
+      ii=0
+      do i=1,npart
+         if(i.eq.i1)cycle
+         ii=ii+1
+         mapped_labels(i)=ii
+      enddo
+      mapped_labels(i1)=mapped_labels(i2)
+c
       return
       end

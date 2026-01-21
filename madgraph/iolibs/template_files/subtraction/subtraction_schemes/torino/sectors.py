@@ -734,114 +734,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
 
 
-                # if necessary_ct_list[i][j] == 0:
-                #     continue
-                # elif j == 0:
-                #     #print(str(necessary_ct_list[i][j].split("_")))
-                #     if id_isec != 21:
-                #         raise MadEvent7Error('%d is not a gluon!' % isec)
-                #     list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
-                #     list_M2.append('if(ierr.eq.1)goto 999\n')
-                # elif j == 1:
-                #     if id_jsec != 21:
-                #         raise MadEvent7Error('%d is not a gluon!' % jsec)
-                #     list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
-                #     list_M2.append('if(ierr.eq.1)goto 999\n')
-                # elif j==2 :
-                #     #print(str(necessary_ct_list[i][j].split("_")[1]))
-                #     if isec > 2 and jsec > 2:
-                #     # Check irec validity
-                #         if (isec == iref) or (jsec == iref):
-                #             raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                #         # Write an identified M2_H_C_F*F* for each (**) flavour couple
-                #         list_str_defHC.append('DOUBLE PRECISION M2_%s' % necessary_ct_list[i][2])
-                #         list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
-                #                             % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][2]))
-                #         list_M2.append('if(ierr.eq.1)goto 999\n')
-
-                #     # Loop over sectors with at least one initial state particle
-                #     if isec <= 2 or jsec <= 2:
-                #         continue
-
-
-            # #if necessary_ct_list[i*5] != 0 : # == 1:
-            # if necessary_ct_list[i][0] != 0 : # == 1:
-            #     if id_isec != 21:
-            #         raise MadEvent7Error('%d is not a gluon!' % isec)
-            #     list_M2.append('if(default_soft)then\n')
-            #     list_M2.append('KS=KS+M2_%s(isec,xs,xp,wgt,ZSi,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][0])
-            #     list_M2.append('if(ierr.eq.1)goto 999\n')
-            #     list_M2.append('else\n')
-            #     list_M2.append('KS=KS+M2_S_ALT(ISEC,JSEC,IREF,XS,XP,XSB,XPB,WGT,ZSI,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
-            #     list_M2.append('if(ierr.eq.1)goto 999\n')
-            #     list_M2.append('endif\n')
-
-            #     list_int_real.append('# call sector function ZSi\n')
-            #     list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,isec,jsec,ZSi,"S",ierr)\n')
-            #     list_int_real.append('if(ierr.eq.1)goto 999\n')
-            # #if necessary_ct_list[i*5+1] != 0: #== 1:
-            # if necessary_ct_list[i][1] != 0: #== 1:
-            #     if id_jsec != 21:
-            #         raise MadEvent7Error('%d is not a gluon!' % jsec)
-            #     list_M2.append('if(default_soft)then\n')
-            #     list_M2.append('KS=KS+M2_%s(jsec,xs,xp,wgt,ZSj,xj,xjB,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][1])
-            #     list_M2.append('if(ierr.eq.1)goto 999\n')
-            #     list_M2.append('else\n')
-            #     list_M2.append('KS=KS+M2_S_ALT(JSEC,ISEC,IREF,XS,XP,XSB,XPB,WGT,ZSJ,XJ,XJB,NITR,1D0,wgt_chan,IERR)\n')
-            #     list_M2.append('if(ierr.eq.1)goto 999\n')
-            #     list_M2.append('endif\n')
-
-            #     list_int_real.append('# call sector function ZSj\n')
-            #     list_int_real.append('call get_Z_NLO(sNLO,sCM,alpha,jsec,isec,ZSj,"S",ierr)\n')
-            #     list_int_real.append('if(ierr.eq.1)goto 999\n')
-
-            # #if necessary_ct_list[i*5+2] != 0 : #== 1:
-            # if necessary_ct_list[i][2] != 0 : #== 1:
-            #     # Loop over sectors with final state particles only
-            #     if isec > 2 and jsec > 2:
-            #         # Check irec validity
-            #         if (isec == iref) or (jsec == iref):
-            #             raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-            #         # Write an identified M2_H_C_F*F* for each (**) flavour couple
-            #         list_str_defHC.append('DOUBLE PRECISION M2_%s' % necessary_ct_list[i][2])
-            #         list_M2.append('KHC=KHC+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' % necessary_ct_list[i][2])
-            #         list_M2.append('if(ierr.eq.1)goto 999\n')
-            #         # if id_isec == 21 and id_jsec == 21:
-            #         #     list_M2.append('KHC=KHC+M2_H_C_FgFg(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
-            #         #     list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFg')
-            #         # elif id_isec == 21 and id_jsec != 21: # if there is a gluon in sector, it is always in the first position
-            #         #     tmp = 'AAAAA'
-            #         #     list_M2.append('KHC=KHC+M2_H_C_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n' %tmp)
-            #         #     list_str_defHC.append('DOUBLE PRECISION M2_H_C_FgFq')
-            #         # else:
-            #         #     list_M2.append('KHC=KHC+M2_H_C_FqFqx(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n')
-            #         #     list_str_defHC.append('DOUBLE PRECISION M2_H_C_FqFqx')
-            #         #list_M2.append('if(ierr.eq.1)goto 999\n')
-
-            #         # default mapping for final-state collinear kernels (abc) == (ijr)
-            #         #mapping = [('isec', isec), ('jsec', jsec), ('iref', iref)]
-            #         #sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1]]
-
-            #     # Loop over sectors with at least one initial state particle
-            #     if isec <= 2 or jsec <= 2:
-            #         continue
-
-            # soft-collinear kernels
-            #if str_cts[i*10+6] == 1:
-            #    str_M2.append('')
-            #if str_cts[i*10+8] == 1:
-            #    str_M2.append('')
-
-            #    #specify (abc) mapping choice
-            #    mapping_str = """ \
-            #        iU = %s
-            #        iS = %s
-            #        iB = %s
-            #        iA = 1 ! default azimuth for NLO
-            #    """ % (mapping[0][0], mapping[1][0], mapping[2][0])
-            #    overall_sector_info.append(sector_info)
-
-
             # outside loop on necessary_ct_list
             str_def_M2 = " ".join(list_str_def_M2)
             replace_dict_ct['str_def_M2'] = str_def_M2
@@ -1257,16 +1149,16 @@ c     soft limit"""
       l=[0d0,0d0]
       call do_limit_R_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec)
-        if necessary_ct_list[i][1] != 0 : #Sj limit
-            #TODO for future: massive recoiler to be implemented
-            limit_str += """
-c
-c     soft limit
-      e=[1d0,1d0]
-      l=[1d0,0d0]
-      call do_limit_R_%d_%d(iunit,'Sj      ',x0,e,l)
-"""%(isec,jsec)
-        # Loop over sectors with final state particles only
+#        if necessary_ct_list[i][1] != 0 : #Sj limit
+#            #TODO for future: massive recoiler to be implemented
+#            limit_str += """
+#c
+#c     soft limit
+#      e=[1d0,1d0]
+#      l=[1d0,0d0]
+#      call do_limit_R_%d_%d(iunit,'Sj      ',x0,e,l)
+#"""%(isec,jsec)
+#        # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
             if necessary_ct_list[i][2] != 0 : #Cij
                 limit_str += """

@@ -3,7 +3,7 @@ c
       real * 8 pi,twopi,fourpi
       real * 8 zeta2,zeta3,eulergamma
       real * 8 dim,GeVtopb
-      real * 8 CF,CA,TR,gamma_g,gamma_q,phi_g,phi_q
+      real * 8 CF,CA,TR,gamma_g,gamma_q,phi_g,phi_q,beta0
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ
 c     TODO: remove all unnecessary terms
@@ -21,6 +21,7 @@ c
       parameter (gamma_q=3d0*CF/2d0)
       parameter (phi_g=4d0/3d0*(11d0*CA-4d0*TR*Nf)/3d0-16d0/3d0*CA)
       parameter (phi_q=-CF)
+      parameter (beta0=(11d0-2d0/3d0*Nf)/4d0)
 c
 c     mathematical constants
       parameter (pi   =3.141592653589793238462643383279502884197d0)

@@ -1,40 +1,54 @@
-      function int_real_virtual_%(isec)d_%(jsec)d(x,wgt)
+      double precision function int_real_virtual_%(isec)d_%(jsec)d(x,wgt)
 c     (n+1)-body NNLO integrand for vegas
       use sectors2_module
       implicit none
-      include 'nexternal.inc'
       INCLUDE 'coupl.inc'
       include 'math.inc'
+      include 'nexternal.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'leg_PDGs.inc'
       INCLUDE 'ngraphs.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
-      INCLUDE 'leg_PDGs.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       integer nitRV
       common/niterationsrv/nitRV
-      integer %(NNLO_RV_proc_str)sfl_factor
-      common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
+      integer iunit
+      common/ciunitNNLO/iunit
       double precision int_real_virtual,RVNNLO(-2:0),KRVNNLO(-2:0)
+      double precision int_real_virtual_no_cnt
       double precision I1NNLO(-2:0),I12NNLO(-2:0)
       double precision sNLO(nexternal,nexternal)
+      double precision sLO(nexternal-1,nexternal-1)
+      double precision alphaz
+      parameter(alphaz=1d0)
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
       double precision wgt,wgtpl
+      logical dotechcut
       logical doplot, docut
       common/cdoplot/doplot
+      integer iU,iS,iB,iA
+      common/cNLOmaplabels/iU,iS,iB,iA
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       double precision p(0:3,nexternal)
-      double precision xjac
+      double precision pb(0:3,nexternal-1)
+      double precision xjac,xjacB
+      double precision xsave(3)
       double precision sCM
-      integer fl_factor
-      common/flavour_factor/fl_factor
+      common/cscm/sCM
+      common/cxsave/xsave
+      integer %(NNLO_RV_proc_str)sfl_factor
+      common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+C     block for virtual matel
       LOGICAL INIT
       DATA INIT/.TRUE./
       COMMON/INITCHECKSA/INIT
@@ -141,16 +155,15 @@ c     phase space and invariants
       endif
 c
 c     tiny technical phase-space cut to avoid fluctuations
-      tinycut=tiny1
-      if(dotechcut(snlo,nexternal,tinycut)) goto 999
+      if(dotechcut(snlo,nexternal,tiny1)) goto 999
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 555
 
-c$$$c     Call the Underlying Real matrix element to fill the amp2 array,
-c$$$c     in order to implement the multi channel
-c$$$      add back long_proc_prefix
-c$$$      WGT_CHAN=AMP2(ICH)
+c     Call the Underlying Real matrix element to fill the amp2 array,
+c     in order to implement the multi channel
+c     add back long_proc_prefix
+c     WGT_CHAN=AMP2(ICH)
 c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
@@ -162,9 +175,12 @@ c     TODO: implement flag 'test_only' to stop here
 c
 c     real virtual
       IF (INIT) THEN
-        INIT=.FALSE.
-!       TODO: add back long_proc_prefix
-!        INCLUDE 'pmass.inc'
+         INIT=.FALSE.
+         CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+         ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
+         CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+         ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+!     INCLUDE 'pmass.inc'
       ENDIF
 !     RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
       RVNNLO(-2:0) = (/1d0,1d0,1d0/) * %(NNLO_RV_proc_str)sfl_factor
@@ -196,7 +212,7 @@ c
 c      str_int_real_virtual ???
 c
 c     real-virtual counterterm
-      call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)
+      call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,ierr) !wgt_chan
       if(ierr.eq.1)then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Something wrong in the RV counterterm', KRVNNLO
@@ -227,7 +243,7 @@ c     test coefficients of epsilon poles
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
       int_real_virtual_%(isec)d_%(jsec)d=(int_real_virtual_no_cnt+I1NNLO(0)) - (KRVNNLO(0)+I12NNLO(0))
-      int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d*wgt_chan
+      int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d  !*wgt_chan
 
 c     Multi channeling
       int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d * amp2(ich)

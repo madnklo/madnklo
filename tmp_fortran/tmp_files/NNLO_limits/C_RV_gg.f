@@ -1,6 +1,6 @@
 
 
-      double precision function M2_C_RV_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      function M2_C_RV_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear for RV
 c     this is meant to represent the full collinear
 c     for sector (ia,ib)
@@ -13,7 +13,8 @@ c     for sector (ia,ib)
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      INCLUDE 'run.inc'
+      double precision M2_C_RV_gg(-2:0)
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2tmp(-2:0),M2TMP0,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -29,6 +30,7 @@ c     for sector (ia,ib)
       parameter(alphaz=1d0)
       double precision %(proc_prefix_C_RV_gg)s_GET_KKBLO
       double precision %(proc_prefix_C_RV_gg)s_GET_KKVLO
+      double precision ddilog
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -110,7 +112,7 @@ c     TODO: improve ktmuktnuBmunu / kt^2
       M2TMP(-2:0) = M2TMP(-2:0) + CA*2d0*(2d0/sab*KKVLO+x/(1d0-x)*(1d0+1d0-x**alpha)*VLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*VLO)
       M2TMP(-2) = M2TMP(-2) - alphas/2d0/pi*CA*M2TMP0
       M2TMP(-1) = M2TMP(-1) + alphas/2d0/pi*(CA*log(sab/scale**2)+log(x*(1d0-x))-beta0/2d0)*M2TMP0
-      M2TMP( 0) = M2TMP(0) + (CA/2d0*(7d0*zeta2-log(sab/scale**2)**2)-log(sab/scale**2)*log(x*(1d0-x))+li2(-(1d0-x)/x)+li2(-x/(1d0-x)))*M2TMP0+1d0/sab*KKBLO*CA*(3d0*CA-beta0)
+      M2TMP( 0) = M2TMP(0) + (CA/2d0*(7d0*zeta2-log(sab/scale**2)**2)-log(sab/scale**2)*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x)))*M2TMP0+1d0/sab*KKBLO*CA*(3d0*CA-beta0)
 c
 c     Including correct multiplicity factor
       M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_C_RV_gg)s_den)/dble(%(proc_prefix_real)s_den)
@@ -146,7 +148,7 @@ c
       end
 
 
-      double precision function M2_SC_RV_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      function M2_SC_RV_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     soft-collinear limit S_(ia)C_(ia,ib) for RV
 c     this is meant to represent the soft-collinear
 c     for sector (ia,ib)
@@ -160,11 +162,12 @@ c     for sector (ia,ib)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
+      double precision M2_SC_RV_gg(-2:0)
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,VLO(-2:0),EIK0,EIK1(-2:0)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sab,sar,sbr,x,damp,y,xinit
+      double precision mb2,mr2,sab,sar,sbr,x,damp,y,xinit
       double precision ANS(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
@@ -186,6 +189,8 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision xpbsave(0:3,nexternal-1)
+      DOUBLE PRECISION PMASS(NEXTERNAL)
+      INCLUDE 'pmass.inc'
 
 c     
 c     initialise
@@ -220,8 +225,8 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      mb2=pmass(l)**2
-      mr2=pmass(m)**2
+      mb2=pmass(ib)**2
+      mr2=pmass(ir)**2
       x=sar/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)

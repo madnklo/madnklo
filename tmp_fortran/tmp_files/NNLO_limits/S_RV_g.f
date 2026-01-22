@@ -1,6 +1,6 @@
 
 
-      double precision function M2_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      function M2_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Wsoft for RV
 c     it returns 0 if i is not a gluon
       use sectors2_module
@@ -14,6 +14,7 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
+      double precision m2_s_rv_g(-2:0)
       integer i,l,m,q,lb,mb,qb,ierr,nit,idum
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)

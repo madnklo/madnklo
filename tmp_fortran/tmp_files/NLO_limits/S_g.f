@@ -60,22 +60,19 @@ c     initialise
       idum=0
       xpb_to_ME=0d0
 c     
-c     return if not gluon
+c     checks
       if(leg_pdgs(i).ne.21)then
          write(*,*)'Wrong pdgs in M2_S_g',leg_pdgs(i)
+         stop
+      endif
+      if(.not.(i.eq.isec))then
+         write(*,*)'Wrong indices in M2_S_g',i,isec
          stop
       endif
 c
 c     call W soft
       CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)
-      if(i.eq.isec) then
-         CALL GET_WS_NLO(ISEC,JSEC)
-      elseif(i.eq.jsec) then
-         CALL GET_WS_NLO(JSEC,ISEC)
-      else
-         write(*,*)'In M2_S_g i should be = isec or = jsec',i,isec,jsec
-         stop
-      endif
+      CALL GET_WS_NLO(ISEC,JSEC)
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)

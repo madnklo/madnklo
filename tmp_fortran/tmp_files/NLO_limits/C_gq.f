@@ -53,9 +53,13 @@ c     initialise
       damp=0d0
       xpb_to_ME=0d0
 c     
-c     return if not gq
+c     checks
       if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
          write(*,*)'Wrong pdgs in M2_C_gq',leg_pdgs(ia),leg_pdgs(ib)
+         stop
+      endif
+      if(.not.((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)))then
+         write(*,*)'Wrong indices in M2_C_gq',ia,ib,isec,jsec
          stop
       endif
 c
@@ -170,9 +174,13 @@ c     initialise
       damp=0d0
       xpb_to_ME=0d0
 c     
-c     return if not gq
+c     checks
       if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
          write(*,*)'Wrong pdgs in M2_SC_gq',leg_pdgs(ia),leg_pdgs(ib)
+         stop
+      endif
+      if(.not.((ia.eq.isec.and.ib.eq.jsec).or.(ia.eq.jsec.and.ib.eq.isec)))then
+         write(*,*)'Wrong indices in M2_SC_gq',ia,ib,isec,jsec
          stop
       endif
 c     

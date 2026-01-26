@@ -217,7 +217,6 @@ c     call Born matrix element
       BLO = ANS(0)
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
-c$$$      Eijkr = (1/sij**2)*((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2) - skr/sij/(sik+sjk)/(sir+sjr)
       Eijkr = (1/sij**2)*((sik*zj+zi*sjk)/((sik+sjk)*zij)-sik*sjk/(sik+sjk)**2-zi*zj/zij**2)-zk/sij/(sik+sjk)/zij
       M2TMP = SIJK**2*(CF*(-2d0*TR*Eijkr))
       M2TMP = M2TMP*BLO

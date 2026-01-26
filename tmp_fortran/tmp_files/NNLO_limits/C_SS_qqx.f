@@ -1,7 +1,6 @@
       double precision function M2_C_SS_QQX(ia,ib,ik,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors2_module
-      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -250,7 +249,6 @@ c        collinear double-soft kernel, eq. (C.36) of 2212.11190v2
          M2tmp = Pij*Eblm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
 c        The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
          M2TMP = M2TMP/sij
-c        TODO: check rguments here
 c        Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
          call get_ws_nlo(sec_index(1),sec_index(2))
          M2TMP=M2TMP*WS_NLO

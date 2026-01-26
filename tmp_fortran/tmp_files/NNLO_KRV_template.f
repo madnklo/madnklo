@@ -12,7 +12,7 @@ c     local real-virtual counterterm for sector (isec,jsec)
       double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision KRVS,KRVC,KRVSC,KRVNNLO,wgt_chan
+      double precision KS,KC,KSC,KRVNNLO,wgt_chan
       logical default_soft
       parameter(default_soft=.true.)
       %(str_def_M2)s
@@ -21,16 +21,16 @@ c     initialise
       isec = %(isec)d
       jsec = %(jsec)d
       iref = %(iref)d
-      KRVS=0d0
-      KRVC=0d0
-      KRVSC=0d0
+      KS=0d0
+      KC=0d0
+      KSC=0d0
       KRVNNLO=0d0
 c
 c     counterterms
       %(str_M2)s
 c     
 c     combination
-      KRVNNLO=KRVS+KRVC-KRVSC
+      KRVNNLO=KS+KC-KSC
 c
       return
  999  ierr=1

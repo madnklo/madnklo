@@ -145,9 +145,9 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2TMP = M2TMP/sij*BLO
 c
 c     include collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
-c     TODO: check syntax and arguments here!
       call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
       M2TMP=M2TMP*wc_nlo
+      ! TODO: question: does it change for topology like kd,jb, rb?
       call get_wc_nlo(xsbsave,jb,kb,rb,1d0,nexternal-1)
       M2TMP=M2TMP*wc_nlo
 c
@@ -176,7 +176,6 @@ c
 c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
       implicit none
-      use sectors4_module
       use sectors2_module
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'

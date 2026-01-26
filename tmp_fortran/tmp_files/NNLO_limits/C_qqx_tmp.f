@@ -1,10 +1,8 @@
-
-
       double precision function M2_C_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib)
 c     this is meant to represent the collinear
 c     for sector (ia,ib)
-      use sectors4_module
+      use sectors2_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -23,6 +21,7 @@ c     for sector (ia,ib)
       double precision wa,wb,wr
       double precision ANS(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
 c     set logical doplot
       logical doplot
@@ -45,6 +44,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision xpbsave(0:3,nexternal-1)
+      double precision xsbsave(nexternal-1,nexternal-1)
 c
 c     initialise
       M2_C_qqx=0d0
@@ -52,16 +52,15 @@ c     initialise
       ierr=0
       damp=0d0
       xpbsave=xpb
+      xsbsave=xsb
+c
 c     Check over (ia,ib)
 c     They must be equal to (isec,jsec)
-
       if(.not.((ia.eq.isec.and.ib.eq.jsec))) then
          write (*,*) 'Wrong indices in M2_C_qqx:'
          write(*,*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
          stop
       endif
-
-
 c
 c     possible cuts
 c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
@@ -71,9 +70,7 @@ c     Reshuffle momenta and labels according to underlying_leg_pdgs
       call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
       call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
       if(ierr.eq.1) goto 999
-
-
-
+c
       IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
 c
 c     overall kernel prefix
@@ -111,6 +108,16 @@ c
          stop
       endif
 c
+c     reshuffle NLO momenta and labels according to real_leg_pdgs and check
+      call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpbsave)
+      call get_collinear_mapped_labels(i,j,nexternal,leg_PDGs,NLO_mapped_labels,NLO_mapped_flavours)
+       if(NLO_mapped_flavours(j).ne.21)then
+         write(*,*) 'Wrong parent particle label 1 in M2_C_qqx', j, NLO_mapped_flavours(j)
+          stop
+       endif
+      call invariants_from_p(xpbsave,nexternal-1,xsbsave,ierr)
+      if(ierr.eq.1)goto 999
+c
       KKBLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpbsave,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(BLO-4d0/sab*KKBLO)
@@ -124,10 +131,14 @@ c     recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2tmp=M2tmp*damp
-
+c     TODO: ask
 c     compute collinear limit of sector function
-      call get_wc_nnlo(xs,ia,ib,ir,alphaz,n_ext_in)
-
+      call get_wc_nlo(xs,ia,ib,ir,alphaz,n_ext_in)
+      M2TMP=M2TMP*wc_nlo
+      get_sig2(xsbsave,1d0,nexternal-1)
+      call get_w_nlo(ia,ib)
+      M2TMP=M2TMP*W_NLO
+c
       M2_C_qqx=M2tmp*pref/sab*xj*extra*wc_nnlo
 c     apply flavour factor
       M2_C_qqx=M2_C_qqx*%(proc_prefix_real)s_fl_factor

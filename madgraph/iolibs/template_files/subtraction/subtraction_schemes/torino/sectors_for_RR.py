@@ -1269,11 +1269,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             replace_dict_double_real['str_UBorn'] = 'dummy'
             replace_dict_double_real['UBgraphs'] = 'dummy'
 
-            # Initialise ct routines to 'dummy'
-            # TODO: remove since useless
-            # for k in range(0, len(necessary_default_3p_ct_list)):
-            #     replace_dict_limits['proc_prefix_%s' % necessary_default_3p_ct_list[k]] = 'dummy'
-
             # Update sector_info dictionary
             sector_info = {
                 'isec'          :   0,
@@ -1281,6 +1276,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 'ksec'          :   0,
                 'lsec'          :   0,
                 'iref'          :   0,
+                'c3p'           :   0,
+                'd3p'           :   0,
                 'mapping'       :   [],
                 'Born_str'      :   '',
                 'Born_PDGs'     :   [],
@@ -1298,6 +1295,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             sector_info['ksec'] = ksec
             sector_info['lsec'] = lsec
             sector_info['iref'] = iref
+            if label == 'ijjk':
+                sector_info['c3p'] = jsec
+                sector_info['d3p'] = ksec
+            elif label == 'ijkj':
+                sector_info['c3p'] = ksec
+                sector_info['d3p'] = jsec
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('iref', iref)]
@@ -1314,14 +1317,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 iA2 = 1 ! default azimuth for NLO
             """ % (mapping[0][0], mapping[1][0], mapping[3][0], mapping[1][0],mapping[2][0],mapping[3][0])
 
-            # GB: TODO remove
-            # # write NNLO_IR_limits
-            # # GB TODO : test on UB strings
-            # NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
-            # filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
-            # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
-            # file = file % replace_dict_limits
-            # writer(filename).writelines(file)
 
             # Initialise NLO_IR_limits.f for every sector [ij]
             list = []
@@ -1336,7 +1331,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
             NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
             with open(NNLO_IR_limits_tmp_path + "IR_tmp.f", "w") as f:
                 f.writelines(string)
-            #os.system('echo ' + string + ' > ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 
             # Loop on K1 cts
             # Recall that all_3p_K1_ct = [Si, Cij, SiCij]
@@ -1754,14 +1748,6 @@ c       %s
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/decayBW_dummy.f', dirpath + '/decayBW_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/leshouche_dummy.f', dirpath + '/leshouche_dummy.f')
                     os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
-            # old
-            # if sector_info['Born_str']:
-            #     replace_dict_double_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            # else:
-            #     replace_dict_double_real['UBgraphs'] = 'dummy'
-            #     if len(glob.glob("%s/ngraphs_dummy.inc" % dirpath)) == 0:
-            #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/ngraphs_dummy.inc', dirpath + '/ngraphs_dummy.inc')
-            #         os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/dummy_multich.f', dirpath + '/dummy_multich.f')
 
             filename = []
             if label == 'ijjk':
@@ -1781,28 +1767,21 @@ c       %s
 
             # write test_RR
             if label == 'ijjk':
-               self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
                                    i, isec, jsec, jsec, ksec, all_3p_K1_ct, all_3p_K2_ct)
             elif label == 'ijkj':
-               self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
                                    i, isec, jsec, ksec, jsec, all_3p_K1_ct, all_3p_K2_ct)
 
-            # # write NNLO_IR_limits
-            # # GB TODO : test on UB strings
-            # NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
-            # filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d.f' % (isec, jsec, ksec))
-            # file = open(NNLO_IR_limits_tmp_path + 'test_ct.f').read()
-            # file = file % replace_dict_limits
-            # writer(filename).writelines(file)
+            # write NNLO_IR_limits
             if label == 'ijjk':
                 filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, jsec, ksec))
             elif label == 'ijkj':
                 filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
-            #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
-            # TODO: maybe safer to reinstate this command
+            # TODO: maybe safer to not remove this command
             os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 
 
@@ -1906,11 +1885,6 @@ c       %s
             replace_dict_double_real['str_UBorn'] = 'dummy'
             replace_dict_double_real['UBgraphs'] = 'dummy'
 
-            # Initialise ct routines to 'dummy'
-            # TODO: remove since useless now
-            # for k in range(0, len(necessary_default_4p_ct_list)):
-            #    replace_dict_limits['proc_prefix_%s' % necessary_default_4p_ct_list[k]] = 'dummy'
-
             # Update sector_info dictionary
             sector_info = {
                 'isec'          :   0,
@@ -1918,6 +1892,8 @@ c       %s
                 'ksec'          :   0,
                 'lsec'          :   0,
                 'iref'          :   0,
+                'c3p'           :   0,
+                'd3p'           :   0,
                 'mapping'       :   [],
                 'Born_str'      :   '',
                 'Born_PDGs'     :   [],
@@ -1935,6 +1911,8 @@ c       %s
             sector_info['ksec'] = ksec
             sector_info['lsec'] = lsec
             sector_info['iref'] = iref
+            sector_info['c3p'] = ksec
+            sector_info['d3p'] = lsec
 
             # default mapping
             mapping = [('isec', isec), ('jsec', jsec), ('ksec', ksec), ('lsec', lsec), ('iref', iref)]
@@ -1951,9 +1929,6 @@ c       %s
             """ % (mapping[0][0], mapping[1][0], mapping[4][0],mapping[2][0], mapping[3][0],mapping[4][0])
 
             # Initialise NLO_IR_limits.f for every sector [ij]
-            #string = "c Collection of relevant limits for sector [%d,%d,%d,%d]" %(isec,jsec,ksec,lsec)
-            #NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
-            #os.system('echo ' + string + ' > ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
             list = []
             list.append('c Collection of relevant limits for sector [%d,%d,%d,%d] \n' %(isec,jsec,ksec,lsec))
             list.append('c K1  ' + str(all_4p_K1_ct[i])  + ' \n')
@@ -2200,9 +2175,8 @@ c       %s
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
             # write test_RR
-            # TODO: adapt write_testRR function to new limits
-            # self.write_testRR_4p_template_file(writer, dirpath, dirmadnklo, defining_process,
-            #                         i, isec, jsec, ksec, lsec,all_4p_K1_ct, all_4p_K2_ct,all_4p_K12_ct)
+            self.write_testRR_template_file(writer, dirpath, dirmadnklo, defining_process,
+                                   i, isec, jsec, ksec, lsec, all_4p_K1_ct, all_4p_K2_ct)
 
             # write NNLO_IR_limits
             filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
@@ -2316,27 +2290,33 @@ c       %s
         # Write a DATA list including all sectors. Each sector is defined by 4 leg indices.
 
         # Define 3p sectors as 4p sectors with lsec = 0
-        all_3p_sector_list_with_0 = []
-        for i in range(0,len(all_3p_sector_list)):
-            new_list = list(all_3p_sector_list[i])
-            #new_list.append(0)
-            new_list = tuple(new_list)
-            all_3p_sector_list_with_0.append(new_list)
-        # Check
-        if len(all_3p_sector_list_with_0) != len(all_3p_sector_list):
-            print('WARNING: Wrong number of 3p sectors!')
-            return
+        # all_3p_sector_list_with_0 = []
+        # for i in range(0,len(all_3p_sector_list)):
+        #     new_list = list(all_3p_sector_list[i])
+        #     #new_list.append(0)
+        #     new_list = tuple(new_list)
+        #     all_3p_sector_list_with_0.append(new_list)
+        # # Check
+        # if len(all_3p_sector_list_with_0) != len(all_3p_sector_list):
+        #     print('WARNING: Wrong number of 3p sectors!')
+        #     return
 
-        all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
-
-        replace_dict = {}
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+        #all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
+        all_sector_list = all_3p_sector_list + all_4p_sector_list
+        tmp_str = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
 
         file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer all_sector_list(4,lensectors)
-          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+          integer, parameter :: lensectors = %d
+          integer tmp(4,lensectors)
+          integer all_sector_list(4,lensectors)""" % (len(all_sector_list))
+        for k in range(0,len(all_sector_list)):
+            file += """
+          data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+7])
+          #  file += """
+          #data all_sector_list(1,%d), all_sector_list(2,%d), all_sector_list(3,%d), all_sector_list(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+8])
+            
+        file += """
+          all_sector_list = tmp"""
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
         writer(filename).writelines(file)
@@ -2687,7 +2667,8 @@ c       limit Cijk
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijk    ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
         elif (jsec != c3p and jsec != d3p):   # ijkl: Sik, Cijkl, SCikl, SCkij
-            limit_str += """Testing limits for ijkl sector still to be specified in sectorsRR.py """
+            limit_str += """
+c       TODO: Testing limits for ijkl sector still to be specified in sectorsRR.py """
             
 
 
@@ -2891,7 +2872,6 @@ c     soft-collinear limit
         replace_dict['limit_str'] = limit_str
         replace_dict['NNLO_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
-#         replace_dict['mapping_str'] = mapping_str
 
         # write testR
         filename = pjoin(dirpath, 'testRR_%d_%d_%d_%d.f' %(isec,jsec,ksec,lsec) )
@@ -2911,18 +2891,12 @@ c     soft-collinear limit
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
-        #replace_dict['ksec'] = ksec
-        #replace_dict['lsec'] = lsec
         replace_dict['c3p'] = c3p
         replace_dict['d3p'] = d3p   
         replace_dict['UBgraphs'] = UBgraphs
 
         # write driver
         filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec,jsec,c3p,d3p))
-        #if(lsec != 0):
-        #    filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec,jsec,ksec,lsec))
-        #else:
-        #    filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec,jsec,c3p,d3p))
         file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npt_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
@@ -2937,154 +2911,61 @@ c     soft-collinear limit
         files_str = ''
         sector_str = ''
         all_str = 'all: libs'
-        proc_str += """PROC_FILES=  get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
+        proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o""" % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-
-        # for i in range(0,len(overall_sector_info)):
-        #     if not overall_sector_info[i]['path_to_Born']:
-        #         continue
-        #     if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-        #         continue
-        #     proc_str += ' matrix_' + overall_sector_info[i]['Born_str'] + '.o'
 
         replace_dict['proc_str'] = proc_str
 
         for i in range(0,len(overall_sector_info)):
             isec = overall_sector_info[i]['isec']
             jsec = overall_sector_info[i]['jsec']
-            ksec = overall_sector_info[i]['ksec']
-            lsec = overall_sector_info[i]['lsec']
+            c3p = overall_sector_info[i]['c3p']
+            d3p = overall_sector_info[i]['d3p']
+            #ksec = overall_sector_info[i]['ksec']
+            #lsec = overall_sector_info[i]['lsec']
             replace_dict['isec'] = isec
             replace_dict['jsec'] = jsec
-            replace_dict['ksec'] = ksec
-            replace_dict['lsec'] = lsec
+            replace_dict['c3p'] = c3p
+            replace_dict['d3p'] = d3p
+            #replace_dict['ksec'] = ksec
+            #replace_dict['lsec'] = lsec
 
-            # 4-p sectors
-            if (lsec != 0):
-                files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, ksec, lsec)
-                # Born ME
-                if (overall_sector_info[i]['Born_str'] == '' and overall_sector_info[i]['alt_Born_str'] == ''):
-                    files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
-                    string = 'dummy'
-                elif (overall_sector_info[i]['Born_str'] != '' and overall_sector_info[i]['alt_Born_str'] == ''):
-                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
-                    string = overall_sector_info[i]['Born_str']
-                else:
-                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['alt_Born_str'] + '.o '
-                    string = overall_sector_info[i]['Born_str']
+            files_str += 'FILES_%d_%d_%d_%d= ' % (isec, jsec, c3p, d3p)
+            # Born ME
+            if (overall_sector_info[i]['Born_str'] == '' and overall_sector_info[i]['alt_Born_str'] == ''):
+                files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
+                string = 'dummy'
+            elif (overall_sector_info[i]['Born_str'] != '' and overall_sector_info[i]['alt_Born_str'] == ''):
+                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
+                string = overall_sector_info[i]['Born_str']
+            else:
+                files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['alt_Born_str'] + '.o '
+                string = overall_sector_info[i]['Born_str']
 
-                files_str += 'configs_%s.o ' % string
-                files_str += 'props_%s.o ' % string
-                files_str += 'decayBW_%s.o ' % string
-                files_str += 'leshouche_%s.o ' % string
+            files_str += 'configs_%s.o ' % string
+            files_str += 'props_%s.o ' % string
+            files_str += 'decayBW_%s.o ' % string
+            files_str += 'leshouche_%s.o ' % string
 
-                # Real ME
-                if (overall_sector_info[i]['alt_Real_str'] == ''):
-                    files_str += 'matrix_' + overall_sector_info[i]['Real_str'] + '.o '
-                else:
-                    files_str += 'matrix_' + overall_sector_info[i]['alt_Real_str'] + '.o '
+            # Real ME
+            if (overall_sector_info[i]['alt_Real_str'] == ''):
+                files_str += 'matrix_' + overall_sector_info[i]['Real_str'] + '.o '
+            else:
+                files_str += 'matrix_' + overall_sector_info[i]['alt_Real_str'] + '.o '
 
-                #files_str += 'configs_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'props_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Real_str']
-
-                files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-                files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-                files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-                files_str += 'testRR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-                files_str += 'NNLO_K_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-                files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
-                all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec)
-                sector_str += """
+            files_str += 'driver_RR_%d_%d_%d_%d.o ' % (isec, jsec, c3p, d3p)
+            files_str += 'NNLO_RRsub_%d_%d_%d_%d.o ' % (isec, jsec, c3p, d3p)
+            files_str += 'NNLO_IR_limits_%d_%d_%d_%d.o ' % (isec, jsec, c3p, d3p)
+            files_str += 'testRR_%d_%d_%d_%d.o ' % (isec, jsec, c3p, d3p)
+            files_str += 'NNLO_K_%d_%d_%d_%d.o ' % (isec, jsec, c3p, d3p)
+            files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
+            all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, c3p, d3p)
+            sector_str += """
 sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
 
 sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
-""" %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
-
-            # 3-p sectors
-            else:
-                files_str += 'FILES_%d_%d_%d= ' % (isec, jsec, ksec)
-                # Born ME
-                if (overall_sector_info[i]['Born_str'] == '' and overall_sector_info[i]['alt_Born_str'] == ''):
-                    files_str += '$(USR_FILES) matrix_' + 'dummy' + '.o '
-                    string = 'dummy'
-                elif (overall_sector_info[i]['Born_str'] != '' and overall_sector_info[i]['alt_Born_str'] == ''):
-                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['Born_str'] + '.o '
-                    string = overall_sector_info[i]['Born_str']
-                else:
-                    files_str += '$(USR_FILES) matrix_' + overall_sector_info[i]['alt_Born_str'] + '.o '
-                    string = overall_sector_info[i]['Born_str']
-
-                files_str += 'configs_%s.o ' % string
-                files_str += 'props_%s.o ' % string
-                files_str += 'decayBW_%s.o ' % string
-                files_str += 'leshouche_%s.o ' % string
-
-                # Real ME
-                if (overall_sector_info[i]['alt_Real_str'] == ''):
-                    files_str += 'matrix_' + overall_sector_info[i]['Real_str'] + '.o '
-                else:
-                    files_str += 'matrix_' + overall_sector_info[i]['alt_Real_str'] + '.o '
-
-                #files_str += 'configs_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'props_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'decayBW_%s.o ' % overall_sector_info[i]['Real_str']
-                #files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Real_str']
-
-                files_str += 'driver_RR_%d_%d_%d.o ' % (isec, jsec, ksec)
-                files_str += 'NNLO_RRsub_%d_%d_%d.o ' % (isec, jsec, ksec)
-                files_str += 'NNLO_IR_limits_%d_%d_%d.o ' % (isec, jsec, ksec)
-                files_str += 'testRR_%d_%d_%d.o ' % (isec, jsec, ksec)
-                files_str += 'NNLO_K_%d_%d_%d.o ' % (isec, jsec, ksec)
-                files_str += '$(PROC_FILES) $(COMMON_FILES)\n'
-                all_str += ' sector_%d_%d_%d' % (isec, jsec, ksec)
-                sector_str += """
-sector_%d_%d_%d_libs: libs sector_%d_%d_%d
-
-sector_%d_%d_%d: $(FILES_%d_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
-""" %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec)
-
-            # # Add files necessary to Born ME
-            # if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-            #     if (overall_sector_info[i]['Born_str'] == ''):
-            #         string = 'dummy'
-            #     else:
-            #         string = overall_sector_info[i]['Born_str']
-            #     files_str += 'configs_%s.o ' % string
-            #     files_str += 'props_%s.o ' % string
-            #     files_str += 'decayBW_%s.o ' % string
-            #     files_str += 'leshouche_%s.o $(PROC_FILES) $(COMMON_FILES)\n' % string
-
-#             if(lsec != 0 ):
-#                 files_str += 'testR_%d_%d_%d_%d.o ' % (isec, jsec, ksec, lsec)
-#                 files_str += 'NNLO_K_%d_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec, lsec)
-#                 all_str += ' sector_%d_%d_%d_%d' % (isec, jsec, ksec, lsec)
-#                 sector_str += """
-# sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
-
-# sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
-# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
-#             else:
-#                 files_str += 'testR_%d_%d_%d.o ' % (isec, jsec, ksec)
-#                 files_str += 'NNLO_K_%d_%d_%d.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)\n' % (isec, jsec, ksec)
-#                 all_str += ' sector_%d_%d_%d' % (isec, jsec, ksec)
-#                 sector_str += """
-# sector_%d_%d_%d_libs: libs sector_%d_%d_%d
-
-# sector_%d_%d_%d: $(FILES_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
-# """ %(isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec, isec, jsec, ksec)
-
-#             sector_str += """
-# sector_%d_%d_%d_%d_libs: libs sector_%d_%d_%d_%d
-
-# sector_%d_%d_%d_%d: $(FILES_%d_%d_%d_%d)
-# \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d_%d_%d)) $(LIBS) $(LIBSC) -o $@
-# """ %(isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec, isec, jsec, ksec, lsec)
+""" %(isec, jsec, c3p, d3p, isec, jsec, c3p, d3p, isec, jsec, c3p, d3p, isec, jsec, c3p, d3p, isec, jsec, c3p, d3p)
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -3116,26 +2997,3 @@ sector_%d_%d_%d: $(FILES_%d_%d_%d)
         return True
 
 
-    # #===========================================================================
-    # # write driver_isec_jsec for real subprocess directory
-    # #===========================================================================
-
-    # def write_driver_npt_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs):
-
-    #     replace_dict = {}
-    #     replace_dict['isec'] = isec
-    #     replace_dict['jsec'] = jsec
-    #     replace_dict['ksec'] = ksec
-    #     replace_dict['lsec'] = lsec
-    #     replace_dict['UBgraphs'] = UBgraphs
-
-    #     # write driver
-    #     if(lsec != 0):
-    #         filename = pjoin(dirpath, 'driver_RR_%d_%d_%d_%d.f' % (isec, jsec,ksec,lsec))
-    #     else:
-    #         filename = pjoin(dirpath, 'driver_RR_%d_%d_%d.f' % (isec, jsec,ksec))
-    #     file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npt_template.f")).read()
-    #     file = file % replace_dict
-    #     writer(filename).writelines(file)
-
-    #     return True

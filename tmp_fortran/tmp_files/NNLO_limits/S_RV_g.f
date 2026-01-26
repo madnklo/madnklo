@@ -22,8 +22,6 @@ c     it returns 0 if i is not a gluon
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
-      integer mapped_labels(nexternal), mapped_flavours(NEXTERNAL)
-      logical isLOQCDparton(nexternal-1)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -41,17 +39,21 @@ c     external
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
+      double precision  %(proc_prefix_S_RV_g)s_GET_CCVLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S_RV_g)s_den
       common/%(proc_prefix_S_RV_g)s_iden/%(proc_prefix_S_RV_g)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_U_PDGs/UNDERLYING_LEG_PDGS
+      integer mapped_labels(nexternal)
+      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
+      common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
+      double precision xpb_to_ME(0:3,nexternal-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      double precision xpbsave(0:3,nexternal-1)
       INCLUDE 'pmass.inc'
 
 c
@@ -61,36 +63,21 @@ c     initialise
       ierr=0
       damp=0d0
       idum=0
-      xpbsave=xpb
+      xpb_to_ME=0d0
 c
-c     return if not gluon
-      if(leg_pdgs(I).ne.21)return
-c
-c     safety check on PDGs
-      IF(SIZE(LEG_PDGS).NE.NEXTERNAL)THEN
-        WRITE(*,*) 'M2_S_RV_g:'
-        WRITE(*,*) 'Wrong dimension for leg_PDGs',SIZE(LEG_PDGS),NEXTERNAL
-        STOP
-      ENDIF
-c
-c     get PDGs
-c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
-
-      CALL GET_SOFT_MAPPED_LABELS(I,NEXTERNAL,LEG_PDGS,MAPPED_LABELS,MAPPED_FLAVOURS,ISLOQCDPARTON)
-c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
+c     checks
+      if(leg_pdgs(i).ne.21)then
+         write(*,*)'Wrong pdgs in M2_S_RV_g',leg_pdgs(i)
+         stop
+      endif
+      if(.not.(i.eq.isec))then
+         write(*,*)'Wrong indices in M2_S_RV_g',i,isec
+         stop
+      endif
 c
 c     call W soft
       CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)
-      if(i.eq.isec) then
-         CALL GET_WS_NLO(ISEC,JSEC)
-      elseif(i.eq.jsec) then
-         CALL GET_WS_NLO(JSEC,ISEC)
-      else
-         write(*,*)'In M2_S_RV_g i should be = isec or = jsec',i,isec,jsec
-         stop
-      endif
+      CALL GET_WS_NLO(ISEC,JSEC)
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -105,30 +92,17 @@ c     eikonal double sum
             if(l.eq.i)cycle
             if(l.eq.m)cycle
 c
-            lb=mapped_labels(l)
-            mb=mapped_labels(m)
-c
-c         check labels and pdgs
-          IF(.NOT.(ISLOQCDPARTON(LB).AND.ISLOQCDPARTON(MB)))THEN
-            WRITE(*,*)'Wrong indices 1 in M2_S_RV_g',LB,MB
-            STOP
-          ENDIF
-          IF(leg_pdgs(l).ne.underlying_leg_pdgs(lb).or.leg_pdgs(m).ne.underlying_leg_pdgs(mb))THEN
-            WRITE(*,*)'Wrong indices 2 in M2_S_RV_g',L,M,LB,MB
-            STOP
-          ENDIF
-c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpbsave,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
-            call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
+            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))CYCLE
+            IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -143,16 +117,17 @@ c     safety check
                goto 999
             endif
 c
-c     call colour-connected Born
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
+c     call colour-connected Born and Virtual
+            lb=mapped_indices_shuff(mapped_labels(l))
+            mb=mapped_indices_shuff(mapped_labels(m))
+            XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-c
-c     call colour-connected Virtual
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
             ccVLO = %(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c
-c     eikonal
-            EIK0=SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
+c     eikonals
+            EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             EIK1(-2) =  CA*EIK0
             EIK1(-1) = -CA*EIK0*log(sil*sim/slm/scale**2)
             EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/scale**2)**2-5d0*zeta2)
@@ -164,25 +139,20 @@ c     eikonal
             do q=1,nexternal
                if(.not.isNLOQCDparton(q))cycle
                if(q.eq.i.or.q.eq.l.or.q.eq.m)cycle
-               qb=mapped_labels(q)
-c              check labels and pdgs
-               IF(.NOT.(ISLOQCDPARTON(QB)))THEN
-                  WRITE(*,*)'Wrong indices 1B in M2_S_RV_g',QB
-                  STOP
-               ENDIF
-               IF(leg_pdgs(q).ne.underlying_leg_pdgs(qb))THEN
-                  WRITE(*,*)'Wrong indices 2B in M2_S_RV_g',Q,QB
-                  STOP
-               ENDIF
 c
-c              invariant quantities
+c     invariant quantities
                siq=xs(i,q)
                smq=xs(m,q)
-
+c
+c     call triple-colour-connected Born
+               qb=mapped_indices_shuff(mapped_labels(q))
+               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+               TRIBLO = %(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
+c
+c     eikonals
                EIK2(-2) = 0d0
                EIK2(-1) = EIK0
                EIK2( 0) = -EIK0*log(sim*siq/smq/scale**2)
-               TRIBLO = GET_TRIBLO(L,M,Q)
 
                M2TMP(-2:0) = M2TMP(-2:0) + alphas*TRIBLO*EIK2(-2:0)
             enddo
@@ -209,9 +179,9 @@ c     TODO: adapt damping factors
             M2_S_RV_g(-2:0)=M2_S_RV_g(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit !*wgt_chan
+            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
 c
          enddo
       enddo

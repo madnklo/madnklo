@@ -1,7 +1,7 @@
 
 
       double precision function M2_C_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
-c     collinear limit C_(ia,ib)
+c     collinear limit C_(ia,ib) * Wcollinear
 c     this is meant to represent the full collinear
 c     for sector (ia,ib)
       use sectors2_module
@@ -61,7 +61,7 @@ c     checks
          stop
       endif
       if(.not.(ia.eq.isec.and.ib.eq.jsec))then
-         write(*,*)'Wrong indices in M2_C_gg',ia,ib,isec,jsec
+         write(*,*)'Wrong indices in M2_C_qqx',ia,ib,isec,jsec
          stop
       endif
 c

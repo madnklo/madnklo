@@ -2854,7 +2854,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         common_files+=['analysis_new.f', 'HwU.f']
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
-        if strdirpath[-1][0] == 'L': # These links need to exist only for LO_XXXX directories
+        if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
+                                     # These links need to exist for
+                                     # - LO_XXXX directories
+                                     # - NLO_R_XXXX directories (for dummy links at NNLO_RV)
                                      # For the NLO_XXXX we have a makefile for each Subprocess
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
             filename = pjoin(dirpath, 'ngraphs.inc')

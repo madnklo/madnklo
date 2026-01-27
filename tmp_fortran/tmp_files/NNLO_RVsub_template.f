@@ -28,7 +28,7 @@ c     (n+1)-body NNLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl
+      double precision wgt,wgtpl,wgt_chan
       logical dotechcut
       logical doplot, docut
       common/cdoplot/doplot
@@ -48,6 +48,18 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+      integer ich
+      common/comich/ich
+      integer ngraphs2
+      double precision amp2(n_max_cg)
+      common/to_amp2/amp2,ngraphs2
+      logical firsttime
+      data firsttime/.true./
+      save firsttime
+      integer mapped_labels(nexternal)
+      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
+      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
+      double precision pb_to_ME(0:3,nexternal-1)
 C     block for virtual matel
       LOGICAL INIT
       DATA INIT/.TRUE./
@@ -81,18 +93,24 @@ C
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
       integer iconfig,mincfig,maxcfig,invar
 
-      integer NGRAPHS2
-      double precision amp2(N_MAX_CG)
-      COMMON/TO_AMP2/AMP2,NGRAPHS2
-      integer ich
-      common/comich/ich
       double precision pmass(nexternal)
       INCLUDE 'pmass.inc'
 C
 C     EXTERNAL
 C
+c     call initialisation function
+      if(firsttime)then
+         call initialise_sector()
+         firsttime=.false.
+      endif
+c
 c     TODO: convert to partonic sCM
       sCM = (2d0*EBEAM(1))**2
+      if(sCM.le.0d0)then
+         write(*,*) 'Wrong sCM', sCM
+         stop
+      endif
+c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -112,9 +130,9 @@ c     initialise
       KRVNNLO = 0d0
       I1NNLO = 0d0
       I12NNLO = 0d0
-      do i=1,3
-         xsave(i)=x(i)
-      enddo
+      pb_to_ME=0d0
+      xsave(1:3)=x(1:3)
+      WGT_CHAN=1d0
 c
 c     specify phase-space mapping
       %(mapping_str)s
@@ -159,11 +177,12 @@ c     tiny technical phase-space cut to avoid fluctuations
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 555
-
-c     Call the Underlying Real matrix element to fill the amp2 array,
+c
+c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-c     add back long_proc_prefix
-c     WGT_CHAN=AMP2(ICH)
+c      PB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=PB(0:3,:)
+c      call %(strUB)s_ME_ACCESSOR_HOOK(PB_TO_ME,HEL,ALPHAS,dummy_ANS)
+c      WGT_CHAN=AMP2(ICH)
 c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then

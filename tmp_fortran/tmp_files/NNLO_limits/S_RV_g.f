@@ -482,7 +482,7 @@ c
 c     eikonals
             EIK1 =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
 
-           M2TMP(-1) = delta_s(-1) + alphas/2d0/pi*pref*EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra
+c           M2TMP(-1) = delta_s(-1) + alphas/2d0/pi*pref*EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra
 c     close k
          enddo
 

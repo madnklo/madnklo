@@ -54,13 +54,7 @@ c     external
       common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
       double precision xpb_to_ME(0:3,nexternal-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      double precision delta_s(-2:0)
-c     Label conventions according to Eq.(5.19) in 2212.11190
-c     with (c,d) ---> (l,m)
-      double precision ccBLO_ilm, ccBLO_iml, ccBLO_irl,ccBLO_ilr
       INCLUDE 'pmass.inc'
-      
-
 c
 c     initialise
       M2_S_RV_g=0d0
@@ -207,9 +201,6 @@ c
 
 
 
-
-
-
       function DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     Delta single-soft limit S_(i) * Wsoft for RV
 c     it returns 0 if i is not a gluon
@@ -225,12 +216,12 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       double precision delta_s_rv_g(-2:0)
-      integer i,l,m,q,lb,mb,qb,ierr,nit,idum
+      integer i,k,ierr,nit,idum
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,ccBLO,triBLO,VLO(-2:0),ccVLO(-2:0),extra
+      double precision BLO,ccBLO,triBLO,quaLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
+      double precision sil,sim,slm,ml2,mm2,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
 c     set logical doplot
       logical doplot
@@ -249,8 +240,8 @@ c     external
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
-      double precision  %(proc_prefix_S_RV_g)s_GET_CCVLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
+      double precision  %(proc_prefix_S_RV_g)s_GET_QUADBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
       integer %(proc_prefix_S_RV_g)s_den
@@ -263,17 +254,24 @@ c     external
       integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
       common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
       double precision xpb_to_ME(0:3,nexternal-1)
-      double precision xpb_to_ME_lm(0:3,nexternal-1),xpb_to_ME_lm(0:3,nexternal-1)
-      DOUBLE PRECISION PMASS(NEXTERNAL)
       double precision delta_s(-2:0)
 c     Label conventions according to Eq.(5.19) in 2212.11190
 c     with (c,d) ---> (l,m)
-      double precision ccBLO_ilm, ccBLO_iml, ccBLO_irl,ccBLO_ilr
-      double precision xpb_lm(0:3,nexternal-1), xpb_ml(0:3,nexternal-1)
-      double precision xsb_lm(nexternal-1,nexternal-1), xsb_ml(nexternal-1,nexternal-1)
+      integer l,m,p,q,lb,mb,pb,qb,kb,rb
+      double precision ccBLO_lm,ccBLO_ml
+      double precision ccBLO_rl,ccBLO_lr
+      double precision ccBLO_kr,ccBLO_rk
+      double precision quadblo_pmlm,quadblo_pqlm
+      double precision xpb_to_ME_lm(0:3,nexternal-1),xpb_to_ME_ml(0:3,nexternal-1)
+      double precision xpb_to_ME_kr(0:3,nexternal-1),xpb_to_ME_rk(0:3,nexternal-1)
+      double precision xpb_lm(0:3,nexternal-1),xpb_ml(0:3,nexternal-1)
+      double precision xpb_rk(0:3,nexternal-1),xpb_kr(0:3,nexternal-1)
+      double precision xsb_lm(nexternal-1,nexternal-1),xsb_ml(nexternal-1,nexternal-1)
+      double precision xsb_kr(nexternal-1,nexternal-1),xsb_rk(nexternal-1,nexternal-1)
+      double precision siq,smq,spm,spq,sbpm,sbpq,sik,sir,skr
+      double precision mk2,mr2,gamma_l
+      DOUBLE PRECISION PMASS(NEXTERNAL)
       INCLUDE 'pmass.inc'
-      
-
 c
 c     initialise
       DELTA_S_RV_g=0d0
@@ -289,6 +287,8 @@ c     initialise
       ccBLO_ilr = 0d
       xpb_lm = 0d0
       xpb_ml = 0d0
+      xpb_kr = 0d0
+      xpb_rk = 0d0
 c
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -326,7 +326,7 @@ c     Build  B_lm^{(ilm)}
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_lm,nexternal-1,xsb_lm,ierr)
             if(ierr.eq.1)goto 999
-c     Build  B_lm^{(iml)}            
+c     Build  B_lm^{(iml)}
             call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_ml,nexternal-1,xsb_ml,ierr)
@@ -357,13 +357,12 @@ c     call colour-connected B^{(ilm)} and B^{(iml)}
 c
             ANS = 0d0
             XPB_TO_ME_ML(0:3,MAPPED_INDICES_SHUFF(:))=XPB_ML(0:3,:)
-            
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_ml,hel,alphas,ANS)
             ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonals
             EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
-            delta_s(-2) = delta_s(-2) + EIK0*2d0*CA*(ccBLO_ilm-ccBLO_iml)
+            delta_s(-2) = delta_s(-2) + EIK0*2d0*CA*(ccBLO_lm-ccBLO_ml)
 
             if(abs(leg_pdgs(l)).le.6) then
                gamma_l = gamma_q
@@ -375,9 +374,9 @@ c     eikonals
                write(*,*) 'Exit...'
                stop
             endif
-            
-            delta_s(-1) = delta_s(-1) + EIK0*(ccBLO_ilm-ccBLO_iml)*(4d0*CA+gamma_l)
-            
+
+            delta_s(-1) = delta_s(-1) + EIK0*(ccBLO_lm-ccBLO_ml)*(4d0*CA+gamma_l)
+
 c     (c d e f) ---> (l m p q)
             do p=1,nexternal
                if(.not.isNLOQCDparton(p))cycle
@@ -388,17 +387,17 @@ c     (c d e f) ---> (l m p q)
                   pb = mapped_indices_shuff(mapped_labels(p))
                   qb = mapped_indices_shuff(mapped_labels(q))
 c     call invariants
-                  spq = xs(p,q)
                   spm = xs(p,m)
-                  sbpm = xsb_lm(MAPPED_INDICES_SHUFF(l),MAPPED_INDICES_SHUFF(m)) 
+                  spq = xs(p,q)
+                  sbpm = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(m))
                   sbpq = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(q))
 c     call quadruple-colour-connected Born
                   call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
-                  QUADBLO_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
                   QUADBLO_pmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
+                  QUADBLO_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
 
-                  delta_s(-1) = delta_s(-1) + EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
-                  delta_s(0)  = delta_s(0) +  1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
+                  delta_s(-1) = delta_s(-1)+EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
+                  delta_s( 0) = delta_s( 0)+1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
 
 
                   M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
@@ -429,7 +428,7 @@ c            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
 c            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
 c            if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
 c
-                  
+
 c     close q
                enddo
 c     close p
@@ -447,7 +446,7 @@ c     Build  B_lm^{(irk)}
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_rk,nexternal-1,xsb_rk,ierr)
             if(ierr.eq.1)goto 999
-c     Build  B_lm^{(ikr)}            
+c     Build  B_lm^{(ikr)}
             call phase_space_CS_inv(i,k,iref,xp,xpb_kr,nexternal,leg_PDGs,xjCS)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_kr,nexternal-1,xsb_kr,ierr)
@@ -479,14 +478,14 @@ c
             ANS = 0d0
             XPB_TO_ME_rk(0:3,MAPPED_INDICES_SHUFF(:))=XPB_rk(0:3,:)
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_rk,hel,alphas,ANS)
-            ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
+            ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
             EIK1 =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
 
            M2TMP(-1) = delta_s(-1) + alphas/2d0/pi*pref*EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra
 c     close k
          enddo
-         
+
 c     close l
       enddo
 
@@ -500,8 +499,8 @@ c     sanity check
       endif
 c
 
-      
-            
+
+
  999  ierr=1
       return
       end

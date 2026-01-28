@@ -219,7 +219,7 @@ c     it returns 0 if i is not a gluon
       integer i,k,ierr,nit,idum
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,ccBLO,triBLO,quaLO(-2:0),extra
+      double precision BLO,ccBLO,triBLO,quadBLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
@@ -281,10 +281,10 @@ c     initialise
       idum=0
       xpb_to_ME=0d0
       delta_s=0d0
-      ccBLO_ilm = 0d0
-      ccBLO_iml = 0d0
-      ccBLO_irl = 0d0
-      ccBLO_ilr = 0d
+      ccBLO_lm = 0d0
+      ccBLO_ml = 0d0
+      ccBLO_rl = 0d0
+      ccBLO_lr = 0d0
       xpb_lm = 0d0
       xpb_ml = 0d0
       xpb_kr = 0d0

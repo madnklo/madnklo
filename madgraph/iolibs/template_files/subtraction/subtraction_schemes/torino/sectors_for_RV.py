@@ -49,7 +49,7 @@ logger = logging.getLogger('madgraph')
 #      ? - testR_template.f
 #      ? - NLO_IR_limits_template.f
 #      ? - get_Born_PDGs.f
-#      ? - makefile_rv_template.f
+#      ? - makefile_npo_template.f
 #      ? - virtual_recoiler.inc (needed for checking recoiler consistency)
 #
 #      ? - links from Born to Real subproc directories
@@ -280,7 +280,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 #       - testRV_template.f
 #       - NNLO_RV_IR_limits_template.f
 #       - get_Born_PDGs.f
-#       - makefile_rv_template.f
+#       - makefile_npo_template.f
 #       - virtual_recoiler.inc (needed for checking recoiler consistency)
 #
 #       - links from Born to Real subproc directories
@@ -636,7 +636,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
         self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
 
-######### Write makefile_rv_template
+######### Write makefile_npo_template
 
         self.write_makefile_rv_file(writers.FileWriter, dirpath, dirmadnklo, defining_process, overall_sector_info)
 
@@ -929,7 +929,7 @@ sector_%d_%d: $(FILES_%d_%d)
 
         # write makefile
         filename = pjoin(dirpath, 'makefile' )
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_rv_template")).read()
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
         file = file % replace_dict
         writer(filename).write(file)
 

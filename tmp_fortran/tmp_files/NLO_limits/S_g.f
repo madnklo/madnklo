@@ -46,9 +46,7 @@ c     external
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
       DOUBLE PRECISION PMASS(NEXTERNAL)
       INCLUDE 'pmass.inc'      
 c
@@ -58,7 +56,6 @@ c     initialise
       ierr=0
       damp=0d0
       idum=0
-      xpb_to_ME=0d0
 c     
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -91,13 +88,13 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))CYCLE
+            IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))CYCLE
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -113,10 +110,9 @@ c     safety check
             endif
 c
 c     call colour-connected Born
-            XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
-            lb=mapped_indices_shuff(mapped_labels(l))
-            mb=mapped_indices_shuff(mapped_labels(m))
+            call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            lb=mapped_labels(l)
+            mb=mapped_labels(m)
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
@@ -144,7 +140,7 @@ c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
          enddo 
       enddo

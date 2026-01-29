@@ -1,153 +1,92 @@
-      subroutine get_soft_mapped_labels(npart,a,leg_pdgs,underlying_pdgs
-     $     ,mapped_labels,mapped_flavours,mapped_indices_shuff)
-c     assigns labels and flavours of particles after a mapping (a,x,y)
-c     that removes gluon a from an npart-body final state
-c     inputs : npart,a,leg_pdgs,underlying_pdgs
-c     outputs: mapped_labels,mapped_flavours,is_mapped_qcd_parton,
-c              mapped_indices_shuff
-      implicit none
-      integer npart,a,i,ii,jj
-      integer leg_pdgs(npart),mapped_labels(npart)
-      integer mapped_flavours(npart-1),underlying_pdgs(npart-1)
-     $     ,mapped_indices_shuff(npart-1)
-      logical looked(npart-1)
-c
-c     preliminary checks
-      if(a.lt.3.or.leg_pdgs(a).ne.21)then
-         write(*,*)'wrong a in get_soft_mapped_labels',a,leg_pdgs(a)
-         stop
-      endif
-c
-c     initial assignment of mapped_labels and mapped_flavours:
-c     mapped_labels has npart entries, one per particle to be mapped
-c     (including a), while mapped_flavours is the flavour of the
-c     npart-1 underlying partons, hence it has npart-1 entries
-c
-c     example, npart=6:
-c     i                            1  2  3  (4)  5  6
-c     leg_pdgs(i)                  u  ub g   g   d  db
-c     mapped_labels(i)             1  2  3   0   4  5
-c     ii                           1  2  3       4  5
-c     mapped_flavours(ii)          u  ub g       d  db
-c
-      ii=0
-      mapped_labels=0
-      do i=1,npart
-         if(i.eq.a)cycle
-         ii=ii+1
-         mapped_labels(i)=ii
-         mapped_flavours(ii)=leg_pdgs(i)
-      enddo
-c
-c     now the underlying indices ii runs in 1,..,npart-1. Reshuffle them
-c     to mapped_indices_shuff to align them to the conventions of the
-c     underlying_pdgs
-c
-c     example:
-c     ii                           1  2  3       4  5
-c     mapped_flavours(ii)          u  ub g       d  db
-c     underlying_pdgs(ii)          g  u  d       ub db
-c     mapped_indices_shuff(ii)     2  4  1       3  5    
-c
-      looked=.false.
-      do ii=1,npart-1
-         do jj=1,npart-1
-            if(mapped_flavours(ii).eq.underlying_pdgs(jj)
-     &         .and..not.looked(jj))then
-               looked(jj)=.true.
-               mapped_indices_shuff(ii)=jj
-            endif
-         enddo
-      enddo
-c
-      return
-      end
-
-
-      subroutine get_collinear_mapped_labels(npart,a,b,leg_pdgs,underlying_pdgs
-     $     ,mapped_labels,mapped_flavours,mapped_indices_shuff)
+      subroutine get_mapped_labels(npart,a,b,pdgs,underlying_pdgs,mapped_labels)
 c     assigns labels and flavours of particles after a mapping (a,b,y)
 c     that clusters partons (a,b) in an npart-body final state
-c     inputs : npart,a,b,leg_pdgs,underlying_pdgs
+c     inputs : npart,a,b,pdgs,underlying_pdgs
 c     outputs: mapped_labels,mapped_flavours,mapped_indices_shuff
       implicit none
-      integer npart,a,b,i,ii,jj,i1,i2
-      integer leg_pdgs(npart),mapped_labels(npart)
-      integer mapped_flavours(npart-1),underlying_pdgs(npart-1)
-     $     ,mapped_indices_shuff(npart-1)
-      logical isgg,isqq,isqg,isgq,looked(npart-1)
+      integer npart,a,b,i,jj,i1,i2
+      integer pdgs(npart),mapped_labels(npart),target(npart)
+      integer underlying_pdgs(npart-1)
+      logical isgg,isqq,isqg,isgq,assigned(npart-1)
+c
+c     initialise
+      i1=min(a,b)
+      i2=max(a,b)
+      mapped_labels(:)=0
+      target(:)=pdgs(:)
 c
 c     preliminary checks
-      if(a.lt.3.or.b.lt.3)then
+      if(i1.lt.3.or.i2.gt.npart)then
          write(*,*)'wrong a, b in get_collinear_mapped_labels',a,b
          stop
       endif
-c
+c     
 c     possible QCD pairs
-      i1=min(a,b)
-      i2=max(a,b)
-      isqq=abs(leg_pdgs(i1)).le.6.and.leg_pdgs(i1)+leg_pdgs(i2).eq.0
-      isgg=leg_pdgs(i1).eq.21.and.leg_pdgs(i2).eq.21
-      isqg=abs(leg_pdgs(i1)).le.6.and.leg_pdgs(i2).eq.21
-      isgq=leg_pdgs(i1).eq.21.and.abs(leg_pdgs(i2)).le.6
+      isqq=abs(pdgs(i1)).le.6.and.pdgs(i1)+pdgs(i2).eq.0
+      isgg=pdgs(i1).eq.21.and.pdgs(i2).eq.21
+      isqg=abs(pdgs(i1)).le.6.and.pdgs(i2).eq.21
+      isgq=pdgs(i1).eq.21.and.abs(pdgs(i2)).le.6
       if (.not.(isgg.or.isqq.or.isqg.or.isgq)) then
          write(*,*)'inconsistent pair in get_collinear_mapped_labels'
-         write(*,*)i1,i2,a,b,leg_pdgs(a),leg_pdgs(b)
+         write(*,*)i1,i2,a,b,pdgs(a),pdgs(b)
          stop
       endif
+      if(isqq.or.isgg)target(i2)=21
+      if(isqg)target(i2)=pdgs(i1)
+      if(isgq)target(i2)=pdgs(i2)
 c
-c     initial assignment of mapped_labels and mapped_flavours:
-c     mapped_labels has npart entries, one per particle to be mapped
-c     (including a), while mapped_flavours is the flavour of the
-c     npart-1 underlying partons, hence it has npart-1 entries
+c     explicit examples of output mapped_labels
+c=====================================================
+c     example 1, npart = 6:
+c     i                        1  (2)  3  (4)  5   6
+c     pdgs(i)                  u   ub  g   g   d   db
+c     jj                       1       2   3   4   5
+c     underlying_pdgs(jj)      g       u   d   ub  db
+c     mapped_labels(i)         2   4   1   4   3   5
+c=====================================================
+c=====================================================
+c     example 2, npart = 6:
+c     i                        1   2   3  (4)  5  (6)
+c     pdgs(i)                  u   ub  g   g   d   db
+c     jj                       1   2   3       4   5
+c     underlying_pdgs(jj)      g   u   d       ub  db
+c     mapped_labels(i)         2   4   1   5   3   5
+c=====================================================
+c=====================================================
+c     example 3, npart = 6:
+c     i                        1   2  (3) (4)  5   6
+c     pdgs(i)                  u   ub  g   g   d   db
+c     jj                       1   2       3   4   5
+c     underlying_pdgs(jj)      g   u       d   ub  db
+c     mapped_labels(i)         2   4   1   1   3   5      
+c=====================================================
+c=====================================================
+c     example 4, npart = 6:
+c     i                        1   2   3   4  (5) (6)
+c     pdgs(i)                  u   ub  g   g   d   db
+c     jj                       1   2   3   4       5
+c     underlying_pdgs(jj)      g   u   g   ub      g
+c     mapped_labels(i)         2   4   1   3   5   5      
+c=====================================================
 c
-c     example, npart=6:
-c     i                            1  (2)  3  (4)  5  6
-c     leg_pdgs(i)                  u  ub   g   g   d  db
-c     mapped_labels(i)             1  3    2   3   4  5
-c     ii                           1       2   3   4  5
-c     mapped_flavours(ii)          u       g   ub  d  db
-c
-      ii=0
-      mapped_labels=0
+      assigned=.false.
       do i=1,npart
          if(i.eq.i1)cycle
-         ii=ii+1
-         mapped_labels(i)=ii
-         if(i.ne.i2)then
-            mapped_flavours(ii)=leg_pdgs(i)
-         else
-            if(isqq.or.isgg)then
-               mapped_flavours(ii)=21
-            elseif(isqg)then
-               mapped_flavours(ii)=leg_pdgs(i1)
-            elseif(isgq)then
-               mapped_flavours(ii)=leg_pdgs(i2)
-            endif
-         endif
-      enddo
-      mapped_labels(i1)=mapped_labels(i2)
-c
-c     now the underlying indices ii runs in 1,..,npart-1. Reshuffle them
-c     to mapped_indices_shuff to align them to the conventions of the
-c     underlying_pdgs
-c
-c     example:
-c     ii                           1       2   3   4  5
-c     mapped_flavours(ii)          u       g   ub  d  db
-c     underlying_pdgs(ii)          g       u   d   ub db
-c     mapped_indices_shuff(ii)     2       1   4   3  5    
-c
-      looked=.false.
-      do ii=1,npart-1
          do jj=1,npart-1
-            if(mapped_flavours(ii).eq.underlying_pdgs(jj)
-     &         .and..not.looked(jj))then
-               looked(jj)=.true.
-               mapped_indices_shuff(ii)=jj
+            if(underlying_pdgs(jj).eq.target(i).and.
+     &           .not.assigned(jj))then
+               assigned(jj)=.true.
+               mapped_labels(i)=jj
             endif
          enddo
       enddo
+      mapped_labels(i1)=mapped_labels(i2)
+c
+c     check
+      if(any(.not.assigned))then
+         write(*,*)'Something went wrong in mapped_labels'
+         stop
+      endif
 c
       return
       end

@@ -44,16 +44,13 @@ c     set logical doplot
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
 c     
 c     initialise
       M2_C_gg=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpb_to_ME=0d0
 c     
 c     checks
       if(leg_pdgs(ia).ne.21.or.leg_pdgs(ib).ne.21)then
@@ -66,7 +63,7 @@ c     checks
       endif
 c
 c     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN
+      IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))RETURN
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -94,18 +91,18 @@ c     safety check
       endif
 c
 c     call Born
-      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-      call %(proc_prefix_C_gg)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+      call %(proc_prefix_C_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      parent_leg = mapped_indices_shuff(mapped_labels(ib))
+c     parent_leg = mapped_indices_shuff(mapped_labels(ib))
+      parent_leg = mapped_labels(ib)
       if(underlying_leg_pdgs(parent_leg).ne.21)then
          write(*,*)'wrong parent label in M2_C_gg'
          write(*,*)ib,parent_leg,mapped_labels(ib),underlying_leg_pdgs(parent_leg)
          stop
       endif
 c
-      KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb_to_ME,kt)
+      KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0+1d0-x**alpha)*BLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
 c     Including correct multiplicity factor
@@ -128,7 +125,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_C_gg*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_C_gg).ge.huge(1d0).or.isnan(M2_C_gg))then
@@ -181,16 +178,13 @@ c     set logical doplot
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
 c     
 c     initialise
       M2_SC_gg=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpb_to_ME=0d0
 c     
 c     checks
       if(leg_pdgs(ia).ne.21.or.leg_pdgs(ib).ne.21)then
@@ -203,7 +197,7 @@ c     checks
       endif
 c
 c     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN      
+      IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))RETURN      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -224,8 +218,7 @@ c     safety check
       endif
 c
 c     call Born
-      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-      call %(proc_prefix_SC_gg)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+      call %(proc_prefix_SC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
       M2tmp=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
@@ -246,7 +239,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=+M2_SC_gg*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_SC_gg).ge.huge(1d0).or.isnan(M2_SC_gg))then

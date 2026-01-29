@@ -1,4 +1,4 @@
-      subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB)
+      subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB,mapped_labels)
 c     iU is the unresolved parton associated with the soft singularity
       implicit none
       include 'coupl.inc'
@@ -9,6 +9,7 @@ c     iU is the unresolved parton associated with the soft singularity
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
+      integer mapped_labels(nexternal)
       integer iconfig,mincfig,maxcfig,invar
       integer ich
       common/comich/ich
@@ -26,7 +27,7 @@ C     Hard coded settings for gen_mom
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar,nexternal-1)
 c
 c     call radiation phase space
-      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS)
+      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS,mapped_labels)
 c
 c     total jacobian
       xjac=xjacB*xjacCS

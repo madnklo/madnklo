@@ -1,4 +1,4 @@
-      subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,xjac)
+      subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,xjac,mapped_labels)
 c     Build n+1 momenta p from n momenta pbar 
 c     iU is the unresolved parton associated
 c     with the soft singularity
@@ -20,12 +20,12 @@ c     npart = n+1
       double precision dot
       double precision ran2
       integer leg_PDGs(npart)
-      integer mapped_labels(npart)
       integer idum
       common/rand/idum
       double precision yplus,z_minus,z_plus
       double precision Q2,sdip,mb2,mc2,lam1,lam2,lambda
       double precision vel
+      integer mapped_labels(npart)
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -42,7 +42,7 @@ c     input check
 c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
-      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
+c      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
 c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
       pbB(:)=pbar(:,mapped_labels(iB))
       pbS(:)=pbar(:,mapped_labels(iS))
@@ -194,7 +194,7 @@ c
       end
 
 
-      subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,leg_PDGs,xjac)
+      subroutine phase_space_CS_inv(iU,iS,iB,p,pbar,npart,leg_PDGs,xjac,mapped_labels)
 c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
 c     with the soft singularity
@@ -209,15 +209,14 @@ c
       double precision p(0:3,npart),pbar(0:3,npart-1),Q(0:3)
       integer leg_PDGs(npart)
       double precision yCS,zCS,xjac,GG,Qsq,dot
-      integer mapped_labels(npart)
       double precision lam1,lam2,mS2,mB2,miUiS2
       double precision lambda,vel,sdip,z_minus,z_plus
+      integer mapped_labels(npart)
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
 c     initialise
       xjac=0d0
-      mapped_labels = 0
 c     
 c     auxiliary quantities
       mS2=pmass(iS)**2
@@ -227,7 +226,10 @@ c     auxiliary quantities
       Qsq = dot(Q(:),Q(:))
 c
 c     construct pbar from p
-      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
+c     since this routine is to be called with iU = isec = gluon, then
+c     mapped labels should be the ones assigned at the beginning of the
+c     run for this sector, and stored in c_mapped_labels
+c      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
 c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
 c
       if(mB2.ne.0d0 .or. mS2.ne.0d0) then
@@ -303,26 +305,26 @@ c
       end
 
 
-      subroutine get_mapped_labels_reduced(npart,a,b,mapped_labels)
-      implicit none
-      integer npart,a,b,mapped_labels(npart)
-      integer i,i1,i2,ii
+c     subroutine get_mapped_labels_reduced(npart,a,b,mapped_labels)
+c     implicit none
+c     integer npart,a,b,mapped_labels(npart)
+c     integer i,i1,i2,ii
 c
 c     preliminary checks
-      if(a.lt.3.or.b.lt.3)then
-         write(*,*)'wrong a, b in reduced_mapped_labels',a,b
-         stop
-      endif
+c      if(a.lt.3.or.b.lt.3)then
+c         write(*,*)'wrong a, b in reduced_mapped_labels',a,b
+c         stop
+c      endif
+cc
+c      i1=min(a,b)
+c      i2=max(a,b)
+c      ii=0
+c      do i=1,npart
+c         if(i.eq.i1)cycle
+c         ii=ii+1
+c         mapped_labels(i)=ii
+c      enddo
+c      mapped_labels(i1)=mapped_labels(i2)
 c
-      i1=min(a,b)
-      i2=max(a,b)
-      ii=0
-      do i=1,npart
-         if(i.eq.i1)cycle
-         ii=ii+1
-         mapped_labels(i)=ii
-      enddo
-      mapped_labels(i1)=mapped_labels(i2)
-c
-      return
-      end
+c      return
+c      end

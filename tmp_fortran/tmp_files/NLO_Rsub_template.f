@@ -60,9 +60,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       data firsttime/.true./
       save firsttime
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision pb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
 c
 c     call initialisation function
       if(firsttime)then
@@ -86,12 +84,12 @@ c     initialise
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
-      pb_to_ME=0d0
+c      pb_to_ME=0d0
       xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
 c
 c     phase space and invariants
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
@@ -118,8 +116,7 @@ c     possible cuts
 c
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-c      PB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=PB(0:3,:)
-c      call %(strUB)s_ME_ACCESSOR_HOOK(PB_TO_ME,HEL,ALPHAS,dummy_ANS)
+c      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
 c      WGT_CHAN=AMP2(ICH)
 c
 c     test matrix elements
@@ -193,12 +190,14 @@ c
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
-      integer mapped_labels_s(nexternal)
-      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
-      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
-      integer mapped_labels_c(nexternal)
-      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
+c      integer mapped_labels_s(nexternal)
+c      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
+c      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
+c      integer mapped_labels_c(nexternal)
+c      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
+c      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
+      integer mapped_labels(nexternal)
+      common/c_mapped_labels/mapped_labels
 c
       isec = %(isec)d
       jsec = %(jsec)d
@@ -223,10 +222,6 @@ c     configuration files
 c
 c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
-      call get_collinear_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c)
-      if(leg_pdgs(isec).eq.21)then
-         call get_soft_mapped_labels(nexternal,isec,leg_pdgs,underlying_leg_pdgs,mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s)
-      endif
-c
+      call get_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels)
       return
       end

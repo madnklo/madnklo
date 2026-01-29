@@ -42,16 +42,13 @@ c     set logical doplot
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
 c
 c     initialise
       M2_C_gq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpb_to_ME=0d0
 c     
 c     checks
       if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
@@ -64,7 +61,7 @@ c     checks
       endif
 c
 c     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN      
+      IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))RETURN      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -85,8 +82,7 @@ c     safety check
       endif
 c
 c     call Born
-      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-      call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+      call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
@@ -110,7 +106,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=-M2_C_gq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_C_gq).ge.huge(1d0).or.isnan(M2_C_gq))then
@@ -163,16 +159,13 @@ c     set logical doplot
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
 c
 c     initialise
       M2_SC_gq=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      xpb_to_ME=0d0
 c     
 c     checks
       if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
@@ -185,7 +178,7 @@ c     checks
       endif
 c     
 c     possible cuts
-      IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))RETURN      
+      IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))RETURN      
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -206,8 +199,7 @@ c     safety check
       endif
 c
 c     call Born
-      XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-      call %(proc_prefix_SC_gq)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+      call %(proc_prefix_SC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2tmp=BLO*CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
@@ -228,7 +220,7 @@ c     apply flavour factor
 c
 c     plot
       wgtpl=+M2_SC_gq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_SC_gq).ge.huge(1d0).or.isnan(M2_SC_gq))then

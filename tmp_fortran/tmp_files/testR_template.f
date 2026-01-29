@@ -75,6 +75,8 @@ c
       PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       double precision e(2),l(2)
+      integer mapped_labels(nexternal)
+      common/c_mapped_labels/mapped_labels
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c     
@@ -117,7 +119,7 @@ c     more and more singular kinematics
          xsave(1:3)=x(1:3)
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle

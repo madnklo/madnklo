@@ -2853,6 +2853,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         common_files+=['analysis_new.f', 'HwU.f']
+        common_files += ['sectors.f', 'sectors_module.f90']
+
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
                                      # These links need to exist for
@@ -2889,6 +2891,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/leshouche_%s.f' 
                                                       %matrix_element.get('processes')[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
+            if strdirpath[-1][0:5] == 'NLO_R':
+                cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
+                os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+                #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
+                #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
+                #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
+                os.remove(pjoin(dirpath,'configs.inc'))
 
 
 
@@ -2896,14 +2905,14 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             #cp(pjoin(dirpath,'decayBW.inc'),pjoin(dirpath,'../../../Common_Files'))
             #cp(pjoin(dirpath,'leshouche.inc'),pjoin(dirpath,'../../../Common_Files'))
             #cp(pjoin(dirpath,'props.inc'),pjoin(dirpath,'../../../Common_Files'))
-        elif strdirpath[-1][0] == 'N':
-            common_files += ['sectors.f', 'sectors_module.f90']
-            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
-            os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-            #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
-            #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
-            #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
-            os.remove(pjoin(dirpath,'configs.inc'))
+        # elif strdirpath[-1][0] == 'N':
+        #     common_files += ['sectors.f', 'sectors_module.f90']
+        #     cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
+        #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+        #     #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
+        #     #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
+        #     #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
+        #     os.remove(pjoin(dirpath,'configs.inc'))
         # else:
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
 

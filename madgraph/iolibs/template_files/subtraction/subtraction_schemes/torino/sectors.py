@@ -477,15 +477,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_ct_list_one[2] = 'C_gg' # 1
-                                    necessary_ct_list_one[3] = 'SC_gg' # 1
+                                    necessary_ct_list_one[2] = 'HC_gg' # 1
+                                    #necessary_ct_list_one[3] = 'SC_gg' # 1
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_ct_list_one[2] = 'C_gq' # 1
-                                    necessary_ct_list_one[3] = 'SC_gq' # 1
+                                    necessary_ct_list_one[2] = 'HC_gq' # 1
+                                    #necessary_ct_list_one[3] = 'SC_gq' # 1
                                 elif s['sector'].id[1] == 21 and s['sector'].id[0] != 21:
-                                    necessary_ct_list_one[2] = 'C_gq' # 1
+                                    necessary_ct_list_one[2] = 'HC_gq' # 1
                                 else :
-                                    necessary_ct_list_one[2] = 'C_qqx' # 1
+                                    necessary_ct_list_one[2] = 'HC_qqx' # 1
                                 necessary_ct[i+2] = ct
 #                         else:
 #                             #soft-collinear CT: include only if, on top of the previous condition,
@@ -608,7 +608,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # This ensures even SC_gg / SC_gq (soft-collinear) terms have dummy entries.
         # They will be overwritten later when actual process names are found.
         # ------------------------------------------------------------------------------
-        necessary_default_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'SC_gg', 'SC_gq']
+        necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx']
         for ct in necessary_default_ct_list:
             replace_dict_limits['proc_prefix_%s' % ct] = 'dummy'
         # ------------------------------------------------------------------------------
@@ -619,7 +619,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         path_Born_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        necessary_default_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'SC_gg', 'SC_gq']
+        necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx']
 
 
         for i in range(0,len(all_sector_list)):
@@ -724,13 +724,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 3:
-                    if (isec == iref) or (jsec == iref):
-                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
-                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                    list_M2.append('if(ierr.eq.1)goto 999\n')
+                 # elif j == 3:
+                 #    if (isec == iref) or (jsec == iref):
+                 #        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+                 #    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
+                 #    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
+                 #                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                 #    list_M2.append('if(ierr.eq.1)goto 999\n')
 
 
             # outside loop on necessary_ct_list

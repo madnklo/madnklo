@@ -9,29 +9,32 @@ c     (n+1)-body NNLO integrand for vegas
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
-      INCLUDE 'ngraphs.inc'
+      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
-      integer ndim,ierr,ievt,nthres,i
-      save ievt,nthres
-      integer nitRV
-      common/niterationsrv/nitRV
+      integer i
+      integer ierr
+      integer ievt,nthres,ntest
       integer iunit
       common/ciunitNNLO/iunit
-      double precision int_real_virtual,RVNNLO(-2:0),KRVNNLO(-2:0)
+      integer ntested
+      parameter(ntest=20)
+      save ievt,nthres,ntested
       double precision int_real_virtual_no_cnt
-      double precision I1NNLO(-2:0),I12NNLO(-2:0)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
-      double precision alphaz
-      parameter(alphaz=1d0)
+      double precision alphaZ
+      parameter(alphaZ=1d0)
+      double precision RVNNLO(-2:0),KRVNNLO(-2:0)
+      double precision I1NNLO(-2:0),I12NNLO(-2:0)
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
       double precision wgt,wgtpl,wgt_chan
       logical dotechcut
-      logical doplot, docut
+      logical doplot
       common/cdoplot/doplot
+      logical docut
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
       integer isec,jsec,ksec,lsec,iref
@@ -43,9 +46,11 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision sCM
       common/cscm/sCM
       common/cxsave/xsave
+      integer nitRV
+      common/niterationsrv/nitRV
       integer %(NNLO_RV_proc_str)sfl_factor
       common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
-      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
+      double precision dummy_ans(0:1),ans(0:1) !TODO SET CORRECTLY RANGE OF ANS
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
       integer ich
@@ -57,10 +62,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       data firsttime/.true./
       save firsttime
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_c/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision pb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
+C
 C     block for virtual matel
+C
       LOGICAL INIT
       DATA INIT/.TRUE./
       COMMON/INITCHECKSA/INIT
@@ -74,9 +79,6 @@ C     sqrt(s)= center of mass energy
       INTEGER NSQUAREDSO_LOOP
       REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
       REAL*8 BLO
-      integer ntested,ntest
-      parameter(ntest=20)
-      save ntested
 C
 C     GLOBAL VARIABLES
 C
@@ -92,12 +94,11 @@ C
       LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
       integer iconfig,mincfig,maxcfig,invar
-
+C
       double precision pmass(nexternal)
       INCLUDE 'pmass.inc'
-C
-C     EXTERNAL
-C
+
+c
 c     call initialisation function
       if(firsttime)then
          call initialise_sector()
@@ -117,43 +118,19 @@ c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
-      isec = %(isec)d
-      jsec = %(jsec)d
-      ksec = 0d0
-      lsec = 0d0
       iref = %(iref)d
       int_real_virtual_%(isec)d_%(jsec)d=0d0
       int_real_virtual_no_cnt=0d0
-      sNLO = 0d0
-      sLO = 0d0
-      RVNNLO = 0d0
+      RVNNLO  = 0d0
       KRVNNLO = 0d0
-      I1NNLO = 0d0
+      I1NNLO  = 0d0
       I12NNLO = 0d0
-      pb_to_ME=0d0
+c      pb_to_ME=0d0
       xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
 c
-c     specify phase-space mapping
-      %(mapping_str)s
-
-      if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real_virtual'
-         stop
-      endif
-c
 c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
-
-      call configs_%(strUB)s
-      call props_%(strUB)s
-      call decaybw_%(strUB)s
-      call getleshouche_%(strUB)s
-
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
@@ -180,8 +157,7 @@ c     possible cuts
 c
 c     Call the Underlying Born matrix element to fill the amp2 array,
 c     in order to implement the multi channel
-c      PB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=PB(0:3,:)
-c      call %(strUB)s_ME_ACCESSOR_HOOK(PB_TO_ME,HEL,ALPHAS,dummy_ANS)
+c      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
 c      WGT_CHAN=AMP2(ICH)
 c
 c     test phase-space singularities of matrix elements
@@ -189,7 +165,6 @@ c     test phase-space singularities of matrix elements
          ntested=ntested+1
          call test_RV_%(isec)d_%(jsec)d(iunit,x)
       endif
-      ntested=0
 c     TODO: implement flag 'test_only' to stop here
 c
 c     real virtual
@@ -199,14 +174,13 @@ c     real virtual
          ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
          CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
          ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
-!     INCLUDE 'pmass.inc'
+!      INCLUDE 'pmass.inc'
       ENDIF
-!     RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
-      RVNNLO(-2:0) = (/1d0,1d0,1d0/) * %(NNLO_RV_proc_str)sfl_factor
+      RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
       do i=1,3
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
-            write(77,*) 'Wrong RVNNLO', i, RVNNLO(i)
+            write(77,*) 'Wrong RVNNLO at eps^',i,' : ', RVNNLO(i)
             goto 999
          endif
       enddo
@@ -224,14 +198,13 @@ c     full real virtual in sector Wij
       int_real_virtual_no_cnt=RVNNLO(0)*W_NLO*xjac
 c
 c     plot real virtual
-      wgtpl=int_real_virtual_no_cnt*wgt/nitRV  !*wgt_chan
+      wgtpl=int_real_virtual_no_cnt*wgt/nitRV*wgt_chan
       if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
 c
-c      str_int_real_virtual ???
 c
 c     real-virtual counterterm
-      call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,ierr) !wgt_chan
+      call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)
       if(ierr.eq.1)then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Something wrong in the RV counterterm', KRVNNLO
@@ -239,11 +212,11 @@ c     real-virtual counterterm
       endif
 c
 c     1-unresolved integrated counterterm
-      call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,I1NNLO,ierr)
+      call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     12-unresolved integrated counterterm
-      call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,I12NNLO,ierr)
+      call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I12NNLO,ierr)
       if(ierr.eq.1)goto 999
 c
 c     test coefficients of epsilon poles
@@ -262,16 +235,10 @@ c     test coefficients of epsilon poles
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
       int_real_virtual_%(isec)d_%(jsec)d=(int_real_virtual_no_cnt+I1NNLO(0)) - (KRVNNLO(0)+I12NNLO(0))
-      int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d  !*wgt_chan
-
-c     Multi channeling
-      int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d * amp2(ich)
-c
-c     plot
-      wgtpl=int_real_virtual_%(isec)d_%(jsec)d*wgt/nitRV
-      if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
+      int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d*wgt_chan
 c
 c     print out current run progress
+c     TODO: adapt progress bar
 c     999  ievt=ievt+1
 c      if(ievt.gt.nthres)then
 c         write(*,111)char(13),int(1d2*nthres/(nprodRV*1d0)),' done'
@@ -280,4 +247,53 @@ c      endif
 c 111  format(a1,i3,a6,$)
 c
  999  return
+      end
+
+
+
+
+      subroutine initialise_sector()
+      implicit none
+      include 'nexternal.inc'
+      include 'leg_PDGs.inc'
+      integer iU,iS,iB,iA
+      common/cNLOmaplabels/iU,iS,iB,iA
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_U_PDGs/UNDERLYING_LEG_PDGS
+c      integer mapped_labels_s(nexternal)
+c      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
+c      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
+c      integer mapped_labels_c(nexternal)
+c      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
+c      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
+      integer mapped_labels(nexternal)
+      common/c_mapped_labels/mapped_labels
+c
+      isec = %(isec)d
+      jsec = %(jsec)d
+      ksec = 0
+      lsec = 0
+      iref = %(iref)d
+c
+c     check we are not in the ISR case
+      if(isec.le.2.or.jsec.le.2)then
+         write(*,*)'update sCM in int_real'
+         stop
+      endif
+c
+c     specify phase-space mapping
+      %(mapping_str)s
+c
+c     configuration files
+      call configs_%(strUB)s
+      call props_%(strUB)s
+      call decaybw_%(strUB)s
+      call getleshouche_%(strUB)s
+c
+c     fill underlying pdgs, labels and flavours
+      call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
+      call get_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels)
+      return
       end

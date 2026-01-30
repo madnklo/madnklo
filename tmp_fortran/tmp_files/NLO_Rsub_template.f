@@ -19,11 +19,11 @@ c     (n+1)-body NLO integrand for vegas
       parameter(ntest=20)
       save ievt,nthres,ntested
       double precision int_real_no_cnt
-      double precision sNLO(nexternal,nexternal),sminNLO
+      double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision alphaZ
       parameter(alphaZ=1d0)
-      double precision RNLO,KNLO,KS,KHC
+      double precision RNLO,KNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
@@ -43,8 +43,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision sCM
       common/cscm/sCM
       common/cxsave/xsave
-      integer counter
-      save counter
       integer nitr
       common/iterations/nitr
       integer %(NLO_proc_str)sfl_factor 
@@ -119,7 +117,7 @@ c     in order to implement the multi channel
 c      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
 c      WGT_CHAN=AMP2(ICH)
 c
-c     test matrix elements
+c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
          call test_R_%(isec)d_%(jsec)d(iunit,x)
@@ -152,7 +150,7 @@ c     plot real
       if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
 c
-      %(str_int_real)s
+c      str_int_real  ! TODO: needed?
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)

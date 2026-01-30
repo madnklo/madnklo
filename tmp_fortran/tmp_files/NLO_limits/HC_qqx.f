@@ -51,7 +51,7 @@ c     initialise
       damp=0d0
 c     
 c     checks
-      if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia)+leg_pdgs(ib).eq.0.and.mapped_labels(ib).eq.21))then
+      if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia)+leg_pdgs(ib).eq.0.and.underlying_leg_pdgs(mapped_labels(ib)).eq.21))then
          write(*,*)'Wrong pdgs in M2_HC_qqx',leg_pdgs(ia),leg_pdgs(ib),mapped_labels(ib)
          stop
       endif

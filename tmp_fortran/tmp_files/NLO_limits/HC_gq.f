@@ -85,7 +85,7 @@ c     call Born
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2_C_gq  = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
-      M2_SC_gq = CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
+      if(ia.eq.isec)M2_SC_gq = CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
 c     compute collinear limit of sector function
       call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
       M2_C_gq =  M2_C_gq*wc_nlo

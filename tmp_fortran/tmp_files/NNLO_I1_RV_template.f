@@ -1,4 +1,4 @@
-      subroutine int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,I1NNLO,ierr)
+      subroutine int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
 c     MSbar integrated counterterm
 c     FINITE_PART = I1NNLO(0)
 c     SINGLE_POLE = I1NNLO(-1)
@@ -12,15 +12,16 @@ c     DOUBLE_POLE = I1NNLO(-2)
       INCLUDE 'math.inc'
       INCLUDE 'input.inc'
       INCLUDE 'virtual_recoilers.inc'
-      INCLUDE 'leg_PDGs_%(proc_prefix)s.inc'
+      INCLUDE 'leg_PDGs_%(NLO_process)s.inc'
       INCLUDE 'colored_partons.inc'
-      integer i,j,r
+      integer i,j,k,r
       integer isec, jsec
       integer ierr
       double precision p(0:3,nexternal)
-      double precision sNLO(nexternal,nexternal)
+      double precision sNLO(nexternal,nexternal),sLO(nexternal-1,nexternal-1)
       double precision I1NNLO(-2:0),I1NNLOS(-2:0),pref
       double precision RNLO,CCRNLO
+      integer %(NLO_proc_str)sfl_factor 
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
@@ -64,16 +65,16 @@ c
 c     Hard-collinear contribution
       do k=1,nexternal
          if(pmass(k).ne.0d0)cycle
-         if(leg_pdgs_%(proc_prefix)s(k).ne.0.and.abs(leg_pdgs_%(proc_prefix)s(k)).le.6) then
+         if(leg_pdgs_%(NLO_process)s(k).ne.0.and.abs(leg_pdgs_%(NLO_process)s(k)).le.6) then
             I1NNLO(-2) = 0d0
             I1NNLO(-1) = I1NNLO(-1) + gamma_q
-            I1NNLO( 0) = I1NNLO( 0) - gamma_q*log(sNLO(k,iref1(k))/MU_R**2) + phi_q)
+            I1NNLO( 0) = I1NNLO( 0) - gamma_q*log(sNLO(k,iref1(k))/MU_R**2) + phi_q
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I1NNLO( 0) = I1NNLO( 0) + pi**2/12d0 * CF
-         elseif(leg_pdgs_%(proc_prefix)s(k).eq.21) then
+         elseif(leg_pdgs_%(NLO_process)s(k).eq.21) then
             I1NNLO(-2) = 0d0
             I1NNLO(-1) = I1NNLO(-1) + gamma_g
-            I1NNLO( 0) = I1NNLO( 0) - gamma_g*log(sNLO(k,iref1(k))/MU_R**2) + phi_g)
+            I1NNLO( 0) = I1NNLO( 0) - gamma_g*log(sNLO(k,iref1(k))/MU_R**2) + phi_g
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I1NNLO( 0) = I1NNLO( 0) + pi**2/12d0 * CF
          endif
@@ -85,17 +86,17 @@ c     Include damping factors
       A20b=A20(beta_FF)
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
-         if(leg_pdgs_%(proc_prefix)s(i).eq.21)I1NNLO(0) = I1NNLO(0) + CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
-         if(leg_pdgs_%(proc_prefix)s(i).ne.0.and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6)I1NNLO(0) = I1NNLO(0) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
+         if(leg_pdgs_%(NLO_process)s(i).eq.21)I1NNLO(0) = I1NNLO(0) + CA*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_g-2d0*CA)*A20b
+         if(leg_pdgs_%(NLO_process)s(i).ne.0.and.abs(leg_pdgs_%(NLO_process)s(i)).le.6)I1NNLO(0) = I1NNLO(0) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
 c
       I1NNLO=I1NNLO*RNLO
 c
 c     Soft contribution
       do i=1,nexternal
-         if(.not.ISLOQCDPARTON(i))cycle
+         if(.not.ISNLOQCDPARTON(i))cycle
          do j=1,nexternal
-            if(.not.ISLOQCDPARTON(j))cycle
+            if(.not.ISNLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
             CCRNLO = GET_CCRNLO(i,j)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then

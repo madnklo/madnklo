@@ -24,7 +24,7 @@ c     collinear limit C_(ia,ib) * Wcollinear
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=1d0)
-      double precision %(proc_prefix_C_qqx)s_GET_KKBLO
+      double precision %(proc_prefix_HC_qqx)s_GET_KKBLO
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -35,8 +35,8 @@ c     set logical doplot
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_C_qqx)s_den
-      common/%(proc_prefix_C_qqx)s_iden/%(proc_prefix_C_qqx)s_den
+      integer %(proc_prefix_HC_qqx)s_den
+      common/%(proc_prefix_HC_qqx)s_iden/%(proc_prefix_HC_qqx)s_den
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
@@ -89,11 +89,11 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_C_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
       parent_leg = mapped_labels(ib)
-      KKBLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx = TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function
@@ -107,7 +107,7 @@ c     account for different damping factors according to recoiler position (ir)
       endif
       M2_HC_qqx = M2_C_qqx
 c     include prefactors
-      M2_HC_qqx = M2_HC_qqx *dble(%(proc_prefix_C_qqx)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
+      M2_HC_qqx = M2_HC_qqx *dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan

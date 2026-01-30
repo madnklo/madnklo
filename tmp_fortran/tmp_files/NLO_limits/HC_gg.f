@@ -24,7 +24,7 @@ c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=1d0)
-      double precision %(proc_prefix_C_gg)s_GET_KKBLO
+      double precision %(proc_prefix_HC_gg)s_GET_KKBLO
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -35,8 +35,8 @@ c     set logical doplot
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_C_gg)s_den
-      common/%(proc_prefix_C_gg)s_iden/%(proc_prefix_C_gg)s_den
+      integer %(proc_prefix_HC_gg)s_den
+      common/%(proc_prefix_HC_gg)s_iden/%(proc_prefix_HC_gg)s_den
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
@@ -90,11 +90,11 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_C_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
       parent_leg = mapped_labels(ib)
-      KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
+      KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0+1d0-x**alpha)*BLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
       M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
@@ -109,7 +109,7 @@ c     account for different damping factors according to recoiler position (ir)
       endif
       M2_HC_gg = M2_C_gg-M2_SC_gg
 c     include prefactors
-      M2_HC_gg = M2_HC_gg *dble(%(proc_prefix_C_gg)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
+      M2_HC_gg = M2_HC_gg *dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

@@ -33,8 +33,8 @@ c     set logical doplot
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
-      integer %(proc_prefix_C_gq)s_den
-      common/%(proc_prefix_C_gq)s_iden/%(proc_prefix_C_gq)s_den
+      integer %(proc_prefix_HC_gq)s_den
+      common/%(proc_prefix_HC_gq)s_iden/%(proc_prefix_HC_gq)s_den
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
@@ -81,7 +81,7 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_C_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(proc_prefix_HC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
       M2_C_gq  = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
@@ -97,7 +97,7 @@ c     account for different damping factors according to recoiler position (ir)
       endif
       M2_HC_gq = M2_C_gq-M2_SC_gq
 c     include prefactors
-      M2_HC_gq = M2_HC_gq *dble(%(proc_prefix_C_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
+      M2_HC_gq = M2_HC_gq *dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
 c
 c     plot
       wgtpl=-M2_HC_gq*wgt/nit*wgt_chan

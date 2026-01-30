@@ -4,7 +4,6 @@
 import copy
 import sys
 
-
 import commons.generic_sectors as generic_sectors
 import madgraph.various.misc as misc
 import madgraph.core.diagram_generation as diagram_generation
@@ -12,8 +11,6 @@ import madgraph.fks.fks_common as fks_common
 import madgraph.integrator.vectors as vectors
 import logging
 
-
-#gl
 import madgraph.interface.madgraph_interface as interface
 import madgraph.iolibs.file_writers as writers
 import madgraph.core.contributions as contributions
@@ -40,20 +37,19 @@ class MadEvent7Error(Exception):
 logger = logging.getLogger('madgraph')
 
 #==================================================================================
-#  Necessary template files for real subprocess directories
+#  Necessary template files for real-virtual subprocess directories
 #
 #      ? - all_sector_list.inc
-#      ? - NLO_K_template.f
-#      ? - NLO_Rsub_template.f
-#      ? - driver_template.f
-#      ? - testR_template.f
-#      ? - NLO_IR_limits_template.f
+#      ? - NNLO_KRV_template.f
+#      ? - NNLO_RVsub_template.f
+#      ? - driver_npo_RV_template.f
+#      ? - testRV_template.f
+#      ? - NNLO_IR_limits_template.f
 #      ? - get_Born_PDGs.f
-#      ? - makefile_npo_template.f
+#      ? - makefile_npo_RV_template.f
 #      ? - virtual_recoiler.inc (needed for checking recoiler consistency)
 #
-#      ? - links from Born to Real subproc directories
-#      ? - links from Born to Virtual subproc directories
+#      ? - links from Born to Real-Virtual subproc directories
 #
 #==================================================================================
 
@@ -67,7 +63,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         all_PDGs = initial_state_PDGs, final_state_PDGs
 
         leglist = defining_process.get('legs')
-        #gl
+
         print('INTO RV SECTOR')
         print(defining_process.shell_string())
         print(contrib_definition.get_shell_name())
@@ -99,19 +95,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     continue
                 if j.get('number') == i.get('number') :
                     continue
-                # if i is not a gluon, then j must not be a final state gluon
-                # if i['id'] != 21 and j['id'] == 21 and j['state']:
-                #    continue
-                # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                # if i['id'] == 21 and j['id'] == 21 and j['state']:
-                #    if j.get('number') < i.get('number') :
-                #        continue
-
-                # if j and i are quarks and antiquark in the final state, let j be the quark
-                #   this is needed in order to comply with the fct combine_ij inside fks_common
-                # if i['id'] == -j['id'] and j['state']:
-                #    if j['id'] < 0:
-                #        continue
 
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
@@ -125,10 +108,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     # copy the defining process, remove i and j
                     # and replace them by ij.
                     new_process = copy.copy(defining_process)
-                    # this is a temporary hack waiting that squared_orders for
-                    #  defining_process are correctly passed
-                    ##if set(new_process['squared_orders'].values()) == set([0,]):
-                    # MZ this may not be optimal, but keep for the moment
                     new_process['squared_orders'] = {}
 
                     new_leglist = copy.copy(leglist)
@@ -179,12 +158,9 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         necessary_ct = [0] * (7*len(all_sectors))
         i = 0
         for s in all_sectors:
-            #print('s in sectors : ' + str(s))
             s['sector'].all_sector_list = all_sector_list
             s['sector'].all_sector_mass_list = all_sector_mass_list
-            # gl
             s['sector'].all_sector_id_list = all_sector_id_list
-            #print('s all_sector_list : ' + str(all_sector_list))
             print('s all_sector_id_list : ' + str(all_sector_id_list))
 
             if counterterms is not None:
@@ -202,7 +178,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                             s['counterterms'].append(i_ct)
                             necessary_ct_list_one[0] =  'S_RV_g' # 1
                             necessary_ct[i] = ct
-# # # gl
+
                         if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                             s['counterterms'].append(i_ct)
                             necessary_ct_list_one[1] = 'S_RV_g' # 1
@@ -276,15 +252,14 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 #       - all_sector_list.inc
 #       - NNLO_KRV_template.f
 #       - NNLO_RVsub_template.f
-#       - driver_template.f
+#       - driver_npo_RV_template.f
 #       - testRV_template.f
 #       - NNLO_RV_IR_limits_template.f
 #       - get_Born_PDGs.f
-#       - makefile_npo_template.f
+#       - makefile_npo_RV_template.f
 #       - virtual_recoiler.inc (needed for checking recoiler consistency)
 #
-#       - links from Born to Real subproc directories
-#       - links from Born to Virtual subproc directories
+#       - links from Born to Real-Virtual subproc directories
 #
 #==================================================================================
 
@@ -314,10 +289,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
         # List of necessary underlying Born and Virtual strings and particle PDGs
         Born_processes = []
-        Virt_processes = []
-        # List of dirpathLO of the necessary underlying Born and Virtual
+        # List of dirpathLO of the necessary underlying Born
         path_Born_processes = []
-        path_Virt_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         dirpathVB_head = pjoin(dirmadnklo,glob.glob("%s/NLO_V_*" % interface.user_dir_name[0])[0])
@@ -424,9 +397,13 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             str_int_real = " ".join(list_int_real)
             replace_dict_ct['str_M2'] = str_M2
             replace_dict_int_real['str_int_real'] = str_int_real
+            replace_dict_int_real['NLO_process'] = str(defining_process.shell_string(schannel=True,
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_int_real['NNLO_RV_process'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False))
             replace_dict_int_real['mapping_str'] = mapping_str
+            replace_dict_int_real['NLO_proc_str'] = str(defining_process.shell_string(schannel=True,
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
             replace_dict_int_real['NNLO_RV_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
 
@@ -490,7 +467,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                                     replace_dict_limits[tmp_proc] = extra_uB_proc
                                     overall_sector_info[i]['Born_str'] = extra_uB_proc
 
-                                    #gl
                                     tmp_extra_uB_proc = extra_uB_proc.split("_")
                                     fs_flavours = [x for x in tmp_extra_uB_proc[-1]]
                                     for m in range(len(fs_flavours)):
@@ -548,7 +524,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                                     replace_dict_limits[tmp_proc] = extra_uB_proc
                                     overall_sector_info[i]['Born_str'] = extra_uB_proc
 
-                                    #gl
                                     tmp_extra_uB_proc = extra_uB_proc.split("_")
                                     fs_flavours = [x for x in tmp_extra_uB_proc[-1]]
                                     for m in range(len(fs_flavours)):
@@ -589,7 +564,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
             UBgraphs = overall_sector_info[i]['Born_str']
-            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
+            self.write_driver_npo_rv_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
 
             # write NNLO_KRV
             filename = pjoin(dirpath, 'NNLO_KRV_%d_%d.f' % (isec, jsec))
@@ -597,11 +572,23 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             file = file % replace_dict_ct
             writer(filename).writelines(file)
 
+            # write NNLO_I1
+            filename = pjoin(dirpath, 'NNLO_I1_%d_%d.f' % (isec, jsec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_I1_RV_template.f")).read()
+            file = file % replace_dict_int_real
+            writer(filename).writelines(file)
+
+             # write NNLO_I12
+            filename = pjoin(dirpath, 'NNLO_I12_%d_%d.f' % (isec, jsec))
+            file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_I12_RV_template.f")).read()
+            file = file % replace_dict_int_real
+            writer(filename).writelines(file)
+
             # write testRV
             self.write_testRV_template_file(writer, dirpath, dirmadnklo, defining_process,
                                                     i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
 
-        # check on overall_sector_info lenght
+        # check on overall_sector_info length
         if len(overall_sector_info) != len(all_sector_list):
             raise MadEvent7Error('WARNING, the list of sector-dictionary entries is not compatible with the total number of sectors!')
 
@@ -636,7 +623,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
         self.write_get_UnderLying_PDGs_file(writer, dirpath, overall_sector_info)
 
-######### Write makefile_npo_template
+######### Write makefile_npo_RV_template
 
         self.write_makefile_rv_file(writers.FileWriter, dirpath, dirmadnklo, defining_process, overall_sector_info)
 
@@ -705,7 +692,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
     # write driver_isec_jsec for real subprocess directory
     #===========================================================================
 
-    def write_driver_npo_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs):
+    def write_driver_npo_rv_template(self, writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs):
 
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -714,7 +701,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
         # write driver
         filename = pjoin(dirpath, 'driver_%d_%d.f' % (isec, jsec))
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_template.f")).read()
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/driver_npo_RV_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -785,6 +772,8 @@ c     spurious collinear limit
             raise MadEvent7Error('Collinear limits still to be specified in sectors.py. ')
 
         replace_dict['limit_str'] = limit_str
+        replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True,
+                                        forbid=True, main=False, pdg_order=False, print_id = False) + '_')
         replace_dict['NNLO_RV_proc_str'] = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False) + '_')
         replace_dict['mapping_str'] = mapping_str
@@ -900,7 +889,9 @@ c     spurious collinear limit
                 files_str += 'leshouche_%s.o ' % overall_sector_info[i]['Born_str']
 
             files_str += 'testRV_%d_%d.o ' % (isec, jsec)
-            files_str += 'NNLO_KRV_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
+            files_str += 'NNLO_KRV_%d_%d.o ' % (isec, jsec)
+            files_str += 'NNLO_I1_%d_%d.o ' % (isec, jsec)
+            files_str += 'NNLO_I12_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec)
             sector_str += """
 sector_%d_%d_libs: libs sector_%d_%d
@@ -910,7 +901,7 @@ sector_%d_%d: $(FILES_%d_%d)
 """ %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)
 
         object_str = """
-%.o: %.f $(INCLUDE)
+%.o: %.f $(INCLUDE) | $(OBJ)/polynomial.o
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
 %.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)
@@ -929,7 +920,7 @@ sector_%d_%d: $(FILES_%d_%d)
 
         # write makefile
         filename = pjoin(dirpath, 'makefile' )
-        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_template")).read()
+        file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/makefile_npo_RV_template")).read()
         file = file % replace_dict
         writer(filename).write(file)
 

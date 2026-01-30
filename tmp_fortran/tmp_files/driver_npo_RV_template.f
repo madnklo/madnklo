@@ -1,4 +1,4 @@
-      program driver_RV_%(isec)d_%(jsec)d
+      program driver_%(isec)d_%(jsec)d
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -12,11 +12,11 @@
       integer ndim,i,j,idum
       integer isec,jsec
       double precision s_had
-      integer iu,iu1,iu7,iu8,iu9
+      integer iu,iu1,iu7,iu8,iu9,iu0
       common/cdim/ndim
-      double precision int_real_%(isec)d_%(jsec)d
-      double precision err_r,res_r
-      external int_real_%(isec)d_%(jsec)d
+      double precision int_real_virtual_%(isec)d_%(jsec)d
+      double precision err_rv,res_rv
+      external int_real_virtual_%(isec)d_%(jsec)d
       common/ciunitNLO/iu8
       integer order
       logical doplot
@@ -64,11 +64,12 @@ c     initialise physics parameters and set sector parametrisation
       iu7=77
       iu8=88
       iu9=99
+      iu0=50
 c
 c     phase-space dimension, same for all contributions to this folder
       ndim=3*(nexternal-2)-4
       do i=1,2
-         if(ISNNLOQCDPARTON(i)) ndim = ndim + 1
+         if(ISNLOQCDPARTON(i)) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0
@@ -84,6 +85,7 @@ c     initialise histograms and open output files
       open(unit=iu8,file='testRV_%(isec)d_%(jsec)d.log')
       open(unit=iu9,file='chan_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu,file='results_RV_%(isec)d_%(jsec)d.log')
+      open(unit=iu0,file='poles_RV_%(isec)d_%(jsec)d.log')
       line='=================================================='
       write(iu9,*)' Real-Virtual contribution '
 c

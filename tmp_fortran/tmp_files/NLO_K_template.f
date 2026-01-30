@@ -11,7 +11,7 @@ c     local NLO counterterm for sector (isec,jsec)
       double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision KS,KC,KSC,KNLO,wgt_chan
+      double precision KS,KHC,KNLO,wgt_chan
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       logical default_soft
@@ -20,15 +20,14 @@ c     local NLO counterterm for sector (isec,jsec)
 c
 c     initialise
       KS=0d0
-      KC=0d0
-      KSC=0d0
+      KHC=0d0
       KNLO=0d0
 c
 c     counterterms
       %(str_M2)s
 c     
 c     combination
-      KNLO=KS+KC-KSC
+      KNLO=KS+KHC
 c
       return
  999  ierr=1

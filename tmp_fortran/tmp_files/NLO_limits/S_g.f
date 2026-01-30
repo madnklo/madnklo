@@ -14,7 +14,7 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
-      integer i,l,m,lb,mb,ierr,nit,idum
+      integer i,l,m,lb,mb,ierr,nit
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
@@ -55,7 +55,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
-      idum=0
 c     
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -94,7 +93,7 @@ c     underlying Born configuration is remapped
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPB,NEXTERNAL-1,underlying_leg_pdgs,0))CYCLE
+            if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))cycle
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -116,10 +115,8 @@ c     call colour-connected Born
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
-            M2TMP=SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
+            M2TMP = SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             M2TMP = CCBLO*M2TMP
-c     Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)
 c
 c     damping factors
             if(m.gt.2.and.l.gt.2)then
@@ -139,14 +136,14 @@ c     damping factors
 c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
+            wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
             if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
          enddo 
       enddo
 c
 c     apply flavour factor
-      M2_S_g = M2_S_g * %(proc_prefix_real)s_fl_factor
+      M2_S_g = M2_S_g *dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)* %(proc_prefix_real)s_fl_factor
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

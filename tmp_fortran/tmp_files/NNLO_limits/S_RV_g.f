@@ -54,6 +54,7 @@ c     external
       common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
       double precision xpb_to_ME(0:3,nexternal-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
+      double precision DELTA_S_RV_g(-2:0)
       INCLUDE 'pmass.inc'
 c
 c     initialise
@@ -187,6 +188,12 @@ c
 c
 c     apply flavour factor
       M2_S_RV_g(-2:0) = M2_S_RV_g(-2:0) * %(proc_prefix_real)s_fl_factor
+c      CALL DELTA_S_RV_g
+      DELTA_S = DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      
+      M2_S_RV_g(-2:0) = M2_S_RV_g(-2:0) + DELTA_S(-2:0)
+
+      
 c
 c     sanity check
       if(abs(M2_S_RV_g(0)).ge.huge(1d0).or.isnan(M2_S_RV_g(0)))then
@@ -363,7 +370,7 @@ c
 c     eikonals
             EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             delta_s(-2) = delta_s(-2) + EIK0*2d0*CA*(ccBLO_lm-ccBLO_ml)
-
+c
             if(abs(leg_pdgs(l)).le.6) then
                gamma_l = gamma_q
             elseif(leg_pdgs(l).eq.21) then
@@ -374,9 +381,9 @@ c     eikonals
                write(*,*) 'Exit...'
                stop
             endif
-
+c
             delta_s(-1) = delta_s(-1) + EIK0*(ccBLO_lm-ccBLO_ml)*(4d0*CA+gamma_l)
-
+c
 c     (c d e f) ---> (l m p q)
             do p=1,nexternal
                if(.not.isNLOQCDparton(p))cycle
@@ -392,43 +399,39 @@ c     call invariants
                   sbpm = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(m))
                   sbpq = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(q))
 c     call quadruple-colour-connected Born
-                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_lm,hel,alphas,ANS)
                   QUADBLO_pmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
                   QUADBLO_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
 
                   delta_s(-1) = delta_s(-1)+EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
                   delta_s( 0) = delta_s( 0)+1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
-
-
+                  
                   M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
-
-
 c     Including correct multiplicity factor
                   M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)
-c
+
 c     damping factors
 c     TODO: adapt damping factors
-c            if(m.gt.2.and.l.gt.2)then
-c               y=sil/(sil+sim+slm)
-c               z=sim/(sim+slm)
-c               damp=((1d0-y)*(1d0-z))**alpha
-c            elseif(m.gt.2.and.l.le.2)then
-c               z=sim/(sim+slm)
-c               x=1d0 - sil/(sim+slm)
-c               damp=((1d0-z)*x)**alpha
-c            elseif(m.le.2.and.l.le.2)then
-c               x=1d0 - (sil+sim)/slm
-c               damp=x**alpha
-c            endif
-c            M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
-            DELTA_S_RV_g(-2:0)=DELTA_S_RV_g(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
+            if(m.gt.2.and.l.gt.2)then
+               y=sil/(sil+sim+slm)
+               z=sim/(sim+slm)
+               damp=((1d0-y)*(1d0-z))**alpha
+            elseif(m.gt.2.and.l.le.2)then
+               z=sim/(sim+slm)
+               x=1d0 - sil/(sim+slm)
+               damp=((1d0-z)*x)**alpha
+            elseif(m.le.2.and.l.le.2)then
+               x=1d0 - (sil+sim)/slm
+               damp=x**alpha
+            endif
+            M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
+            M2_S_RV_g(-2:0)=M2_S_RV_g(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
 c     plot
-c            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
-c            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-c            if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
+            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
+            if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,mapped_flavours,wgtpl)
 c
-
 c     close q
                enddo
 c     close p
@@ -481,8 +484,12 @@ c
             ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
             EIK1 =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
+            TMP_kr = EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)
+            TMP_kr = tmp_kr*damp*xj
 
-c           M2TMP(-1) = delta_s(-1) + alphas/2d0/pi*pref*EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra
+            M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra*TMP_kr
+
+c           M2_S_RV_g(-1) = M2_S_RV_g(-1) + M2tmp(-1)
 c     close k
          enddo
 
@@ -498,9 +505,6 @@ c     sanity check
          goto 999
       endif
 c
-
-
-
  999  ierr=1
       return
       end

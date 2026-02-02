@@ -54,7 +54,7 @@ c     external
       common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
       double precision xpb_to_ME(0:3,nexternal-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      double precision DELTA_S_RV_g(-2:0)
+      double precision DELTA_S_RV_g(-2:0),DELTA_S(-2:0)
       INCLUDE 'pmass.inc'
 c
 c     initialise

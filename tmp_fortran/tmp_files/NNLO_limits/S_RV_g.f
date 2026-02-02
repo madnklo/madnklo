@@ -54,7 +54,8 @@ c     external
       common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
       double precision xpb_to_ME(0:3,nexternal-1)
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      double precision DELTA_S_RV_g(-2:0),DELTA_S(-2:0)
+      double precision DELTA_S_RV_G
+      DOUBLE PRECISION tmp_delta(-2:0)
       INCLUDE 'pmass.inc'
 c
 c     initialise
@@ -188,10 +189,12 @@ c
 c
 c     apply flavour factor
       M2_S_RV_g(-2:0) = M2_S_RV_g(-2:0) * %(proc_prefix_real)s_fl_factor
-c      CALL DELTA_S_RV_g
-      DELTA_S = DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
-      
-      M2_S_RV_g(-2:0) = M2_S_RV_g(-2:0) + DELTA_S(-2:0)
+c     CALL DELTA_S_RV_g
+
+c     CALL DELTA_S_RV_g
+      tmp_delta = DELTA_S_RV_G(I,XS,XP,WGT,XJ,XJB,NIT,EXTRA,WGT_CHAN,IERR)
+
+      M2_S_RV_G(-2:0) = M2_S_RV_G(-2:0) + tmp_delta(-2:0)
 
       
 c
@@ -207,8 +210,10 @@ c
       end
 
 
-
-      function DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      module DELTA_RV
+      implicit none
+      contains
+      function DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr) result(res_delta)
 c     Delta single-soft limit S_(i) * Wsoft for RV
 c     it returns 0 if i is not a gluon
       use sectors2_module
@@ -222,8 +227,8 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
-      double precision delta_s_rv_g(-2:0)
       integer i,k,ierr,nit,idum
+      double precision res_delta(-2:0)
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,triBLO,quadBLO(-2:0),extra
@@ -278,10 +283,11 @@ c     with (c,d) ---> (l,m)
       double precision siq,smq,spm,spq,sbpm,sbpq,sik,sir,skr
       double precision mk2,mr2,gamma_l
       DOUBLE PRECISION PMASS(NEXTERNAL)
+      double precision M2TMP_KR,EIK_KR
       INCLUDE 'pmass.inc'
 c
 c     initialise
-      DELTA_S_RV_g=0d0
+      res_delta = 0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
@@ -425,7 +431,7 @@ c     TODO: adapt damping factors
                damp=x**alpha
             endif
             M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
-            M2_S_RV_g(-2:0)=M2_S_RV_g(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
+            res_delta(-2:0)=res_delta(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
 c     plot
             wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
@@ -483,13 +489,13 @@ c
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_rk,hel,alphas,ANS)
             ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
-            EIK1 =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
-            TMP_kr = EIK1*gamma_l*(ccBLO_kr-ccBLO_rk)
-            TMP_kr = tmp_kr*damp*xj
+            EIK_KR =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
+            M2TMP_KR = EIK_KR*gamma_l*(ccBLO_kr-ccBLO_rk)
+            M2TMP_KR = M2TMP_KR*damp*xj
 
-            M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra*TMP_kr
+            M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra*M2TMP_kr
 
-c           M2_S_RV_g(-1) = M2_S_RV_g(-1) + M2tmp(-1)
+            res_delta(-1) = res_delta(-1) + M2tmp(-1)
 c     close k
          enddo
 
@@ -497,14 +503,15 @@ c     close l
       enddo
 
 c     apply flavour factor
-      DELTA_S_RV_g(-2:0) = DELTA_S_RV_g(-2:0) * %(proc_prefix_real)s_fl_factor
+      res_delta(-2:0) = res_delta(-2:0) * %(proc_prefix_real)s_fl_factor
 c
 c     sanity check
-      if(abs(DELTA_S_RV_g(0)).ge.huge(1d0).or.isnan(DELTA_S_RV_g(0)))then
-         write(77,*)'Exception caught in finite part of DELTA_S_RV_g',DELTA_S_RV_g(0)
+      if(abs(res_delta(0)).ge.huge(1d0).or.isnan(res_delta(0)))then
+         write(77,*)'Exception caught in finite part of DELTA_S_RV_g',res_delta(0)
          goto 999
       endif
 c
  999  ierr=1
       return
       end
+      end module DELTA_RV

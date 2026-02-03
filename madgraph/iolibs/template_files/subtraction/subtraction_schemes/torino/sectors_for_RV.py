@@ -195,15 +195,15 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_ct_list_one[2] = 'C_RV_gg' # 1
-                                    necessary_ct_list_one[3] = 'SC_RV_gg' # 1
+                                    necessary_ct_list_one[2] = 'HC_RV_gg' # 1
+                                    #necessary_ct_list_one[3] = 'SC_RV_gg' # 1
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_ct_list_one[2] = 'C_RV_gq' # 1
-                                    necessary_ct_list_one[3] = 'SC_RV_gq' # 1
+                                    necessary_ct_list_one[2] = 'HC_RV_gq' # 1
+                                    #necessary_ct_list_one[3] = 'SC_RV_gq' # 1
                                 elif s['sector'].id[1] == 21 and s['sector'].id[0] != 21:
-                                    necessary_ct_list_one[2] = 'C_RV_gq' # 1
+                                    necessary_ct_list_one[2] = 'HC_RV_gq' # 1
                                 else :
-                                    necessary_ct_list_one[2] = 'C_RV_qqx' # 1
+                                    necessary_ct_list_one[2] = 'HC_RV_qqx' # 1
                                 necessary_ct[i+2] = ct
 
                 all_local_counterterms_list.append(s['counterterms'])
@@ -281,8 +281,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         # This ensures even SC_gg / SC_gq (soft-collinear) terms have dummy entries.
         # They will be overwritten later when actual process names are found.
         # ------------------------------------------------------------------------------
-        necessary_default_ct_list = ['S_RV_g', 'C_RV_gg', 'C_RV_gq', 'C_RV_qqx',
-                                     'SC_RV_gg', 'SC_RV_gq']
+        necessary_default_ct_list = ['S_RV_g', 'HC_RV_gg', 'HC_RV_gq', 'HC_RV_qqx']
         for ct in necessary_default_ct_list:
             replace_dict_limits['proc_prefix_%s' % ct] = 'dummy'
         # ------------------------------------------------------------------------------
@@ -294,8 +293,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         dirpathVB_head = pjoin(dirmadnklo,glob.glob("%s/NLO_V_*" % interface.user_dir_name[0])[0])
-        necessary_default_ct_list = ['S_RV_g', 'C_RV_gg', 'C_RV_gq', 'C_RV_qqx',
-                                     'SC_RV_gg', 'SC_RV_gq']
+        necessary_default_ct_list = ['S_RV_g', 'HC_RV_gg', 'HC_RV_gq', 'HC_RV_qqx']
 
         for i in range(0,len(all_sector_list)):
             list_M2 = []
@@ -365,8 +363,10 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 elif j == 0:
                     if id_isec != 21:
                         raise MadEvent7Error('%d is not a gluon!' % isec)
-                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,xs,xp,wgt,xj,xjB,nitRV,1d0,wgt_chan,ierr)\n'
+                    list_str_def_M2.append('DOUBLE PRECISION M2_%s(-2:0)\n' % necessary_ct_list[i][j])
+                    list_M2.append('CALL SUB_M2_%s(isec,xs,xp,wgt,xj,xjB,nitRV,1d0,wgt_chan,ierr,M2_%s)\n'
+                                       % (necessary_ct_list[i][j], necessary_ct_list[i][j]))
+                    list_M2.append('K%s=K%s+M2_%s\n'
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NNLO_RV_IR_limits
@@ -376,19 +376,30 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 elif j == 2:
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr)\n'
+                    list_str_def_M2.append('DOUBLE PRECISION M2_%s(-2:0)\n' % necessary_ct_list[i][j])
+                    # returns (jsec, isec) if C_qg, (isec, jsec) otherwise; final-state only
+                    if (all_PDGs[1][jsec-3] == 21 and abs(all_PDGs[1][isec-3]) <= 6 ):
+                         list_M2.append('CALL SUB_M2_%s(jsec,isec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr,M2_%s)\n'
+                                       % (necessary_ct_list[i][j], necessary_ct_list[i][j]))
+                         list_M2.append('K%s=K%s+M2_%s\n'
+                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                    else:
+                        list_M2.append('CALL SUB_M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr,M2_%s)\n'
+                                       % (necessary_ct_list[i][j], necessary_ct_list[i][j]))
+                        list_M2.append('K%s=K%s+M2_%s\n'
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NNLO_RV_IR_limits
                     os.system('cat ' + NNLO_RV_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 3:
-                    if (isec == iref) or (jsec == iref):
-                        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr)\n'
-                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                    list_M2.append('if(ierr.eq.1)goto 999\n')
+                # elif j == 3:
+                #     if (isec == iref) or (jsec == iref):
+                #         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
+                #     list_str_def_M2.append('DOUBLE PRECISION M2_%s(-2:0)\n' % necessary_ct_list[i][j])
+                #     list_M2.append('CALL M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr,M2_%s)\n'
+                #                        % (necessary_ct_list[i][j], necessary_ct_list[i][j]))
+                #     list_M2.append('K%s=K%s+M2_%s\n'
+                #                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                #     list_M2.append('if(ierr.eq.1)goto 999\n')
 
             # outside loop on necessary_ct_list
             str_def_M2 = " ".join(list_str_def_M2)

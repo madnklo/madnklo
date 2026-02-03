@@ -1,6 +1,6 @@
 
 
-      function M2_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      SUBROUTINE SUB_M2_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr,ret)
 c     single-soft limit S_(i) * Wsoft for RV
 c     it returns 0 if i is not a gluon
       use sectors2_module
@@ -14,14 +14,15 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
-      double precision m2_s_rv_g(-2:0)
-      integer i,l,m,q,lb,mb,qb,ierr,nit,idum
+      double precision ret(-2:0)
+      integer i,l,m,q,lb,mb,qb,ierr,nit
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,triBLO,VLO(-2:0),ccVLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
+      double precision res_delta
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -50,21 +51,15 @@ c     external
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
       DOUBLE PRECISION PMASS(NEXTERNAL)
-      double precision DELTA_S_RV_G
-      DOUBLE PRECISION tmp_delta(-2:0)
       INCLUDE 'pmass.inc'
 c
 c     initialise
-      M2_S_RV_g=0d0
+      ret=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-      idum=0
-      xpb_to_ME=0d0
 c
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -97,13 +92,13 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            IF(DOCUT(XPB,NEXTERNAL-1,MAPPED_FLAVOURS,0))CYCLE
+            if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))cycle
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -119,12 +114,11 @@ c     safety check
             endif
 c
 c     call colour-connected Born and Virtual
-            lb=mapped_indices_shuff(mapped_labels(l))
-            mb=mapped_indices_shuff(mapped_labels(m))
-            XPB_TO_ME(0:3,MAPPED_INDICES_SHUFF(:))=XPB(0:3,:)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+            lb=mapped_labels(l)
+            mb=mapped_labels(m)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccVLO = %(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c
 c     eikonals
@@ -146,8 +140,8 @@ c     invariant quantities
                smq=xs(m,q)
 c
 c     call triple-colour-connected Born
-               qb=mapped_indices_shuff(mapped_labels(q))
-               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME,hel,alphas,ANS)
+               qb=mapped_labels(q)
+               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
                TRIBLO = %(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
 c
 c     eikonals
@@ -157,13 +151,8 @@ c     eikonals
 
                M2TMP(-2:0) = M2TMP(-2:0) + alphas*TRIBLO*EIK2(-2:0)
             enddo
-
-
-c     Including correct multiplicity factor
-            M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)
 c
-c     damping factors
-c     TODO: adapt damping factors
+c     damping factors; TODO: adapt
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
@@ -177,32 +166,28 @@ c     TODO: adapt damping factors
                damp=x**alpha
             endif
             M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
-            M2_S_RV_g(-2:0)=M2_S_RV_g(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
+            ret(-2:0)=ret(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
 c     plot
             wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,mapped_flavours,wgtpl)
+            wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
          enddo
       enddo
 c
 c     apply flavour factor
-      M2_S_RV_g(-2:0) = M2_S_RV_g(-2:0) * %(proc_prefix_real)s_fl_factor
-c     CALL DELTA_S_RV_g
-
-c     CALL DELTA_S_RV_g
-      tmp_delta = DELTA_S_RV_G(I,XS,XP,WGT,XJ,XJB,NIT,EXTRA,WGT_CHAN,IERR)
-
-      M2_S_RV_G(-2:0) = M2_S_RV_G(-2:0) + tmp_delta(-2:0)
-
-      
+      ret(-2:0) = ret(-2:0) * %(proc_prefix_real)s_fl_factor
 c
 c     sanity check
-      if(abs(M2_S_RV_g(0)).ge.huge(1d0).or.isnan(M2_S_RV_g(0)))then
-         write(77,*)'Exception caught in finite part of M2_S_RV_g',M2_S_RV_g(0)
+      if(abs(ret(0)).ge.huge(1d0).or.isnan(ret(0)))then
+         write(77,*)'Exception caught in finite part of M2_S_RV_g',ret(0)
          goto 999
       endif
+c
+c     add delta_s_rv_g (all prefactors included)
+      call DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr,res_delta)
+      ret = ret + res_delta
 c
       return
  999  ierr=1
@@ -210,10 +195,7 @@ c
       end
 
 
-      module DELTA_RV
-      implicit none
-      contains
-      function DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr) result(res_delta)
+      subroutine DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr,res_delta)
 c     Delta single-soft limit S_(i) * Wsoft for RV
 c     it returns 0 if i is not a gluon
       use sectors2_module
@@ -227,8 +209,8 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
-      integer i,k,ierr,nit,idum
       double precision res_delta(-2:0)
+      integer i,k,ierr,nit
       double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,triBLO,quadBLO(-2:0),extra
@@ -263,9 +245,7 @@ c     external
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_flavours(nexternal-1),mapped_indices_shuff(nexternal-1)
-      common/c_mapped_quantities_s/mapped_labels,mapped_flavours,mapped_indices_shuff
-      double precision xpb_to_ME(0:3,nexternal-1)
+      common/c_mapped_labels/mapped_labels
       double precision delta_s(-2:0)
 c     Label conventions according to Eq.(5.19) in 2212.11190
 c     with (c,d) ---> (l,m)
@@ -291,8 +271,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
-      idum=0
-      xpb_to_ME=0d0
       delta_s=0d0
       ccBLO_lm = 0d0
       ccBLO_ml = 0d0
@@ -335,17 +313,17 @@ c     The structure is such that we have
 c     Eik(xs)*(B_lm^{(ilm)}*theta(ilm)-B_lm^{(iml)}*theta(iml))
 c     Take care of this in applying kinematical cuts over Born kinematics
 c     Build  B_lm^{(ilm)}
-            call phase_space_CS_inv(i,l,m,xp,xpb_lm,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,l,m,xp,xpb_lm,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_lm,nexternal-1,xsb_lm,ierr)
             if(ierr.eq.1)goto 999
 c     Build  B_lm^{(iml)}
-            call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_ml,nexternal-1,xsb_ml,ierr)
             if(ierr.eq.1)goto 999
 c     possible cuts
-            IF((DOCUT(XPB_LM,NEXTERNAL-1,MAPPED_FLAVOURS,0)).and.(DOCUT(XPB_ML,NEXTERNAL-1,MAPPED_FLAVOURS,0))) CYCLE
+            if((docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)).and.(docut(xpb_ml,nexternal-1,underlying_leg_pdgs,0))) cycle
 
 c     invariant quantities
             sil=xs(i,l)
@@ -359,18 +337,16 @@ c     safety check
                write(77,*)'Inaccuracy 1 in M2_S_RV_g',sil,sim
                goto 999
             endif
-            lb=mapped_indices_shuff(mapped_labels(l))
-            mb=mapped_indices_shuff(mapped_labels(m))
+            lb=mapped_labels(l)
+            mb=mapped_labels(m)
 c
 c     call colour-connected B^{(ilm)} and B^{(iml)}
             ANS = 0d0
-            XPB_TO_ME_LM(0:3,MAPPED_INDICES_SHUFF(:))=XPB_LM(0:3,:)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_lm,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
             ccBLO_lm = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
             ANS = 0d0
-            XPB_TO_ME_ML(0:3,MAPPED_INDICES_SHUFF(:))=XPB_ML(0:3,:)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_ml,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
             ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonals
@@ -397,27 +373,24 @@ c     (c d e f) ---> (l m p q)
                do q=1,nexternal
                   if(.not.isNLOQCDparton(q))cycle
                   if(q.eq.i.or.q.eq.l.or.q.eq.p) cycle
-                  pb = mapped_indices_shuff(mapped_labels(p))
-                  qb = mapped_indices_shuff(mapped_labels(q))
+                  pb = mapped_labels(p)
+                  qb = mapped_labels(q)
 c     call invariants
                   spm = xs(p,m)
                   spq = xs(p,q)
-                  sbpm = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(m))
-                  sbpq = xsb_lm(MAPPED_INDICES_SHUFF(p),MAPPED_INDICES_SHUFF(q))
+                  sbpm = xsb_lm(pb,mb)
+                  sbpq = xsb_lm(pb,qb)
 c     call quadruple-colour-connected Born
-                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_lm,hel,alphas,ANS)
+                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                   QUADBLO_pmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
                   QUADBLO_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
 
                   delta_s(-1) = delta_s(-1)+EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
                   delta_s( 0) = delta_s( 0)+1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
-                  
-                  M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
-c     Including correct multiplicity factor
-                  M2tmp(-2:0) = M2tmp(-2:0)*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)
 
-c     damping factors
-c     TODO: adapt damping factors
+                  M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
+c
+c     damping factors; TODO: adapt
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
@@ -435,8 +408,8 @@ c     TODO: adapt damping factors
 c
 c     plot
             wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,mapped_flavours,wgtpl)
+            wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgtpl)
 c
 c     close q
                enddo
@@ -451,17 +424,17 @@ c     Sum over (k,c) ---> (l,k)
             if(k.eq.l) cycle
             if(k.eq.iref) cycle
 c     Build  B_lm^{(irk)}
-            call phase_space_CS_inv(i,iref,k,xp,xpb_rk,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,iref,k,xp,xpb_rk,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_rk,nexternal-1,xsb_rk,ierr)
             if(ierr.eq.1)goto 999
 c     Build  B_lm^{(ikr)}
-            call phase_space_CS_inv(i,k,iref,xp,xpb_kr,nexternal,leg_PDGs,xjCS)
+            call phase_space_CS_inv(i,k,iref,xp,xpb_kr,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_kr,nexternal-1,xsb_kr,ierr)
             if(ierr.eq.1)goto 999
 c     possible cuts
-            IF((DOCUT(XPB_kr,NEXTERNAL-1,MAPPED_FLAVOURS,0)).and.(DOCUT(XPB_rk,NEXTERNAL-1,MAPPED_FLAVOURS,0))) CYCLE
+            if((docut(xpb_kr,nexternal-1,underlying_leg_pdgs,0)).and.(docut(xpb_rk,nexternal-1,underlying_leg_pdgs,0))) cycle
 c     invariant quantities
             sik=xs(i,k)
             sir=xs(i,iref)
@@ -475,18 +448,16 @@ c     safety check
                goto 999
             endif
 
-            kb=mapped_indices_shuff(mapped_labels(k))
-            rb=mapped_indices_shuff(mapped_labels(iref))
+            kb=mapped_labels(k)
+            rb=mapped_labels(iref)
 c
 c     call colour-connected B^{(icr)} and B^{(irc)}
             ANS = 0d0
-            XPB_TO_ME_kr(0:3,MAPPED_INDICES_SHUFF(:))=XPB_kr(0:3,:)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_kr,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
             ccBLO_kr = %(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
 c
             ANS = 0d0
-            XPB_TO_ME_rk(0:3,MAPPED_INDICES_SHUFF(:))=XPB_rk(0:3,:)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_to_ME_rk,hel,alphas,ANS)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
             ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
             EIK_KR =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
@@ -514,4 +485,3 @@ c
  999  ierr=1
       return
       end
-      end module DELTA_RV

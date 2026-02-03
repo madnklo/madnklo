@@ -891,13 +891,13 @@ c     spurious collinear limit
             files_str += 'testRV_%d_%d.o ' % (isec, jsec)
             files_str += 'NNLO_KRV_%d_%d.o ' % (isec, jsec)
             files_str += 'NNLO_I1_%d_%d.o ' % (isec, jsec)
-            files_str += 'NNLO_I12_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
+            files_str += 'NNLO_I12_%d_%d.o $(PROCESS) $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec)
             sector_str += """
 sector_%d_%d_libs: libs sector_%d_%d
 
 sector_%d_%d: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) $(LINKLIBS) -o $@
 """ %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)
 
         object_str = """

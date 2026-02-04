@@ -1035,7 +1035,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if((self.dir_path).split('/')[-1][0:11]== 'NNLO_VV_x_B'):
             user_linkfiles = ['driver_vv.f']
         else:
-            user_linkfiles = ['driver_v.f','NLO_V_sub.f']
+            user_linkfiles = ['driver_v.f','NLO_V_sub.f','NNLO_RV_sub.f']
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             

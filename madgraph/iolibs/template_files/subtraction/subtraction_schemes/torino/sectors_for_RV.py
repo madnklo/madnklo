@@ -428,7 +428,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
                     if os.path.exists(dirpathLO):
                         replace_dict_int_real['strUB'] = uB_proc[j]
-                        replace_dict_limits['proc_prefix_S_g'] = uB_proc[j]
+                        replace_dict_limits['proc_prefix_S_RV_g'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
                         overall_sector_info[i]['path_to_Born'] = dirpathLO
                         if uB_proc[j] not in Born_processes:
@@ -438,7 +438,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     if j == len(uB_proc) - 1:
                         extra_uB_proc = uB_proc[0]
                         replace_dict_int_real['strUB'] = extra_uB_proc
-                        replace_dict_limits['proc_prefix_S_g'] = extra_uB_proc
+                        replace_dict_limits['proc_prefix_S_RV_g'] = extra_uB_proc
                         overall_sector_info[i]['Born_str'] = extra_uB_proc
 
             if necessary_ct_list[i][2] != 0 :
@@ -592,7 +592,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
              # write NNLO_I12
             filename = pjoin(dirpath, 'NNLO_I12_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_I12_RV_template.f")).read()
-            file = file % replace_dict_int_real
+            file = file % replace_dict_limits
             writer(filename).writelines(file)
 
             # write testRV
@@ -729,6 +729,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
+        proc_V_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
+        replace_dict['long_proc_prefix'] = proc_V_pref
 
         limit_str = ''
         if necessary_ct_list[i][0] != 0 : #Si limit

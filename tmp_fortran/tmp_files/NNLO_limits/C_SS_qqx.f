@@ -24,7 +24,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       double precision ktb2,ktb(0:3),kt2,WSCC_NNLO
       double precision sab,sar,sbr
       double precision wa,wb,wr
-      double precision sblm,sbjl,sbjm,ktkl,ktkm,kt2,klkl,kmkm
+      double precision sblm,sbjl,sbjm,ktkl,ktkm,klkl,kmkm
       double precision x,y,xinit,damp
       double precision dot,flavourmatch
       integer NLO_mapped_labels(nexternal), NLO_mapped_flavours(NEXTERNAL)

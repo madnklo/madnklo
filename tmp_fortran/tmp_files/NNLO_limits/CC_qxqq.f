@@ -40,6 +40,8 @@ c     set logical doplot
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=2D0)
 c
 c     initialise
       M2_CC_qxqq=0d0
@@ -94,7 +96,7 @@ c     call Born matrix element
       BLO = ANS(0)
 c
 c     double-collinear kernel, eq. (B.17) of 2212.11190
-      M2tmp = CF*(2d0*CF-CA)*(-SIJK**2*ZK/2d0/SJK/SIK*((1+ZK**2)/ZJK/ZIK)+SIJ/SJK+SIJ/SIK+SIJK/2d0/SJK*((1+ZK**2)/ZIK-2d0*ZJ/ZJK)+SIJK/2d0/SIK*((1+ZK**2)/ZJK-2DO*ZI/ZIK))
+      M2tmp = CF*(2d0*CF-CA)*(-SIJK**2*ZK/2d0/SJK/SIK*((1+ZK**2)/ZJK/ZIK)+SIJ/SJK+SIJ/SIK+SIJK/2d0/SJK*((1+ZK**2)/ZIK-2d0*ZJ/ZJK)+SIJK/2d0/SIK*((1+ZK**2)/ZJK-2D0*ZI/ZIK))
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function

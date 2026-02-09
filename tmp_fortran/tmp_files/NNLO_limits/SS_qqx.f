@@ -50,6 +50,7 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
       COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
+      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
 c

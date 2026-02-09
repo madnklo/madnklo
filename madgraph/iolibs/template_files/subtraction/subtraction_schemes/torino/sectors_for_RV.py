@@ -292,7 +292,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         path_Born_processes = []
         # Link LO files to each real process directory
         dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        dirpathVB_head = pjoin(dirmadnklo,glob.glob("%s/NLO_V_*" % interface.user_dir_name[0])[0])
+        dirpathNLO_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_*" % interface.user_dir_name[0])[0])
         necessary_default_ct_list = ['S_RV_g', 'HC_RV_gg', 'HC_RV_gq', 'HC_RV_qqx']
 
         for i in range(0,len(all_sector_list)):
@@ -329,11 +329,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 'path_to_Born'  :   '',
                 'alt_Born_str'  :   '',
                 'alt_Born_path' :   '',
-                'Virt_str'      :   '',
-                'Virt_PDGs'     :   [],
-                'path_to_Virt'  :   '',
-                'alt_Virt_str'  :   '',
-                'alt_Virt_path' :   ''
+                'Real_str'      :   '',
+                'path_to_Real'  :   '',
             }
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
@@ -391,15 +388,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NNLO_RV_IR_limits
                     os.system('cat ' + NNLO_RV_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
-                # elif j == 3:
-                #     if (isec == iref) or (jsec == iref):
-                #         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                #     list_str_def_M2.append('DOUBLE PRECISION M2_%s(-2:0)\n' % necessary_ct_list[i][j])
-                #     list_M2.append('CALL M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitRV,1d0,wgt_chan,ierr,M2_%s)\n'
-                #                        % (necessary_ct_list[i][j], necessary_ct_list[i][j]))
-                #     list_M2.append('K%s=K%s+M2_%s\n'
-                #                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                #     list_M2.append('if(ierr.eq.1)goto 999\n')
 
             # outside loop on necessary_ct_list
             str_def_M2 = " ".join(list_str_def_M2)
@@ -422,15 +410,20 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 # list of proc str permutations 'epem_ddx' for template
                 uB_proc = necessary_ct[i*5].current.shell_string_user(
                             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+                R_proc = str(defining_process.shell_string(schannel=True,
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
                 # list of proc str permutations '1_epem_ddx' for directory
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
+                    dirpathNLO = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
                     if os.path.exists(dirpathLO):
                         replace_dict_int_real['strUB'] = uB_proc[j]
                         replace_dict_limits['proc_prefix_S_RV_g'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
+                        overall_sector_info[i]['Real_str'] = R_proc
                         overall_sector_info[i]['path_to_Born'] = dirpathLO
+                        overall_sector_info[i]['path_to_Real'] = dirpathNLO
                         if uB_proc[j] not in Born_processes:
                             Born_processes.append(uB_proc[j])
                             path_Born_processes.append(dirpathLO)
@@ -448,14 +441,19 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     uB_proc = necessary_ct[i*5+2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                     uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    R_proc = str(defining_process.shell_string(schannel=True,
+                                        forbid=True, main=False, pdg_order=False, print_id = False))
                     flag = False
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
+                        dirpathNLO = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
                         if os.path.exists(dirpathLO):
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
+                            overall_sector_info[i]['Real_str'] = R_proc
                             overall_sector_info[i]['path_to_Born'] = dirpathLO
+                            overall_sector_info[i]['path_to_Real'] = dirpathNLO
                             if uB_proc[j] not in Born_processes:
                                 Born_processes.append(uB_proc[j])
                                 path_Born_processes.append(dirpathLO)
@@ -644,7 +642,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
 ######### Link Born files to each real process directory
 
-        self.link_files_from_B_to_RV_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
+        self.link_files_from_B_and_R_to_RV_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
 
 
 # Links to virtual dir
@@ -874,8 +872,11 @@ c     spurious collinear limit
         # the RV matel is originally "loop_matrix.f" -- it is renamed "matrix_<str_proc>.f" for consistency
         os.rename("%s/loop_matrix.f" % dirpath, "%s/matrix_%s.f" % (dirpath, defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
-            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
+        proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o matrix_R_%s.o """ % (
+            defining_process.shell_string(
+                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False),
+            defining_process.shell_string(
+                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False))
 
         seen_born = set()
         for item in overall_sector_info:
@@ -944,7 +945,7 @@ sector_%d_%d: $(FILES_%d_%d)
     # function for linking files to Real-Virtual subprocess directory
     #===========================================================================
 
-    def link_files_from_B_to_RV_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
+    def link_files_from_B_and_R_to_RV_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
 
         for i in range(0,len(overall_sector_info)):
 
@@ -973,7 +974,11 @@ sector_%d_%d: $(FILES_%d_%d)
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
                 os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
+                os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], overall_sector_info[i]['Real_str']),
+                            "%s/matrix_R_%s.f" % (dirpath, overall_sector_info[i]['Real_str']) )
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
+                os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'],
+                            dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
 
         return #all_sectors

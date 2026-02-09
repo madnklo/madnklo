@@ -49,11 +49,12 @@ LINKLIBS = -L$(LIBDIR) -ldhelas -lmodel $(LINK_LOOP_LIBS) $(LDFLAGS)
 LINKLIBS+=  -lpdf -lgeneric
 
 LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
+LIBDIRREAL= $(wildcard ../../../NLO_R_*/lib/)
 
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext) $(LOOP_LIBS)
 
-LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIR)RV_libdhelas.$(libext)
+LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIRREAL)R_libdhelas.$(libext) $(LIBDIR)RV_libdhelas.$(libext)
 
 OPT=O3
 
@@ -135,3 +136,4 @@ libs:
 	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
 	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
+	cd ../../../NLO_R_*/Source/DHELAS/PROC_DHELAS; make; cd -

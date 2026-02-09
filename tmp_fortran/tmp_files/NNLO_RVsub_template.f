@@ -16,7 +16,7 @@ c     (n+1)-body NNLO integrand for vegas
       integer ierr
       integer ievt,nthres,ntest
       integer iunit
-      common/ciunitNNLO/iunit
+      common/ciunitNLO/iunit
       integer ntested
       parameter(ntest=20)
       save ievt,nthres,ntested
@@ -174,8 +174,9 @@ c     real virtual
          ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
          CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
          ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
-!      INCLUDE 'pmass.inc'
       ENDIF
+c
+      CALL ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
       RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
       do i=-2,0
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then

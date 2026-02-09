@@ -99,13 +99,13 @@ c
       parent_leg = mapped_labels(ib)
 c     TODO: improve ktmuktnuBmunu / kt^2
 c     call Born and spin-correlated Born
-      call %(proc_prefix_HC_RV_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
-      KKBLO = %(proc_prefix_HC_RV_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+c      call %(proc_prefix_HC_RV_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      BLO = 0d0 !ANS(0)
+      KKBLO = 0d0 !%(proc_prefix_HC_RV_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     call Virtual and spin-correlated Virtual
-      call %(proc_prefix_HC_RV_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      VLO = ANS(0)
-      KKVLO = %(proc_prefix_HC_RV_qqx)s_GET_KKVLO(parent_leg,xpb,kt)
+c      call %(proc_prefix_HC_RV_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      VLO = 0d0 !ANS(0)
+      KKVLO = 0d0 !%(proc_prefix_HC_RV_qqx)s_GET_KKVLO(parent_leg,xpb,kt)
 c
       M2_C_qqx_0 = TR*(BLO-4d0/sab*KKBLO)
 

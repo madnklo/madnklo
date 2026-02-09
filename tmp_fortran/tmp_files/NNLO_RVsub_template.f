@@ -68,7 +68,7 @@ C     block for virtual matel
 C
       LOGICAL INIT
       DATA INIT/.TRUE./
-      COMMON/INITCHECKSA/INIT
+C      COMMON/INITCHECKSA/INIT
       INTEGER MATELEM_ARRAY_DIM
       REAL*8 , ALLOCATABLE :: MATELEM(:,:)
       REAL*8 SQRTS,AO2PI,TOTMASS
@@ -177,7 +177,7 @@ c     real virtual
 !      INCLUDE 'pmass.inc'
       ENDIF
       RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
-      do i=1,3
+      do i=-2,0
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
             write(77,*) 'Wrong RVNNLO at eps^',i,' : ', RVNNLO(i)

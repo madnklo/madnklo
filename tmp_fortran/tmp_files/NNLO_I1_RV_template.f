@@ -26,7 +26,7 @@ c     DOUBLE_POLE = I1NNLO(-2)
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
       INTEGER, PARAMETER :: HEL = - 1
-      DOUBLE PRECISION  GET_CCRNLO
+      double precision  %(NLO_proc_str)sGET_CCRNLO
       integer iref1(nexternal)
       double precision vv,ypl,Q2,ddilog
       double precision pmass(nexternal)
@@ -49,8 +49,8 @@ c     initialise
       res = 0d0
 c
 c     real
-      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
+c      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      RNLO = 0d0 !ANS(0) * %(NLO_proc_str)sfl_factor
       if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
          write(77,*) 'int_real: '
          write(77,*) 'Wrong RNLO', RNLO
@@ -98,7 +98,7 @@ c     Soft contribution
          do j=1,nexternal
             if(.not.ISNLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
-            CCRNLO = GET_CCRNLO(i,j)
+            CCRNLO = 0d0 !%(NLO_proc_str)sGET_CCRNLO(i,j)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
                I1NNLOS(-2) = I1NNLOS(-2) + 1d0
                I1NNLOS(-1) = I1NNLOS(-1) + 2d0 - log(sNLO(i,j)/MU_R**2)

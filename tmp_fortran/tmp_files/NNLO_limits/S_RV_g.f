@@ -116,10 +116,10 @@ c
 c     call colour-connected Born and Virtual
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccVLO = %(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            ccBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            ccVLO = (/0d0,0d0,0d0/) !%(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -141,8 +141,8 @@ c     invariant quantities
 c
 c     call triple-colour-connected Born
                qb=mapped_labels(q)
-               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-               TRIBLO = %(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
+c               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+               TRIBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
 c
 c     eikonals
                EIK2(-2) = 0d0
@@ -342,12 +342,12 @@ c     safety check
 c
 c     call colour-connected B^{(ilm)} and B^{(iml)}
             ANS = 0d0
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
-            ccBLO_lm = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
+            ccBLO_lm = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
             ANS = 0d0
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
-            ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
+            ccBLO_ml = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonals
             EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -381,9 +381,9 @@ c     call invariants
                   sbpm = xsb_lm(pb,mb)
                   sbpq = xsb_lm(pb,qb)
 c     call quadruple-colour-connected Born
-                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
-                  QUADBLO_pmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
-                  QUADBLO_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
+c                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
+                  QUADBLO_pmlm = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
+                  QUADBLO_pqlm = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
 
                   delta_s(-1) = delta_s(-1)+EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
                   delta_s( 0) = delta_s( 0)+1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
@@ -453,12 +453,12 @@ c     safety check
 c
 c     call colour-connected B^{(icr)} and B^{(irc)}
             ANS = 0d0
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
-            ccBLO_kr = %(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
+            ccBLO_kr = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
 c
             ANS = 0d0
-            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
-            ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
+c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
+            ccBLO_rk = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
             EIK_KR =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
             M2TMP_KR = EIK_KR*gamma_l*(ccBLO_kr-ccBLO_rk)

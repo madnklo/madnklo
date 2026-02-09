@@ -98,10 +98,10 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
-      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      VLO = ANS(0)
+c      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      BLO = 0d0 !ANS(0)
+c      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      VLO = 0d0 !ANS(0)
 c
 c     In the following equation the x variable is related to the quark energy
       M2_C_gq_0=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))

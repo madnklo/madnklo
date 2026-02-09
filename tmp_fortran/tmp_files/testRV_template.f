@@ -68,7 +68,7 @@ c
       double precision x0(mxdim),x(mxdim)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
-      double precision KRVNNLO
+      double precision KRVNNLO(-2:0)
       double precision lam,lim,RVNNLO(-2:0),single_real
       character*5 str5
       character*8 limstr
@@ -190,7 +190,7 @@ c     counterterm
          call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
 
-         lim=KRVNNLO
+         lim=KRVNNLO(0)
          single_real=RVNNLO(0)*W_NLO*xjac
 
          if(abs(lim).gt.0d0)then

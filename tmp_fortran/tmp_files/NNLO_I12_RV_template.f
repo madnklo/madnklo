@@ -66,13 +66,13 @@ c     TODO: Born and colour correlations
       mb=mapped_labels(m)
       nb=mapped_labels(n)
       qb=mapped_labels(q)
-      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
-      ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      triBLO = %(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,nb)
-      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      quadBLO = %(proc_prefix_S_RV_g)s_GET_QUADBLO(lb,mb,qb,nb)
+c      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      BLO = 0d0 !ANS(0)
+      ccBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+c      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      triBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,nb)
+c      call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      quadBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(lb,mb,qb,nb)
 c
 c     Soft contribution
       do i=1,nexternal

@@ -99,3 +99,122 @@ c
       return
       end
 
+
+
+
+
+      subroutine get_soft_mapped_labels(a,n,leg_pdgs,mapped_labels,mapped_flavours,ismappedQCDparton)
+c     assigns labels and flavours of particles after a mapping (a,x,y) that removes gluon a from
+c     an n-body final state
+      implicit none
+      integer a,n,i
+      integer leg_pdgs(n),mapped_labels(n),mapped_flavours(n)
+      logical ismappedQCDparton(n-1)
+c
+c     initialise
+      mapped_labels=0
+      mapped_flavours=0
+      ismappedQCDparton=.false.
+c
+c     preliminary checks
+      if(a.lt.3)then
+         write(*,*)'get_soft_mapped_labels: wrong parton a ',a
+         stop
+      endif
+      if(leg_pdgs(a).ne.21)then
+         write(*,*)'get_soft_mapped_labels: a is not a gluon',a,leg_pdgs(a)
+         stop
+      endif
+c
+c     assign mapped labels, flavours, ismappedQCDparton
+      do i=1,n
+         if(i.eq.a)cycle
+         mapped_flavours(i)=leg_pdgs(i)
+         if(i.lt.a)then
+            mapped_labels(i)=i
+         else
+            mapped_labels(i)=i-1
+         endif
+         if(abs(mapped_flavours(i)).le.6.or.mapped_flavours(i).eq.21)
+     &        ismappedQCDparton(mapped_labels(i)) = .true.
+      enddo
+c
+      return
+      end
+
+
+
+      subroutine get_collinear_mapped_labels(a,b,n,leg_pdgs,mapped_labels,mapped_flavours)
+c     assigns labels and flavours of particles after a mapping (a,b,y) that clusters partons
+c     (a,b) in an n-body final state
+      implicit none
+      integer a,b,n,i
+      integer leg_pdgs(n),mapped_labels(n),mapped_flavours(n)
+      logical isgluon,isqqbar,isQCD
+c
+c     initialise
+      mapped_labels=0
+      mapped_flavours=0
+c
+c     preliminary checks
+      if(a.lt.3.or.b.lt.3)then
+         write(*,*)'get_collinear_mapped_labels: wrong partons a, b ',a,b
+         stop
+      endif
+      isgluon=leg_pdgs(a).eq.21.or.leg_pdgs(b).eq.21
+      isqqbar=leg_pdgs(a)+leg_pdgs(b).eq.0
+      isQCD=(abs(leg_pdgs(a)).le.6.or.leg_pdgs(a).eq.21).and.
+     &      (abs(leg_pdgs(b)).le.6.or.leg_pdgs(b).eq.21)
+      if (.not.(isgluon.or.isqqbar.or.isQCD)) then
+         write(*,*)'get_collinear_mapped_labels: inconsistent a, b '
+         write(*,*)leg_pdgs(a),leg_pdgs(b)
+         stop
+      endif
+c
+      do i=1,n
+         if(i.eq.a)cycle
+         mapped_flavours(i)=leg_pdgs(i)
+         if(i.lt.a)then
+            mapped_labels(i)=i
+         else
+            mapped_labels(i)=i-1
+         endif
+       enddo
+c TODO: think if a -> min(a,b), b -> max(a,b) or similar??
+      if(leg_pdgs(a)+leg_pdgs(b).eq.0)mapped_flavours(b)=21
+      if(leg_pdgs(b).eq.21)mapped_flavours(b)=leg_pdgs(a)
+
+
+
+      return
+      end
+
+
+
+      subroutine reshuffle_momenta(n,leg_pdgs,mapped_flavours,mapped_labels,xpb)
+      implicit none
+      include 'nexternal.inc'
+      integer i,j,n
+      integer leg_pdgs(n-1), mapped_labels(nexternal),mapped_flavours(nexternal)
+      double precision xpb(0:3,n-1), xpb_mapped(0:3,n-1)
+      integer aux_labels(nexternal)
+
+      xpb_mapped(:,:) = 0d0
+      aux_labels(:) = 0
+
+      do i=1,n-1
+         do j=1,nexternal
+            if(leg_pdgs(i).eq.mapped_flavours(j)) then
+               if(mapped_flavours(j).eq.0.or.aux_labels(j).ne.0) cycle
+               xpb_mapped(:,mapped_labels(j)) = xpb(:,i)
+               aux_labels(j) = i
+               exit
+            endif
+         enddo
+      enddo
+
+      xpb(:,:) = xpb_mapped(:,:)
+      mapped_labels(:) = aux_labels(:)
+      
+      return
+      end

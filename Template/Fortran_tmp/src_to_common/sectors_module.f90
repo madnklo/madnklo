@@ -43,9 +43,9 @@ contains
   subroutine get_W_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
     implicit none
-    include 'all_sector_list.inc'
     integer :: i,a,b,i1,i2
     double precision :: num,sigma
+    include 'all_sector_list.inc'
     call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
@@ -61,9 +61,9 @@ contains
   subroutine get_WS_NLO(i1,i2)
     !     NLO soft sector functions WS(i1,i2) = barS_i1 W(i1,i2)
     implicit none
-    include 'all_sector_list.inc'
     integer :: i,a,b,i1,i2
     double precision :: num,sigma
+    include 'all_sector_list.inc'
     call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
@@ -80,7 +80,6 @@ contains
   subroutine get_WC_NLO(xs_in,ia,ib,ir,alphaz,n_ext_in)
     !     NLO collinear sector functions WC(ia,ib,ir)
     implicit none
-    include 'all_sector_list.inc'
     integer :: ia,ib,ir
     integer :: n_ext_in
     double precision :: ei,ej,wij,wir,wjr,alphaz
@@ -243,7 +242,6 @@ contains
    subroutine get_WCC_NNLO(xs_in,IA,IB,C,D,ir,alphaz,n_ext_in)
     !     NNLO collinear sector functions WCC(ia,ib,ic,ir)
     implicit none
-    include 'all_sector_list.inc'
     integer :: ia,ib,ic,ir,c,d
     integer :: n_ext_in
     double precision :: alphaz, num, sigma, wcc_nnlo
@@ -272,7 +270,6 @@ contains
   subroutine get_WSS_CC_NNLO(xs_in,ia,ib,C,D,ir,alphaz,n_ext_in)
           !     NNLO double-soft collinear sector functions WSSCC(ia,ib,ic,ir)
     implicit none
-    include 'all_sector_list.inc'
     integer :: ia,ib,ic,ir,C,D
     integer :: n_ext_in
     double precision :: alphaz, num, sigma, wsscc_nnlo
@@ -297,9 +294,9 @@ contains
   subroutine get_Z_NNLO(i1,i2,i3,i4)
     !     NNLO sector functions Z(i1,i2,i3,i4)
     implicit none
-    include 'all_sector_list.inc'
     integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
+    include 'all_sector_list.inc'
     call sector4_global_checks(i1,i2,i3,i4)
     if(i4.eq.0) then
        num = sigNNLO(i1,i2,i2,i3) + &
@@ -373,9 +370,9 @@ contains
   subroutine get_WSS_NNLO(i1,i2,i3,i4)
     !     NNLO double-soft sector functions WSS(i1,i2,i3,i4) = barS_i1i3 W(i1,i2,i3,i4) [eq.(C.54)]
     implicit none
-    include 'all_sector_list.inc'
     integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
+    include 'all_sector_list.inc'
     call sector4_global_checks(i1,i2,i3,i4)
     if(i4.ge.0) then
        num = sigNNLO(i1,i2,i3,i4)

@@ -2891,13 +2891,13 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)),pjoin(dirpath,'../../../Common_Files/leshouche_%s.f' 
                                                       %matrix_element.get('processes')[i].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-            if strdirpath[-1][0:5] == 'NLO_R':
-                cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
-                os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
-                #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
-                #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
-                #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
-                os.remove(pjoin(dirpath,'configs.inc'))
+        if strdirpath[-1][0:5] == 'NLO_R' or strdirpath[-1][0:7] == 'NNLO_RR':
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
+            os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+            #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
+            #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
+            #cp(pjoin(dirpath,'../../../Common_Files/ngraphs.inc'),pjoin(dirpath,'include/'))
+            os.remove(pjoin(dirpath,'configs.inc'))
 
 
 

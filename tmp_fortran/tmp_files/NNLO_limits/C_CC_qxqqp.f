@@ -21,6 +21,7 @@ c     while k is a q (or qb) with any flavour
       double precision ktb(0:3),ktb2,kt(0:3),kt2,WCCC_NNLO
       double precision x,y,xinit
       double precision ANS(0:NSQSO_BORN)
+      double precision dot
       integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer lo_mapped_labels(nexternal), lo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
@@ -43,10 +44,12 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk
+      double precision zi,zj,zbj,zbk,zir,zjr
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=2D0)
 c
 c     initialise
       M2_C_CC_qxqqp=0d0
@@ -177,6 +180,7 @@ c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with s
 c     while k is a q (or qb) with any flavour
       implicit none
       use sectors2_module
+      use sectors4_module
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
       include 'math.inc'
@@ -191,6 +195,7 @@ c     while k is a q (or qb) with any flavour
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO
+      double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ktb(0:3),ktb2,kt(0:3),kt2,WSSCCC_NNLO
@@ -218,10 +223,12 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk
+      double precision zi,zj,zbj,zbk,zir,zjr
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=2D0)
 c
 c     initialise
       M2_C_SS_qqx_CC_qxqqp=0d0

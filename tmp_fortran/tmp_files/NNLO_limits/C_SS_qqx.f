@@ -1,6 +1,7 @@
       double precision function M2_C_SS_QQX(ia,ib,ik,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors2_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -16,17 +17,19 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
-      double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision xsbb(nexternal-2,nexternal-2)
+      double precision xs(nexternal,nexternal)
+      double precision xsb(nexternal-1,nexternal-1),xsbsave(nexternal-1,nexternal-1)
+      double precision xsbb(nexternal-2,nexternal-2),xsbbsave(nexternal-2,nexternal-2)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2), kt(0:3)
       double precision ktb2,ktb(0:3),kt2,WSCC_NNLO
       double precision sab,sar,sbr
       double precision wa,wb,wr
-      double precision sblm,sbjl,sbjm,ktkl,ktkm,klkl,kmkm
-      double precision x,y,xinit,damp
-      double precision dot,flavourmatch
+      double precision sblm,sbjl,sbjm,ktkl,ktkm,klkl,kmkm,klkm
+      double precision x,y,xinit,damp,Ebjlm
+      double precision dot
+      logical flavourmatch
       integer NLO_mapped_labels(nexternal), NLO_mapped_flavours(NEXTERNAL)
       integer LO_mapped_labels(nexternal), LO_mapped_flavours(NEXTERNAL)
       logical isNLOmappedQCDparton(nexternal-1)
@@ -43,6 +46,7 @@ c     external
       integer get_color_dipole_index
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
+      double precision pij,qij,sij,zi,zj
       double precision alpha_qcd
       double precision alphaZ
       parameter(alphaZ=2d0)
@@ -106,7 +110,7 @@ c     check sector topology (only appears in ijjk)
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5
+      flavourmatch = (leg_PDGs(i).eq.-leg_PDGs(j)).and.(abs(leg_PDGs(i)).le.5)
       if(.not.(flavourmatch))then
        write(*,*) 'Flavour mismatch in M2_C_SS_qqx', leg_PDGs(i),leg_PDGs(j)
        stop 1
@@ -246,7 +250,7 @@ c        collinear double-soft kernel, eq. (C.36) of 2212.11190v2
          Pij = TR*(1d0-2d0*zi*zj)
          Qij = TR*2d0*zi*zj
          Ebjlm = sblm/sbjl/sbjm
-         M2tmp = Pij*Eblm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
+         M2tmp = Pij*Ebjlm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klkm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
 c        The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
          M2TMP = M2TMP/sij
 c        Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
@@ -259,10 +263,10 @@ c        Including correct multiplicity factor
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          damp=1d0
          M2tmp=M2tmp*damp*xj/sab
-         M2_C_SS_QQX=M2_C_SS_QQX+pref*M2tmp*WCSS_NNLO*extra
+         M2_C_SS_QQX=M2_C_SS_QQX+pref*M2tmp*extra
 c
 c        plot
-         wgtpl=-pref*M2tmp*WCSS_NNLO*extra*wgt/nit*wgt_chan
+         wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
          wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
          if(doplot)call histo_fill(xpbbsave,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
              enddo

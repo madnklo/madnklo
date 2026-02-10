@@ -33,7 +33,7 @@ c     local NNLO counterterm K1 for sector [%(isec)d,%(jsec)d,%(c3p)d,%(d3p)d]
       include 'nexternal.inc'
       integer isec,jsec,ksec,lsec,iref
       common/cpartindices/isec,jsec,ksec,lsec,iref
-      integer nitRR
+      integer nitRR,ierr
       common/iterations/nitRR
       double precision xs(nexternal,nexternal)
       double precision xp(0:3,nexternal)

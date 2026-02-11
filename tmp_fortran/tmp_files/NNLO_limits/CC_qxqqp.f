@@ -40,6 +40,8 @@ c     set logical doplot
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=2D0)
 c
 c     initialise
       M2_CC_qxqqp=0d0
@@ -163,7 +165,9 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk
+      double precision zi,zj,zk,zij,zik,zjk,eijkr
+      DOUBLE PRECISION ALPHAZ
+      PARAMETER(ALPHAZ=2D0)
 c
 c     initialise
       M2_SS_qqx_CC_qxqqp=0d0
@@ -222,8 +226,8 @@ c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       M2TMP = M2TMP*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wsscc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
-      M2TMP=M2TMP*WSSCC_NNLO
+      call get_wss_cc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
+      M2TMP=M2TMP*WSS_CC_NNLO
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

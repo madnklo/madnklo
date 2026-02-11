@@ -1,8 +1,8 @@
       double precision function M2_C_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
-      implicit none
       use sectors2_module
+      implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
       include 'math.inc'
@@ -178,9 +178,9 @@ c
       double precision function M2_C_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
-      implicit none
       use sectors2_module
       use sectors4_module
+      implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
       include 'math.inc'
@@ -323,7 +323,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Qij = TR*2d0*zi*zj
       Pbjk = CF*(1d0+zbk**2)/zbj
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2TMP = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
       M2TMP = M2TMP/sij*BLO
 c
 c     include soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2

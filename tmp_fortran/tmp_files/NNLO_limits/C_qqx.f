@@ -29,14 +29,14 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
-      integer %(proc_prefix_real)s_fl_factor
-      common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
+      integer %(proc_prefix_rr)s_fl_factor
+      common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=1d0)
       double precision %(proc_prefix_C_qqx)s_get_kkblo
-      integer %(proc_prefix_real)s_den
-      common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
+      integer %(proc_prefix_rr)s_den
+      common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_C_qqx)s_den
       common/%(proc_prefix_C_qqx)s_iden/%(proc_prefix_C_qqx)s_den
       INTEGER ISEC,JSEC,KSEC,LSEC
@@ -122,7 +122,7 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2tmp=TR*(BLO-4d0/sab*KKBLO)
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_C_qqx)s_den)/dble(%(proc_prefix_real)s_den)
+      M2tmp = M2tmp*dble(%(proc_prefix_C_qqx)s_den)/dble(%(proc_prefix_rr)s_den)
 c     account for different damping factors according to
 c     recoiler position (ir)
       if(ir.ge.2)then
@@ -141,7 +141,7 @@ c     compute collinear limit of sector function
 c
       M2_C_qqx=M2tmp*pref/sab*xj*extra*wc_nnlo
 c     apply flavour factor
-      M2_C_qqx=M2_C_qqx*%(proc_prefix_real)s_fl_factor
+      M2_C_qqx=M2_C_qqx*%(proc_prefix_rr)s_fl_factor
 c
 c     plot
       wgtpl=-M2_C_qqx*wgt/nit*wgt_chan

@@ -2428,8 +2428,8 @@ c       %s
             replace_dict_tmp = {}
             replace_dict_tmp['isec'] = overall_sector_info[i]['isec']
             replace_dict_tmp['jsec'] = overall_sector_info[i]['jsec']
-            replace_dict_tmp['ksec'] = overall_sector_info[i]['ksec']
-            replace_dict_tmp['lsec'] = overall_sector_info[i]['lsec']
+            replace_dict_tmp['ksec'] = overall_sector_info[i]['c3p']
+            replace_dict_tmp['lsec'] = overall_sector_info[i]['d3p']
             replace_dict_tmp['tmp_Real_PDGs'] = overall_sector_info[i]['Real_PDGs']
             replace_dict_tmp['tmp_Born_PDGs'] = overall_sector_info[i]['Born_PDGs']
             if(overall_sector_info[i]['Born_PDGs'] == []):

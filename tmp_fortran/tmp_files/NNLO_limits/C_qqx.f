@@ -136,7 +136,7 @@ c     TODO: ask
 c     compute collinear limit of sector function
       call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
       M2TMP=M2TMP*wc_nlo
-c      get_sig2(xsbsave,1d0,nexternal-1)
+      call get_sig2(xsbsave,1d0,nexternal-1)
       call get_w_nlo(ia,ib)
       M2TMP=M2TMP*W_NLO
 c

@@ -44,7 +44,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk,zir,zjr
+      double precision zi,zj,zbj,zbk
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
@@ -223,7 +223,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk,zir,zjr
+      double precision zi,zj,zbj,zbk
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)

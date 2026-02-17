@@ -44,7 +44,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk,zbki,zir,zjr
+      double precision zi,zj,zbj,zbk,zbki
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
@@ -120,7 +120,7 @@ c     invariant quantities
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
 c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
+      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
       ktb2 = -zbj*zbk*sbjk
@@ -223,7 +223,7 @@ c     set logical doplot
       INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
       INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk,zir,zjr
+      double precision zi,zj,zbj,zbk
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
       double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
@@ -297,7 +297,7 @@ c     invariant quantities
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
 c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
+      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
       ktb2 = -zbj*zbk*sbjk

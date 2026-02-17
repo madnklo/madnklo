@@ -120,7 +120,7 @@ c     invariant quantities
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
 c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
+      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
       ktb2 = -zbj*zbk*sbjk
@@ -299,7 +299,7 @@ c     invariant quantities
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
 c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(zir+zjr)*xp(:,r)
+      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
       kt2 = -zi*zj*sij
       ktb(:) = zbk*xpbsave(:,jb) - zbj*xpbsave(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpbsave(:,rb)
       ktb2 = -zbj*zbk*sbjk

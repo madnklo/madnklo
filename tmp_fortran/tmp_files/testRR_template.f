@@ -15,7 +15,7 @@
       common/cxsave/xsave
       double precision e(5),l(5)
       integer i
-      
+
 c
       dash10='----------'
       ievnt=ievnt+1
@@ -26,7 +26,7 @@ c
       write(iunit,*)dash10//dash10//dash10//dash10
       write(iunit,*)dash10//dash10//dash10//dash10
 %(limit_str)s
-c     
+c
 c     reinstate original xsave after testing
       do i=1,5
          xsave(i)=x0(i)
@@ -75,11 +75,11 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       double precision xsave(5)
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
-c      DOUBLE PRECISION Z_NNLO
+c      DOUBLE PRECISION W_NNLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
-      integer %(NNLO_proc_str)sfl_factor 
+      integer %(NNLO_proc_str)sfl_factor
       common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
       DOUBLE PRECISION ALPHAZ
       PARAMETER(ALPHAZ=2D0)
@@ -88,7 +88,7 @@ c      DOUBLE PRECISION Z_NNLO
       double precision K1,K2,K12
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
-c     
+c
 c     initialise
       x=x0
       str5 ='     '
@@ -97,7 +97,7 @@ c     initialise
       sNNLO=0d0
       sNLO=0d0
       sLO=0d0
-      Z_NNLO=0d0
+      W_NNLO=0d0
       wgt_chan=1d0
 c
 c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
@@ -135,7 +135,7 @@ c     TODO: this rescaling is specific for (ijr) mapping; generalise
          x(4)=abs(l(4)-x0(4)*lam**e(4))
          x(5)=abs(l(5)-x0(5)*lam**e(5))
 
-         
+
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics
@@ -157,20 +157,20 @@ c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
-c         call  get_Z_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,Z_NNLO,ierr)
+c         call  get_W_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,W_NNLO,ierr)
 
          call get_sigNNLO(SNNLO,alphaz,nexternal)
-c         call get_Z_NNLO(asec,bsec,csec,dsec)  TO BE UPDATED
-         
+c         call get_W_NNLO(asec,bsec,csec,dsec)  TO BE UPDATED
+
          if(ierr.eq.1)cycle
 c
 c     counterterm
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
-         
+
          lim=KNNLO
-         double_real=RNNLO*Z_NNLO*xjac
-         
+         double_real=RNNLO*W_NNLO*xjac
+
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,double_real,lim,abs(double_real-lim)/abs(lim)
          else

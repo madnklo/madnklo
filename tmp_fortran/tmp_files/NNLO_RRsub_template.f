@@ -22,7 +22,7 @@ c     (n+2)-body NNLO integrand for vegas
       double precision sNNLO(nexternal,nexternal)
       double precision sNLO(nexternal-1,nexternal-1),sminNLO
       double precision sLO(nexternal-2,nexternal-2)
-c      double precision Z_NNLO
+c      double precision W_NNLO
       double precision alphaZ
       parameter(alphaZ=2d0)
       double precision RNNLO,KNNLO
@@ -71,14 +71,14 @@ c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
-c     cpartindices: 
+c     cpartindices:
 c     each sector-relevant particle -> one index
       isec = %(isec)d
       jsec = %(jsec)d
       ksec = %(ksec)d
       lsec = %(lsec)d
       iref = %(iref)d
-c     csecindices: 
+c     csecindices:
 c     ordered list of particle indices identifying the sector
       asec = %(isec)d
       bsec = %(jsec)d
@@ -86,13 +86,13 @@ c     ordered list of particle indices identifying the sector
       dsec = %(d3p)d
       int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d=0d0
       int_double_real_no_cnt=0d0
-      Z_NNLO=0d0
+      W_NNLO=0d0
       RNNLO=0d0
       do i=1,3
          xsave(i)=x(i)
       enddo
 c
-c     specify phase-space mapping 
+c     specify phase-space mapping
       %(mapping_str)s
 
       if(asec.le.2.or.bsec.le.2.or.csec.le.2.or.dsec.le.2)then
@@ -167,18 +167,18 @@ c     double real
       endif
 c
 c     double real sector function
-c      call  get_Z_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,Z_NNLO,ierr)
+c      call  get_W_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,W_NNLO,ierr)
       call get_sigNNLO(SNNLO,alphaz,nexternal)
-c      call get_Z_NNLO(asec,bsec,csec,dsec).  !!! GB: move to get_W_NNLO
+c      call get_W_NNLO(asec,bsec,csec,dsec).  !!! GB: move to get_W_NNLO
 
       if(ierr.eq.1)then
          write(77,*) 'int_double_real: '
-         write(77,*) 'Wrong Z_NNLO', Z_NNLO
+         write(77,*) 'Wrong W_NNLO', W_NNLO
          goto 999
       endif
 c
 c     full real in the combination of sectors
-      int_double_real_no_cnt=RNNLO*Z_NNLO*xjac
+      int_double_real_no_cnt=RNNLO*W_NNLO*xjac
 c
 c     plot real
       wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan

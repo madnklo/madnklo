@@ -132,11 +132,11 @@ end module sectors2_module
 module sectors4_module
   implicit none
   integer, public :: n_ext,num_sec
-  double precision, public :: alpha_mod, Z_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO, WCC_NNLO, WSS_NNLO, WSS_CC_NNLO
+  double precision, public :: alpha_mod, W_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO, WCC_NNLO, WSS_NNLO, WSS_CC_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_Z_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO
+  public :: get_sigNNLO, get_W_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO
   private
 
 contains
@@ -291,81 +291,71 @@ contains
       wsscc_nnlo=num/sigma
   end subroutine get_WSS_CC_NNLO
 
-  subroutine get_Z_NNLO(i1,i2,i3,i4)
-    !     NNLO sector functions Z(i1,i2,i3,i4)
+  subroutine get_W_NNLO(IA,IB,C,D)
+    !     NNLO sector functions W(i1,i2,i3,i4)
     implicit none
-    integer :: i,a,b,c,d,i1,i2,i3,i4
+    integer :: i,ia,ib,c,d,ic,i1,i2,i3,i4
     double precision :: num,sigma
     include 'all_sector_list.inc'
-    call sector4_global_checks(i1,i2,i3,i4)
-    if(i4.eq.0) then
-       num = sigNNLO(i1,i2,i2,i3) + &
-             sigNNLO(i1,i2,i3,i2) + &
-             sigNNLO(i1,i3,i3,i2) + &
-             sigNNLO(i1,i3,i2,i3) + &
-             sigNNLO(i2,i1,i1,i3) + &
-             sigNNLO(i2,i1,i3,i1) + &
-             sigNNLO(i2,i3,i3,i1) + &
-             sigNNLO(i2,i3,i1,i3) + &
-             sigNNLO(i3,i1,i1,i2) + &
-             sigNNLO(i3,i1,i2,i1) + &
-             sigNNLO(i3,i2,i2,i1) + &
-             sigNNLO(i3,i2,i1,i2)
-    elseif(i4.ne.0) then
-       num = sigNNLO(i1,i2,i3,i4)  + &
-             sigNNLO(i1,i2,i4,i3)  + &
-             sigNNLO(i3,i4,i1,i2)  + &
-             sigNNLO(i3,i4,i2,i1)  + &
-             sigNNLO(i4,i3,i1,i2)  + &
-             sigNNLO(i4,i3,i2,i1)
-    else
-       write(*,*) 'get_Z_NNLO: error in the numerator construction...'
-       write(*,*) 'negative value for 4th sector index i4...'
-       write(*,*) 'i4 = ', i4
-       write(*,*) 'exit...'
-       stop
-    endif
+    call sector4_global_checks(IA,IB,C,D)
+    num = sigNNLO(ia,ib,c,d)
     sigma = 0d0
     do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       c=all_sector_list(3,i)
-       d=all_sector_list(4,i)
-       if(d.eq.0) then
+       i1=all_sector_list(1,i)
+       i2=all_sector_list(2,i)
+       i3=all_sector_list(3,i)
+       i4=all_sector_list(4,i)
+       if(IB .eq. C) then
+          i3 = D ! ijjk not sure
           sigma = sigma + &
-               sigNNLO(a,b,b,c) + &
-               sigNNLO(a,b,c,b) + &
-               sigNNLO(a,c,c,b) + &
-               sigNNLO(a,c,b,c) + &
-               sigNNLO(b,a,a,c) + &
-               sigNNLO(b,a,c,a) + &
-               sigNNLO(b,c,c,a) + &
-               sigNNLO(b,c,a,c) + &
-               sigNNLO(c,a,a,b) + &
-               sigNNLO(c,a,b,a) + &
-               sigNNLO(c,b,b,a) + &
-               sigNNLO(c,b,a,b)
-       elseif(d.ne.0) then
+               sigNNLO(i1,i2,i2,i3) + &
+               sigNNLO(i1,i3,i3,i2) + &
+               sigNNLO(i2,i1,i1,i3) + &
+               sigNNLO(i2,i3,i3,i1) + &
+               sigNNLO(i3,i1,i1,i2) + &
+               sigNNLO(i3,i2,i2,i1) + &
+               sigNNLO(i1,i2,i3,i2) + &
+               sigNNLO(i1,i3,i2,i3) + &
+               sigNNLO(i2,i3,i2,i3) + &
+               sigNNLO(i2,i3,i1,i3) + &
+               sigNNLO(i3,i1,i2,i1) + &
+               sigNNLO(i3,i2,i1,i2)
+       elseif(IB .eq. D) then
+          i3 = C ! ijkj not sure
           sigma = sigma + &
-               sigNNLO(a,b,c,d) + &
-               sigNNLO(a,b,d,c) + &
-               sigNNLO(b,a,c,d) + &
-               sigNNLO(b,a,d,c) + &
-               sigNNLO(c,d,a,b) + &
-               sigNNLO(c,d,b,a) + &
-               sigNNLO(d,c,a,b) + &
-               sigNNLO(d,c,b,a)
+               sigNNLO(i1,i2,i2,i3) + &
+               sigNNLO(i1,i3,i3,i2) + &
+               sigNNLO(i2,i1,i1,i3) + &
+               sigNNLO(i2,i3,i3,i1) + &
+               sigNNLO(i3,i1,i1,i2) + &
+               sigNNLO(i3,i2,i2,i1) + &
+               sigNNLO(i1,i2,i3,i2) + &
+               sigNNLO(i1,i3,i2,i3) + &
+               sigNNLO(i2,i3,i2,i3) + &
+               sigNNLO(i2,i3,i1,i3) + &
+               sigNNLO(i3,i1,i2,i1) + &
+               sigNNLO(i3,i2,i1,i2)
+       elseif(D.ne.IA.and.D.ne.IB.and.D.ne.C) then ! ijkl
+          sigma = sigma + &
+               sigNNLO(i1,i2,i3,i4) + &
+               sigNNLO(i1,i2,i4,i3) + &
+               sigNNLO(i2,i1,i3,i4) + &
+               sigNNLO(i2,i1,i4,i3) + &
+               sigNNLO(i3,i4,i1,i2) + &
+               sigNNLO(i3,i4,i2,i1) + &
+               sigNNLO(i4,i3,i1,i2) + &
+               sigNNLO(i4,i3,i2,i1)
        else
-          write(*,*) 'get_Z_NNLO: error in the denominator construction...'
+          write(*,*) 'get_W_NNLO: error in the denominator construction...'
           write(*,*) 'negative value for 4th sector index d...'
           write(*,*) 'd = ', d
           write(*,*) 'exit...'
           stop
        endif
     enddo
-    Z_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,Z_NNLO)
-  end subroutine get_Z_NNLO
+    W_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,W_NNLO)
+  end subroutine get_W_NNLO
 
   subroutine get_WSS_NNLO(i1,i2,i3,i4)
     !     NNLO double-soft sector functions WSS(i1,i2,i3,i4) = barS_i1i3 W(i1,i2,i3,i4) [eq.(C.54)]
@@ -486,15 +476,15 @@ contains
   end subroutine sector4_global_checks
 
 
-  subroutine sector2_sanity_checks(sigma,Z)
+  subroutine sector2_sanity_checks(sigma,W)
     implicit none
-    double precision :: Z,sigma
+    double precision :: W,sigma
     if(sigma.le.0d0)then
        write(*,*)'Wrong sigma ',sigma
        stop
     endif
-    if(abs(Z).ge.huge(1d0).or.isnan(Z))then
-       write(77,*)'Exception caught ',Z
+    if(abs(W).ge.huge(1d0).or.isnan(W))then
+       write(77,*)'Exception caught ',W
        stop
     endif
   end subroutine sector2_sanity_checks

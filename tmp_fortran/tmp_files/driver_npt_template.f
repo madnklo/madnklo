@@ -98,9 +98,9 @@ c         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p
 c         err_rr_a(ich) = err_rr
 c         sum_err_rr_a = sum_err_rr_a + err_rr_a(ich)
 c      enddo
-cc
-cc     main loop over channels
-c      do i=1,N_MAX_CG
+c
+c     main loop over channels
+c     do i=1,N_MAX_CG
       do i=1,1
          ich=i
          write(*,*)'Double-real %(isec)d%(jsec)d%(c3p)d%(d3p)d warmup for channel',ich
@@ -132,12 +132,12 @@ c         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p
          sum_err_rr = sum_err_rr + err_rr**2
          write(iu9,*)' sigma RR%(isec)d_%(jsec)d%(c3p)d_%(d3p)d [pb], channel',ich,' = ',res_rr,' +-',err_rr
          write(iu9,*)
-c     
+c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
-      sum_err_rr = dsqrt(sum_err_rr)      
+      sum_err_rr = dsqrt(sum_err_rr)
       call histo_final('plot_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.dat', rescale_plot_RR)
 c      write(iu,*)
 c      write(iu,*)' '//line
@@ -153,5 +153,3 @@ c      write(iu,*)
       close(iu9)
 c
       end
-
-

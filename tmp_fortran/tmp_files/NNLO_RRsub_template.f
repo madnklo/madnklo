@@ -182,7 +182,7 @@ c
       subroutine initialise_sector()
       implicit none
       include 'nexternal.inc'
-      include 'leg_pdgs.inc'
+      include 'leg_PDGs.inc'
       integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
@@ -232,8 +232,8 @@ c     for mapped n+1 -> n mapped labels:
 c     if lsec =0 the unresolved pair is bsec, csec,
 c     if lsec!=0 the unresolved pair is csec, dsec.
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      map1=mapped_labels(csec)
-      map2=mapped_labels(bsec)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(bsec)
       if(lsec.ne.0)map2=mapped_labels(dsec)
       call get_mapped_labels(nexternal-1,map1,map2,Born_leg_pdgs,Born_mapped_labels)
       return

@@ -82,13 +82,12 @@ c     initialise
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
-c      pb_to_ME=0d0
       xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
 c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
-      if(xjac.eq.0d0.or.xjacB.eq.0d0) then
+      if(xjac*xjacB.eq.0d0) then
          write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
          goto 999
@@ -112,17 +111,11 @@ c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
 c
-c     Call the Underlying Born matrix element to fill the amp2 array,
-c     in order to implement the multi channel
-c      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
-c      WGT_CHAN=AMP2(ICH)
-c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
          call test_R_%(isec)d_%(jsec)d(iunit,x)
       endif
-c     TODO: implement flag 'test_only' to stop here
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
@@ -149,8 +142,6 @@ c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan
       if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
  555  continue
-c
-c      str_int_real  ! TODO: needed?
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
@@ -188,12 +179,6 @@ c
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
-c      integer mapped_labels_s(nexternal)
-c      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
-c      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
-c      integer mapped_labels_c(nexternal)
-c      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
-c      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
 c
@@ -205,7 +190,7 @@ c
 c
 c     check we are not in the ISR case
       if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
+         write(*,*)'ISR indices',isec,jsec
          stop
       endif
 c

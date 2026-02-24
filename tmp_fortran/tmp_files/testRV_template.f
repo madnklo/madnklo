@@ -91,9 +91,9 @@ c
 C
 C     block for virtual matel
 C
-      LOGICAL INIT
-      DATA INIT/.TRUE./
-      COMMON/INITCHECKSA/INIT
+      LOGICAL INITTEST
+      DATA INITTEST/.TRUE./
+      COMMON/INITCHECKSA/INITTEST
       INTEGER MATELEM_ARRAY_DIM
       REAL*8 , ALLOCATABLE :: MATELEM(:,:)
       REAL*8 SQRTS,AO2PI,TOTMASS
@@ -173,8 +173,8 @@ c     recompute momenta after rescaling
          if(ierr.eq.1)cycle
 c
 c     real virtual
-      IF (INIT) THEN
-         INIT=.FALSE.
+      IF (INITTEST) THEN
+         INITTEST=.FALSE.
          CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
          ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
          CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)

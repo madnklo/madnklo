@@ -190,11 +190,12 @@ c
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
       integer map1,map2
+      integer mapped_labels(nexternal-1)
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-C     
+C
 c     cpartindices:
 c     each sector-relevant particle -> one index
       isec = %(isec)d
@@ -210,9 +211,8 @@ c     ordered list of particle indices identifying the sector
       dsec = %(d3p)d
 c
 c     check we are not in the ISR case
-      if(asec.le.2.or.bsec.le.2,csec.le.2.or.dsec.le.2)then
+      if(asec.le.2.or.bsec.le.2.or.csec.le.2.or.dsec.le.2)then
          write(*,*)'ISR indices',asec,bsec,csec,dsec
-         stop
       endif
 c
 c     specify phase-space mapping

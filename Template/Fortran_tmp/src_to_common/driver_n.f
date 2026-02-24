@@ -23,6 +23,8 @@
       character*100 line
       integer nitBth,nclBth,nitB,nclB
       integer nitBth0,nclBth0,nclB0,nclBth1,nclB1
+      integer iseed
+      common /to_seed/iseed
       common/iterations/nitB
 c
 c     vegas declarations
@@ -49,6 +51,7 @@ c
 c     read inputs
       region=0d0
       order=0
+      idum = iseed
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITBTH =  NITERS_FO_GRID
       NCLBTH = NPOINTS_FO_GRID

@@ -1,10 +1,10 @@
 module sectors2_module
   implicit none
   integer, public :: n_ext
-  double precision, public :: alpha_mod, W_NLO, WS_NLO, WC_NLO
+  double precision, public :: alpha_mod, W_NLO, Wbar_NLO, WS_NLO, WC_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
-  public :: get_sig2, get_W_NLO, get_WS_NLO, get_WC_NLO
+  public :: get_sig2, get_W_NLO, get_Wbar_NLO, get_WS_NLO, get_WC_NLO
   private
 
 contains
@@ -57,6 +57,24 @@ contains
     W_NLO = num/sigma
     call sector2_sanity_checks(sigma,W_NLO)
   end subroutine get_W_NLO
+
+  subroutine get_Wbar_NLO(i1,i2)
+    !     NLO sector functions W(i1,i2)
+    implicit none
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
+    include 'all_sector_list.inc'
+    !call sector2_global_checks(i1,i2)
+    num = sig2(i1,i2)
+    sigma = 0d0
+    !do i=1,lensectors
+    !   a=all_sector_list(1,i)
+    !   b=all_sector_list(2,i)
+    !   sigma = sigma + sig2(a,b)
+    !enddo
+    Wbar_NLO = num !/sigma
+    !call sector2_sanity_checks(sigma,W_NLO)
+  end subroutine get_Wbar_NLO
 
   subroutine get_WS_NLO(i1,i2)
     !     NLO soft sector functions WS(i1,i2) = barS_i1 W(i1,i2)

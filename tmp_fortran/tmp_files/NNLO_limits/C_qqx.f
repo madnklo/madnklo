@@ -1,7 +1,7 @@
+
+
       double precision function M2_C_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
-c     collinear limit C_(ia,ib)
-c     this is meant to represent the collinear
-c     for sector (ia,ib)
+c     collinear limit C_(ia,ib) * Wcollinear
       use sectors2_module
       implicit none
       include 'nexternal.inc'
@@ -13,16 +13,20 @@ c     for sector (ia,ib)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,extra
+      double precision pref,M2_HC_qqx,wgt,wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
-      double precision ANS(0:NSQSO_BORN)
+      double precision ans(0:NSQSO_BORN)
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
       integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
+      double precision alphas,alpha_qcd
+      double precision alphaz
+      parameter(alphaz=1d0)
+      double precision %(proc_prefix_C_qqx)s_get_kkblo
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -31,48 +35,38 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
-      double precision %(proc_prefix_C_qqx)s_get_kkblo
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_C_qqx)s_den
       common/%(proc_prefix_C_qqx)s_iden/%(proc_prefix_C_qqx)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-1)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
-      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
-      double precision xpbsave(0:3,nexternal-1)
-      double precision xsbsave(nexternal-1,nexternal-1)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
       M2_C_qqx=0d0
-      M2tmp=0d0
+      M2_HC_qqx=0d0
       ierr=0
       damp=0d0
-      xpbsave=xpb
-      xsbsave=xsb
 c
-c     Check over (ia,ib)
-c     They must be equal to (isec,jsec)
-      if(.not.((ia.eq.isec.and.ib.eq.jsec))) then
-         write (*,*) 'Wrong indices in M2_C_qqx:'
-         write(*,*) 'ia, ib, isec, jsec = ', ia, ib, isec, jsec
+c     checks
+      if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia)+leg_pdgs(ib).eq.0.and.real_leg_pdgs(real_mapped_labels(ib)).eq.21))then
+         write(*,*)'Wrong pdgs in M2_C_qqx',leg_pdgs(ia),leg_pdgs(ib),real_mapped_labels(ib)
+         stop
+      endif
+      if(.not.(ia.eq.isec.and.ib.eq.jsec))then
+         write(*,*)'Wrong indices in M2_C_qqx',ia,ib,isec,jsec
          stop
       endif
 c
 c     possible cuts
-c      call GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
-      call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,UNDERLYING_LEG_PDGS)
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,mapped_labels,mapped_flavours)
-c     Reshuffle momenta and labels according to underlying_leg_pdgs
-      call reshuffle_momenta(nexternal,underlying_leg_pdgs,mapped_flavours,mapped_labels,xpbsave)
-      call invariants_from_p(xpbsave,nexternal-1,xsb,ierr)
-      if(ierr.eq.1) goto 999
-c
-      IF(DOCUT(XPBSAVE,NEXTERNAL-1,UNDERLYING_LEG_PDGS,0))RETURN
+      if(docut(xpb,nexternal-1,real_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -100,53 +94,33 @@ c     safety check
       endif
 c
 c     call Born
-      call %(proc_prefix_C_qqx)s_ME_ACCESSOR_HOOK(xpbsave,hel,alphas,ANS)
+      call %(proc_prefix_C_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c
-      parent_leg = mapped_labels(ib)
-      if(mapped_flavours(ib).ne.21)then
-         write(*,*) 'Wrong parent particle label!', ib, mapped_flavours(ib)
-         stop
-      endif
-c
-c     reshuffle NLO momenta and labels according to real_leg_pdgs and check
-      call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpbsave)
-      call get_collinear_mapped_labels(ia,ib,nexternal,leg_PDGs,NLO_mapped_labels,NLO_mapped_flavours)
-       if(NLO_mapped_flavours(ib).ne.21)then
-         write(*,*) 'Wrong parent particle label 1 in M2_C_qqx', ib, NLO_mapped_flavours(ib)
-          stop
-       endif
-      call invariants_from_p(xpbsave,nexternal-1,xsbsave,ierr)
-      if(ierr.eq.1)goto 999
-c
-      KKBLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpbsave,kt)
+      parent_leg = real_mapped_labels(ib)
+      KKBLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2tmp=TR*(BLO-4d0/sab*KKBLO)
-c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_C_qqx)s_den)/dble(%(proc_prefix_rr)s_den)
-c     account for different damping factors according to
-c     recoiler position (ir)
+      M2_C_qqx=TR*(BLO-4d0/sab*KKBLO)
+c     compute collinear limit of sector function
+      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
+      call get_sig2(xsb,1d0,nexternal-1)
+      map1=real_mapped_labels(ksec)
+      map2=real_mapped_labels(lsec)
+      call get_wbar_nlo(map1,map2)
+      M2_C_qqx=M2_C_qqx*wc_nlo*wbar_nlo
+c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then
          damp=(1d0-y)**beta_FF
       else
          damp=xinit**beta_FI
       endif
-      M2tmp=M2tmp*damp
-c     TODO: ask
-c     compute collinear limit of sector function
-      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
-      M2TMP=M2TMP*wc_nlo
-      call get_sig2(xsbsave,1d0,nexternal-1)
-      call get_w_nlo(ia,ib)
-      M2TMP=M2TMP*W_NLO
-c
-      M2_C_qqx=M2tmp*pref/sab*xj*extra
-c     apply flavour factor
-      M2_C_qqx=M2_C_qqx*%(proc_prefix_rr)s_fl_factor
+      M2_C_qqx=M2_C_qqx
+c     include prefactors
+      M2_C_qqx = M2_C_qqx*dble(%(proc_prefix_C_qqx)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
 c
 c     plot
       wgtpl=-M2_C_qqx*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbsave,xsb,nexternal-1,UNDERLYING_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpb,xsb,nexternal-1,real_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_C_qqx).ge.huge(1d0).or.isnan(M2_C_qqx))then

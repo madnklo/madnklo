@@ -62,14 +62,14 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical firsttime
       data firsttime/.true./
       save firsttime
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 C     call initialisation function
-      IF(FIRSTTIME)THEN
-        CALL INITIALISE_SECTOR()
-        FIRSTTIME=.FALSE.
-      ENDIF
+      if(firsttime)then
+        call initialise_sector()
+        firsttime=.false.
+      endif
 c
 c     TODO: convert to partonic sCM
       sCM = (2d0*EBEAM(1))**2
@@ -190,7 +190,6 @@ c
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
       integer map1,map2
-      integer mapped_labels(nexternal-1)
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
@@ -234,7 +233,7 @@ c     if lsec!=0 the unresolved pair is csec, dsec.
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(bsec)
-      if(lsec.ne.0)map2=mapped_labels(dsec)
+      if(lsec.ne.0)map2=real_mapped_labels(dsec)
       call get_mapped_labels(nexternal-1,map1,map2,Born_leg_pdgs,Born_mapped_labels)
       return
       end

@@ -14,6 +14,10 @@ c     S(i,j) kernel times WSS
       integer i,j,l,m,ierr,nit
       integer jb,lb,mb
       integer jbb,lbb,mbb
+      integer NLO_mapped_labels(nexternal), NLO_mapped_flavours(NEXTERNAL)
+      integer LO_mapped_labels(nexternal), LO_mapped_flavours(NEXTERNAL)
+      logical isNLOmappedQCDparton(nexternal-1)
+      logical isLOmappedQCDparton(nexternal-2)
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -21,10 +25,10 @@ c     S(i,j) kernel times WSS
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sil,sim,slm,sij,sjl,sjm,ml2,mm2,y,z,x,damp
-      integer NLO_mapped_labels(nexternal), NLO_mapped_flavours(NEXTERNAL)
-      integer LO_mapped_labels(nexternal), LO_mapped_flavours(NEXTERNAL)
-      logical isNLOmappedQCDparton(nexternal-1)
-      logical isLOmappedQCDparton(nexternal-2)
+      double precision alphas,ans(0:NSQSO_BORN)
+      double precision alpha_qcd
+      double precision alphaZ
+      parameter(alphaZ=2d0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -36,10 +40,6 @@ c     set logical doplot
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
-      double precision alphas,ans(0:NSQSO_BORN)
-      double precision alpha_qcd
-      double precision alphaZ
-      parameter(alphaZ=2d0)
       integer, parameter :: HEL = - 1
       double precision   %(proc_prefix_Born)s_GET_CCBLO
       integer %(proc_prefix_rr)s_den
@@ -48,11 +48,15 @@ c      integer (proc_prefix_S_g)s_den
 c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       integer %(proc_prefix_Born)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
       M2_SS_qqx=0d0
@@ -68,13 +72,13 @@ c
 c     get PDGs
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
+c      CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
       JB = NLO_MAPPED_LABELS(J)
       do l=1,nexternal
          if(l.eq.isec) cycle
           if(abs(NLO_mapped_flavours(l)).le.6.or.NLO_mapped_flavours(l).eq.21)isNLOmappedQCDparton(NLO_mapped_labels(l)) = .true.
       enddo
-      CALL GET_COLLINEAR_MAPPED_LABELS(JB,NLO_MAPPED_LABELS(KSEC),NEXTERNAL-1,REAL_LEG_PDGS,LO_MAPPED_LABELS,LO_MAPPED_FLAVOURS)
+c      CALL GET_COLLINEAR_MAPPED_LABELS(JB,NLO_MAPPED_LABELS(KSEC),NEXTERNAL-1,REAL_LEG_PDGS,LO_MAPPED_LABELS,LO_MAPPED_FLAVOURS)
       do l=1,nexternal-1
          if(l.eq.jb) cycle
           if(abs(LO_mapped_flavours(l)).le.6.or.LO_mapped_flavours(l).eq.21)isLOmappedQCDparton(LO_mapped_labels(l)) = .true.
@@ -82,7 +86,7 @@ c     get PDGs
 c
 c     call W double-soft
       call get_sigNNLO(XS,alphaz,nexternal)
-      CALL GET_WSS_NNLO(I,KSEC,J,LSEC)
+      CALL get_wss_nnlo(I,KSEC,J,LSEC)
       if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
@@ -164,7 +168,7 @@ c
 c     plot
             wgtpl=-pref*M2tmp*WSS_NNLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
-            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
+            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
          enddo
       enddo
 c

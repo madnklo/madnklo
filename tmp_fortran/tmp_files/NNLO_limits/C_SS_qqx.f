@@ -104,8 +104,8 @@ c     return if not a qqb pair
       if((leg_pdgs(ia) + leg_pdgs(ib)).ne.0)return
 c
 c     check sector topology (only appears in ijjk)
-      if(lsec.ne.ksec) then
-        write (*,*) 'Wrong topology in M2_C_SS_qqx',isec,jsec,ksec,lsec
+      if(bsec.ne.csec) then
+        write (*,*) 'Wrong topology in M2_C_SS_qqx',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -129,7 +129,7 @@ c
 c     get PDGs
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)
       call GET_UNDERLYING_PDGS(ISEC,JSEC,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
+c      CALL GET_COLLINEAR_MAPPED_LABELS(ISEC,JSEC,NEXTERNAL,LEG_PDGS,NLO_MAPPED_LABELS,NLO_MAPPED_FLAVOURS)
       call reshuffle_momenta(nexternal,real_leg_pdgs,nlo_mapped_flavours,nlo_mapped_labels,xpbsave)
       JB = NLO_MAPPED_LABELS(IB)
       PARENT = JB
@@ -137,7 +137,7 @@ c     get PDGs
          if(l.eq.isec) cycle
           if(abs(NLO_mapped_flavours(l)).le.6.or.NLO_mapped_flavours(l).eq.21)isNLOmappedQCDparton(NLO_mapped_labels(l)) = .true.
       enddo
-      CALL GET_COLLINEAR_MAPPED_LABELS(JB,NLO_MAPPED_LABELS(KSEC),NEXTERNAL-1,REAL_LEG_PDGS,LO_MAPPED_LABELS,LO_MAPPED_FLAVOURS)
+c      CALL GET_COLLINEAR_MAPPED_LABELS(JB,NLO_MAPPED_LABELS(KSEC),NEXTERNAL-1,REAL_LEG_PDGS,LO_MAPPED_LABELS,LO_MAPPED_FLAVOURS)
       call reshuffle_momenta(nexternal-1,born_leg_pdgs,lo_mapped_flavours,lo_mapped_labels,xpbbsave)
       do l=1,nexternal-1
          if(l.eq.jb) cycle

@@ -17,10 +17,16 @@ c     while k is a q (or qb) with different flavour
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ANS(0:NSQSO_BORN)
+      double precision ans(0:NSQSO_BORN)
+      double precision sijk,sij,sik,sjk,sir,sjr,skr
+      double precision zi,zj,zk,zij,zik,zjk
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
+      double precision alphas,alpha_qcd
+      double precision alphaz
+      parameter(alphaz=2D0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -29,19 +35,20 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
-      double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=2D0)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+
 c
 c     initialise
       M2_CC_qxqqp=0d0
@@ -49,8 +56,8 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'Wrong topology in M2_CC_qxqqp',isec,jsec,ksec,lsec
+      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+        write (*,*) 'Wrong topology in M2_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,lsec
         stop 1
       endif
 c
@@ -62,9 +69,8 @@ c     check flavour match
       endif
 c
 c     possible cuts
-!     TODO: CHECK CORRECT VALUES FOR THE FIRST FOUR ARGUMENTS OF GET_UNDERLYING_PDGS!
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      IF(DOCUT(XPBB,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
+      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -92,16 +98,16 @@ c     safety check
       ENDIF
 c
 c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     double-collinear kernel, eq. (B.16) of 2212.11190
-      M2tmp = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-      M2TMP = M2TMP*BLO
+      M2tmp = CF*TR*(-sijk**2/(2D0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2+sijk/sij*(2D0*(zk-zi*zj)/zij+zij)-1D0/2D0)
+      M2tmp = M2tmp*BLO
 c
 c     include double-collinear sector function
       call get_wcc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
-      M2TMP=M2TMP*WCC_NNLO
+      M2tmp=M2tmp*wcc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -110,7 +116,7 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_CC_qxqqp).ge.huge(1d0).or.isnan(M2_CC_qxqqp))then
@@ -143,10 +149,16 @@ c     while k is a q (or qb) with different flavour
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ANS(0:NSQSO_BORN)
+      double precision ans(0:NSQSO_BORN)
+      double precision sijk,sij,sik,sjk,sir,sjr,skr
+      double precision zi,zj,zk,zij,zik,zjk,eijkr
       integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
+      double precision alphas,alpha_qcd
+      double precision alphaz
+      parameter(alphaz=2D0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -155,19 +167,19 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      INTEGER UNDERLYING_LEG_PDGS(NEXTERNAL-1)
-      double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,eijkr
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=2D0)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
       M2_SS_qqx_CC_qxqqp=0d0
@@ -175,8 +187,8 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec
+      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -187,9 +199,8 @@ c     check flavour match
         stop 1
       endif
 c
-!     TODO: CHECK CORRECT VALUES FOR THE FIRST FOUR ARGUMENTS OF GET_UNDERLYING_PDGS!
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      IF(DOCUT(XPBB,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
+      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -217,17 +228,17 @@ c     safety check
       ENDIF
 c
 c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       Eijkr = (1/sij**2)*((sik*zj+zi*sjk)/((sik+sjk)*zij)-sik*sjk/(sik+sjk)**2-zi*zj/zij**2)-zk/sij/(sik+sjk)/zij
-      M2TMP = SIJK**2*(CF*(-2d0*TR*Eijkr))
-      M2TMP = M2TMP*BLO
+      M2tmp = SIJK**2*(CF*(-2d0*TR*Eijkr))
+      M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
       call get_wss_cc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
-      M2TMP=M2TMP*WSS_CC_NNLO
+      M2tmp=M2tmp*wss_cc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -236,7 +247,7 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then

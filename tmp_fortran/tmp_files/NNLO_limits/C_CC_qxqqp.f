@@ -18,13 +18,21 @@ c     while k is a q (or qb) with any flavour
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
+      double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
+      double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
       double precision ktb(0:3),ktb2,kt(0:3),kt2,WCCC_NNLO
       double precision x,y,xinit
-      double precision ANS(0:NSQSO_BORN)
+      double precision ans(0:NSQSO_BORN)
+      double precision sij,sir,sjr,sbjk,sbjr,sbkr
+      double precision zi,zj,zbj,zbk
+      double precision Pij,Qij,Pbjk,Ebjkr
       double precision dot
       integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer lo_mapped_labels(nexternal), lo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
+      double precision alphas,alpha_qcd
+      double precision alphaz
+      parameter(alphaz=2d0)
       logical flavourmatch
 c     set logical doplot
       logical doplot
@@ -34,22 +42,19 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
-      double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk
-      double precision Pij,Qij,Pbjk,Ebjkr
-      double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
-      double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=2D0)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
       M2_C_CC_qxqqp=0d0
@@ -61,8 +66,8 @@ c     initialise
       xsbbsave = xsbb
 c
 c     check sector topology
-      if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'Wrong topology in M2_C_CC_qxqqp',isec,jsec,ksec,lsec
+      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+        write (*,*) 'Wrong topology in M2_C_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -75,29 +80,18 @@ c     check flavour match
 c
 c     reshuffle NLO momenta and labels according to real_leg_pdgs and check
       call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpbsave)
-      call get_collinear_mapped_labels(i,j,nexternal,leg_PDGs,NLO_mapped_labels,NLO_mapped_flavours)
-      if(NLO_mapped_flavours(j).ne.21)then
-         write(*,*) 'Wrong parent particle label 1 in M2_C_CC_qxqqp', j, NLO_mapped_flavours(j)
-         stop
-      endif
       call invariants_from_p(xpbsave,nexternal-1,xsbsave,ierr)
       if(ierr.eq.1)goto 999
 c
 c     reshuffle LO momenta and labels according to Born_leg_pdgs and check
       call reshuffle_momenta(nexternal-1,Born_leg_pdgs,LO_mapped_flavours,LO_mapped_labels,xpbbsave)
-      call get_collinear_mapped_labels(jb,kb,nexternal-1,real_leg_PDGs,LO_mapped_labels,LO_mapped_flavours)
-      if(LO_mapped_flavours(kb).ne.NLO_mapped_flavours(k))then
-         write(*,*) 'Wrong parent particle label 2 in M2_C_CC_qxqqp', kb,k,LO_mapped_flavours(kb),NLO_mapped_flavours(k)
-         stop
-      endif
       call invariants_from_p(xpbbsave,nexternal-2,xsbbsave,ierr)
       if(ierr.eq.1)goto 999
 c
 c     possible cuts
-!     TODO: CHECK CORRECT VALUES FOR THE FIRST FOUR ARGUMENTS OF GET_UNDERLYING_PDGS!
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      IF(DOCUT(XPBBSAVE,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
+      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -136,7 +130,7 @@ c     safety checks
       ENDIF
 C
 C     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbbsave,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbbsave,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
@@ -144,15 +138,16 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Qij = TR*2d0*zi*zj
       Pbjk = CF*(1d0+zbk**2)/zbj
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
-      M2TMP = M2TMP/sij*BLO
+      M2tmp = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2tmp = M2tmp/sij*BLO
 c
-c     include collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
+c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
       call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
-      M2TMP=M2TMP*wc_nlo
-      ! TODO: question: does it change for topology like kd,jb, rb?
-      call get_wc_nlo(xsbsave,jb,kb,rb,1d0,nexternal-1)
-      M2TMP=M2TMP*wc_nlo
+      M2tmp=M2tmp*wc_nlo
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wc_nlo(xsbsave,csec,dsec,rb,1d0,nexternal-1)
+      M2tmp=M2tmp*wc_nlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -161,7 +156,7 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_C_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbbsave,xsbbsave,nexternal-2,BORN_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpbbsave,xsbbsave,nexternal-2,born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_C_CC_qxqqp).ge.huge(1d0).or.isnan(M2_C_CC_qxqqp))then
@@ -198,13 +193,21 @@ c     while k is a q (or qb) with any flavour
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
+      double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
+      double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
       double precision ktb(0:3),ktb2,kt(0:3),kt2,WSSCCC_NNLO
       double precision x,y,xinit
-      double precision ANS(0:NSQSO_BORN)
+      double precision ans(0:NSQSO_BORN)
+      double precision sij,sir,sjr,sbjk,sbjr,sbkr
+      double precision zi,zj,zbj,zbk
+      double precision Pij,Qij,Pbjk,Ebjkr
       integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer lo_mapped_labels(nexternal), lo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
+      double precision alphas,alpha_qcd
+      double precision alphaz
+      parameter(alphaz=2D0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -213,22 +216,19 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
       common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
-      INTEGER ISEC,JSEC,KSEC,LSEC
-      COMMON/CSECINDICES/ISEC,JSEC,KSEC,LSEC
-      INTEGER BORN_LEG_PDGS(NEXTERNAL-2)
-      INTEGER REAL_LEG_PDGS(NEXTERNAL-1)
-      double precision sij,sir,sjr,sbjk,sbjr,sbkr
-      double precision zi,zj,zbj,zbk
-      double precision Pij,Qij,Pbjk,Ebjkr
-      double precision xpbsave(0:3,nexternal-1),xpbbsave(0:3,nexternal-2)
-      double precision xsbsave(nexternal-1,nexternal-1),xsbbsave(nexternal-2,nexternal-2)
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=2D0)
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
       M2_C_SS_qqx_CC_qxqqp=0d0
@@ -240,8 +240,8 @@ c     initialise
       xsbbsave = xsbb
 c
 c     check sector topology
-      if(lsec.ne.jsec .and. lsec.ne.ksec) then
-        write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec
+      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+        write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -254,29 +254,18 @@ c     check flavour match
 c
 c     reshuffle NLO momenta and labels according to real_leg_pdgs and check
       call reshuffle_momenta(nexternal,real_leg_pdgs,NLO_mapped_flavours,NLO_mapped_labels,xpbsave)
-      call get_collinear_mapped_labels(i,j,nexternal,leg_PDGs,NLO_mapped_labels,NLO_mapped_flavours)
-      if(NLO_mapped_flavours(j).ne.21)then
-         write(*,*) 'Wrong parent particle label 1 in M2_C_SS_qqx_CC_qxqqp', j, NLO_mapped_flavours(j)
-         stop
-      endif
       call invariants_from_p(xpbsave,nexternal-1,xsbsave,ierr)
       if(ierr.eq.1)goto 999
 c
 c     reshuffle LO momenta and labels according to Born_leg_pdgs and check
       call reshuffle_momenta(nexternal-1,Born_leg_pdgs,LO_mapped_flavours,LO_mapped_labels,xpbbsave)
-      call get_collinear_mapped_labels(jb,kb,nexternal-1,real_leg_PDGs,LO_mapped_labels,LO_mapped_flavours)
-      if(LO_mapped_flavours(kb).ne.NLO_mapped_flavours(k))then
-         write(*,*) 'Wrong parent particle label 2 in M2_C_SS_qqx_CC_qxqqp', kb,k,LO_mapped_flavours(kb),NLO_mapped_flavours(k)
-         stop
-      endif
       call invariants_from_p(xpbbsave,nexternal-2,xsbbsave,ierr)
       if(ierr.eq.1)goto 999
 c
 c     possible cuts
-!     TODO: CHECK CORRECT VALUES FOR THE FIRST FOUR ARGUMENTS OF GET_UNDERLYING_PDGS!
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-1,REAL_LEG_PDGS)
-      call GET_UNDERLYING_PDGS(I,J,KSEC,LSEC,NEXTERNAL-2,BORN_LEG_PDGS)
-      IF(DOCUT(XPBBSAVE,NEXTERNAL-2,BORN_LEG_PDGS,0))RETURN
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
+      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
+      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -315,7 +304,7 @@ c     safety checks
       ENDIF
 C
 C     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbbsave,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbbsave,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
@@ -323,12 +312,13 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Qij = TR*2d0*zi*zj
       Pbjk = CF*(1d0+zbk**2)/zbj
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
-      M2TMP = M2TMP/sij*BLO
+      M2tmp = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2tmp = M2tmp/sij*BLO
 c
-c     include soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2
-c     TODO: check syntax and arguments here!
-      call get_wc_nlo(xsbsave,jb,kb,rb,1d0,nexternal-1)
+c     compute soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wc_nlo(xsbsave,csec,dsec,rb,1d0,nexternal-1)
       M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

@@ -66,7 +66,7 @@ c     initialise
       xsbbsave = xsbb
 c
 c     check sector topology
-      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+      if(dsec.ne.bsec .and. csec.ne.bsec) then
         write (*,*) 'Wrong topology in M2_C_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
@@ -240,7 +240,7 @@ c     initialise
       xsbbsave = xsbb
 c
 c     check sector topology
-      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+      if(dsec.ne.bsec .and. bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif

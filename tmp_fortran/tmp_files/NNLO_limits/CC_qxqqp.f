@@ -56,7 +56,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+      if(dsec.ne.bsec .and. bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,lsec
         stop 1
       endif
@@ -187,7 +187,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.jsec .and. dsec.ne.ksec) then
+      if(dsec.ne.bsec .and. bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif

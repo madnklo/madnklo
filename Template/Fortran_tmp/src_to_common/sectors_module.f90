@@ -63,17 +63,17 @@ contains
     implicit none
     integer :: i,a,b,i1,i2
     double precision :: num,sigma
-    include 'all_sector_list.inc'
-    !call sector2_global_checks(i1,i2)
+    include 'all_sector_list_real.inc'
+    call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
-    !do i=1,lensectors
-    !   a=all_sector_list(1,i)
-    !   b=all_sector_list(2,i)
-    !   sigma = sigma + sig2(a,b)
-    !enddo
-    Wbar_NLO = num !/sigma
-    !call sector2_sanity_checks(sigma,W_NLO)
+    do i=1,lensectors
+       a=all_sector_list(1,i)
+       b=all_sector_list(2,i)
+       sigma = sigma + sig2(a,b)
+    enddo
+    Wbar_NLO = num/sigma
+    call sector2_sanity_checks(sigma,Wbar_NLO)
   end subroutine get_Wbar_NLO
 
   subroutine get_WS_NLO(i1,i2)

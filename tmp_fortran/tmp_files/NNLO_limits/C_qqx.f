@@ -104,8 +104,8 @@ c     TODO: improve ktmuktnuBmunu / kt^2
 c     compute collinear limit of sector function
       call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
       call get_sig2(xsb,1d0,nexternal-1)
-      map1=real_mapped_labels(ksec)
-      map2=real_mapped_labels(lsec)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)
       M2_C_qqx=M2_C_qqx*wc_nlo*wbar_nlo
 c     account for different damping factors according to recoiler position (ir)

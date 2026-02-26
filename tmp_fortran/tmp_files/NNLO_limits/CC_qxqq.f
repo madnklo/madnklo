@@ -23,8 +23,6 @@ c     while k is a q (or qb) with same flavour
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=2D0)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
-      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -56,7 +54,7 @@ c     initialise
 c
 c     check sector topology
       if(dsec.ne.bsec .and. bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_CC_qxqq',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -68,8 +66,7 @@ c     check flavour match
       endif
 c
 c     possible cuts
-      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -105,7 +102,7 @@ c     double-collinear kernel, eq. (B.17) of 2212.11190
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function
-      call get_wcc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
+      call get_wcc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
       M2TMP=M2TMP*WCC_NNLO
 c
 c     include correct multiplicity and flavour factors
@@ -115,7 +112,7 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_CC_qxqq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_CC_qxqq).ge.huge(1d0).or.isnan(M2_CC_qxqq))then
@@ -149,7 +146,8 @@ c     while k is a q (or qb) with same flavour
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
+      double precision sijk,sij,sik,sjk,sir,sjr,skr
+      double precision zi,zj,zk,zij,zik,zjk,eijkr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -163,7 +161,6 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
@@ -185,7 +182,7 @@ c     initialise
 c
 c     check sector topology
       if(dsec.ne.bsec .and. bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -196,8 +193,7 @@ c     check flavour match
         stop 1
       endif
 c
-      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -234,7 +230,7 @@ c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wss_cc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
+      call get_wss_cc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
       M2tmp=M2tmp*wss_cc_nnlo
 c
 c     include correct multiplicity and flavour factors
@@ -244,7 +240,7 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_SS_qqx_CC_qxqq*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,BORN_LEG_PDGS,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_SS_qqx_CC_qxqq).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqq))then

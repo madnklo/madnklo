@@ -261,7 +261,7 @@ c     invariant quantities
 c
 c     safety checks
       IF(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_C_CC_qxqqp',SIJ,SIR,SJR
+        WRITE(77,*)'Inaccuracy 1 in M2_C_SS_qqx_CC_qxqqp',SIJ,SIR,SJR
         GOTO 999
       ENDIF
       zi = sir/(sir+sjr)
@@ -273,7 +273,7 @@ c     safety checks
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       IF(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-         WRITE(77,*)'Inaccuracy 2 in M2_C_CC_qxqqp',SBJK,SBJR,SBKR
+         WRITE(77,*)'Inaccuracy 2 in M2_C_SS_qqx_CC_qxqqp',SBJK,SBJR,SBKR
          GOTO 999
       ENDIF
       zbj = sbjr/(sbjr+sbkr)

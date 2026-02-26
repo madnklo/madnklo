@@ -86,7 +86,7 @@ c     initialise
       WGT_CHAN=1d0
 c
 c     phase space and invariants
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
+      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac*xjacB.eq.0d0) then
          write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB

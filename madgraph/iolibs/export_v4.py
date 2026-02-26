@@ -2852,7 +2852,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
         common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
-        common_files+=['CSmapping_RR.f','gen_real_phase_space_RR.f','imap_RR.f']
         common_files+=['analysis_new.f', 'HwU.f']
         common_files += ['sectors.f', 'sectors_module.f90']
 

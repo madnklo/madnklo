@@ -86,6 +86,11 @@ c      DOUBLE PRECISION W_NNLO
       common/cxsave/xsave
       double precision e(5),l(5)
       double precision K1,K2,K12
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c

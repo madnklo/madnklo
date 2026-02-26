@@ -119,7 +119,7 @@ c     more and more singular kinematics
          xsave(1:3)=x(1:3)
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
+         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle

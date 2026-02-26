@@ -234,6 +234,6 @@ c     if lsec!=0 the unresolved pair is csec, dsec.
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(bsec)
       if(lsec.ne.0)map2=real_mapped_labels(dsec)
-      call get_mapped_labels(nexternal-1,map1,map2,Born_leg_pdgs,Born_mapped_labels)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_mapped_labels)
       return
       end

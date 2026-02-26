@@ -38,7 +38,6 @@ c     set logical doplot
       logical docut
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
-      double precision alphas,alpha_qcd
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
       integer %(proc_prefix_Born)s_den
@@ -47,7 +46,7 @@ c     set logical doplot
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
-      integer map1,map2
+      integer map1,map2,parent_leg
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)

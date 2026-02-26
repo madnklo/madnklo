@@ -1,4 +1,4 @@
-      subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB,mapped_labels)
+      subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB)
 c     iU is the unresolved parton associated with the soft singularity
       implicit none
       include 'coupl.inc'
@@ -10,6 +10,7 @@ c     iU is the unresolved parton associated with the soft singularity
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
       integer mapped_labels(nexternal)
+      common/c_mapped_labels/mapped_labels
       integer iconfig,mincfig,maxcfig,invar
       integer ich
       common/comich/ich

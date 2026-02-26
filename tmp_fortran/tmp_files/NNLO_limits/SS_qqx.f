@@ -123,7 +123,7 @@ c     underlying Born configuration is remapped
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
-c     
+c
 c     possible cuts
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
@@ -134,7 +134,7 @@ c     invariant quantities: (c,d) in the paper --> (m,l)
             sjl = xs(j,l)
             sjm = xs(j,m)
             slm = xs(l,m)
-c     
+c
 c     safety check
             IF(SIJ.LE.0D0.or.(SIL+SJL).le.0d0.or.(SIM+SJM).le.0d0)THEN
                WRITE(77,*)'Inaccuracy 1 in M2_SS_qqx',SIJ, SIL+SJL, SIM+SJM
@@ -145,7 +145,7 @@ c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
-c     
+c
 c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l) (verified)
@@ -157,7 +157,7 @@ c
             damp=1d0
             M2tmp=M2tmp*damp*xj
             M2_SS_qqx=M2_SS_qqx+pref*M2tmp*WSS_NNLO*extra
-c     
+c
 c     plot
             wgtpl=-pref*M2tmp*WSS_NNLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -178,4 +178,3 @@ c
  999  ierr=1
       return
       end
-

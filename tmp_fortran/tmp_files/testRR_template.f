@@ -169,7 +169,7 @@ c     double real
          if(ierr.eq.1)cycle
 c
 c     counterterm
-         call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,K1,K2,K12,KNNLO,wgt_chan,ierr)
+         call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
 
          lim=KNNLO

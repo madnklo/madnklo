@@ -162,7 +162,7 @@ c
       call get_signnlo(xsb,1d0,nexternal-1)
       if(lsec.eq.0)then
          sec_index(1) = parent
-         sec_index(2) = real_mapped_labels(csec)
+         sec_index(2) = real_mapped_labels(dsec)
       else
          sec_index(1) = real_mapped_labels(csec)
          sec_index(2) = real_mapped_labels(dsec)
@@ -240,11 +240,11 @@ c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Ebjlm = sblm/sbjl/sbjm
             M2tmp = Pij*Ebjlm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klkm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
 c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
-            M2TMP = M2TMP/sij
+            M2TMP = M2TMP/sab
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
-            call get_ws_nlo(sec_index(1),sec_index(2))
-            M2TMP=M2TMP*WS_NLO
-            call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
+            call get_wsbar_nlo(sec_index(1),sec_index(2))
+            M2TMP=M2TMP*WSbar_NLO
+            call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
             M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

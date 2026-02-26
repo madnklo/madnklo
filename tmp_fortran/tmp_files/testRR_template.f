@@ -162,10 +162,9 @@ c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
-c         call  get_W_NNLO(sNNLO,sCM,alphaZ,asec,bsec,csec,dsec,W_NNLO,ierr)
 
          call get_sigNNLO(SNNLO,alphaz,nexternal)
-c         call get_W_NNLO(asec,bsec,csec,dsec)  TO BE UPDATED
+         call get_W_NNLO(asec,bsec,csec,dsec)
 
          if(ierr.eq.1)cycle
 c

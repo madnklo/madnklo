@@ -1373,7 +1373,7 @@ c       %s
                     list_str_defK1.append(tmp_str)
 
 
-            # Loop on K2 cts    
+            # Loop on K2 cts
             # L2_ijjk : 7 -> [Sij, SCijk, SijSCijk, Cijk, SijCijk, SCijkCijk, SijSCijkCijk]
 
             ct_list = []
@@ -1381,7 +1381,7 @@ c       %s
                 tmp_str = """
 c       KSS = SS_ij
 c       KSC = SC_ijk (1 - SS_ij)
-c       KCC = CC_ijk (1 - SS_ij) (1 - SC_ijk)""" 
+c       KCC = CC_ijk (1 - SS_ij) (1 - SC_ijk)"""
                 list_str_defK2.append(tmp_str)
                 for j in range(0, len(all_3p_K2_ct[i])):
                     if all_3p_K2_ct[i][j] ==  0:
@@ -1438,7 +1438,7 @@ c       %s
                 tmp_str = """
 c       KSS = SS_ik
 c       KSC = (SC_ijk + SC_kij) (1 - SS_ik)
-c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)""" 
+c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                 list_str_defK2.append(tmp_str)
                 for j in range(0, len(all_3p_K2_ct[i])):
                     if all_3p_K2_ct[i][j] ==  0:
@@ -1469,7 +1469,7 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     elif j == 5: # + CC_ijk
-                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbbwgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -1524,7 +1524,7 @@ c       KS_SC  = S_i SC_ijk (1 - SS_ij)
 c       KS_CC  = S_i CC_ijk (1 - SS_ij) (1 - SC_ijk)
 c       KHC_SS = C_ij (1-S_i) SS_ij
 c       KHC_SC = 0
-c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SS_ij)""" 
+c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SS_ij)"""
                 list_str_defK12.append(tmp_str)
                 for j in range(0, len(all_3p_K12_ct[i])):
                     if all_3p_K12_ct[i][j] == 0:
@@ -1611,7 +1611,7 @@ c       KS_SC  = S_i SC_ijk (1 - SS_ik)
 c       KS_CC  = S_i CC_ijk (1 - SS_ik) (1 - SC_ijk)
 c       KHC_SS = 0
 c       KHC_SC = C_ij (1-S_i) SC_kij
-c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SC_kij)""" 
+c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SC_kij)"""
                 list_str_defK12.append(tmp_str)
                 for j in range(0, len(all_3p_K12_ct[i])):
                     if all_3p_K12_ct[i][j] == 0:
@@ -1865,7 +1865,7 @@ c       %s
             replace_dict_ct['ksec'] = ksec
             replace_dict_ct['lsec'] = lsec
             replace_dict_ct['c3p'] = ksec
-            replace_dict_ct['d3p'] = lsec  
+            replace_dict_ct['d3p'] = lsec
             replace_dict_double_real['isec'] = isec
             replace_dict_double_real['jsec'] = jsec
             replace_dict_double_real['ksec'] = ksec
@@ -1938,7 +1938,7 @@ c       %s
             NNLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
             with open(NNLO_IR_limits_tmp_path + "IR_tmp.f", "w") as f:
                 f.writelines(string)
-            
+
             # Loop on K1 cts
             # Recall that all_4p_K1_ct = [Si, Cij, SiCij]
             ct_list = []
@@ -1979,7 +1979,7 @@ c       %s
             tmp_str = """
 c       KSS = SS_ik
 c       KSC = SC_ikl (1 - SS_ik) + SC_kij (1 - SS_ik)
-c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)""" 
+c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)"""
             list_str_defK2.append(tmp_str)
             for j in range(0, len(all_4p_K2_ct[i])):
                 if all_4p_K2_ct[i][j] ==  0:
@@ -2049,7 +2049,7 @@ c       KS_SC  = S_i SC_ikl (1 - SS_ik)
 c       KS_CC  = 0
 c       KHC_SS = 0
 c       KHC_SC = C_ij (1-S_i) SC_kij
-c       KHC_CC = C_ij (1-S_i) CC_ijkl (1 - SC_kij)""" 
+c       KHC_CC = C_ij (1-S_i) CC_ijkl (1 - SC_kij)"""
             list_str_defK12.append(tmp_str)
             for j in range(0, len(all_4p_K12_ct[i])):
                 if all_4p_K12_ct[i][j] == 0:
@@ -2314,7 +2314,7 @@ c       %s
           data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+7])
           #  file += """
           #data all_sector_list(1,%d), all_sector_list(2,%d), all_sector_list(3,%d), all_sector_list(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+8])
-            
+
         file += """
           all_sector_list = tmp"""
 
@@ -2569,7 +2569,7 @@ c       %s
         limit_str = ''
 
         # Mapping info
-        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, Cijk, SCijk  
+        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, Cijk, SCijk
             limit_str += """
 c
 c     mapping ((i,j,r),(j,k,r))
@@ -2591,7 +2591,7 @@ c     mapping ((i,j,r),(k,l,r))
             limit_str += """
 c
 c     limit Si
-      e = [1d0,1d0,0d0,0d0,0d0] 
+      e = [1d0,1d0,0d0,0d0,0d0]
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
@@ -2616,12 +2616,12 @@ c     limit Cij
         # K2_ijkj  : 11 -> [Sik, SCijk, SCkij, SikSCijk, SikSCkij, Cijk, SikCijk, SCijkCijk, SikSCijkCijk, SCkijCijk, SikSCkijCijk]
         # K2_ijkl  : 9  -> [Sik, SCikl, SCkij, SikSCikl, SikSCkij, Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
 
-        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, SCijk, Cijk  
+        if (jsec == c3p and jsec != d3p):     # ijjk: Sij, SCijk, Cijk
             if K2_ct[i][0] != 0: # Sij
                 limit_str += """
 c
 c     limit Sij
-      e = [0d0,1d0,0d0,1d0,1d0] 
+      e = [0d0,1d0,0d0,1d0,1d0]
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sij     ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
@@ -2646,7 +2646,7 @@ c       limit Cijk
                 limit_str += """
 c
 c     limit Sik
-      e = [1d0,1d0,0d0,1d0,1d0] 
+      e = [1d0,1d0,0d0,1d0,1d0]
       l = [0d0,0d0,0d0,1d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Sik     ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
@@ -2677,7 +2677,7 @@ c       limit Cijk
         elif (jsec != c3p and jsec != d3p):   # ijkl: Sik, Cijkl, SCikl, SCkij
             limit_str += """
 c       TODO: Testing limits for ijkl sector still to be specified in sectorsRR.py """
-            
+
 
 
         # Test for spurious singularities
@@ -2705,7 +2705,7 @@ c     spurious limit Cjr
             limit_str += """
 c
 c     spurious limit Cijr
-      e = [0d0,0d0,0d0,1d0,0d0] 
+      e = [0d0,0d0,0d0,1d0,0d0]
       l = [0d0,0d0,0d0,0d0,0d0]
       call do_limit_RR_%d_%d_%d_%d(iunit,'Cijr    ',x0,e,l)
 """%(isec,jsec,c3p,d3p)
@@ -2900,7 +2900,7 @@ c     soft-collinear limit
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
         replace_dict['c3p'] = c3p
-        replace_dict['d3p'] = d3p   
+        replace_dict['d3p'] = d3p
         replace_dict['UBgraphs'] = UBgraphs
 
         # write driver

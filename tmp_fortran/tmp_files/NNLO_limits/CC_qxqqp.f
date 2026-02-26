@@ -4,12 +4,12 @@ c     while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -20,8 +20,6 @@ c     while k is a q (or qb) with different flavour
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
-      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -43,7 +41,6 @@ c     set logical doplot
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
-      integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
@@ -56,8 +53,8 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.bsec .and. bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,lsec
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
+        write (*,*) 'Wrong topology in M2_CC_qxqqp',asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -69,8 +66,7 @@ c     check flavour match
       endif
 c
 c     possible cuts
-      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -106,17 +102,17 @@ c     double-collinear kernel, eq. (B.16) of 2212.11190
       M2tmp = M2tmp*BLO
 c
 c     include double-collinear sector function
-      call get_wcc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
+      call get_wcc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
       M2tmp=M2tmp*wcc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_CC_qxqqp = M2tmp*pref/sijk**2*xj*extra ! see [eq.(C.15); is consistent]
+      M2_CC_qxqqp = M2tmp*pref/sijk**2*xj*extra ! eq (C.15)
 c
 c     plot
       wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_CC_qxqqp).ge.huge(1d0).or.isnan(M2_CC_qxqqp))then
@@ -136,12 +132,12 @@ c     while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -152,8 +148,6 @@ c     while k is a q (or qb) with different flavour
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk,eijkr
-      integer mapped_labels(nexternal),mapped_flavours(nexternal)
-      integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -187,7 +181,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.bsec .and. bsec.ne.csec) then
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',isec,jsec,ksec,lsec,asec,bsec,csec,dsec
         stop 1
       endif
@@ -199,8 +193,8 @@ c     check flavour match
         stop 1
       endif
 c
-      call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      if(docut(xpbb,nexternal-2,born_leg_pdgs,0))return
+c     possible cuts
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -237,17 +231,17 @@ c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wss_cc_nnlo(xs,isec,jsec,ksec,lsec,r,alphaz,nexternal)
+      call get_wss_cc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
       M2tmp=M2tmp*wss_cc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SS_qqx_CC_qxqqp=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]
+      M2_SS_qqx_CC_qxqqp=M2tmp*pref*CF/xj*extra ! eq (C.16)
 c
 c     plot
       wgtpl=-M2_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
+      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
 c     sanity check
       if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then

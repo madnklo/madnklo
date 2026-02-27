@@ -1565,12 +1565,12 @@ c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SS_ij)"""
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     elif j == 7:  # + C_ij SS_ij
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_SS', 'HC_SS', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     elif j == 8:  # + C_ij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -1657,7 +1657,7 @@ c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SC_kij)"""
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     elif j == 8:  # + C_ij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')

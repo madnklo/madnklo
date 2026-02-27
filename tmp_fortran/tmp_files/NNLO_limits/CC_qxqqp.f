@@ -217,7 +217,7 @@ c     invariant quantities
 c
 c     safety check
       IF(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_CC_qxqqp',SIJ,SIK,SJK,ZI,ZJ,ZK
+        WRITE(77,*)'Inaccuracy 1 in M2_SS_qqx_CC_qxqqp',SIJ,SIK,SJK,ZI,ZJ,ZK
         GOTO 999
       ENDIF
 c

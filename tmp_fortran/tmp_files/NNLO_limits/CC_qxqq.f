@@ -181,7 +181,7 @@ c     initialise
 c
 c     check sector topology
       if(dsec.ne.bsec .and. bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
 c

@@ -144,7 +144,7 @@ c     compute collinear triple-collinear sector function eq. (C.82) of 2212.1119
       M2tmp=M2tmp*wc_nlo
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
-      call get_wc_nlo(xsb,csec,dsec,rb,1d0,nexternal-1)
+      call get_wc_nlo(xsb,map1,map2,rb,1d0,nexternal-1)
       M2tmp=M2tmp*wc_nlo
 c
 c     include correct multiplicity and flavour factors
@@ -301,7 +301,7 @@ c
 c     compute soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
-      call get_wc_nlo(xsb,csec,dsec,rb,1d0,nexternal-1)
+      call get_wc_nlo(xsb,map1,map2,rb,1d0,nexternal-1)
       M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

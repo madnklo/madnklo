@@ -170,11 +170,11 @@ end module sectors2_module
 module sectors4_module
   implicit none
   integer, public :: n_ext,num_sec
-  double precision, public :: alpha_mod, W_NNLO, ZSS_NNLO, Z_HC_NNLO, ZS_NNLO, WCC_NNLO, WSS_NNLO, WSS_CC_NNLO
+  double precision, public :: alpha_mod, W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO
-  public :: get_sigNNLO, get_W_NNLO, get_ZHC_NNLO, get_ZS_NNLO, get_WCC_NNLO, get_WSS_NNLO, get_WSS_CC_NNLO
+  public :: get_sigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
   private
 
 contains
@@ -276,9 +276,123 @@ contains
     endif
   end function hatsigNNLO
 
+  subroutine get_W_NNLO(IA,IB,C,D)
+    ! NNLO sector functions W(i1,i2,i3,i4)
+    implicit none
+    integer :: i,ia,ib,c,d,ic,i1,i2,i3,i4
+    double precision :: num,sigma
+    include 'all_sector_list.inc'
+    call sector4_global_checks(IA,IB,C,D)
+    num = sigNNLO(ia,ib,c,d)
+    sigma = 0d0
+    do i=1,lensectors
+       i1=all_sector_list(1,i)
+       i2=all_sector_list(2,i)
+       i3=all_sector_list(3,i)
+       i4=all_sector_list(4,i)
+       if(i2 .eq. i3) then
+          sigma = sigma + &
+               sigNNLO(i1,i2,i2,i4) + &
+               sigNNLO(i1,i4,i4,i2) + &
+               sigNNLO(i2,i1,i1,i4) + &
+               sigNNLO(i2,i4,i4,i1) + &
+               sigNNLO(i4,i1,i1,i2) + &
+               sigNNLO(i4,i2,i2,i1) + &
+               sigNNLO(i1,i2,i4,i2) + &
+               sigNNLO(i1,i4,i2,i4) + &
+               sigNNLO(i2,i4,i2,i4) + &
+               sigNNLO(i2,i4,i1,i4) + &
+               sigNNLO(i4,i1,i2,i1) + &
+               sigNNLO(i4,i2,i1,i2)
+       elseif(i2 .eq. i4) then
+          sigma = sigma + &
+               sigNNLO(i1,i2,i2,i3) + &
+               sigNNLO(i1,i3,i3,i2) + &
+               sigNNLO(i2,i1,i1,i3) + &
+               sigNNLO(i2,i3,i3,i1) + &
+               sigNNLO(i3,i1,i1,i2) + &
+               sigNNLO(i3,i2,i2,i1) + &
+               sigNNLO(i1,i2,i3,i2) + &
+               sigNNLO(i1,i3,i2,i3) + &
+               sigNNLO(i2,i3,i2,i3) + &
+               sigNNLO(i2,i3,i1,i3) + &
+               sigNNLO(i3,i1,i2,i1) + &
+               sigNNLO(i3,i2,i1,i2)
+       else
+          sigma = sigma + &
+               sigNNLO(i1,i2,i3,i4) + &
+               sigNNLO(i1,i2,i4,i3) + &
+               sigNNLO(i2,i1,i3,i4) + &
+               sigNNLO(i2,i1,i4,i3) + &
+               sigNNLO(i3,i4,i1,i2) + &
+               sigNNLO(i3,i4,i2,i1) + &
+               sigNNLO(i4,i3,i1,i2) + &
+               sigNNLO(i4,i3,i2,i1)
+       endif
+    enddo
+    W_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,W_NNLO)
+  end subroutine get_W_NNLO
 
-   subroutine get_WCC_NNLO(xs_in,IA,IB,C,D,ir,alphaz,n_ext_in)
-    !     NNLO collinear sector functions WCC(ia,ib,ic,ir)
+  subroutine get_WSS_NNLO(a,b,c,d)
+    ! NNLO double-soft sector functions WSS
+    implicit none
+    integer :: ii,i1,i2,i3,i4,a,b,c,d,i,j,k,l
+    double precision :: num,sigma
+    include 'all_sector_list.inc'
+    call sector4_global_checks(a,b,c,d)
+    num = sigNNLO(a,b,c,d)
+    if(b.eq.c) then
+       i = a
+       j = b
+       k = d
+       l = 0
+    elseif(b.eq.d) then
+       i = a
+       j = b
+       k = c
+       l = 0
+    else
+       i = a
+       j = b
+       k = c
+       l = d
+    endif
+
+    sigma = 0d0
+    do ii=1,lensectors
+       i1=all_sector_list(1,ii)
+       i2=all_sector_list(2,ii)
+       i3=all_sector_list(3,ii)
+       i4=all_sector_list(4,ii)
+       if(l.eq.0) then
+          if((i1.eq.i.and.i3.eq.k).or.(i1.eq.k.and.i3.eq.i)) sigma = sigma + &
+               sigNNLO(i1,i2,i3,i2) + sigNNLO(i1,i3,i3,i2) +  &
+               sigNNLO(i3,i2,i1,i2) + sigNNLO(i3,i1,i1,i2)
+          if((i1.eq.i.and.i2.eq.k).or.(i1.eq.k.and.i2.eq.i)) sigma = sigma + &
+               sigNNLO(i1,i3,i2,i3) + sigNNLO(i1,i2,i2,i3) + &
+               sigNNLO(i2,i3,i1,i3) + sigNNLO(i2,i1,i1,i3)
+          if((i2.eq.i.and.i3.eq.k).or.(i2.eq.k.and.i3.eq.i)) sigma = sigma + &
+               sigNNLO(i2,i1,i3,i1) + sigNNLO(i2,i3,i3,i1) + &
+               sigNNLO(i3,i1,i2,i1) + sigNNLO(i3,i2,i2,i1)
+
+       elseif(l.ne.0) then
+          if((i1.eq.i.and.i3.eq.k).or.(i1.eq.k.and.i3.eq.i)) sigma = sigma + &
+               sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i4,i1,i2)
+          if((i1.eq.i.and.i4.eq.k).or.(i1.eq.k.and.i4.eq.i)) sigma = sigma + &
+               sigNNLO(i1,i2,i4,i3) + sigNNLO(i4,i3,i1,i2)
+          if((i2.eq.i.and.i3.eq.k).or.(i2.eq.k.and.i3.eq.i)) sigma = sigma + &
+               sigNNLO(i2,i1,i3,i4) + sigNNLO(i3,i4,i2,i1)
+          if((i2.eq.i.and.i4.eq.k).or.(i2.eq.k.and.i4.eq.i)) sigma = sigma + &
+               sigNNLO(i2,i1,i4,i3) + sigNNLO(i4,i3,i2,i1)
+       endif
+    enddo
+    WSS_NNLO = num/sigma
+    call sector2_sanity_checks(sigma,WSS_NNLO)
+  end subroutine get_WSS_NNLO
+
+  subroutine get_WCC_NNLO(xs_in,IA,IB,C,D,ir,alphaz,n_ext_in)
+    ! NNLO triple-collinear sector functions WCC
     implicit none
     integer :: ia,ib,ic,ir,c,d
     integer :: n_ext_in
@@ -306,7 +420,7 @@ contains
   end subroutine get_WCC_NNLO
 
   subroutine get_WSS_CC_NNLO(xs_in,ia,ib,C,D,ir,alphaz,n_ext_in)
-          !     NNLO double-soft collinear sector functions WSSCC(ia,ib,ic,ir)
+    ! NNLO double-soft triple-collinear sector functions WSSCC
     implicit none
     integer :: ia,ib,ic,ir,C,D
     integer :: n_ext_in
@@ -329,173 +443,6 @@ contains
       wsscc_nnlo=num/sigma
   end subroutine get_WSS_CC_NNLO
 
-  subroutine get_W_NNLO(IA,IB,C,D)
-    !     NNLO sector functions W(i1,i2,i3,i4)
-    implicit none
-    integer :: i,ia,ib,c,d,ic,i1,i2,i3,i4
-    double precision :: num,sigma
-    include 'all_sector_list.inc'
-    call sector4_global_checks(IA,IB,C,D)
-    num = sigNNLO(ia,ib,c,d)
-    sigma = 0d0
-    do i=1,lensectors
-       i1=all_sector_list(1,i)
-       i2=all_sector_list(2,i)
-       i3=all_sector_list(3,i)
-       i4=all_sector_list(4,i)
-       if(IB .eq. C) then
-          i3 = D ! ijjk not sure
-          sigma = sigma + &
-               sigNNLO(i1,i2,i2,i3) + &
-               sigNNLO(i1,i3,i3,i2) + &
-               sigNNLO(i2,i1,i1,i3) + &
-               sigNNLO(i2,i3,i3,i1) + &
-               sigNNLO(i3,i1,i1,i2) + &
-               sigNNLO(i3,i2,i2,i1) + &
-               sigNNLO(i1,i2,i3,i2) + &
-               sigNNLO(i1,i3,i2,i3) + &
-               sigNNLO(i2,i3,i2,i3) + &
-               sigNNLO(i2,i3,i1,i3) + &
-               sigNNLO(i3,i1,i2,i1) + &
-               sigNNLO(i3,i2,i1,i2)
-       elseif(IB .eq. D) then
-          i3 = C ! ijkj not sure
-          sigma = sigma + &
-               sigNNLO(i1,i2,i2,i3) + &
-               sigNNLO(i1,i3,i3,i2) + &
-               sigNNLO(i2,i1,i1,i3) + &
-               sigNNLO(i2,i3,i3,i1) + &
-               sigNNLO(i3,i1,i1,i2) + &
-               sigNNLO(i3,i2,i2,i1) + &
-               sigNNLO(i1,i2,i3,i2) + &
-               sigNNLO(i1,i3,i2,i3) + &
-               sigNNLO(i2,i3,i2,i3) + &
-               sigNNLO(i2,i3,i1,i3) + &
-               sigNNLO(i3,i1,i2,i1) + &
-               sigNNLO(i3,i2,i1,i2)
-       elseif(D.ne.IA.and.D.ne.IB.and.D.ne.C) then ! ijkl
-          sigma = sigma + &
-               sigNNLO(i1,i2,i3,i4) + &
-               sigNNLO(i1,i2,i4,i3) + &
-               sigNNLO(i2,i1,i3,i4) + &
-               sigNNLO(i2,i1,i4,i3) + &
-               sigNNLO(i3,i4,i1,i2) + &
-               sigNNLO(i3,i4,i2,i1) + &
-               sigNNLO(i4,i3,i1,i2) + &
-               sigNNLO(i4,i3,i2,i1)
-       else
-          write(*,*) 'get_W_NNLO: error in the denominator construction...'
-          write(*,*) 'negative value for 4th sector index d...'
-          write(*,*) 'd = ', d
-          write(*,*) 'exit...'
-          stop
-       endif
-    enddo
-    W_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,W_NNLO)
-  end subroutine get_W_NNLO
-
-  subroutine get_WSS_NNLO(i1,i2,i3,i4)
-    !     NNLO double-soft sector functions WSS(i1,i2,i3,i4) = barS_i1i3 W(i1,i2,i3,i4) [eq.(C.54)]
-    implicit none
-    integer :: i,a,b,c,d,i1,i2,i3,i4
-    double precision :: num,sigma
-    include 'all_sector_list.inc'
-    call sector4_global_checks(i1,i2,i3,i4)
-    if(i4.ge.0) then
-       num = sigNNLO(i1,i2,i3,i4)
-    else
-       write(*,*) 'get_WSS_NNLO: error in the construction of numerator'
-       write(*,*) 'Negative value for 4th sector index i4...'
-       write(*,*) 'i4 = ', i4
-       write(*,*) 'exit...'
-       stop
-    endif
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       c=all_sector_list(3,i)
-       d=all_sector_list(4,i)
-       if(d.eq.0) then
-          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + &
-               sigNNLO(a,b,c,b) + sigNNLO(a,c,c,b) +  &
-               sigNNLO(c,b,a,b) + sigNNLO(c,a,a,b)
-          if((a.eq.i1.and.b.eq.i3).or.(a.eq.i3.and.b.eq.i1)) sigma = sigma + &
-               sigNNLO(a,c,b,c) + sigNNLO(a,b,b,c) + &
-               sigNNLO(b,c,a,c) + sigNNLO(b,a,a,c)
-          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + &
-               sigNNLO(b,a,c,a) + sigNNLO(b,c,c,a) + &
-               sigNNLO(c,a,b,a) + sigNNLO(c,b,b,a)
-
-       elseif(d.ne.0) then
-          if((a.eq.i1.and.c.eq.i3).or.(a.eq.i3.and.c.eq.i1)) sigma = sigma + &
-               sigNNLO(a,b,c,d) + sigNNLO(c,d,a,b)
-          if((a.eq.i1.and.d.eq.i3).or.(a.eq.i3.and.d.eq.i1)) sigma = sigma + &
-               sigNNLO(a,b,d,c) + sigNNLO(d,c,a,b)
-          if((b.eq.i1.and.c.eq.i3).or.(b.eq.i3.and.c.eq.i1)) sigma = sigma + &
-               sigNNLO(b,a,c,d) + sigNNLO(c,d,b,a)
-          if((b.eq.i1.and.d.eq.i3).or.(b.eq.i3.and.d.eq.i1)) sigma = sigma + &
-               sigNNLO(b,a,d,c) + sigNNLO(d,c,b,a)
-       else
-          write(*,*) 'get_WSS_NNLO: error in the construction of denominator'
-          write(*,*) 'Negative value for 4th sector index i4...'
-          write(*,*) 'i4 = ', i4
-          write(*,*) 'exit...'
-          stop
-       endif
-    enddo
-    WSS_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,WSS_NNLO)
-  end subroutine get_WSS_NNLO
-
-
-
-  subroutine get_ZS_NNLO(i1,i2,sec_list)
-    !     NNLO 2-index mapped sector function relevant to the barHCijbarSij limit
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    ! This list contains the pairs (bar{isec}, bar{jsec})
-    ! The second entry runs over the number of final state NLO particles
-    integer, dimension (2,num_sec) :: sec_list
-
-    num = sig2(i1,i2)
-    sigma = 0d0
-    do i=1,num_sec
-       a = sec_list(1,i)
-       b = sec_list(2,i)
-       if(a.eq.0.or.b.eq.0) cycle
-       if(a.eq.i1) sigma = sigma + sig2(a,b)
-       if(b.eq.i1) sigma = sigma + sig2(b,a)
-    enddo
-    ZS_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,ZS_NNLO)
-  end subroutine get_ZS_NNLO
-
-
-  subroutine get_ZHC_NNLO(i1,i2,sec_list)
-    !     NNLO 2-index mapped sector function relevant to the barHCij limit
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision num,sigma
-    ! This list contains the pairs (bar{isec}, bar{jsec})
-    ! The second entry runs over the number of final state NLO particles
-    integer, dimension (2,num_sec) :: sec_list
-
-    num = sig2(i1,i2) + sig2(i2,i1)
-    sigma = 0d0
-    do i=1,num_sec
-       a = sec_list(1,i)
-       b = sec_list(2,i)
-       if(a.eq.0.or.b.eq.0) cycle
-       sigma = sigma + sig2(a,b) + sig2(b,a)
-    enddo
-    Z_HC_NNLO = num/sigma
-    call sector2_sanity_checks(sigma,Z_HC_NNLO)
-  end subroutine get_ZHC_NNLO
-
-
   subroutine sector4_global_checks(i1,i2,i3,i4)
     implicit none
     integer :: i1,i2,i3,i4
@@ -503,12 +450,8 @@ contains
        write(77,*)'Wrong alpha_mod in sectors4',alpha_mod
        stop
     endif
-    if(i1.le.2.or.i2.le.2.or.i3.le.2) then
-       if(i4.ne.0.and.i4.le.2) then
-          write(77,*) 'sectors4: indices must be in final state',i1,i2,i3,i4
-       elseif(i4.eq.0) then
-          write(77,*) 'sectors4: indices must be in final state',i1,i2,i3
-       endif
+    if(i1.le.2.or.i2.le.2.or.i3.le.2.or.i4.le.2) then
+       write(77,*) 'sectors4: indices must be in final state',i1,i2,i3,i4
        stop
     endif
   end subroutine sector4_global_checks

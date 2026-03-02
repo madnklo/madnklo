@@ -276,59 +276,21 @@ contains
     endif
   end function hatsigNNLO
 
-  subroutine get_W_NNLO(IA,IB,C,D)
-    ! NNLO sector functions W(i1,i2,i3,i4)
+  subroutine get_W_NNLO(a,b,c,d)
+    ! NNLO sector functions
     implicit none
-    integer :: i,ia,ib,c,d,ic,i1,i2,i3,i4
+    integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
     include 'all_sector_list.inc'
-    call sector4_global_checks(IA,IB,C,D)
-    num = sigNNLO(ia,ib,c,d)
+    call sector4_global_checks(a,b,c,d)
+    num = sigNNLO(a,b,c,d)
     sigma = 0d0
     do i=1,lensectors
        i1=all_sector_list(1,i)
        i2=all_sector_list(2,i)
        i3=all_sector_list(3,i)
        i4=all_sector_list(4,i)
-       if(i2 .eq. i3) then
-          sigma = sigma + &
-               sigNNLO(i1,i2,i2,i4) + &
-               sigNNLO(i1,i4,i4,i2) + &
-               sigNNLO(i2,i1,i1,i4) + &
-               sigNNLO(i2,i4,i4,i1) + &
-               sigNNLO(i4,i1,i1,i2) + &
-               sigNNLO(i4,i2,i2,i1) + &
-               sigNNLO(i1,i2,i4,i2) + &
-               sigNNLO(i1,i4,i2,i4) + &
-               sigNNLO(i2,i4,i2,i4) + &
-               sigNNLO(i2,i4,i1,i4) + &
-               sigNNLO(i4,i1,i2,i1) + &
-               sigNNLO(i4,i2,i1,i2)
-       elseif(i2 .eq. i4) then
-          sigma = sigma + &
-               sigNNLO(i1,i2,i2,i3) + &
-               sigNNLO(i1,i3,i3,i2) + &
-               sigNNLO(i2,i1,i1,i3) + &
-               sigNNLO(i2,i3,i3,i1) + &
-               sigNNLO(i3,i1,i1,i2) + &
-               sigNNLO(i3,i2,i2,i1) + &
-               sigNNLO(i1,i2,i3,i2) + &
-               sigNNLO(i1,i3,i2,i3) + &
-               sigNNLO(i2,i3,i2,i3) + &
-               sigNNLO(i2,i3,i1,i3) + &
-               sigNNLO(i3,i1,i2,i1) + &
-               sigNNLO(i3,i2,i1,i2)
-       else
-          sigma = sigma + &
-               sigNNLO(i1,i2,i3,i4) + &
-               sigNNLO(i1,i2,i4,i3) + &
-               sigNNLO(i2,i1,i3,i4) + &
-               sigNNLO(i2,i1,i4,i3) + &
-               sigNNLO(i3,i4,i1,i2) + &
-               sigNNLO(i3,i4,i2,i1) + &
-               sigNNLO(i4,i3,i1,i2) + &
-               sigNNLO(i4,i3,i2,i1)
-       endif
+       sigma = sigma + sigNNLO(i1,i2,i3,i4)
     enddo
     W_NNLO = num/sigma
     call sector2_sanity_checks(sigma,W_NNLO)
@@ -337,72 +299,36 @@ contains
   subroutine get_WSS_NNLO(a,b,c,d)
     ! NNLO double-soft sector functions WSS
     implicit none
-    integer :: ii,i1,i2,i3,i4,a,b,c,d,i,j,k,l
+    integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
     include 'all_sector_list.inc'
     call sector4_global_checks(a,b,c,d)
     num = sigNNLO(a,b,c,d)
-    if(b.eq.c) then
-       i = a
-       j = b
-       k = d
-       l = 0
-    elseif(b.eq.d) then
-       i = a
-       j = b
-       k = c
-       l = 0
-    else
-       i = a
-       j = b
-       k = c
-       l = d
-    endif
-
     sigma = 0d0
-    do ii=1,lensectors
-       i1=all_sector_list(1,ii)
-       i2=all_sector_list(2,ii)
-       i3=all_sector_list(3,ii)
-       i4=all_sector_list(4,ii)
-       if(l.eq.0) then
-          if((i1.eq.i.and.i3.eq.k).or.(i1.eq.k.and.i3.eq.i)) sigma = sigma + &
-               sigNNLO(i1,i2,i3,i2) + sigNNLO(i1,i3,i3,i2) +  &
-               sigNNLO(i3,i2,i1,i2) + sigNNLO(i3,i1,i1,i2)
-          if((i1.eq.i.and.i2.eq.k).or.(i1.eq.k.and.i2.eq.i)) sigma = sigma + &
-               sigNNLO(i1,i3,i2,i3) + sigNNLO(i1,i2,i2,i3) + &
-               sigNNLO(i2,i3,i1,i3) + sigNNLO(i2,i1,i1,i3)
-          if((i2.eq.i.and.i3.eq.k).or.(i2.eq.k.and.i3.eq.i)) sigma = sigma + &
-               sigNNLO(i2,i1,i3,i1) + sigNNLO(i2,i3,i3,i1) + &
-               sigNNLO(i3,i1,i2,i1) + sigNNLO(i3,i2,i2,i1)
-
-       elseif(l.ne.0) then
-          if((i1.eq.i.and.i3.eq.k).or.(i1.eq.k.and.i3.eq.i)) sigma = sigma + &
-               sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i4,i1,i2)
-          if((i1.eq.i.and.i4.eq.k).or.(i1.eq.k.and.i4.eq.i)) sigma = sigma + &
-               sigNNLO(i1,i2,i4,i3) + sigNNLO(i4,i3,i1,i2)
-          if((i2.eq.i.and.i3.eq.k).or.(i2.eq.k.and.i3.eq.i)) sigma = sigma + &
-               sigNNLO(i2,i1,i3,i4) + sigNNLO(i3,i4,i2,i1)
-          if((i2.eq.i.and.i4.eq.k).or.(i2.eq.k.and.i4.eq.i)) sigma = sigma + &
-               sigNNLO(i2,i1,i4,i3) + sigNNLO(i4,i3,i2,i1)
-       endif
+    do i=1,lensectors
+       i1=all_sector_list(1,i)
+       i2=all_sector_list(2,i)
+       i3=all_sector_list(3,i)
+       i4=all_sector_list(4,i)
+       sigma = sigma + &
+               sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i2,i1,i4)
     enddo
     WSS_NNLO = num/sigma
     call sector2_sanity_checks(sigma,WSS_NNLO)
   end subroutine get_WSS_NNLO
 
-  subroutine get_WCC_NNLO(xs_in,IA,IB,C,D,ir,alphaz,n_ext_in)
+  subroutine get_WCC_NNLO(xs_in,ia,ib,c,d,ir,alphaz,n_ext_in)
     ! NNLO triple-collinear sector functions WCC
     implicit none
     integer :: ia,ib,ic,ir,c,d
     integer :: n_ext_in
     double precision :: alphaz, num, sigma, wcc_nnlo
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    num = hatsigNNLO(IA,IB,C,D,ir,n_ext_in,xs_in,alphaz)
-    if (IB .eq. C) then
-       ic = D
-    elseif (IB .eq. D) then
-       ic = C
+    num = hatsigNNLO(ia,ib,c,d,ir,n_ext_in,xs_in,alphaz)
+    if (ib .eq. c) then
+       ic = d
+    elseif (ib .eq. d) then
+       ic = c
     end if
     sigma = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
             hatsigNNLO(ia,ic,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
@@ -419,22 +345,22 @@ contains
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
 
-  subroutine get_WSS_CC_NNLO(xs_in,ia,ib,C,D,ir,alphaz,n_ext_in)
+  subroutine get_WSS_CC_NNLO(xs_in,ia,ib,c,d,ir,alphaz,n_ext_in)
     ! NNLO double-soft triple-collinear sector functions WSSCC
     implicit none
-    integer :: ia,ib,ic,ir,C,D
+    integer :: ia,ib,ic,ir,c,d
     integer :: n_ext_in
     double precision :: alphaz, num, sigma, wsscc_nnlo
     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    num = hatsigNNLO(IA,IB,C,D,ir,n_ext_in,xs_in,alphaz)
-    if(IB.eq.C) then
-      ic = D
+    num = hatsigNNLO(ia,ib,c,d,ir,n_ext_in,xs_in,alphaz)
+    if(ib.eq.c) then
+      ic = d
       sigma = hatsigNNLO(ia,ib,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
               hatsigNNLO(ia,ic,ib,ic,ir,n_ext_in,xs_in,alphaz) + &
               hatsigNNLO(ib,ia,ia,ic,ir,n_ext_in,xs_in,alphaz) + &
               hatsigNNLO(ib,ic,ia,ic,ir,n_ext_in,xs_in,alphaz)
-    elseif(IB.eq.D) then
-      ic = C
+    elseif(ib.eq.d) then
+      ic = c
       sigma = hatsigNNLO(ia,ib,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
               hatsigNNLO(ia,ic,ic,ib,ir,n_ext_in,xs_in,alphaz) + &
               hatsigNNLO(ic,ia,ia,ib,ir,n_ext_in,xs_in,alphaz) + &
@@ -455,7 +381,6 @@ contains
        stop
     endif
   end subroutine sector4_global_checks
-
 
   subroutine sector2_sanity_checks(sigma,W)
     implicit none

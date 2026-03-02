@@ -169,7 +169,7 @@ end module sectors2_module
 
 module sectors4_module
   implicit none
-  integer, public :: n_ext,num_sec
+  integer, public :: n_ext
   double precision, public :: alpha_mod, W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2,hatsig2
@@ -193,7 +193,6 @@ contains
 
     ! set global module variables
     n_ext=n_ext_in
-    num_sec=(nexternal-2)*(nexternal-3)/2
     if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
     if (.not.allocated(sig2)) allocate(sig2(3:n_ext,3:n_ext))
     if (.not.allocated(sigNNLO)) allocate(sigNNLO(3:n_ext,3:n_ext,3:n_ext,3:n_ext))
@@ -242,7 +241,6 @@ contains
 
     ! set global module variables
     n_ext=n_ext_in
-    num_sec=(nexternal-2)*(nexternal-3)/2
     if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
     if (.not.allocated(hatsig2)) allocate(hatsig2(3:n_ext,3:n_ext))
     if (.not.allocated(hatsigNNLO)) allocate(hatsigNNLO(3:n_ext,3:n_ext,3:n_ext,3:n_ext))
@@ -257,7 +255,7 @@ contains
        wir=xs_mod(1,2)*xs_mod(i,r)/&
             (xs_mod(i,1)+xs_mod(i,2))/(xs_mod(r,1)+xs_mod(r,2))
        do j=3,n_ext
-          if(i.eq.j.or.j.eq.r)cycle
+          if(j.eq.i.or.j.eq.r)cycle
           if( (xs_mod(i,1)+xs_mod(i,2))*&
               (xs_mod(j,1)+xs_mod(j,2))*&
                xs_mod(i,j)*xs_mod(1,2).ne.0d0 ) then
@@ -268,22 +266,30 @@ contains
           endif
           do k=3,n_ext
              if(k.eq.i.or.k.eq.r)cycle
-             del_jk=0
-             if(j.eq.k) del_jk = 1
+             ek=(xs_mod(k,1)+xs_mod(k,2))/xs_mod(1,2)
              wkr=xs_mod(1,2)*xs_mod(k,r)/&
                   (xs_mod(k,1)+xs_mod(k,2))/(xs_mod(r,1)+xs_mod(r,2))
-             do l=3,n_ext
-                if(l.eq.i.or.l.eq.k.or.l.eq.r)cycle
+             if(k.eq.j)then
+                do l=3,n_ext
+                   if(l.eq.i.or.l.eq.k.or.l.eq.j.or.l.eq.r)cycle
+                   if( (xs_mod(k,1)+xs_mod(k,2))*&
+                        (xs_mod(l,1)+xs_mod(l,2))*&
+                        xs_mod(k,l)*xs_mod(1,2).ne.0d0 ) then
+                      wkl=xs_mod(1,2)*xs_mod(k,l)/&
+                           (xs_mod(k,1)+xs_mod(k,2))/(xs_mod(l,1)+xs_mod(l,2))
+                      hatsigNNLO(i,j,k,l) = hatsig2(i,j)/(ek*wkr+ei*wir)/wkl
+                   endif
+                enddo
+             else
+                l=j
                 if( (xs_mod(k,1)+xs_mod(k,2))*&
-                    (xs_mod(l,1)+xs_mod(l,2))*&
+                     (xs_mod(l,1)+xs_mod(l,2))*&
                      xs_mod(k,l)*xs_mod(1,2).ne.0d0 ) then
-                   ek=(xs_mod(k,1)+xs_mod(k,2))/xs_mod(1,2)
                    wkl=xs_mod(1,2)*xs_mod(k,l)/&
                         (xs_mod(k,1)+xs_mod(k,2))/(xs_mod(l,1)+xs_mod(l,2))
-                   hatsigNNLO(i,j,k,l) = hatsig2(i,j)*&
-                        1d0/(ek*wkr+del_jk*ei*wir)/wkl
+                   hatsigNNLO(i,j,k,l) = hatsig2(i,j)/(ek*wkr)/wkl
                 endif
-             enddo
+             endif
           enddo
        enddo
     enddo

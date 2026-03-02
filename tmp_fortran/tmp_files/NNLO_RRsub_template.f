@@ -29,7 +29,7 @@ c      double precision W_NNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl,wgt_chan
+      double precision wgt,wgts(1),wgtpl,wgt_chan
       logical dotechcut
       logical doplot
       common/cdoplot/doplot
@@ -151,7 +151,9 @@ c     full double real in sector Wijkl
 c
 c     plot double real
       wgtpl=int_double_real_no_cnt*wgt/nitR*wgt_chan
-      if(doplot)call histo_fill(p,sNNLO,nexternal,leg_pdgs,wgtpl)
+c      if(doplot)call histo_fill(p,sNNLO,nexternal,leg_pdgs,wgtpl)
+      wgts=wgtpl
+      if(doplot) call analysis_fill(p,sNNLO,nexternal,leg_pdgs,wgts)
  555  continue
 c
 c     counterterm

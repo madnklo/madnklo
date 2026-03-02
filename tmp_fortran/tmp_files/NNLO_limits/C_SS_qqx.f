@@ -16,7 +16,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       integer ia,ib,ik,ir,l,m,ierr,nit,idum,parent,sec_index(2)
       integer jb,lb,mb
       integer jbb,lbb,mbb
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -256,7 +256,9 @@ c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
-            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+            wgts=wgtpl
+c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+            if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
          enddo
       enddo
 c

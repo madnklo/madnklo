@@ -42,7 +42,6 @@ c
       integer nwgt
       character*20 weights_info(1)
 c
-
       sum_b=0d0
       sum_err_b=0d0
       res_b=0d0
@@ -60,10 +59,7 @@ c     read inputs
       NCLBTH = NPOINTS_FO_GRID
       NITB = NITERS_FO
       NCLB = NPOINTS_FO
-
-
       NITB = 10 ! GIOVANNI
-      
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
@@ -83,22 +79,16 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-ccccccccc
-c$$$      call histo_init
+c      call histo_init
       nwgt=1
       weights_info(1)='central'
       call analysis_begin(nwgt,weights_info)
-
-
-
-
-ccccccccc      
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log')
       open(unit=iu8 ,file='B_chan.log')
       open(unit=iu ,file='results_B.log')
       line='=================================================='
-c      write(iu,*)' Born contribution '
+      write(iu,*)' Born contribution '
 c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
@@ -140,10 +130,7 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-c$$$         nwgt=1
-c$$$         weights_info(1)='central'
-c$$$         call analysis_begin(nwgt,weights_info)
-         nclB1=nclB             !*4*4
+         nclB1=nclB
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
      &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
@@ -160,11 +147,7 @@ c
 c     finalise histograms and output files
       call analysis_end(1d0)
       sum_err_b = dsqrt(sum_err_b)
-ccccccc
-c$$$  call histo_final('plot_B.dat',rescale_plot_B)
-
-
-ccccccc
+c  call histo_final('plot_B.dat',rescale_plot_B)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

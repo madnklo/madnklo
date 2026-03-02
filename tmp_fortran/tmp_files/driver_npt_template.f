@@ -38,6 +38,8 @@ c
       common/comich/ich
       double precision sum_rr,sum_err_rr
 c      double precision sum_err_rr_a,err_rr_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
       sum_rr=0d0
       sum_err_rr=0d0
@@ -75,7 +77,10 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      call histo_init
+c      call histo_init
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu8,file='testRR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
@@ -137,8 +142,9 @@ c
       enddo
 c
 c     finalise histograms and output files
+      call analysis_end(1d0)
       sum_err_rr = dsqrt(sum_err_rr)
-      call histo_final('plot_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.dat', rescale_plot_RR)
+c      call histo_final('plot_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.dat', rescale_plot_RR)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

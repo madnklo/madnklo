@@ -11,7 +11,7 @@ c     while k is a q (or qb) with different flavour
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO
@@ -113,7 +113,9 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+      wgts=wgtpl
+c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+      if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
       if(abs(M2_CC_qxqqp).ge.huge(1d0).or.isnan(M2_CC_qxqqp))then
@@ -140,7 +142,7 @@ c     while k is a q (or qb) with different flavour
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjb,extra
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO
@@ -243,7 +245,9 @@ c     include correct multiplicity and flavour factors
 c
 c     plot
       wgtpl=-M2_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+      wgts=wgtpl
+c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+      if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
       if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then

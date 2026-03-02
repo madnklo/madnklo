@@ -334,7 +334,7 @@ contains
     ! NNLO triple-collinear sector functions WCC
     implicit none
     integer :: ia,ib,ic,ir,c,d
-    double precision :: num, sigma, wcc_nnlo
+    double precision :: num, sigma
     num = hatsigNNLO(ia,ib,c,d)
     if (ib .eq. c) then
        ic = d
@@ -354,7 +354,7 @@ contains
     ! NNLO double-soft triple-collinear sector functions WSSCC
     implicit none
     integer :: ia,ib,ic,ir,c,d
-    double precision :: num, sigma, wsscc_nnlo
+    double precision :: num, sigma
     num = hatsigNNLO(ia,ib,c,d)
     if(ib.eq.c) then
       ic = d
@@ -365,7 +365,7 @@ contains
       sigma = hatsigNNLO(ia,ib,ic,ib) + hatsigNNLO(ia,ic,ic,ib) + &
               hatsigNNLO(ic,ia,ia,ib) + hatsigNNLO(ic,ib,ia,ib)
     endif
-      wsscc_nnlo=num/sigma
+      wss_cc_nnlo=num/sigma
   end subroutine get_WSS_CC_NNLO
 
   subroutine sector4_global_checks(i1,i2,i3,i4)

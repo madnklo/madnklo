@@ -42,12 +42,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision mass2
       double precision pmass(nexternal)
       include 'pmass.inc'
-
-
-      
+c
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
-
+c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -80,24 +78,17 @@ c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
 c
-      
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       BLO = ANS(0)*AMP2(ich)
-
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
-      int_Born=BLO*xjac
-c     apply flavour factor
-      int_Born=int_Born * fl_factor
-c     plot
-c      int_Born=1d0/2d0
+      int_Born=BLO*xjac*fl_factor
+c
+c     plot Born
       wgtpl=int_Born*wgt
-
-cccccccccc
-c$$$      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
+c      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot) call analysis_fill(p,slo,nexternal,leg_pdgs,wgts)
-cccccccccc
 c
 c     print out current run progress
 c 999  ievt=ievt+1

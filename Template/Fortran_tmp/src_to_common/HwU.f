@@ -14,7 +14,8 @@ CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
          use iso_c_binding
          integer, parameter :: wgts_info_len=80 
          contains 
-             integer function get_wgts_info_len() bind(c,name="get_wgts_info_len")
+         integer function get_wgts_info_len() bind(c,
+     $        name="get_wgts_info_len")
                  get_wgts_info_len = wgts_info_len
                  return
              end function get_wgts_info_len
@@ -28,12 +29,13 @@ c variables (something not possible in old fortran version)
          use HwU_wgts_info_len
          implicit none
          integer :: max_plots,max_points,max_bins,nwgts,np
-         integer :: error_estimation=3
+         integer :: error_estimation=1!
          logical, allocatable :: booked(:)
          integer, allocatable :: nbin(:),histi(:,:),p_bin(:),p_label(:)
          character(len=50), allocatable :: title(:)
          character(len=wgts_info_len), allocatable :: wgts_info(:)
          double precision, allocatable :: histy(:,:,:),histy_acc(:,:,:)
+     $        ,histyich(:,:,:),histyich_err(:,:) ! GIOVANNI         
      $        ,histy2(:,:),histy_err(:,:),histxl(:,:),histxm(:,:)
      $        ,step(:),p_wgts(:,:)
          save
@@ -109,6 +111,7 @@ c     Setup the histogram
       nbin(label)=nbin_l
 c     Compute the bin width
       step(label)=(xmax-xmin)/dble(nbin(label))
+
       do i=1,nbin(label)
 c     Compute the lower and upper bin edges
          histxl(label,i)=xmin+step(label)*dble(i-1)
@@ -117,10 +120,12 @@ c     Set all the bins to zero.
          do j=1,nwgts
             histy(j,label,i)=0d0
             histy_acc(j,label,i)=0d0
+            histyich(j,label,i)=0d0
          enddo
          histi(label,i)=0
          histy2(label,i)=0d0
          histy_err(label,i)=0d0
+         histyich_err(label,i)=0d0
       enddo
       return
       end
@@ -178,6 +183,7 @@ c correctly taken into account.
       use HwU_variables
       implicit none
       integer i,j
+c$$$      write(*,*)'beginning of HwU_add_points ',np,p_label(np),p_bin(np),nwgts,p_wgts(:,np)
       do i=1,np
          do j=1,nwgts
             histy(j,p_label(i),p_bin(i))=
@@ -187,6 +193,7 @@ c correctly taken into account.
          histy2(p_label(i),p_bin(i))=
      $        histy2(p_label(i),p_bin(i))+p_wgts(1,i)**2
       enddo
+c$$$  write(*,*)'end of HwU_add_points',histy(1,1,2),histi(1,2),histy2(1,2)
       np=0
       return
       end
@@ -198,33 +205,57 @@ c iteration ('histy') to the accumulated results ('histy_acc'), with the
 c uncertainty estimate given in 'histy_err' and empties the arrays for
 c the current iteration so that they can be filled with the next
 c iteration.
-      subroutine HwU_accum_iter(inclde,nPSpoints,values)
+      subroutine HwU_accum_iter(inclde,nPSpoints,values,it,itmx)
       use HwU_variables
       implicit none
       logical inclde
       integer nPSpoints,label,i,j
       double precision nPSinv,etot,niter,y_squared,values(2)
-      data niter /0d0/
+      integer ich
+      common/comich/ich
+c     data niter /0d0/
+      
+      integer it,itmx
       nPSinv = 1d0/dble(nPSpoints)
-      if (inclde) niter = niter+1d0
+c     if (inclde) niter = niter+1d0
+      if(inclde) niter=dble(it)
       do label=1,max_plots
+c         write(*,*) booked(label), label, max_plots, it, itmx,inclde
          if (.not. booked(label)) cycle
          if (inclde) then
             call accumulate_results(label,nPSinv,niter,values)
          endif
 c     Reset the histo of the current iteration to zero so that they are
 c     ready for the next iteration.
+         
+c         if(ich==1 .and. it == 10) then
+c            write(*,*) 'ich 1, it 10 ', histy(1,label,:)
+c         elseif(ich == 2 .and. it == 1) then
+c            write(*,*) 'ich 2, it 1 ', histy
+c         endif
+
          do i=1,nbin(label)
             do j=1,nwgts
+               if(it.eq.itmx) then
+                  histyich(j,label,i) = histyich(j,label,i)+histy_acc(j,label,i)
+               endif
                histy(j,label,i)=0d0
             enddo
+            if(it.eq.itmx) then
+               histyich_err(label,i) = histyich_err(label,i)+histy_err(label,i)**2
+            endif
             histy2(label,i)=0d0
             histi(label,i)=0
          enddo
       enddo
+      
+      
       return
       end
 
+      
+
+      
 c *****For plotting unweighted events****
 c Overwrites the accumulated results ('histy_acc') with the current
 c results ('histy') and provides an uncertainty estimate in
@@ -269,6 +300,8 @@ c weights are non-zero.
       double precision nPSinv,etot,niter,y_squared
      $     ,values(2),a1,a2
       double precision,allocatable :: vtot(:)
+      integer ich
+      common/comich/ich
       if (.not. allocated(vtot)) allocate(vtot(nwgts))
       if (error_estimation.eq.2) then
 c     Use the weighted average bin-by-bin. This is not really justified
@@ -347,6 +380,8 @@ c     Add the results of the current iteration to the accumulated results
      &                 /values(2)+vtot(j)/values(1))/(1d0
      &                 /values(2) + 1d0/values(1))
                enddo
+c$$$histy_acc_(j,n+1) = (histy_acc(j,n)/v2+vtot(j)/v1)/(1/v1+1/v2)
+
                a1=((1d0/values(1))/((1d0/values(1))+1d0/values(2)))**2
                a2=((1d0/values(2))/((1d0/values(1))+1d0/values(2)))**2
                histy_err(label,i)=sqrt(a2*histy_err(label,i)**2 +
@@ -358,12 +393,19 @@ c     simply sum the weights in the bins
          do i=1,nbin(label)
             if (histi(label,i).eq.0 .and.
      &           histy_acc(1,label,i).eq.0d0) cycle
-            if (niter.ne.1d0) y_squared=((niter-1)*histy_err(label,i))
-     &           **2+(niter-1)*histy_acc(1,label,i)**2
+            if (niter.ne.1d0) then
+               y_squared=((niter-1)*histy_err(label,i))
+     &              **2+(niter-1)*histy_acc(1,label,i)**2
+            endif
             do j=1,nwgts
-               vtot(j)=histy(j,label,i)*nPSinv
+c               vtot(j)= histyich(j,label,i)+(histy(j,label,i))/(histxm(label,i)-histxl(label,i)) !*nPSinv
+               vtot(j)= (histy(j,label,i))/(histxm(label,i)-histxl(label,i)) !*nPSinv
                histy_acc(j,label,i)=(histy_acc(j,label,i)*(niter-1d0)
      &              +vtot(j))/niter
+c               if(niter.eq.itmx) then
+c                  histyich(j,label,i) = histyich(j,label,i)+histy_acc(j,label,i)
+c               endif
+c               write(*,*) ich, histy(j,label,i),histy_acc(j,label,i)
             enddo
 c     base the error on the variance in the results per iteration. For a
 c     small number of iterations, this underestimates the actual
@@ -376,12 +418,13 @@ c     uncertainty.
             endif
          enddo
       elseif(error_estimation.eq.0) then
+         
 c     simply sum the weights in the bins
          do i=1,nbin(label)
             if (histi(label,i).eq.0 .and.
      &           histy_acc(1,label,i).eq.0d0) cycle
             do j=1,nwgts
-               vtot(j)=histy(j,label,i)*nPSinv
+               vtot(j)=histy(j,label,i)!*nPSinv
                histy_acc(j,label,i)=(histy_acc(j,label,i)*(niter-1d0)
      &              +vtot(j))/niter
             enddo
@@ -408,8 +451,12 @@ c output by 'xnorm'
       character(len=:), allocatable :: buffer
       character*4 str_nbin
       double precision xnorm
+      integer ich
+      common/comich/ich
       if (.not. allocated(buffer))
      &     allocate(character(len=(nwgts+3)*17) :: buffer)
+
+      
 c     column info: x_min, x_max, y (central value), dy, {extra
 c     weights}.
       write (unit,'(a$)') '##& xmin'
@@ -434,11 +481,14 @@ c     data
          do i=1,nbin(label)
            write (buffer( 1:16),'(2x,e14.7)') histxl(label,i)
            write (buffer(17:32),'(2x,e14.7)') histxm(label,i)
-           write (buffer(33:48),'(2x,e14.7)') histy_acc(1,label,i)*xnorm
-           write (buffer(49:64),'(2x,e14.7)') histy_err(label,i)*xnorm
+c           write (buffer(33:48),'(2x,e14.7)') histy_acc(1,label,i)*xnorm
+c           write (buffer(49:64),'(2x,e14.7)') histy_err(label,i)*xnorm
+           write (buffer(33:48),'(2x,e14.7)') histyich(1,label,i)*xnorm
+           write (buffer(49:64),'(2x,e14.7)') sqrt(histyich_err(label,i))*xnorm
            do j=2,nwgts
               write (buffer((j+2)*16+1:(j+3)*16),'(2x,e14.7)')
-     $             histy_acc(j,label,i)*xnorm
+     $             histyich(j,label,i)*xnorm
+c     $             histy_acc(j,label,i)*xnorm
            enddo
            write (unit,'(a)') buffer(1:(nwgts+3)*16)
          enddo
@@ -470,6 +520,8 @@ c Clean all the allocatable variables:
       if (allocated(p_bin)) deallocate(p_bin)
       if (allocated(p_label)) deallocate(p_label)
       if (allocated(p_wgts)) deallocate(p_wgts)
+      if (allocated(histyich)) deallocate(histyich)
+      if(allocated(histyich_err)) deallocate(histyich_err)
       return
       end
 
@@ -530,6 +582,11 @@ c single histogram
          allocate(histi(1,nbin_l))
          allocate(histy2(1,nbin_l))
          allocate(histy_err(1,nbin_l))
+c     GIOVANNI
+         allocate(histyich(nwgts,1,nbin_l))
+         allocate(histyich_err(1,nbin_l))
+c         allocate(histy2ich(nwgts,1,nbin_l))
+
          max_plots=1
          max_bins=nbin_l
       endif
@@ -574,6 +631,11 @@ c histy_acc
          allocate(temp3(nwgts,label_max,nbin_max))
          temp3(1:nwgts,1:max_plots,1:max_bins)=histy_acc
          call move_alloc(temp3,histy_acc)
+
+c histyich
+         allocate(temp3(nwgts,label_max,nbin_max))
+         temp3(1:nwgts,1:max_plots,1:max_bins)=histyich
+         call move_alloc(temp3,histyich)
 c histi
          allocate(itemp2(label_max,nbin_max))
          itemp2(1:max_plots,1:max_bins)=histi
@@ -586,6 +648,10 @@ c histy_err
          allocate(temp2(label_max,nbin_max))
          temp2(1:max_plots,1:max_bins)=histy_err
          call move_alloc(temp2,histy_err)
+c histyich_err
+         allocate(temp2(label_max,nbin_max))
+         temp2(1:max_plots,1:max_bins)=histyich_err
+         call move_alloc(temp2,histyich_err)
 c Update maximums
          max_plots=label_max
          max_bins=nbin_max

@@ -46,10 +46,20 @@ c      COMMON/abresl/resl(10),standdevl(10)
       DOUBLE PRECISION sigma_sq_inv
       DOUBLE PRECISION ran_numb(mxdim)
 
+      double precision HwU_values(2)
+      logical doplot
+      common/cdoplot/doplot
+      integer ich
+      common/comich/ich
+
       DATA mds/1/           ! mds =  1 importance sampling only
                             ! mds = -1 importance + stratified sampling
       SAVE
-  
+
+
+
+
+      
       IF(init.LE.0)THEN     ! Normal entry. Start from scratch
         mds=1
         ndo=1
@@ -125,7 +135,7 @@ c protect ionesh from redefining the grid
         IF(nprn.GE.0) WRITE(44,200) ndim,rcalls,it,itmx
       ENDIF    ! ENF IF (init.LE.2)
       
-      DO 28 it=it,itmx      ! Main iteration loop
+      DO 28 it=it,itmx          ! Main iteration loop
 *6
 c        IF(it.GE.2.AND.acc*abs(tgral).ge.sd) RETURN
 *6end
@@ -345,8 +355,14 @@ c          standdevl(it)=tsi
           ivegasstop=1
           RETURN
         ENDIF
-*6end
+*     6end
+        if(doplot) then
+           HwU_values(1) = tgral
+           HwU_values(2) = tsi
+           call HwU_accum_iter(doplot,ncall,HwU_values,it,itmx)
+        endif
    28 CONTINUE
+
       RETURN
   200 FORMAT(/' input parameters for vegas:  ndim=',i3,'  ncall=',
      *f12.0/28x,'  it=',i5,'  itmx=',i5)

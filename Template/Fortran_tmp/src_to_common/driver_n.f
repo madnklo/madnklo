@@ -39,7 +39,10 @@ c
       common/comich/ich
       double precision sum_b,sum_err_b
       double precision sum_err_b_a,err_b_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
+
       sum_b=0d0
       sum_err_b=0d0
       res_b=0d0
@@ -58,6 +61,9 @@ c     read inputs
       NITB = NITERS_FO
       NCLB = NPOINTS_FO
 
+
+      NITB = 10 ! GIOVANNI
+      
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
@@ -77,8 +83,16 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      call histo_init
-c      call analysis_begin(1,'central')
+ccccccccc
+c$$$      call histo_init
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
+
+
+
+
+ccccccccc      
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log')
       open(unit=iu8 ,file='B_chan.log')
@@ -89,18 +103,18 @@ c      write(iu,*)
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
-      nclBth0=max(10000,int(nclBth/5d0))
-      nitBth0=max(5,int(nitBth/2d0))
-      sum_err_b_a=0d0
-      do i=1,N_MAX_CG
-         ich=i
-         init=0
-         doplot=.false.
-         call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
-     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         err_b_a(ich) = err_b
-         sum_err_b_a = sum_err_b_a + err_b_a(ich)
-      enddo
+c$$$      nclBth0=max(10000,int(nclBth/5d0))
+c$$$      nitBth0=max(5,int(nitBth/2d0))
+c$$$      sum_err_b_a=0d0
+c$$$      do i=1,N_MAX_CG
+c$$$         ich=i
+c$$$         init=0
+c$$$         doplot=.false.
+c$$$         call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
+c$$$     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+c$$$         err_b_a(ich) = err_b
+c$$$         sum_err_b_a = sum_err_b_a + err_b_a(ich)
+c$$$      enddo
 c
 c     main loop over channels
       do i=1,N_MAX_CG
@@ -113,7 +127,7 @@ c     main loop over channels
          write(iu1,*)'============================='
          init=0
          doplot=.false.
-         nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
+         nclBth1=nclBth
          call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
@@ -126,9 +140,12 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-         nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
+c$$$         nwgt=1
+c$$$         weights_info(1)='central'
+c$$$         call analysis_begin(nwgt,weights_info)
+         nclB1=nclB             !*4*4
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
-     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+     &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          sum_b = sum_b + res_b
@@ -141,8 +158,13 @@ c
       enddo
 c
 c     finalise histograms and output files
+      call analysis_end(1d0)
       sum_err_b = dsqrt(sum_err_b)
-      call histo_final('plot_B.dat',rescale_plot_B)
+ccccccc
+c$$$  call histo_final('plot_B.dat',rescale_plot_B)
+
+
+ccccccc
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)
@@ -154,5 +176,4 @@ c      write(iu,*)
       close(iu1)
       close(iu7)
 c
-      stop
       end

@@ -47,6 +47,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
+
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -89,10 +90,14 @@ c     Born
 c     apply flavour factor
       int_Born=int_Born * fl_factor
 c     plot
-      wgtpl=int_Born*wgt/nitB
-      wgts(1)=wgtpl
-      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
-c      if(doplot)call analysis_fill(p,sLO,nexternal,wgts)
+c      int_Born=1d0/2d0
+      wgtpl=int_Born*wgt
+
+cccccccccc
+c$$$      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
+      wgts=wgtpl
+      if(doplot) call analysis_fill(p,slo,nexternal,leg_pdgs,wgts)
+cccccccccc
 c
 c     print out current run progress
 c 999  ievt=ievt+1

@@ -299,10 +299,8 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       M2tmp = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
       M2tmp = M2tmp/sij*BLO
 c
-c     compute soft-collinear triple-collinear sector function eq. (C.83) of 2212.11190v2
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
-      call get_wc_nlo(xsb,map1,map2,rb,1d0,nexternal-1)
+c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
+      call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
       M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

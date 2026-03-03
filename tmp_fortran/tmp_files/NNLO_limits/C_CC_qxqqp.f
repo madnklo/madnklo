@@ -174,7 +174,6 @@ c
 c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
       use sectors2_module
-      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'

@@ -2519,7 +2519,7 @@ c       %s
                 string2 = overall_sector_info[i]['alt_Real_str']
                 # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
-                    link_real = "%s/all_sector_list_real.inc" % dirpath
+                    link_real = "%s/all_sector_list_n-1.inc" % dirpath
                     if os.path.lexists(link_real):
                         os.remove(link_real)
                     os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['alt_Real_path'], link_real )
@@ -2537,7 +2537,7 @@ c       %s
                 string = overall_sector_info[i]['Real_str']
                 # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
-                    link_real = "%s/all_sector_list_real.inc" % dirpath
+                    link_real = "%s/all_sector_list_n-1.inc" % dirpath
                     if os.path.lexists(link_real):
                         os.remove(link_real)
                     os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['path_to_Real'], link_real )

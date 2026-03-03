@@ -41,7 +41,6 @@ contains
     enddo
   end subroutine get_sig2
 
-
   subroutine get_W_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
     implicit none
@@ -65,7 +64,7 @@ contains
     implicit none
     integer :: i,a,b,i1,i2
     double precision :: num,sigma
-    include 'all_sector_list_real.inc'
+    include 'all_sector_list_n-1.inc'
     call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
@@ -102,7 +101,7 @@ contains
     implicit none
     integer :: i,a,b,i1,i2
     double precision :: num,sigma
-    include 'all_sector_list_real.inc'
+    include 'all_sector_list_n-1.inc'
     call sector2_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
@@ -130,8 +129,6 @@ contains
     wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
   end subroutine get_WC_NLO
 
-
-
   subroutine sector2_global_checks(i1,i2)
     implicit none
     integer :: i1,i2
@@ -144,7 +141,6 @@ contains
        stop
     endif
   end subroutine sector2_global_checks
-
 
   subroutine sector2_sanity_checks(sigma,Z)
     implicit none
@@ -159,12 +155,7 @@ contains
     endif
   end subroutine sector2_sanity_checks
 
-
 end module sectors2_module
-
-
-
-
 
 
 module sectors4_module

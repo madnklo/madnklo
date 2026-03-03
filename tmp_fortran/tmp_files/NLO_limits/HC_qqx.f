@@ -13,7 +13,7 @@ c     collinear limit C_(ia,ib) * Wcollinear
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2_C_qqx,wgt,wgtpl,wgt_chan,xj,extra
+      double precision pref,M2_C_qqx,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -111,7 +111,9 @@ c     include prefactors
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan
-      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+      wgts=wgtpl
+      if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     sanity check
       if(abs(M2_HC_qqx).ge.huge(1d0).or.isnan(M2_HC_qqx))then

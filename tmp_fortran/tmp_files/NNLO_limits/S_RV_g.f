@@ -16,7 +16,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'run.inc'
       double precision ret(-2:0)
       integer i,l,m,q,lb,mb,qb,ierr,nit
-      double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp(-2:0),wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,triBLO,VLO(-2:0),ccVLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -171,7 +171,9 @@ c
 c     plot
             wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+            if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo
       enddo
@@ -211,7 +213,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'run.inc'
       double precision res_delta(-2:0)
       integer i,k,ierr,nit
-      double precision pref,M2tmp(-2:0),wgt,wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp(-2:0),wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,triBLO,quadBLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -409,7 +411,9 @@ c
 c     plot
             wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgtpl)
+c     if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+            if(doplot)call analysis_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     close q
                enddo

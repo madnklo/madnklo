@@ -15,7 +15,7 @@ c     it returns 0 if i is not a gluon
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'      
       integer i,l,m,lb,mb,ierr,nit
-      double precision pref,M2tmp,wgt,wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -137,7 +137,9 @@ c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+            if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo 
       enddo

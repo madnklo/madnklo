@@ -37,6 +37,8 @@ c
       common/comich/ich
       double precision sum_vv,sum_err_vv
       double precision sum_err_vv_a,err_vv_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
       sum_vv=0d0
       sum_err_vv=0d0
@@ -74,8 +76,11 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      call histo_init
-c      call analysis_begin(1,'central')
+c      call histo_init
+c     call analysis_begin(1,'central')
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_VV.log')
       open(unit=iu7,file='failures_VV.log')
       open(unit=iu8 ,file='VV_chan.log')
@@ -133,13 +138,14 @@ c
          write(iu8,*)' sigma VV [pb], channel',ich,' = ',
      &   res_vv,' +-',err_vv
          write(iu8,*)
-c     
+c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
+      call analysis_end(1d0)
       sum_err_vv = dsqrt(sum_err_vv)
-      call histo_final('plot_VV.dat',rescale_plot_VV)
+c      call histo_final('plot_VV.dat',rescale_plot_VV)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

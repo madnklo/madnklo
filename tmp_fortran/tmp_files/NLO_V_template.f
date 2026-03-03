@@ -20,7 +20,7 @@ c     n-body NLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl
+      double precision wgt,wgts(1),wgtpl
       logical doplot, docut
       common/cdoplot/doplot
       double precision p(0:3,nexternal)
@@ -166,7 +166,9 @@ c     Multi channeling
 c
 c     plot
       wgtpl=int_virtual*wgt/nitV
-      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
+c     if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
+      wgts=wgtpl
+      if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
 c
 c     print out current run progress
 c     999  ievt=ievt+1

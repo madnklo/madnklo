@@ -38,7 +38,9 @@ c
       integer ich
       common/comich/ich
       double precision sum_r,sum_err_r
-c      double precision sum_err_r_a,err_r_a(N_MAX_CG)
+c     double precision sum_err_r_a,err_r_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
       sum_r=0d0
       sum_err_r=0d0
@@ -78,7 +80,10 @@ c
 c     initialise histograms and open output files
       isec=%(isec)d
       jsec=%(jsec)d
-      call histo_init
+c      call histo_init
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')
       open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
@@ -135,13 +140,14 @@ c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn
          write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ich,nitR,nclR1
          write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
          write(iu9,*)
-c     
+c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
-      sum_err_r = dsqrt(sum_err_r)      
-      call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
+      call analysis_end(1d0)
+      sum_err_r = dsqrt(sum_err_r)
+c      call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)
@@ -156,5 +162,3 @@ c      write(iu,*)
       close(iu9)
 c
       end
-
-

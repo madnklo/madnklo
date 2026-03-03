@@ -38,7 +38,9 @@ c
       integer ich
       common/comich/ich
       double precision sum_rv,sum_err_rv
-      double precision sum_err_rv_a,err_rv_a(N_MAX_CG)
+c      double precision sum_err_rv_a,err_rv_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
       sum_rv=0d0
       sum_err_rv=0d0
@@ -79,7 +81,10 @@ c
 c     initialise histograms and open output files
       isec=%(isec)d
       jsec=%(jsec)d
-      call histo_init
+c     call histo_init
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu8,file='testRV_%(isec)d_%(jsec)d.log')
@@ -143,8 +148,9 @@ c
       enddo
 c
 c     finalise histograms and output files
+      call analysis_end(1d0)
       sum_err_rv = dsqrt(sum_err_rv)
-      call histo_final('plot_RV_%(isec)d_%(jsec)d.dat',rescale_plot_RV)
+c      call histo_final('plot_RV_%(isec)d_%(jsec)d.dat',rescale_plot_RV)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

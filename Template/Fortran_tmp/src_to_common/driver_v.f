@@ -37,6 +37,8 @@ c
       common/comich/ich
       double precision sum_v, sum_err_v
       double precision sum_err_v_a,err_v_a(N_MAX_CG)
+      integer nwgt
+      character*20 weights_info(1)
 c
       sum_v=0d0
       sum_err_v=0d0
@@ -50,7 +52,7 @@ c     read inputs
       region=0d0
       order=0
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITVTH =  NITERS_FO_GRID 
+      NITVTH =  NITERS_FO_GRID
       NCLVTH = NPOINTS_FO_GRID
       NITV = NITERS_FO
       NCLV = NPOINTS_FO
@@ -75,7 +77,10 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      call histo_init
+c     call histo_init
+      nwgt=1
+      weights_info(1)='central'
+      call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_V.log')
       open(unit=iu2,file='test_poles_V.log')
       open(unit=iu7,file='failures_V.log')
@@ -134,13 +139,14 @@ c
          write(iu8,*)' sigma V [pb], channel',ich,' = ',
      &   res_v,' +-',err_v
 c         write(iu,*)
-c     
+c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
-      sum_err_v = dsqrt(sum_err_v)      
-      call histo_final('plot_V.dat',rescale_plot_V)
+      call analysis_end(1d0)
+      sum_err_v = dsqrt(sum_err_v)
+c      call histo_final('plot_V.dat',rescale_plot_V)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

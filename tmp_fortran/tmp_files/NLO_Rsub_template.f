@@ -27,7 +27,7 @@ c     (n+1)-body NLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl,wgt_chan
+      double precision wgt,wgtpl,wgts(1),wgt_chan
       logical dotechcut
       logical doplot
       common/cdoplot/doplot
@@ -140,7 +140,9 @@ c     full real in sector Wij
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan
-      if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
+c      if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
+      wgts=wgtpl
+      if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
  555  continue
 c
 c     counterterm

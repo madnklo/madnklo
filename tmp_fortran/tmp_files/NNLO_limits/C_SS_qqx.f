@@ -1,7 +1,6 @@
       double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors2_module
-      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -159,7 +158,7 @@ c     overall kernel prefix
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
-      call get_signnlo(xsb,1d0,nexternal-1)
+      call get_sig2(xsb,1d0,nexternal-1)
       if(lsec.eq.0)then
          sec_index(1) = parent
          sec_index(2) = real_mapped_labels(dsec)

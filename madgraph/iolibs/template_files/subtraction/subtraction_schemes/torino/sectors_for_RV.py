@@ -963,12 +963,14 @@ sector_%d_%d: $(FILES_%d_%d)
                            dirpath + '/leshouche_%s.f' % overall_sector_info[i]['Born_str'])
 
             # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
+            dirmadnklo=os.getcwd()
             if not overall_sector_info[i]['path_to_Born']:
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str']) )
                     os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'] )
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', dirpath + '/all_sector_list_n-1.inc')
                 continue
 
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
@@ -980,5 +982,6 @@ sector_%d_%d: $(FILES_%d_%d)
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
                 os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
+                os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', dirpath + '/all_sector_list_n-1.inc')
 
         return #all_sectors

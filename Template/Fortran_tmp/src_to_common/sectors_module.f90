@@ -320,8 +320,10 @@ contains
        i2=all_sector_list(2,i)
        i3=all_sector_list(3,i)
        i4=all_sector_list(4,i)
-       sigma = sigma + &
+       if (i1.eq.a.and.i3.eq.c) then
+          sigma = sigma + &
                sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i2,i1,i4)
+       endif
     enddo
     WSS_NNLO = num/sigma
     call sector2_sanity_checks(sigma,WSS_NNLO)

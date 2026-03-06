@@ -266,6 +266,7 @@ c     with (c,d) ---> (l,m)
       double precision mk2,mr2,gamma_l
       DOUBLE PRECISION PMASS(NEXTERNAL)
       double precision M2TMP_KR,EIK_KR
+      integer mapped_labels_ilm(nexternal), mapped_labels_iml(nexternal)
       INCLUDE 'pmass.inc'
 c
 c     initialise
@@ -298,13 +299,13 @@ c     overall kernel prefix
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
-      do m=1,nexternal
-         if(.not.isNLOQCDparton(m))cycle
-         if(m.eq.i)cycle
-         do l=1,nexternal
-            if(.not.isNLOQCDparton(l))cycle
-            if(l.eq.i)cycle
-            if(l.eq.m)cycle
+      do l=1,nexternal
+         if(.not.isNLOQCDparton(l))cycle
+         if(l.eq.i)cycle
+         do m=1,nexternal
+            if(.not.isNLOQCDparton(m))cycle
+            if(m.eq.i)cycle
+            if(m.eq.l)cycle
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -320,12 +321,10 @@ c     Build  B_lm^{(ilm)}
             call invariants_from_p(xpb_lm,nexternal-1,xsb_lm,ierr)
             if(ierr.eq.1)goto 999
 c     Build  B_lm^{(iml)}
-            call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS,mapped_labels)
+ 777        call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_ml,nexternal-1,xsb_ml,ierr)
             if(ierr.eq.1)goto 999
-c     possible cuts
-            if((docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)).and.(docut(xpb_ml,nexternal-1,underlying_leg_pdgs,0))) cycle
 
 c     invariant quantities
             sil=xs(i,l)
@@ -333,6 +332,8 @@ c     invariant quantities
             slm=xs(l,m)
             ml2=pmass(l)**2
             mm2=pmass(m)**2
+c     eikonal
+            EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
 c
 c     safety check
             if(sil*sim.le.0d0)then
@@ -341,40 +342,56 @@ c     safety check
             endif
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-c
-c     call colour-connected B^{(ilm)} and B^{(iml)}
-            ANS = 0d0
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
-            ccBLO_lm = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-c
-            ANS = 0d0
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
-            ccBLO_ml = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-c
-c     eikonals
-            EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
-            delta_s(-2) = delta_s(-2) + EIK0*2d0*CA*(ccBLO_lm-ccBLO_ml)
-c
             if(abs(leg_pdgs(l)).le.6) then
                gamma_l = gamma_q
+               Cl = CF
             elseif(leg_pdgs(l).eq.21) then
                gamma_l = gamma_g
+               Cl = CA
             else
-               write(*,*) 'Error in evaluating gamma_c in delta_S_RV_g'
+               write(*,*) 'delta_S_RV_g:'
+               write(*,*) 'Error in evaluating gamma_c,C_c'
                write(*,*) 'c, leg_pdgs(c) = ', l, leg_pdgs(l)
                write(*,*) 'Exit...'
                stop
             endif
 c
-            delta_s(-1) = delta_s(-1) + EIK0*(ccBLO_lm-ccBLO_ml)*(4d0*CA+gamma_l)
+c     call colour-connected B^{(ilm)} and B^{(iml)}
+            ANS = 0d0
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
+            ccBLO_lm =%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+            if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) goto 778
+c
+            delta_s(-2) = delta_s(-2) + EIK0*2d0*Cl*ccBLO_lm
+            delta_s(-1) = delta_s(-1) + EIK0*ccBLO_lm*(4d0*Cl+gamma_l)
+c     Sum over e
+            do t=1,nexternal
+               if(.not.(isNLOQCDparton(t))) cycle
+               if(t.eq.l) cycle
+               if(t.eq.m) cycle
+               
+               tb = mapped_labels(t)
+               stm = xs(t,m)
+               sbtm = xsb(tb,mb)
+               ANS = 0d0
+               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
+               QUADBLO_tmlm= 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
+               delta_s(-1) = delta_s(-1)-EIK0*dlog(stm/sbtm)*QUADBLO_tmlm
+               delta_s(0) = delta_s(0) + eik0*1d0/2d0*dlog(stm/sbtm)**2*QUADBLO_tmlm
+            endif
+            enddo
+c
 c
 c     (c d e f) ---> (l m p q)
             do p=1,nexternal
                if(.not.isNLOQCDparton(p))cycle
-               if(p.eq.i.or.p.eq.l) cycle
+               if(p.eq.i) cycle
+               if(p.eq.l) cycle
                do q=1,nexternal
                   if(.not.isNLOQCDparton(q))cycle
-                  if(q.eq.i.or.q.eq.l.or.q.eq.p) cycle
+                  if(q.eq.i) cycle
+                  if(q.eq.l) cycle
+                  if(q.eq.p) cycle
                   pb = mapped_labels(p)
                   qb = mapped_labels(q)
 c     call invariants
@@ -383,14 +400,13 @@ c     call invariants
                   sbpm = xsb_lm(pb,mb)
                   sbpq = xsb_lm(pb,qb)
 c     call quadruple-colour-connected Born
-c                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
-                  QUADBLO_pmlm = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,mb,lb,mb)
+                  call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                   QUADBLO_pqlm = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
-
-                  delta_s(-1) = delta_s(-1)+EIK0*(1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm-dlog(spm/sbpm)*QUADBLO_pmlm)
-                  delta_s( 0) = delta_s( 0)+1d0/4d0*EIK0*(2d0*dlog(spm/sbpm)**2* QUADBLO_pmlm+dlog(spq/sbpq)**2*QUADBLO_pqlm)
-
-                  M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
+c
+                  if(.not.docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) then
+                  delta_s(-1) = delta_s(-1)-eik0*1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm
+                  delta_s(0) = delta_s(0) + eik0*1d0/4d0*dlog(spq/sbpq)**2*QUADBLO_pqlm
+                  endif
 c
 c     damping factors; TODO: adapt
             if(m.gt.2.and.l.gt.2)then
@@ -405,6 +421,7 @@ c     damping factors; TODO: adapt
                x=1d0 - (sil+sim)/slm
                damp=x**alpha
             endif
+            M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
             M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
             res_delta(-2:0)=res_delta(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
@@ -419,6 +436,25 @@ c     close q
                enddo
 c     close p
             enddo
+
+ 778        ANS = 0d0
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
+            ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(mb,lb)
+            if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) cycle
+c
+            delta_s(-2) = delta_s(-2) - EIK0*2d0*Cl*ccBLO_ml
+            delta_s(-1) = delta_s(-1) - EIK0*ccBLO_ml*(4d0*Cl+gamma_l)
+c
+            M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
+            M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
+            res_delta(-2:0)=res_delta(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
+c
+c     plot
+            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
+            wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+c     if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+            if(doplot)call analysis_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgts)
 c     close m
          enddo
 c     Sum over (k,c) ---> (l,k)
@@ -438,42 +474,39 @@ c     Build  B_lm^{(ikr)}
             call invariants_from_p(xpb_kr,nexternal-1,xsb_kr,ierr)
             if(ierr.eq.1)goto 999
 c     possible cuts
-            if((docut(xpb_kr,nexternal-1,underlying_leg_pdgs,0)).and.(docut(xpb_rk,nexternal-1,underlying_leg_pdgs,0))) cycle
 c     invariant quantities
             sik=xs(i,k)
             sir=xs(i,iref)
             skr=xs(k,iref)
             mk2=pmass(k)**2
             mr2=pmass(iref)**2
-
 c     safety check
             if(sik*sir.le.0d0)then
                write(77,*)'Inaccuracy 2 in M2_S_RV_g',sik,sir
                goto 999
             endif
-
             kb=mapped_labels(k)
             rb=mapped_labels(iref)
-c
 c     call colour-connected B^{(icr)} and B^{(irc)}
             ANS = 0d0
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
-            ccBLO_kr = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
+            ccBLO_kr =%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
 c
             ANS = 0d0
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
-            ccBLO_rk = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
+            ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals
             EIK_KR =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
-            M2TMP_KR = EIK_KR*gamma_l*(ccBLO_kr-ccBLO_rk)
+            if(docut(xpb_kr,nexternal-1,underlying_leg_pdgs,0)) goto 779
+            M2TMP_KR = M2TMP_KR+ EIK_KR*gamma_l*ccBLO_kr
+ 779        if(docut(xpb_rK,nexternal-1,underlying_leg_pdgs,0)) cycle
+            M2TMP_KR = M2TMP_KR - EIK_KR*gamma_l*ccBLO_rk
+
+            M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*WS_NLO*extra*M2TMP_kr
             M2TMP_KR = M2TMP_KR*damp*xj
-
-            M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*gamma_l*(ccBLO_kr-ccBLO_rk)*WS_NLO*extra*M2TMP_kr
-
             res_delta(-1) = res_delta(-1) + M2tmp(-1)
 c     close k
          enddo
-
 c     close l
       enddo
 

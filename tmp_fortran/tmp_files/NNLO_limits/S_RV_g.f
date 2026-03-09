@@ -369,7 +369,6 @@ c     Sum over e
                if(.not.(isNLOQCDparton(t))) cycle
                if(t.eq.l) cycle
                if(t.eq.m) cycle
-               
                tb = mapped_labels(t)
                stm = xs(t,m)
                sbtm = xsb(tb,mb)
@@ -378,7 +377,6 @@ c     Sum over e
                QUADBLO_tmlm= 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
                delta_s(-1) = delta_s(-1)-EIK0*dlog(stm/sbtm)*QUADBLO_tmlm
                delta_s(0) = delta_s(0) + eik0*1d0/2d0*dlog(stm/sbtm)**2*QUADBLO_tmlm
-            endif
             enddo
 c
 c
@@ -403,10 +401,8 @@ c     call quadruple-colour-connected Born
                   call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                   QUADBLO_pqlm = 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
 c
-                  if(.not.docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) then
                   delta_s(-1) = delta_s(-1)-eik0*1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm
                   delta_s(0) = delta_s(0) + eik0*1d0/4d0*dlog(spq/sbpq)**2*QUADBLO_pqlm
-                  endif
 c
 c     damping factors; TODO: adapt
             if(m.gt.2.and.l.gt.2)then

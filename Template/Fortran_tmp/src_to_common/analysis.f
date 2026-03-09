@@ -21,19 +21,20 @@ c$$$      call HwU_book(15,'njet      ',4,0d0,4d0)
       return
       end
 
-      subroutine analysis_end(dummy)
+      subroutine analysis_end(dummy,fname)
       implicit none
       double precision dummy
       double precision xnorm
       integer iseed
       common /to_seed/iseed
       character(len=20) :: seedstr
+      character*(*) fname
 
       
       write(seedstr,'(I0)') iseed
       
-      open(unit=99, file=trim(seedstr)//'_MADatNLO.HwU',
-     $      status='unknown')
+c      open(unit=99, file=trim(seedstr)//'_MADatNLO.HwU',
+      open(unit=99, file='seed'//'_'//trim(seedstr)//'_'//fname,status='unknown')
       xnorm=1d0
       call HwU_output(99,xnorm)
       return                

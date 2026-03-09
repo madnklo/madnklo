@@ -145,7 +145,7 @@ c
       enddo
 c
 c     finalise histograms and output files
-      call analysis_end(1d0)
+      call analysis_end(1d0,'plot_R_%(isec)d_%(jsec)d.dat')
       sum_err_r = dsqrt(sum_err_r)
 c      call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
 c      write(iu,*)

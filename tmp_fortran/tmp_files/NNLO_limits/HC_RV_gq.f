@@ -132,8 +132,8 @@ c     include prefactors
 c
 c     plot
       wgtpl=-ret(0)*wgt/nit*wgt_chan
-c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
       wgts=wgtpl
+c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     sanity check
@@ -163,23 +163,29 @@ c     for sector (ia,ib)
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       double precision ret(-2:0)
-      double precision DELTA_C_gq(-2:0),M2_tmp(-2:-0),DELTA_SC_gq(-2:0)
+      double precision DELTA_C_gq_0(-2:0),DELTA_SC_gq(-2:0)
+      double precision M2tmp(-2:0),M2tmp_SC(-2:0)
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,wgt,wgtpl,wgt_chan,xj,extra
-      double precision xs(nexternal,nexternal)
+      double precision pref,wgt,wgts,wgtpl,wgt_chan,xj,xjcs,extra
+      double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO,VLO(-2:0),KKVLO(-2:0),EIK0,EIK1(-2:0)
-      double precision xp(0:3,nexternal),kt(0:3)
-      double precision xpb_abr(0:3,nexternal-1),xpb_bra(0:3,nexternal-1)
-      double precision xsb_abr(nexternal-1,nexternal-1),xsb_bra(nexternal-1,nexternal-1)
-      double precision sab,sar,sbr,x,y,xinit,logab,damp
+      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
+      double precision xpb_abr(0:3,nexternal-1),xpb_bra(0:3,nexternal-1),xpb_arb(0:3,nexternal-1)
+      double precision xsb_abr(nexternal-1,nexternal-1),xsb_bra(nexternal-1,nexternal-1),xsb_arb(nexternal-1,nexternal-1)
+      double precision sab,sar,sbr,sabr,sal,sbl,slm,x,y,xinit,logab,damp
+      double precision sb_arb_bl,sb_arb_br,sb_bl,sb_bra_al,sb_bra_ar,sb_lm
       double precision wa,wb,wr,mb2,mr2
       double precision ANS(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
       double precision alphaz
       parameter(alphaz=1d0)
+      double precision %(proc_prefix_HC_RV_gq)s_GET_CCBLO
       double precision %(proc_prefix_HC_RV_gq)s_GET_KKBLO
       double precision %(proc_prefix_HC_RV_gq)s_GET_KKVLO
+      double precision gamma_l,phi_l
+      double precision ccblo_lm,ccblo_parent_l
+      double precision blo_arb,ccblo_l_arb,ccblo_parent_l_bra,ccblo_parent_l_arb
       double precision ddilog
 c     set logical doplot
       logical doplot
@@ -198,15 +204,18 @@ c     set logical doplot
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
-      integer mapped_labels_abr(nexternal),mapped_labels_bra(nexternal)
+      integer mapped_labels_abr(nexternal),mapped_labels_bra(nexternal),mapped_labels_arb(nexternal)
       common/c_mapped_labels/mapped_labels
       integer l,m,lb,mb
       double precision PtimesB
+      logical isnloqcdparton(nexternal)
+      double precision pmass(nexternal)
+      include 'pmass.inc'
 c     initialise
       ret=0d0
       DELTA_C_gq_0=0d0
       DELTA_SC_gq =0d0
-      M2_tmp=0d0
+      M2tmp=0d0
       M2tmp_SC = 0d0
       PtimesB = 0d0
       ierr=0
@@ -266,13 +275,13 @@ c     Eikonal
       eik0 = sbr/sab/sar
 
 c     P_{gq}^{\mu\nu}B_{\mu\nu}
-      PtimesB = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO)
+      PtimesB = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
 c
       do l=1,nexternal
          if(.not.isNLOQCDparton(l))cycle
          if(l.eq.ia) cycle
          if(l.eq.ib) cycle
-         if((docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 778
+         if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 778
 
          if(abs(leg_pdgs(l)).le.6) then
             gamma_l = gamma_q
@@ -287,7 +296,7 @@ c
             write(*,*) 'Exit...'
             stop
          endif
-c         
+c
          M2tmp(-1) = M2tmp(-1) + gamma_l*PtimesB*wc_NLO
 c
          M2tmp(0) = M2tmp(0) + phi_l*PtimesB*wc_NLO
@@ -335,8 +344,8 @@ c
 
             M2tmp(0) = M2tmp(0) + CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_lm*dlog(slm/sb_lm)**2
 
-            M2tmp(0) = M2tmp(0) - CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))CCBLO_parent_l*2d0*dlog(sb_bl/sabr)**2
-c            
+            M2tmp(0) = M2tmp(0) - CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l*2d0*dlog(sb_bl/sabr)**2
+c
 c           if(m.gt.2.and.l.gt.2)then
 c              y=sil/(sil+sim+slm)
 c              z=sim/(sim+slm)
@@ -353,7 +362,7 @@ c     endif
 c     Soft-Collinear
             if(ia.eq.isec) then
                M2tmp_SC(-1) = M2tmp_SC(-1)-CCBLO_lm*dlog(slm/sb_lm)+2d0*dlog(sb_bl/sbr)*CCBLO_parent_l
-c               
+c
                M2tmp_SC(0) = M2tmp_SC(0)+CCBLO_lm*dlog(slm/sb_lm)**2+2d0*(dlog(sbr/sabr)**2-dlog(sbl/sabr)**2)*CCBLO_parent_l
             endif
             ret(-2:0)=ret(-2:0)+alphas/2d0/pi/sab*M2tmp(-2:0)*wc_NLO-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
@@ -361,9 +370,11 @@ c
 c
 c     plot
             wgtpl=-ret(0)*wgt/nit*wgt_chan
-            if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+c     if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
- 778        if(docut(xpb_bra,nexternal-1,underlying_leg_pdgs,0))) goto 779
+ 778        if(docut(xpb_bra,nexternal-1,underlying_leg_pdgs,0)) goto 779
 c
 c     Barred invariants (bra)
             sb_bra_al = xsb_bra(mapped_labels_bra(ia),mapped_labels_bra(l))
@@ -371,7 +382,7 @@ c     Barred invariants (bra)
 c     Mapped (bra) Born matrix element
             ANS = 0d0
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_bra,hel,alphas,ANS)
-c     The mother particle for the splitting [ab] ---> a b is ib            
+c     The mother particle for the splitting [ab] ---> a b is ib
             CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),mapped_labels_bra(l)) 
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_bra*dlog(sar/sal)
 c
@@ -381,22 +392,24 @@ c
                M2tmp_SC(-1) = M2tmp_SC(-1) + CA/CF*CCBLO_parent_l_bra*dlog(sar/sal)
                M2tmp_SC(0) = M2tmp_SC(0) + CA/CF*CCBLO_parent_l_bra*(dlog(sb_bra_al/sb_bra_ar)**2-dlog(sar*sb_bra_al/sb_bra_ar/sal)**2)
             endif
-            
+
             ret(-2:0)=ret(-2:0)+alphas/2d0/pi/sab*M2tmp(-2:0)*wc_NLO-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
             ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
-c     
+c
 c     plot
             wgtpl=-ret(0)*wgt/nit*wgt_chan
-            if(doplot)call histo_fill(xpb_bra,xsb_bra,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+c     if(doplot)call histo_fill(xpb_bra,xsb_bra,nexternal-1,underlying_leg_pdgs,wgtpl)
+            if(doplot)call analysis_fill(xpb_bra,xsb_bra,nexternal-1,underlying_leg_pdgs,wgts)
 c     a <---> b
- 779        if((docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) cycle
-c     Barred invariants (arb)            
+ 779        if(docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) cycle
+c     Barred invariants (arb)
             sb_arb_bl = xsb_arb(mapped_labels_arb(ib),mapped_labels_arb(l))
             sb_arb_br = xsb_arb(mapped_labels_arb(ib),mapped_labels_arb(ir))
 c     Mapped (arb) Born matrix element
             ANS = 0d0
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_arb,hel,alphas,ANS)
-c     The mother particle for the splitting [ab] ---> a b is ib                        
+c     The mother particle for the splitting [ab] ---> a b is ib
             CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),mapped_labels_arb(l)) 
 c
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_arb*dlog(sbr/sbl)
@@ -408,38 +421,44 @@ c
                M2tmp_SC(-1) = M2tmp_SC(-1)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*dlog(sbr/sbl)
                M2tmp_SC(0) = M2tmp_SC(0)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*(dlog(sb_arb_bl/sb_arb_br)**2-dlog(sbr*sb_arb_bl/sb_arb_br/sal)**2)
             endif
-            
+
             ret(-2:0)=ret(-2:0)+alphas/2d0/pi/sab*M2tmp(-2:0)*wc_NLO-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
             ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot
             wgtpl=-ret(0)*wgt/nit*wgt_chan
-            if(doplot)call histo_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            wgts=wgtpl
+c     if(doplot)call histo_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgtpl)
+            if(doplot)call analysis_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo
       enddo
-c     Term with rprime missing      
+c     Term with rprime missing
       if(ia.eq.isec) then
-         if((docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 999
+         if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 999
          M2tmp_SC(-1) = M2tmp_SC(-1) + alphas/2d0/pi*gamma_q*BLO
          M2tmp_SC(0) = M2tmp_SC(0) + alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/scale**2))*BLO
          ret(-2:0)=ret(-2:0)-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
          ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot
          wgtpl=-ret(0)*wgt/nit*wgt_chan
-         if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
- 999     if((docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) return
+         wgts=wgtpl
+c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
+         if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
+c 999     if(docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) return [TODO: changed as follows to avoid duplicated 999]
+         if(docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) goto 999
         M2tmp_SC(-1) = M2tmp_SC(-1) - alphas/2d0/pi*gamma_q*BLO_arb
         M2tmp_SC(0) = M2tmp_SC(0) - alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/scale**2))*BLO_arb
         ret(-2:0)=ret(-2:0)-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
          ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot
          wgtpl=-ret(0)*wgt/nit*wgt_chan
-         if(doplot)call histo_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgtpl)
-      endif
+         wgts=wgtpl
+c     if(doplot)call histo_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgtpl)
+         if(doplot)call analysis_fill(xpb_arb,xsb_arb,nexternal-1,underlying_leg_pdgs,wgts)
       endif
 c
 c
-c     sanity check      
+c     sanity check
       if(abs(ret(0)).ge.huge(1d0).or.isnan(ret(0)))then
          write(77,*)'Exception caught in DELTA_HC_RV_gq',ret(0)
          goto 999

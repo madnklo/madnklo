@@ -235,6 +235,7 @@ c     external
       double precision alphaZ
       parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
+      double precision cl
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       double precision  %(proc_prefix_S_RV_g)s_GET_QUADBLO
@@ -251,18 +252,18 @@ c     external
       double precision delta_s(-2:0)
 c     Label conventions according to Eq.(5.19) in 2212.11190
 c     with (c,d) ---> (l,m)
-      integer l,m,p,q,lb,mb,pb,qb,kb,rb
+      integer l,m,p,q,t,lb,mb,pb,qb,kb,rb,tb
       double precision ccBLO_lm,ccBLO_ml
       double precision ccBLO_rl,ccBLO_lr
       double precision ccBLO_kr,ccBLO_rk
-      double precision quadblo_pmlm,quadblo_pqlm
+      double precision quadblo_pmlm,quadblo_pqlm,quadblo_tmlm
       double precision xpb_to_ME_lm(0:3,nexternal-1),xpb_to_ME_ml(0:3,nexternal-1)
       double precision xpb_to_ME_kr(0:3,nexternal-1),xpb_to_ME_rk(0:3,nexternal-1)
       double precision xpb_lm(0:3,nexternal-1),xpb_ml(0:3,nexternal-1)
       double precision xpb_rk(0:3,nexternal-1),xpb_kr(0:3,nexternal-1)
       double precision xsb_lm(nexternal-1,nexternal-1),xsb_ml(nexternal-1,nexternal-1)
       double precision xsb_kr(nexternal-1,nexternal-1),xsb_rk(nexternal-1,nexternal-1)
-      double precision siq,smq,spm,spq,sbpm,sbpq,sik,sir,skr
+      double precision siq,smq,spm,spq,stm,sbpm,sbpq,sbtm,sik,sir,skr
       double precision mk2,mr2,gamma_l
       DOUBLE PRECISION PMASS(NEXTERNAL)
       double precision M2TMP_KR,EIK_KR

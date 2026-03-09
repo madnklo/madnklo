@@ -1439,16 +1439,22 @@ sector_%d_%d: $(FILES_%d_%d)
             if not overall_sector_info[i]['path_to_Born']:
                 #gl
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
+                    link_real = "%s/all_sector_list_n-1.inc" % dirpath
+                    if os.path.lexists(link_real):
+                        os.remove(link_real)
+                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', link_real)
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str']) )
                     os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'] )
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', dirpath + '/all_sector_list_n-1.inc')
                 continue
 
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
+                link_real = "%s/all_sector_list_n-1.inc" % dirpath
+                if os.path.lexists(link_real):
+                    os.remove(link_real)
+                os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', link_real)
                 os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
-                os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', dirpath + '/all_sector_list_n-1.inc')

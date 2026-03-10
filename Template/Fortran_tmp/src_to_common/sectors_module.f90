@@ -318,6 +318,7 @@ contains
     sigma = 0d0
     do i=1,len
        sec=ss_sector_list(a,b,i,:)
+       if(all(sec.eq.0))cycle
        sigma = sigma + &
             sigNNLO(sec(1),sec(2),sec(3),sec(4)) + &
             sigNNLO(sec(3),sec(2),sec(1),sec(4))
@@ -340,6 +341,7 @@ contains
     endif
     do i=1,len
        sec=cc_sector_list(a,b,c,i,:)
+       if(all(sec.eq.0))cycle
        sigma = sigma + &
             hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo
@@ -360,6 +362,7 @@ contains
     endif
     do i=1,len
        sec=ss_cc_sector_list(a,b,c,i,:)
+       if(all(sec.eq.0))cycle
        sigma = sigma + &
             hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo

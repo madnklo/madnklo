@@ -309,62 +309,61 @@ contains
   subroutine get_WSS_NNLO(a,b,c,d)
     ! NNLO double-soft sector functions WSS
     implicit none
-    integer :: i,a,b,c,d,i1,i2,i3,i4
+    integer :: i,a,b,c,d,sec(4)
     double precision :: num,sigma
+    include 'all_K2_sector_list.inc'
     include 'all_sector_list.inc'
     call sector4_global_checks(a,b,c,d)
     num = sigNNLO(a,b,c,d)
     sigma = 0d0
-    do i=1,lensectors
-       i1=all_sector_list(1,i)
-       i2=all_sector_list(2,i)
-       i3=all_sector_list(3,i)
-       i4=all_sector_list(4,i)
-       if (i1.eq.a.and.i3.eq.c) then
-          sigma = sigma + &
-               sigNNLO(i1,i2,i3,i4) + sigNNLO(i3,i2,i1,i4)
-       endif
+    do i=1,len
+       sec=ss_sector_list(a,b,i,:)
+       sigma = sigma + &
+            sigNNLO(sec(1),sec(2),sec(3),sec(4)) + &
+            sigNNLO(sec(3),sec(2),sec(1),sec(4))
     enddo
     WSS_NNLO = num/sigma
     call sector2_sanity_checks(sigma,WSS_NNLO)
   end subroutine get_WSS_NNLO
 
-  subroutine get_WCC_NNLO(ia,ib,c,d)
+  subroutine get_WCC_NNLO(a,b,ic,id)
     ! NNLO triple-collinear sector functions WCC
     implicit none
-    integer :: ia,ib,ic,ir,c,d
+    integer :: i,a,b,c,d,ic,id,sec(4)
     double precision :: num, sigma
-    num = hatsigNNLO(ia,ib,c,d)
-    if (ib .eq. c) then
-       ic = d
-    elseif (ib .eq. d) then
-       ic = c
-    end if
-    sigma = hatsigNNLO(ia,ib,ib,ic) + hatsigNNLO(ia,ic,ib,ic) + &
-            hatsigNNLO(ib,ia,ia,ic) + hatsigNNLO(ib,ic,ia,ic) + &
-            hatsigNNLO(ia,ib,ic,ib) + hatsigNNLO(ia,ic,ic,ib) + &
-            hatsigNNLO(ic,ia,ia,ib) + hatsigNNLO(ic,ib,ia,ib) + &
-            hatsigNNLO(ib,ia,ic,ia) + hatsigNNLO(ib,ic,ic,ia) + &
-            hatsigNNLO(ic,ia,ib,ia) + hatsigNNLO(ic,ib,ib,ia)
+    include 'all_K2_sector_list.inc'
+    num = hatsigNNLO(a,b,ic,id)
+    if(b.eq.ic) then
+       c = id
+    elseif(b.eq.id) then
+       c = ic
+    endif
+    do i=1,len
+       sec=cc_sector_list(a,b,c,i,:)
+       sigma = sigma + &
+            hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
+    enddo
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
 
-  subroutine get_WSS_CC_NNLO(ia,ib,c,d)
+  subroutine get_WSS_CC_NNLO(a,b,ic,id)
     ! NNLO double-soft triple-collinear sector functions WSSCC
     implicit none
-    integer :: ia,ib,ic,ir,c,d
+    integer :: i,a,b,c,d,ic,id,sec(4)
     double precision :: num, sigma
-    num = hatsigNNLO(ia,ib,c,d)
-    if(ib.eq.c) then
-      ic = d
-      sigma = hatsigNNLO(ia,ib,ib,ic) + hatsigNNLO(ia,ic,ib,ic) + &
-              hatsigNNLO(ib,ia,ia,ic) + hatsigNNLO(ib,ic,ia,ic)
-    elseif(ib.eq.d) then
-      ic = c
-      sigma = hatsigNNLO(ia,ib,ic,ib) + hatsigNNLO(ia,ic,ic,ib) + &
-              hatsigNNLO(ic,ia,ia,ib) + hatsigNNLO(ic,ib,ia,ib)
+    include 'all_K2_sector_list.inc'
+    num = hatsigNNLO(a,b,ic,id)
+    if(b.eq.ic) then
+      c = id
+    elseif(b.eq.id) then
+      c = ic
     endif
-      wss_cc_nnlo=num/sigma
+    do i=1,len
+       sec=ss_cc_sector_list(a,b,c,i,:)
+       sigma = sigma + &
+            hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
+    enddo
+    wss_cc_nnlo=num/sigma
   end subroutine get_WSS_CC_NNLO
 
   subroutine sector4_global_checks(i1,i2,i3,i4)

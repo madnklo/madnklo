@@ -2365,7 +2365,8 @@ c       %s
     def write_all_K2_sector_list(self,writer,dirpath,leglist,len_sector_list,K2_sector_lists):
 
         file = """ \
-          integer, parameter :: len  = %d 
+          integer, parameter :: len  = %d
+          integer l,ll
           """ % (len_sector_list)
 
         minl = 3
@@ -2394,7 +2395,7 @@ c       %s
             
             ndims = len(next(iter(entries.keys())))
             file += """
-c         data %s \n""" % (type)
+!         data %s \n""" % (type)
 
             for key, lists in sorted(entries.items()):
                 

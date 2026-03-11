@@ -1,7 +1,7 @@
       double precision function M2_C_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
-      use sectors2_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -140,11 +140,13 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2tmp = M2tmp/sij*BLO
 c
 c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
-      call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
+c     TODO: probably wrong invariants in wc_nlo
+      call get_wc_nlo(i,j,r)
       M2tmp=M2tmp*wc_nlo
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
-      call get_wc_nlo(xsb,map1,map2,rb,1d0,nexternal-1)
+c     TODO: probably wrong invariants in wc_nlo
+      call get_wc_nlo(map1,map2,rb)
       M2tmp=M2tmp*wc_nlo
 c
 c     include correct multiplicity and flavour factors
@@ -173,7 +175,7 @@ c
       double precision function M2_C_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
-      use sectors2_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -300,7 +302,8 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       M2tmp = M2tmp/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
-      call get_wc_nlo(xs,i,j,r,alphaz,nexternal)
+c     TODO: probably wrong invariants in wc_nlo
+      call get_wc_nlo(i,j,r)
       M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

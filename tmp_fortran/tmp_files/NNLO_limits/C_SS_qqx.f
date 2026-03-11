@@ -1,6 +1,6 @@
       double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
-      use sectors2_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -243,7 +243,8 @@ c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_wsbar_nlo(sec_index(1),sec_index(2))
             M2TMP=M2TMP*WSbar_NLO
-            call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
+c     TODO: probably wrong invariants in wc_nlo
+            call get_wc_nlo(ia,ib,ir)
             M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

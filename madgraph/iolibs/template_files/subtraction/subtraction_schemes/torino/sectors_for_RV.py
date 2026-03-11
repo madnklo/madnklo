@@ -727,11 +727,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
           """ % (len_sector_list)
 
         minl = 3  # start from final state
-
-        print(str(K_sector_lists.items()))
         for type, entries in K_sector_lists.items():
-
-            print(str(entries.keys()))
             maxl = max(max(key) for key in entries.keys())
             ndims = len(next(iter(entries.keys())))
             if ndims == 1:
@@ -772,7 +768,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     else:
                         if ndims == 1:
                             i = key
-                            print(type, i, n, a, b)
                             file += """ \
           DATA (%s_SECTOR_LIST(%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i[0],n,a,b)
                         elif ndims == 2:

@@ -6,7 +6,6 @@ module sectors2_module
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2
   public :: get_sig2, get_W_NLO, get_WS_NLO, get_WC_NLO
-  public :: get_Wbar_NLO, get_WSbar_NLO
   private
 
 contains

@@ -2633,6 +2633,14 @@ c       %s
                 string2 = overall_sector_info[i]['alt_Real_str']
                 # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, string2)):
+                    link_real = "%s/all_sector_list_real.inc" % dirpath
+                    if os.path.lexists(link_real):
+                        os.remove(link_real)
+                    link_K_real = "%s/all_K_sector_list.inc" % dirpath
+                    if os.path.lexists(link_K_real):
+                        os.remove(link_K_real)
+                    os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['alt_Real_path'], link_real )
+                    os.symlink( "%s/all_K_sector_list.inc" % overall_sector_info[i]['alt_Real_path'], link_K_real )
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
                     os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
 
@@ -2647,6 +2655,14 @@ c       %s
                 string = overall_sector_info[i]['Real_str']
                 # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Real_str'])):
+                    link_real = "%s/all_sector_list_real.inc" % dirpath
+                    if os.path.lexists(link_real):
+                        os.remove(link_real)
+                    link_K_real = "%s/all_K_sector_list.inc" % dirpath
+                    if os.path.lexists(link_K_real):
+                        os.remove(link_K_real)
+                    os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['path_to_Real'], link_real )
+                    os.symlink( "%s/all_K_sector_list.inc" % overall_sector_info[i]['path_to_Real'], link_K_real )
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], string), "%s/matrix_%s.f" % (dirpath, string) )
                     os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 

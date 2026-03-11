@@ -2,7 +2,7 @@
 
       double precision function M2_C_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear
-      use sectors2_module
+      use sectors4_module
       implicit none
       include 'nexternal.inc'
       INCLUDE 'coupl.inc'
@@ -102,7 +102,7 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx=TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,ia,ib,ir,alphaz,nexternal)
+      call get_wc_nlo(ia,ib,ir)
       call get_sig2(xsb,1d0,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)

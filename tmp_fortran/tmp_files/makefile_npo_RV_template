@@ -111,8 +111,8 @@ COMMON_FILES= CSmapping.o imap.o  gen_real_phase_space.o  vegas.o  fjcore.o fast
 COMMON_FILES+= genps.o invarients.o transpole.o myamp.o idenparts.o dsample.o ranmar.o NNLO_RV_sub.o
 
 
-#USR_FILES=alphaS.o kinematics.o sectors_module.o analysis.o hbook.o cuts.o configs.o props.o decayBW.o leshouche.o
-USR_FILES=alphaS.o kinematics.o sectors_module.o analysis.o HwU.o cuts.o configs.o props.o decayBW.o leshouche.o
+#USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o hbook.o cuts.o configs.o props.o decayBW.o leshouche.o
+USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o HwU.o cuts.o configs.o props.o decayBW.o leshouche.o
 
 %(proc_str)s
 

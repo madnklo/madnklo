@@ -1,163 +1,3 @@
-module sectors2_module
-  implicit none
-  integer, public :: n_ext
-  double precision, public :: alpha_mod, W_NLO, WS_NLO, WC_NLO
-  double precision, public :: Wbar_NLO, WSbar_NLO
-  double precision, allocatable, dimension(:,:), public :: xs_mod
-  double precision, allocatable, dimension(:,:), public :: sig2
-  public :: get_sig2, get_W_NLO, get_WS_NLO, get_WC_NLO
-  public :: get_Wbar_NLO, get_WSbar_NLO
-  private
-
-contains
-
-  subroutine get_sig2(xs_in,alpha_in,n_ext_in)
-    implicit none
-    ! global
-    integer :: n_ext_in
-    double precision :: alpha_in
-    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    ! local
-    integer :: i,j
-    double precision :: ei,ej,wij
-    ! set global module variables
-    n_ext=n_ext_in
-    if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
-    if (.not.allocated(sig2)) allocate(sig2(3:n_ext,3:n_ext))
-    xs_mod=xs_in
-    alpha_mod=alpha_in
-    ! calculate 2-index sigma
-    sig2=0d0
-    do i=3,n_ext
-       do j=3,n_ext
-          if(i.eq.j)cycle
-          if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(i,j)*xs_mod(1,2).ne.0d0 )then
-             ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
-             ej=(xs_mod(j,1)+xs_mod(j,2))/xs_mod(1,2)
-             wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
-             sig2(i,j)=(1d0/ei/wij)**alpha_mod
-          endif
-       enddo
-    enddo
-  end subroutine get_sig2
-
-  subroutine get_W_NLO(i1,i2)
-    !     NLO sector functions W(i1,i2)
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    include 'all_sector_list.inc'
-    call sector2_global_checks(i1,i2)
-    num = sig2(i1,i2)
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b)
-    enddo
-    W_NLO = num/sigma
-    call sector2_sanity_checks(sigma,W_NLO)
-  end subroutine get_W_NLO
-
-  subroutine get_Wbar_NLO(i1,i2)
-    !     NLO sector functions W(i1,i2)
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    include 'all_sector_list_n-1.inc'
-    call sector2_global_checks(i1,i2)
-    num = sig2(i1,i2)
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b)
-    enddo
-    Wbar_NLO = num/sigma
-    call sector2_sanity_checks(sigma,Wbar_NLO)
-  end subroutine get_Wbar_NLO
-
-  subroutine get_WS_NLO(i1,i2)
-    !     NLO soft sector functions WS(i1,i2) = barS_i1 W(i1,i2)
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    include 'all_sector_list.inc'
-    call sector2_global_checks(i1,i2)
-    num = sig2(i1,i2)
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       if(a.eq.i1) sigma = sigma + sig2(a,b)
-       !if(b.eq.i1) sigma = sigma + sig2(b,a)
-    enddo
-    WS_NLO = num/sigma
-    call sector2_sanity_checks(sigma,WS_NLO)
-  end subroutine get_WS_NLO
-
-  subroutine get_WSbar_NLO(i1,i2)
-    !     NLO sector functions WSbar(i1,i2)
-    implicit none
-    integer :: i,a,b,i1,i2
-    double precision :: num,sigma
-    include 'all_sector_list_n-1.inc'
-    call sector2_global_checks(i1,i2)
-    num = sig2(i1,i2)
-    sigma = 0d0
-    do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b)
-    enddo
-    WSbar_NLO = num/sigma
-    call sector2_sanity_checks(sigma,WSbar_NLO)
-  end subroutine get_WSbar_NLO
-
-  subroutine get_WC_NLO(xs_in,ia,ib,ir,alphaz,n_ext_in)
-    !     NLO collinear sector functions WC(ia,ib,ir)
-    implicit none
-    integer :: ia,ib,ir
-    integer :: n_ext_in
-    double precision :: ei,ej,wij,wir,wjr,alphaz
-    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-    ei=(xs_in(ia,1)+xs_in(ia,2))/xs_in(1,2)
-    ej=(xs_in(ib,1)+xs_in(ib,2))/xs_in(1,2)
-    wij=xs_in(1,2)*xs_in(ia,ib)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ib,1)+xs_in(ib,2))
-    wir=xs_in(1,2)*xs_in(ia,ir)/(xs_in(ia,1)+xs_in(ia,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wjr=xs_in(1,2)*xs_in(ib,ir)/(xs_in(ib,1)+xs_in(ib,2))/(xs_in(ir,1)+xs_in(ir,2))
-    wc_nlo=(ej*wjr)**alphaz/((ei*wir)**alphaz+(ej*wjr)**alphaz)
-  end subroutine get_WC_NLO
-
-  subroutine sector2_global_checks(i1,i2)
-    implicit none
-    integer :: i1,i2
-    if(alpha_mod.lt.1d0)then
-       write(77,*)'Wrong alpha_mod in sectors2',alpha_mod
-       stop
-    endif
-    if(i1.le.2.or.i2.le.2) then
-       write(77,*) 'sectors2: indices must be in final state',i1,i2
-       stop
-    endif
-  end subroutine sector2_global_checks
-
-  subroutine sector2_sanity_checks(sigma,Z)
-    implicit none
-    double precision :: Z,sigma
-    if(sigma.le.0d0)then
-       write(*,*)'Wrong sigma ',sigma
-       stop
-    endif
-    if(abs(Z).ge.huge(1d0).or.isnan(Z))then
-       write(77,*)'Exception caught ',Z
-       stop
-    endif
-  end subroutine sector2_sanity_checks
-
-end module sectors2_module
-
-
 module sectors4_module
   implicit none
   integer, public :: n_ext
@@ -369,6 +209,42 @@ contains
     wss_cc_nnlo=num/sigma
   end subroutine get_WSS_CC_NNLO
 
+  subroutine get_Wbar_NLO(i1,i2)
+    !     NLO sector functions W(i1,i2)
+    implicit none
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
+    include 'all_sector_list_n-1.inc'
+    call sector2bar_global_checks(i1,i2)
+    num = sig2(i1,i2)
+    sigma = 0d0
+    do i=1,lensectors
+       a=all_sector_list(1,i)
+       b=all_sector_list(2,i)
+       sigma = sigma + sig2(a,b)
+    enddo
+    Wbar_NLO = num/sigma
+    call sector2bar_sanity_checks(sigma,Wbar_NLO)
+  end subroutine get_Wbar_NLO
+
+  subroutine get_WSbar_NLO(i1,i2)
+    !     NLO sector functions WSbar(i1,i2)
+    implicit none
+    integer :: i,a,b,i1,i2
+    double precision :: num,sigma
+    include 'all_sector_list_n-1.inc'
+    call sector2bar_global_checks(i1,i2)
+    num = sig2(i1,i2)
+    sigma = 0d0
+    do i=1,lensectors
+       a=all_sector_list(1,i)
+       b=all_sector_list(2,i)
+       sigma = sigma + sig2(a,b)
+    enddo
+    WSbar_NLO = num/sigma
+    call sector2bar_sanity_checks(sigma,WSbar_NLO)
+  end subroutine get_WSbar_NLO
+
   subroutine sector4_global_checks(i1,i2,i3,i4)
     implicit none
     integer :: i1,i2,i3,i4
@@ -382,7 +258,20 @@ contains
     endif
   end subroutine sector4_global_checks
 
-  subroutine sector2_sanity_checks(sigma,W)
+  subroutine sector2bar_global_checks(i1,i2)
+    implicit none
+    integer :: i1,i2
+    if(alpha_mod.lt.1d0)then
+       write(77,*)'Wrong alpha_mod in sectors2',alpha_mod
+       stop
+    endif
+    if(i1.le.2.or.i2.le.2) then
+       write(77,*) 'sectors2bar: indices must be in final state',i1,i2
+       stop
+    endif
+  end subroutine sector2bar_global_checks
+
+  subroutine sector2bar_sanity_checks(sigma,W)
     implicit none
     double precision :: W,sigma
     if(sigma.le.0d0)then
@@ -393,7 +282,6 @@ contains
        write(77,*)'Exception caught ',W
        stop
     endif
-  end subroutine sector2_sanity_checks
-
+  end subroutine sector2bar_sanity_checks
 
 end module sectors4_module

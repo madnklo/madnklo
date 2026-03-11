@@ -26,8 +26,6 @@ c     for sector (ia,ib)
       double precision ANS(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
       double precision %(proc_prefix_HC_RV_qqx)s_GET_KKBLO
       double precision %(proc_prefix_HC_RV_qqx)s_GET_KKVLO
       double precision ddilog
@@ -115,7 +113,7 @@ c
       M2_C_qqx( 0) = M2_C_qqx( 0) + alphas/2d0/pi*(M2_C_qqx_0*((CA-2d0*CF)*(7d0*zeta2-logab**2)/2d0+CA*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+(4d0*x*(1d0-x)/sab*KKBLO-BLO)*TR*(-logab*(beta0-3d0*CF)+7d0*CA/3d0+5d0*beta0/3d0-8d0*CF))
 c
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
+      call get_wc_nlo(isec,jsec,iref)
       M2_C_qqx = M2_C_qqx*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then

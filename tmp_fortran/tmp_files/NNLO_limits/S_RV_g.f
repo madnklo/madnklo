@@ -36,8 +36,6 @@ c     external
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
-      double precision alphaZ
-      parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
       double precision  %(proc_prefix_S_RV_g)s_GET_CCVLO
@@ -72,7 +70,6 @@ c     checks
       endif
 c
 c     call W soft
-      CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)
       CALL GET_WS_NLO(ISEC,JSEC)
 c
 c     overall kernel prefix

@@ -26,8 +26,6 @@ c     for sector (ia,ib)
       double precision ANS(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
       double precision ddilog
 c     set logical doplot
       logical doplot
@@ -119,7 +117,7 @@ c
          continue
       endif
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
+      call get_wc_nlo(isec,jsec,iref)
       M2_C_gq =  M2_C_gq*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then
@@ -270,8 +268,7 @@ c     safety check
          goto 999
       endif
 c     compute collinear limit of sector function
-c     TODO: use new definition for wc_nlo
-      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
+      call get_wc_nlo(isec,jsec,iref)
 c     (abr) mapped Born
       ANS = 0d0
       call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
@@ -296,7 +293,7 @@ c     NLO invariants (abr)
 C     Born matrix elements mapped (abr)
 c     Colour-correlated Born_{[ab]l}
          CCBLO_parent_l=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb)
-         
+
          if(abs(leg_pdgs(l)).le.6) then
             gamma_l = gamma_q
             phi_l = phi_q
@@ -310,7 +307,7 @@ c     Colour-correlated Born_{[ab]l}
             write(*,*) 'Exit...'
             stop
          endif
-c         
+c
          M2tmp(-1) = M2tmp(-1) + gamma_l*PtimesB
          M2tmp(0) = M2tmp(0) + phi_l*PtimesB
          M2tmp(-1) = M2tmp(-1) + CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l*2d0*(dlog(sb_bl/sabr))
@@ -346,7 +343,7 @@ c     Colour-correlated Born_{lm}
 c
             M2tmp(-1) = M2tmp(-1) - CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_lm*dlog(slm/sb_lm)
             M2tmp(0) = M2tmp(0) + CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_lm*1d0/2d0*dlog(slm/sb_lm)**2
-c            
+c
 c           if(m.gt.2.and.l.gt.2)then
 c              y=sil/(sil+sim+slm)
 c              z=sim/(sim+slm)
@@ -382,7 +379,7 @@ c     Barred invariants (bra)
 c     Mapped (bra) Born matrix element
             ANS = 0d0
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_bra,hel,alphas,ANS)
-c     The mother particle for the splitting [ab] ---> a b is ib            
+c     The mother particle for the splitting [ab] ---> a b is ib
             CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_bra*dlog(sar/sal)
 c
@@ -401,7 +398,7 @@ c     Mapped (arb) Born matrix element
             ANS = 0d0
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_arb,hel,alphas,ANS)
             BLO_arb = ANS(0)
-c     The mother particle for the splitting [ab] ---> a b is ib                        
+c     The mother particle for the splitting [ab] ---> a b is ib
             CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
 c
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_arb*dlog(sbr/sbl)
@@ -413,7 +410,7 @@ c
                M2tmp_SC(-1) = M2tmp_SC(-1)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*dlog(sbr/sbl)
                M2tmp_SC(0) = M2tmp_SC(0)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*(dlog(sb_arb_bl/sb_arb_br)**2-dlog(sbr*sb_arb_bl/sb_arb_br/sal)**2)
             endif
-            
+
             ret(-2:0)=ret(-2:0)+alphas/2d0/pi/sab*M2tmp(-2:0)*wc_NLO-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
             ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot
@@ -427,7 +424,7 @@ c
 
 
 
-c     Term with rprime missing            
+c     Term with rprime missing
       if(ia.eq.isec) then
          if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 998
          M2tmp_SC(-1) = M2tmp_SC(-1) + alphas/2d0/pi*gamma_q*BLO

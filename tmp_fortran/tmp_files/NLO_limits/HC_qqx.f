@@ -22,8 +22,6 @@ c     collinear limit C_(ia,ib) * Wcollinear
       double precision ans(0:nsqso_born)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
       double precision %(proc_prefix_HC_qqx)s_GET_KKBLO
 c     set logical doplot
       logical doplot
@@ -97,7 +95,7 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx = TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
+      call get_wc_nlo(isec,jsec,iref)
       M2_C_qqx = M2_C_qqx*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then

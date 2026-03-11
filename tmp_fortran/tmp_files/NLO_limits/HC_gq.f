@@ -21,8 +21,6 @@ c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       double precision ans(0:nsqso_born)
       integer,parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -87,7 +85,7 @@ c     In the following equation the x variable is related to the quark energy
       M2_C_gq  = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
       if(ia.eq.isec)M2_SC_gq = CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
 c     compute collinear limit of sector function
-      call get_wc_nlo(xs,isec,jsec,iref,alphaz,nexternal)
+      call get_wc_nlo(isec,jsec,iref)
       M2_C_gq =  M2_C_gq*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then

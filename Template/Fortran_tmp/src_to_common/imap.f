@@ -99,6 +99,34 @@ c
       return
       end
 
+      subroutine get_unp_mapped_labels(npart,a,b,mapped_labels)
+      implicit none
+      integer npart, a, b
+      integer mapped_labels(npart)
+      integer mother, daughter
+      integer i
+
+      
+      mapped_labels=0
+      mother = min(a,b)
+      daughter = max(a,b)
+
+
+      do i=1,npart
+         if(i.eq.daughter) cycle
+         if(i.lt.daughter) then
+            mapped_labels(i)=i
+         elseif(i.gt.daughter) then
+            mapped_labels(i) = i-1
+         endif
+      enddo
+
+      mapped_labels(daughter) = mapped_labels(mother)
+
+      return
+      end
+
+      
 
 
 

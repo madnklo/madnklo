@@ -12,7 +12,7 @@ import madgraph.core.diagram_generation as diagram_generation
 import madgraph.fks.fks_common as fks_common
 import madgraph.integrator.vectors as vectors
 import logging
-
+from collections import defaultdict
 
 #gl
 import madgraph.interface.madgraph_interface as interface
@@ -346,28 +346,29 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     continue
                 if j.get('number') == i.get('number') :
                     continue
-                # if i is not a gluon, then j must not be a final state gluon
-                # if i['id'] != 21 and j['id'] == 21 and j['state']:
-                #    continue
 
-                # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                # if i['id'] == 21 and j['id'] == 21 and j['state']:
-                #     if j.get('number') < i.get('number') :
-                #         continue
+                #if i is not a gluon, then j must not be a final state gluon
+                if i['id'] != 21 and j['id'] == 21 and j['state']:
+                    continue
 
-                # if j and i are quarks and antiquark in the final state, let j be the quark
-                #   this is needed in order to comply with the fct combine_ij inside fks_common
-                # if i['id'] == -j['id'] and j['state']:
-                #     if j['id'] < 0:
-                #         continue
+                #if both i and j are gluons, then keep just the case in which i (number) < j (number)
+                if i['id'] == 21 and j['id'] == 21 and j['state']:
+                    if j.get('number') < i.get('number') :
+                        continue
+
+                #if j and i are quarks and antiquark in the final state, let j be the quark
+                #  this is needed in order to comply with the fct combine_ij inside fks_common
+                if i['id'] == -j['id'] and j['state']:
+                    if j['id'] < 0:
+                        continue
 
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
-                if not ijlist:
-                    ijlist = fks_common.combine_ij(fks_common.to_fks_leg(j, model),
-                                                   fks_common.to_fks_leg(i, model),
-                                                   model, pert_dict)
+                # if not ijlist:
+                #     ijlist = fks_common.combine_ij(fks_common.to_fks_leg(j, model),
+                #                                    fks_common.to_fks_leg(i, model),
+                #                                    model, pert_dict)
 
                 # print('list of ij : ' + str(ijlist))
 
@@ -591,6 +592,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 ######### Write all_sector_list.inc
 
         self.write_all_sector_list_include(writers.FortranWriter, dirpath, all_sector_list)
+        len_sector_list = len(all_sector_list)
+        K_sector_lists = defaultdict(lambda: defaultdict(list))
 
 
 ######### Write NLO_K_isec_jsec.f, NLO_Rsub_isec_jsec.f
@@ -687,6 +690,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             overall_sector_info.append(sector_info)
 
             # Initialise NLO_IR_limits.f for every sector [ij]
+            tmp_list = []
             string = "c Collection of relevant limits for sector [%d,%d]" %(isec,jsec)
             NLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NLO_limits/'
             os.system('echo ' + string + ' > ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -708,29 +712,19 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    K_sector_lists['S'][(isec,)].append(all_sector_list[i])
                 elif j == 1:
                     continue
                 elif j == 2:
                     if (isec == iref) or (jsec == iref):
                         raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
                     list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                    # returns (jsec, isec) if C_qg, (isec, jsec) otherwise; final-state only
-                    if (all_PDGs[1][jsec-3] == 21 and abs(all_PDGs[1][isec-3]) <= 6 ):
-                         list_M2.append('K%s=K%s+M2_%s(jsec,isec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
-                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                    else:
-                        list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
-                                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
+                    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
+                                   % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
-                 # elif j == 3:
-                 #    if (isec == iref) or (jsec == iref):
-                 #        raise MadEvent7Error('Wrong recoiler %d,%d,%d!' % (isec,jsec,iref))
-                 #    list_str_def_M2.append('DOUBLE PRECISION M2_%s\n' % necessary_ct_list[i][j])
-                 #    list_M2.append('K%s=K%s+M2_%s(isec,jsec,iref,xs,xp,xsb,xpb,wgt,xj,nitR,1d0,wgt_chan,ierr)\n'
-                 #                       % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
-                 #    list_M2.append('if(ierr.eq.1)goto 999\n')
+                    K_sector_lists['C'][(isec,iref)].append(all_sector_list[i])
 
 
             # outside loop on necessary_ct_list
@@ -938,67 +932,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
                                                     i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
 
-        # check on overall_sector_info lenght
+        # check on overall_sector_info length
         if len(overall_sector_info) != len(all_sector_list):
             raise MadEvent7Error('WARNING, the list of sector-dictionary entries is not compatible with the total number of sectors!')
-
-
-######### Write NLO_IR_limits_isec_jsec.f and import underlying Born MEs and spin_correlations.inc
-
-
-
-
-
-
-
-
-
-
-            # selection of underlying Born according to 'def compute_matrix_element_event_weight' function in ME7_integrands
-            #print(dirpath)
-            #print(overall_sector_info)
-
-
-
-
-
-
-
-            #giovanni
-            # write NLO_Rsub
-
-
-
-            # for j in range(0,len(uB_proc)):
-            #             dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
-            #             if os.path.exists(dirpathLO):
-            #                 replace_dict_int_real['strUB'] = uB_proc[j]
-            #                 #overall_sector_info[i]['Born_str'] = uB_proc[j]
-            #                 #overall_sector_info[i]['path_to_Born'] = dirpathLO
-            #                 #if uB_proc[j] not in Born_processes:
-            #                 #    Born_processes.append(uB_proc[j])
-            #                 #    path_Born_processes.append(dirpathLO)
-            #                 #break
-            #             if j == len(uB_proc) - 1:
-            #                 extra_uB_proc = uB_proc[0]
-            #                 replace_dict_int_real['strUB'] = extra_uB_proc
-                            #overall_sector_info[i]['Born_str'] = extra_uB_proc
-
-
-
-
-
-
-
-
-            #    if not overall_sector_info[i]['path_to_Born']:
-            #        continue
-            #    if i != 0 and overall_sector_info[i]['Born_str'] == overall_sector_info[i-1]['Born_str']:
-            #        continue
-            #    proc_strusr =  overall_sector_info[i]['Born_str']
-            #replace_dict_int_real['strUB'] = proc_strusr
-
-            #giovanni
 
 
 ######### Check on real and virtual recoiler flavour
@@ -1037,6 +973,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         self.write_makefile_npo_file(writers.FileWriter, dirpath, dirmadnklo, defining_process, overall_sector_info)
 
+######### Write all_K_sector_list
+
+        self.write_all_K_sector_list(writer,dirpath,leglist,len_sector_list,K_sector_lists)
+
 ######### Write ajob_isec_jsec
 
         self.write_ajob_npo_file(writers.FileWriter, dirpath, dirmadnklo, overall_sector_info)
@@ -1044,7 +984,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 ######### Link Born files to each real process directory
 
         self.link_files_from_B_to_R_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
-
 
 ######### Link Born files to each virtual process directory
         #self.link_files_from_B_to_V_dir(dirpath, Born_processes, path_Born_processes, Born_PDGs)
@@ -1097,6 +1036,77 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
           data all_sector_list/%(all_sector_list)s/""" % replace_dict
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
+        writer(filename).writelines(file)
+
+        return True
+
+
+    #===========================================================================
+    # write K_sector_list file
+    #===========================================================================
+
+    def write_all_K_sector_list(self,writer,dirpath,leglist,len_sector_list,K_sector_lists):
+
+        file = """ \
+          integer, parameter :: len  = %d
+          integer l
+          """ % (len_sector_list)
+
+        minl = 3  # start from final state
+
+        print(str(K_sector_lists.items()))
+        for type, entries in K_sector_lists.items():
+
+            print(str(entries.keys()))
+            maxl = max(max(key) for key in entries.keys())
+            ndims = len(next(iter(entries.keys())))
+            if ndims == 1:
+                file += """ \
+          integer %s_SECTOR_LIST(%d:%d,LEN,2)
+          """ % (type,minl,maxl)
+            elif ndims == 2:
+                file += """ \
+          integer %s_SECTOR_LIST(%d:%d,%d:%d,LEN,2)
+          """ % (type,minl,maxl,minl,maxl)
+
+        file += """ \
+        """
+
+        for type, entries in K_sector_lists.items():
+
+            ndims = len(next(iter(entries.keys())))
+            file += """
+!         data %s \n""" % (type)
+
+            for key, lists in sorted(entries.items()):
+
+                n_zeros = len_sector_list - len(lists)
+                lists_extended = lists + [(0,0)]*n_zeros
+
+                for n, (a,b) in enumerate(lists_extended, 1):
+                    if n > len(lists):
+                        if ndims == 1:
+                            i = key
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d:%d,L),L=1,2) /%d*0/ \n""" % (type,i,n,len_sector_list,2*n_zeros)
+                            break
+                        elif ndims == 2:
+                            i,j = key
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,%d:%d,L),L=1,2) /%d*0/ \n""" % (type,i,j,n,len_sector_list,2*n_zeros)
+                            break
+                    else:
+                        if ndims == 1:
+                            i = key
+                            print(type, i, n, a, b)
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i[0],n,a,b)
+                        elif ndims == 2:
+                            i,j = key
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i,j,n,a,b)
+
+        filename = pjoin(dirpath, 'all_K_sector_list.inc')
         writer(filename).writelines(file)
 
         return True
@@ -1439,10 +1449,6 @@ sector_%d_%d: $(FILES_%d_%d)
             if not overall_sector_info[i]['path_to_Born']:
                 #gl
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
-                    link_real = "%s/all_sector_list_n-1.inc" % dirpath
-                    if os.path.lexists(link_real):
-                        os.remove(link_real)
-                    os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', link_real)
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str']) )
                     os.symlink( overall_sector_info[i]['alt_Born_path'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['alt_Born_str'],
@@ -1450,10 +1456,6 @@ sector_%d_%d: $(FILES_%d_%d)
                 continue
 
             if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str'])):
-                link_real = "%s/all_sector_list_n-1.inc" % dirpath
-                if os.path.lexists(link_real):
-                    os.remove(link_real)
-                os.symlink(dirmadnklo + '/Template/Fortran_tmp/src_to_common/all_sector_list_dummy.inc', link_real)
                 os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Born'], overall_sector_info[i]['Born_str']),
                             "%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['Born_str']) )
                 os.symlink( overall_sector_info[i]['path_to_Born'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'],

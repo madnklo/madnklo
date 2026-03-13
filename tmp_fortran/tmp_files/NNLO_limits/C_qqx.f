@@ -102,8 +102,9 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx=TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function
-      call get_wc_nlo(ia,ib,ir)
-      call get_sig2(xsb,1d0,nexternal-1)
+      call get_sig2(xs,alphaz,nexternal)
+      call get_wc_nlo(ia,ib,ksec,ir)
+      call get_sig2(xsb,alphaz,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)

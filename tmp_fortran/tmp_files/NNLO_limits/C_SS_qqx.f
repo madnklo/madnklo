@@ -243,8 +243,8 @@ c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_wsbar_nlo(sec_index(1),sec_index(2))
             M2TMP=M2TMP*WSbar_NLO
-c     TODO: probably wrong invariants in wc_nlo
-            call get_wc_nlo(ia,ib,ir)
+c     TODO: maybe wrong invariants in wc_nlo
+            call get_wc_nlo(ia,ib,ksec,ir)
             M2TMP=M2TMP*wc_nlo
 c
 c     Including correct multiplicity factor

@@ -278,17 +278,17 @@ contains
     call sector2bar_sanity_checks(sigma,WSbar_NLO)
   end subroutine get_WSbar_NLO
 
-  subroutine get_WC_NLO(i1,i2,ir)
+  subroutine get_WC_NLO(i1,i2,i3,ir)
     !     NLO collinear sector functions WC(i1,i2) = barC_i1 W(i1,i2)
     implicit none
-    integer :: i,i1,i2,ir,sec(2)
+    integer :: i,i1,i2,i3,ir,sec(2)
     double precision :: num,sigma
-    include 'all_K_sector_list.inc'
+    include 'all_K1_sector_list.inc'
     call sector2bar_global_checks(i1,ir)
     num = sig2(i1,ir)
     sigma = 0d0
     do i=1,len
-       sec=c_sector_list(i1,i2,i,:)
+       sec=c_sector_list(i1,i2,i3,i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + &
             sig2(sec(1),sec(2))

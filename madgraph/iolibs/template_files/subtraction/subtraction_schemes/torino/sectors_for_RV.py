@@ -369,7 +369,6 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             overall_sector_info.append(sector_info)
 
             # Initialise NNLO_RV_IR_limits.f for every sector [ij]
-            tmp_list = []
             string = "c Collection of relevant limits for sector [%d,%d]" %(isec,jsec)
             NNLO_RV_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NNLO_limits/'
             os.system('echo ' + string + ' > ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
@@ -388,7 +387,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NNLO_RV_IR_limits
                     os.system('cat ' + NNLO_RV_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
-                    K_sector_lists['S'][(isec,)].append(all_sector_list[i])
+                    K_sector_lists['S'][(isec,)].append((isec,jsec))
                 elif j == 1:
                     continue
                 elif j == 2:
@@ -402,7 +401,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NNLO_RV_IR_limits
                     os.system('cat ' + NNLO_RV_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
-                    K_sector_lists['C'][(isec,iref)].append(all_sector_list[i])
+                    K_sector_lists['C'][(isec,jsec)].append((isec,iref))
 
             # outside loop on necessary_ct_list
             str_def_M2 = " ".join(list_str_def_M2)
@@ -653,7 +652,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
 ######### Write all_K_sector_list
 
-        self.write_all_K_sector_list(writer,dirpath,leglist,len_sector_list,K_sector_lists)
+        self.write_all_K_sector_list(writer,dirpath,len_sector_list,K_sector_lists)
 
 ######### Write ajob_isec_jsec
 
@@ -719,7 +718,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
     # write K_sector_list file
     #===========================================================================
 
-    def write_all_K_sector_list(self,writer,dirpath,leglist,len_sector_list,K_sector_lists):
+    def write_all_K_sector_list(self,writer,dirpath,len_sector_list,K_sector_lists):
 
         file = """ \
           integer, parameter :: len  = %d
@@ -756,7 +755,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 for n, (a,b) in enumerate(lists_extended, 1):
                     if n > len(lists):
                         if ndims == 1:
-                            i = key
+                            i = key[0]
                             file += """ \
           DATA (%s_SECTOR_LIST(%d,%d:%d,L),L=1,2) /%d*0/ \n""" % (type,i,n,len_sector_list,2*n_zeros)
                             break
@@ -767,9 +766,9 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                             break
                     else:
                         if ndims == 1:
-                            i = key
+                            i = key[0]
                             file += """ \
-          DATA (%s_SECTOR_LIST(%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i[0],n,a,b)
+          DATA (%s_SECTOR_LIST(%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i,n,a,b)
                         elif ndims == 2:
                             i,j = key
                             file += """ \

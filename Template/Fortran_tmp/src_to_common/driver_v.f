@@ -23,6 +23,8 @@
       character*100 line
       integer nitVth,nclVth,nitV,nclV
       integer nitVth0,nclVth0,nclV0,nclVth1,nclV1
+      integer iseed
+      common /to_seed/iseed
       common/niterationsv/nitV
 c
 c     vegas declarations
@@ -51,10 +53,11 @@ c
 c     read inputs
       region=0d0
       order=0
+      idum = iseed
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITVTH =  NITERS_FO_GRID
       NCLVTH = NPOINTS_FO_GRID
-      NITV = NITERS_FO
+      NITV = 10 10 !!NITERS_FO
       NCLV = NPOINTS_FO
 
 c     TODO: understand muR input fixed/dyn scale

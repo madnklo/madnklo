@@ -165,7 +165,7 @@ c     Multi channeling
       
 c
 c     plot
-      wgtpl=int_virtual*wgt/nitV
+      wgtpl=int_virtual*wgt
 c     if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)

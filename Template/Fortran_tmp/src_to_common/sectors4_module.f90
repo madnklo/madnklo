@@ -154,7 +154,6 @@ contains
     integer :: i,a,b,c,d,sec(4)
     double precision :: num,sigma
     include 'all_K2_sector_list.inc'
-    include 'all_sector_list.inc'
     call sector4_global_checks(a,b,c,d)
     num = sigNNLO(a,b,c,d)
     sigma = 0d0
@@ -176,6 +175,7 @@ contains
     double precision :: num, sigma
     include 'all_K2_sector_list.inc'
     num = hatsigNNLO(a,b,ic,id)
+    sigma = 0d0
     if(b.eq.ic) then
        c = id
     elseif(b.eq.id) then
@@ -197,6 +197,7 @@ contains
     double precision :: num, sigma
     include 'all_K2_sector_list.inc'
     num = hatsigNNLO(a,b,ic,id)
+    sigma = 0d0
     if(b.eq.ic) then
       c = id
     elseif(b.eq.id) then

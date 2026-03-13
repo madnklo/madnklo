@@ -133,7 +133,7 @@ c     damping factors
             M2_S_g=M2_S_g+pref*M2tmp*WS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*WS_NLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*WS_NLO*extra*wgt*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
             wgts=wgtpl

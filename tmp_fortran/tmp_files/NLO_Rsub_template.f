@@ -139,7 +139,7 @@ c     full real in sector Wij
       int_real_no_cnt=RNLO*W_NLO*xjac
 c
 c     plot real
-      wgtpl=int_real_no_cnt*wgt/nitR*wgt_chan
+      wgtpl=int_real_no_cnt*wgt*wgt_chan
 c      if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)

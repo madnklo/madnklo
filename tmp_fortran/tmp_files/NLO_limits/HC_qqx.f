@@ -108,7 +108,7 @@ c     include prefactors
       M2_HC_qqx = M2_HC_qqx *dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
 c
 c     plot
-      wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_qqx*wgt*wgt_chan
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)

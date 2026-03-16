@@ -148,7 +148,7 @@ c     while k is a q (or qb) with same flavour
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,eijkr
+      double precision zi,zj,zk,zij,eijkr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -211,8 +211,6 @@ c     invariant quantities
       zi   = sir/(sir+sjr+skr)
       zj   = sjr/(sir+sjr+skr)
       zk   = skr/(sir+sjr+skr)
-      zik  = zi+zk
-      zjk  = zj+zk
       zij  = zi+zj
 c
 c     safety check
@@ -227,7 +225,7 @@ c     call Born matrix element
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       Eijkr = (1/sij**2)*((sik*zj+zi*sjk)/((sik+sjk)*zij)-sik*sjk/(sik+sjk)**2-zi*zj/zij**2)-zk/sij/(sik+sjk)/zij
-      M2tmp = SIJK**2*(CF*(-2d0*TR*Eijkr))
+      M2tmp = CF*(-2d0*TR*Eijkr)
       M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
@@ -237,10 +235,10 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SS_qqx_CC_qxqq=M2tmp*pref*CF/xj*extra ! see [eq.(C.16)]
+      M2_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra ! see [eq.(C.16)]
 c
 c     plot
-      wgtpl=-M2_SS_qqx_CC_qxqq*wgt/nit*wgt_chan
+      wgtpl=+M2_SS_qqx_CC_qxqq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)

@@ -878,7 +878,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
 
                 # skip sectors with no assigned cts
-                if (not any(necessary_3p_ct1_list)) and (not any(necessary_3p_ct2_list)): 
+                if (not any(necessary_3p_ct1_list)) and (not any(necessary_3p_ct2_list)):
                     continue
                 else:
                     reduced_all_3p_sectors.append(s['sector'].leg_numbers)
@@ -1102,7 +1102,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
 
                 # skip sectors with no assigned cts
-                if (not any(necessary_4p_ct1_list)) and (not any(necessary_4p_ct2_list)): 
+                if (not any(necessary_4p_ct1_list)) and (not any(necessary_4p_ct2_list)):
                     continue
                 else:
                     reduced_all_4p_sectors.append(s['sector'].leg_numbers)
@@ -1136,7 +1136,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
 ######### Write all_sector_list.inc
         self.write_all_sector_list_include(writers.FortranWriter, dirpath, all_3p_sector_list, all_4p_sector_list)
-        len_sector_list = len(all_3p_sector_list+all_4p_sector_list)
+        len_K1_sector_list = len(all_3p_sector_list+all_4p_sector_list)
+        len_K2_sector_list = len(all_3p_sector_list+all_4p_sector_list)
 
 ######### Useful quantities
         overall_sector_info = []
@@ -1147,6 +1148,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         dirpathB_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
         dirpathR_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
 
+        K1_sector_lists = defaultdict(lambda: defaultdict(list))
         K2_sector_lists = defaultdict(lambda: defaultdict(list))
 
 # ######### Write NNLO_K_isec_jsec_jsec_ksec.f and NNLO_K_isec_jsec_ksec_jsec.f (3-particle sector)
@@ -1368,6 +1370,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if (write_S): # just one call to the kernel is needed
                         write_S = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        K1_sector_lists['S'][(isec,)].append((isec,jsec))
                 elif j == 1: # C_ij
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
@@ -1375,6 +1378,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if (write_HC): # just one call to the kernel is needed
                         write_HC = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
                 elif j == 2: # S_C_ij
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('SC', 'SC', all_3p_K1_ct[i][j], K1_3p_indices[j]))
@@ -2248,9 +2252,13 @@ c       %s
 
         self.write_makefile_RR_file(writer, dirpath, dirmadnklo, defining_process, overall_sector_info)
 
+######### Write all_K1_sector_list
+
+        self.write_all_K1_sector_list(writer,dirpath,len_K1_sector_list,K1_sector_lists)
+
 ######### Write all_K2_sector_list
 
-        self.write_all_K2_sector_list(writer,dirpath,leglist,len_sector_list,K2_sector_lists)
+        self.write_all_K2_sector_list(writer,dirpath,len_K2_sector_list,K2_sector_lists)
 
 ######### Write ajob_isec_jsec_ksec_lsec
         # Here stuff for multichanneling??
@@ -2375,17 +2383,83 @@ c       %s
 
         return True
 
+    #===========================================================================
+    # write K1_sector_list file
+    #===========================================================================
+
+    def write_all_K1_sector_list(self,writer,dirpath,len_K1_sector_list,K1_sector_lists):
+
+        file = """ \
+          integer, parameter :: len  = %d
+          integer l
+          """ % (len_K1_sector_list)
+
+        minl = 3
+        for type, entries in K1_sector_lists.items():
+
+            maxl = max(max(key) for key in entries.keys())
+            ndims = len(next(iter(entries.keys())))
+            if ndims == 1:
+                file += """ \
+          integer %s_SECTOR_LIST(%d:%d,LEN,2)
+          """ % (type,minl,maxl)
+            elif ndims == 3:
+                file += """ \
+          integer %s_SECTOR_LIST(%d:%d,%d:%d,%d:%d,LEN,2)
+          """ % (type,minl,maxl,minl,maxl,minl,maxl)
+
+        file += """ \
+        """
+
+        for type, entries in K1_sector_lists.items():
+
+            ndims = len(next(iter(entries.keys())))
+            file += """
+!         data %s \n""" % (type)
+
+            for key, lists in sorted(entries.items()):
+
+                lists=list(set(lists))
+                n_zeros = len_K1_sector_list - len(lists)
+                lists_extended = lists + [(0,0)]*n_zeros
+
+                for n, (a,b) in enumerate(lists_extended, 1):
+                    if n > len(lists):
+                        if ndims == 1:
+                            i = key[0]
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d:%d,L),L=1,2) /%d*0/ \n""" % (type,i,n,len_K1_sector_list,2*n_zeros)
+                            break
+                        elif ndims == 3:
+                            i,j,k = key
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,%d,%d:%d,L),L=1,2) /%d*0/ \n""" % (type,i,j,k,n,len_K1_sector_list,2*n_zeros)
+                            break
+                    else:
+                        if ndims == 1:
+                            i = key[0]
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i,n,a,b)
+                        elif ndims == 3:
+                            i,j,k = key
+                            file += """ \
+          DATA (%s_SECTOR_LIST(%d,%d,%d,%d,L),L=1,2) /%d,%d/ \n""" % (type,i,j,k,n,a,b)
+
+        filename = pjoin(dirpath, 'all_K1_sector_list.inc')
+        writer(filename).writelines(file)
+
+        return True
 
     #===========================================================================
     # write K2_sector_list file
     #===========================================================================
 
-    def write_all_K2_sector_list(self,writer,dirpath,leglist,len_sector_list,K2_sector_lists):
+    def write_all_K2_sector_list(self,writer,dirpath,len_K2_sector_list,K2_sector_lists):
 
         file = """ \
           integer, parameter :: len  = %d
           integer l
-          """ % (len_sector_list)
+          """ % (len_K2_sector_list)
 
         minl = 3
 
@@ -2417,7 +2491,7 @@ c       %s
 
             for key, lists in sorted(entries.items()):
 
-                n_zeros = len_sector_list - len(lists)
+                n_zeros = len_K2_sector_list - len(lists)
                 lists_extended = lists + [(0,0,0,0)]*n_zeros
 
                 for n, (a,b,c,d) in enumerate(lists_extended, 1):
@@ -2425,17 +2499,17 @@ c       %s
                         if ndims == 2:
                             i,j = key
                             file += """ \
-          DATA (%s_SECTOR_LIST(%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,n,len_sector_list,4*n_zeros)
+          DATA (%s_SECTOR_LIST(%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,n,len_K2_sector_list,4*n_zeros)
                             break
                         elif ndims == 3:
                             i,j,k = key
                             file += """ \
-          DATA (%s_SECTOR_LIST(%d,%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,k,n,len_sector_list,4*n_zeros)
+          DATA (%s_SECTOR_LIST(%d,%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,k,n,len_K2_sector_list,4*n_zeros)
                             break
                         elif ndims == 4:
                             i,j,k,l = key
                             file += """ \
-          DATA (%s_SECTOR_LIST(%d,%d,%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,k,l,n,len_sector_list,4*n_zeros)
+          DATA (%s_SECTOR_LIST(%d,%d,%d,%d,%d:%d,L),L=1,4) /%d*0/ \n""" % (type,i,j,k,l,n,len_K2_sector_list,4*n_zeros)
                             break
                     else:
                         if ndims == 2:
@@ -2654,11 +2728,7 @@ c       %s
                     link_real = "%s/all_sector_list_real.inc" % dirpath
                     if os.path.lexists(link_real):
                         os.remove(link_real)
-                    link_K_real = "%s/all_K_sector_list.inc" % dirpath
-                    if os.path.lexists(link_K_real):
-                        os.remove(link_K_real)
                     os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['alt_Real_path'], link_real )
-                    os.symlink( "%s/all_K_sector_list.inc" % overall_sector_info[i]['alt_Real_path'], link_K_real )
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Real_path'], string2), "%s/matrix_%s.f" % (dirpath, string2) )
                     os.symlink( overall_sector_info[i]['alt_Real_path'] + '/%s_spin_correlations.inc' % string2, dirpath + '/%s_spin_correlations.inc' % string2 )
 
@@ -2676,11 +2746,7 @@ c       %s
                     link_real = "%s/all_sector_list_real.inc" % dirpath
                     if os.path.lexists(link_real):
                         os.remove(link_real)
-                    link_K_real = "%s/all_K_sector_list.inc" % dirpath
-                    if os.path.lexists(link_K_real):
-                        os.remove(link_K_real)
                     os.symlink( "%s/all_sector_list.inc" % overall_sector_info[i]['path_to_Real'], link_real )
-                    os.symlink( "%s/all_K_sector_list.inc" % overall_sector_info[i]['path_to_Real'], link_K_real )
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['path_to_Real'], string), "%s/matrix_%s.f" % (dirpath, string) )
                     os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % string, dirpath + '/%s_spin_correlations.inc' % string )
 

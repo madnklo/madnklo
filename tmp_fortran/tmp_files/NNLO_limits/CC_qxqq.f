@@ -101,7 +101,7 @@ c     double-collinear kernel, eq. (B.17) of 2212.11190
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function
-      call get_wcc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
+      call get_wcc_nnlo(asec,bsec,csec,dsec)
       M2TMP=M2TMP*WCC_NNLO
 c
 c     include correct multiplicity and flavour factors
@@ -229,7 +229,7 @@ c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_wss_cc_nnlo(xs,asec,bsec,csec,dsec,r,alphaz,nexternal)
+      call get_wss_cc_nnlo(asec,bsec,csec,dsec)
       M2tmp=M2tmp*wss_cc_nnlo
 c
 c     include correct multiplicity and flavour factors

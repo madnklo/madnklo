@@ -137,7 +137,7 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
 c
 c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
 c     TODO: maybe wrong invariants in wc_nlo
-      call get_wc_nlo(i,j,ksecr)
+      call get_wc_nlo(i,j,ksec,r)
       M2tmp=M2tmp*wc_nlo
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)

@@ -283,7 +283,7 @@ contains
     implicit none
     integer :: i,i1,i2,i3,ir,sec(2)
     double precision :: num,sigma
-    include 'all_K1_sector_list.inc'
+    include 'all_K_sector_list.inc'
     call sector2bar_global_checks(i1,ir)
     num = sig2(i1,ir)
     sigma = 0d0

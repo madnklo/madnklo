@@ -971,7 +971,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                      'cts_mprec.h', 'cts_mpc.h', 'mp_coupl.inc', 
                      'mp_coupl_same_name.inc',
                      'MadLoopParamReader.f','MadLoopCommons.f',
-                     'MadLoopParams.inc']
+                     'MadLoopParams.inc','global_specs.inc']
         
 
         for file in linkfiles:
@@ -3028,16 +3028,16 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
 
 
 # debug GIOVANNI        
-#         open(out_path,'w').write(
-# """      integer MAXNEXTERNAL
-#       parameter(MAXNEXTERNAL=%d)
-#       integer OVERALLMAXRANK
-#       parameter(OVERALLMAXRANK=%d)
-#       integer NPROCS
-#       parameter(NPROCS=%d)"""%(
-#          max(me.get_nexternal_ninitial()[0] for me in me_list),
-#          max(me.get_max_loop_rank() for me in me_list),
-#          len(me_list)))    
+        open(out_path,'w').write(
+"""      integer MAXNEXTERNAL
+      parameter(MAXNEXTERNAL=%d)
+      integer OVERALLMAXRANK
+      parameter(OVERALLMAXRANK=%d)
+      integer NPROCS
+      parameter(NPROCS=%d)"""%(
+         max(me.get_nexternal_ninitial()[0] for me in me_list),
+         max(me.get_max_loop_rank() for me in me_list),
+         len(me_list)))    
         
 
         

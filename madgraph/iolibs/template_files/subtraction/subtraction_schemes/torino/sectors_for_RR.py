@@ -2368,7 +2368,9 @@ c       %s
         file = """ \
           integer, parameter :: lensectors = %d
           integer tmp(4,lensectors)
-          integer all_sector_list(4,lensectors)""" % (len(all_sector_list))
+          integer all_sector_list(4,lensectors)
+          integer :: bar_indices(2*lensectors)
+          common/c_NLObar/bar_indices""" % (len(all_sector_list))
         for k in range(0,len(all_sector_list)):
             file += """
           data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+7])

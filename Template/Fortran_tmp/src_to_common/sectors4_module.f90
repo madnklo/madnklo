@@ -245,16 +245,19 @@ contains
   subroutine get_Wbar_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
     implicit none
-    integer :: i,a,b,i1,i2
+    integer :: i,j,a,b,i1,i2,sec1,sec2
     double precision :: num,sigma
-    include 'all_sector_list_real.inc'
+    include 'all_sector_list.inc'
     call sector2bar_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
+    j=1
     do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b)
+       sec1=bar_indices(j)
+       sec2=bar_indices(j+1)
+       j=j+2
+       if(sec1.eq.0.and.sec2.eq.0) cycle
+       sigma = sigma + sig2(sec1,sec2)
     enddo
     Wbar_NLO = num/sigma
     call sector2bar_sanity_checks(sigma,Wbar_NLO)

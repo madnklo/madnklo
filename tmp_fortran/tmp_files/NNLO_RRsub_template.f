@@ -186,6 +186,7 @@ c
       include 'nexternal.inc'
       include 'leg_PDGs.inc'
       integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
+      integer i,j,i1,i2,ib3,ib4
       common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer isec,jsec,ksec,lsec,iref
       common/cpartindices/isec,jsec,ksec,lsec,iref
@@ -196,6 +197,7 @@ c
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      include 'all_sector_list.inc'
 C
 c     cpartindices:
 c     each sector-relevant particle -> one index
@@ -218,7 +220,6 @@ c     check we are not in the ISR case
 c
 c     specify phase-space mapping
       %(mapping_str)s
-
 c
 c     configuration files
       call configs_%(str_UBorn)s
@@ -237,5 +238,19 @@ c     if lsec!=0 the unresolved pair is csec, dsec.
       map2=real_mapped_labels(bsec)
       if(lsec.ne.0)map2=real_mapped_labels(dsec)
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_mapped_labels)
+
+      j=1
+      do i=1,lensectors
+         i1=all_sector_list(1,i)
+         i2=all_sector_list(2,i)
+         if(i1.eq.asec.and.i2.eq.bsec) then
+            ib3=real_mapped_labels(all_sector_list(3,i))
+            ib4=real_mapped_labels(all_sector_list(4,i))
+            bar_indices(j) = ib3
+            bar_indices(j+1) = ib4
+         endif
+         j=j+2
+      enddo
+
       return
       end

@@ -25,6 +25,8 @@
       character*100 line
       integer nitRth,nclRth,nitR,nclR
       integer nitRth0,nclRth0,nclR0,nclRth1,nclR1
+      integer iseed
+      common /to_seed/iseed
       COMMON/iterations/NITR
 c
 c     vegas declarations
@@ -53,6 +55,7 @@ c
 c     read inputs
       region=0d0
       order=1
+      idum = iseed
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITRTH = NITERS_FO_GRID
       NCLRTH = NPOINTS_FO_GRID

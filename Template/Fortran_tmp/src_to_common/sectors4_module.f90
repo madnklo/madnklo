@@ -160,9 +160,7 @@ contains
     do i=1,len
        sec=ss_sector_list(a,b,i,:)
        if(all(sec.eq.0))cycle
-       sigma = sigma + &
-            sigNNLO(sec(1),sec(2),sec(3),sec(4)) + &
-            sigNNLO(sec(3),sec(2),sec(1),sec(4))
+       sigma = sigma +  sigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo
     WSS_NNLO = num/sigma
     call sector4_sanity_checks(sigma,WSS_NNLO)

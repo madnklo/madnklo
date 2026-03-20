@@ -2,12 +2,12 @@ module sectors4_module
   implicit none
   integer, public :: n_ext
   double precision, public :: alpha_mod, W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
-  double precision, public :: Wbar_NLO, WSbar_NLO, WC_NLO
+  double precision, public :: Wbar_NLO, WSbar_NLO, WC_NLO, WCbar_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
-  public :: get_sig2, get_Wbar_NLO, get_WSbar_NLO, get_WC_NLO
+  public :: get_sig2, get_Wbar_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO
   private
 
 contains
@@ -169,7 +169,7 @@ contains
   subroutine get_WCC_NNLO(a,b,ic,id)
     ! NNLO triple-collinear sector functions WCC
     implicit none
-    integer :: i,a,b,c,d,ic,id,sec(4)
+    integer :: i,ii(3),a,b,c,d,ic,id,sec(4)
     double precision :: num, sigma
     include 'all_K2_sector_list.inc'
     num = hatsigNNLO(a,b,ic,id)
@@ -179,11 +179,16 @@ contains
     elseif(b.eq.id) then
        c = ic
     endif
+
+    ! list-reading requires sorted a,b,c
+    ii = [a, b, c]
+    if (ii(1)>ii(2)) call swap(ii(1),ii(2))
+    if (ii(1)>ii(3)) call swap(ii(1),ii(3))
+    if (ii(2)>ii(3)) call swap(ii(2),ii(3))
     do i=1,len
-       sec=cc_sector_list(a,b,c,i,:)
+       sec=cc_sector_list(ii(1),ii(2),ii(3),i,:)
        if(all(sec.eq.0))cycle
-       sigma = sigma + &
-            hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
+       sigma = sigma + hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
@@ -264,23 +269,26 @@ contains
   subroutine get_WSbar_NLO(i1,i2)
     !     NLO sector functions WSbar(i1,i2)
     implicit none
-    integer :: i,a,b,i1,i2
+    integer :: i,j,a,b,i1,i2,sec1,sec2
     double precision :: num,sigma
-    include 'all_sector_list_real.inc'
+    include 'all_sector_list.inc'
     call sector2bar_global_checks(i1,i2)
     num = sig2(i1,i2)
     sigma = 0d0
+    j=1
     do i=1,lensectors
-       a=all_sector_list(1,i)
-       b=all_sector_list(2,i)
-       sigma = sigma + sig2(a,b)
+       sec1=bar_indices(j)
+       sec2=bar_indices(j+1)
+       j=j+2
+       if(sec1.ne.i1) cycle
+       sigma = sigma + sig2(sec1,sec2)
     enddo
     WSbar_NLO = num/sigma
     call sector2bar_sanity_checks(sigma,WSbar_NLO)
   end subroutine get_WSbar_NLO
 
   subroutine get_WC_NLO(i1,i2,i3,ir)
-    !     NLO collinear sector functions WC(i1,i2) = barC_i1 W(i1,i2)
+    !     NLO collinear sector functions WC(i1,i2) = barC_i1i2 W(i1,i2)
     implicit none
     integer :: i,i1,i2,i3,ir,sec(2)
     double precision :: num,sigma
@@ -291,12 +299,23 @@ contains
     do i=1,len
        sec=c_sector_list(i1,i2,i3,i,:)
        if(all(sec.eq.0))cycle
-       sigma = sigma + &
-            sig2(sec(1),sec(2))
+       sigma = sigma + sig2(sec(1),sec(2))
     enddo
     WC_NLO = num/sigma
     call sector2bar_sanity_checks(sigma,WC_NLO)
   end subroutine get_WC_NLO
+
+  subroutine get_WCbar_NLO(i1,i2,ir)
+    !     NLO collinear sector functions WCbar(i1,i2) = barC_i1i2 Wbar(i1,i2)
+    implicit none
+    integer :: i,i1,i2,i3,ir,sec(2)
+    double precision :: num,sigma
+    call sector2bar_global_checks(i1,ir)
+    num = sig2(i1,ir)
+    sigma = sig2(i1,ir) + sig2(i2,ir)
+    WCbar_NLO = num/sigma
+    call sector2bar_sanity_checks(sigma,WCbar_NLO)
+  end subroutine get_WCbar_NLO
 
   subroutine sector4_global_checks(i1,i2,i3,i4)
     implicit none
@@ -349,5 +368,10 @@ contains
        stop
     endif
   end subroutine sector2bar_sanity_checks
+
+  subroutine swap(x,y)
+  integer :: x,y,t
+  t=x; x=y; y=t
+  end subroutine swap
 
 end module sectors4_module

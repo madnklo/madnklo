@@ -140,14 +140,13 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2tmp = M2tmp/sij*BLO
 c
 c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
-c     TODO: maybe wrong invariants in wc_nlo
+      call get_sig2(xs,alphaz,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      M2tmp=M2tmp*wc_nlo
+      call get_sig2(xsb,1d0,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
-c     TODO: need correct indices from list
-c      call get_wc_nlo(map1,map2,rb)
-      M2tmp=M2tmp*wc_nlo
+      call get_wcbar_nlo(map1,map2,rb)
+      M2tmp=M2tmp*wc_nlo*wcbar_nlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -302,7 +301,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       M2tmp = M2tmp/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
-c     TODO: maybe wrong invariants in wc_nlo
+      call get_sig2(xs,alphaz,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       M2TMP=M2TMP*wc_nlo
 c

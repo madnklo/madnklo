@@ -12,7 +12,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer i,j,k,r
-      integer ia,ib,ik,ir,l,m,ierr,nit,idum,parent,sec_index(2)
+      integer ia,ib,ik,ir,l,m,ierr,nit,idum,parent,map1,map2
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
@@ -158,25 +158,6 @@ c     overall kernel prefix
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
-      call get_sig2(xsb,1d0,nexternal-1)
-      if(lsec.eq.0)then
-         sec_index(1) = parent
-         sec_index(2) = real_mapped_labels(dsec)
-      else
-         sec_index(1) = real_mapped_labels(csec)
-         sec_index(2) = real_mapped_labels(dsec)
-      endif
-c     Fill  mapped_sec_list(2,nexternal) with the pairs of all the
-c     final state particles after mapping n+2 --> n+1
-      k = 0
-      do i=3,nexternal-1
-         do j=i+1,nexternal
-            k=k+1
-            mapped_sec(1,k) = real_mapped_labels(i)
-            mapped_sec(2,k) = real_mapped_labels(j)
-         enddo
-      enddo
-c
 c     Eikonal double sum starts here
 c
       do mb=1,nexternal-1
@@ -241,11 +222,13 @@ c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
 c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
             M2TMP = M2TMP/sab
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
-            call get_wsbar_nlo(sec_index(1),sec_index(2))
-            M2TMP=M2TMP*WSbar_NLO
-c     TODO: maybe wrong invariants in wc_nlo
+            call get_sig2(xs,alphaz,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
-            M2TMP=M2TMP*wc_nlo
+            call get_sig2(xsb,1d0,nexternal-1)
+            map1=real_mapped_labels(csec)
+            map2=real_mapped_labels(dsec)
+            call get_wsbar_nlo(map1,map2)
+            M2TMP=M2TMP*wc_nlo*wsbar_nlo
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

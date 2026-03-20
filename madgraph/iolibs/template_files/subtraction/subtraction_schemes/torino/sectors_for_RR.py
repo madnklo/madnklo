@@ -515,8 +515,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         if not all_4p_sectors:
             logger.critical('WARNING, no 4p_sectors found for %s' % defining_process.nice_string())
 
-        print('All sectors for RR NNLO : ' + str(fourp_sectors))
-        print('All sectors id for RR NNLO : ' + str(fourp_sectors_id))
+        print('4p sectors    : ' + str(fourp_sectors))
+        print('4p sectors id : ' + str(fourp_sectors_id))
 
 
         # Now for each sector we need to find the corresponding counterterms
@@ -1433,7 +1433,7 @@ c       KCC = CC_ijk (1 - SS_ij) (1 - SC_ijk)"""
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                        K2_sector_lists['CC'][(isec,jsec,ksec)].append(all_3p_sector_list[i])
+                        K2_sector_lists['CC'][tuple(sorted([isec,jsec,ksec]))].append(all_3p_sector_list[i])
                     elif j == 4: # - SS_ij CC_ijk
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
@@ -1509,7 +1509,7 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                        K2_sector_lists['CC'][(isec,jsec,ksec)].append(all_3p_sector_list[i])
+                        K2_sector_lists['CC'][tuple(sorted([isec,jsec,ksec]))].append(all_3p_sector_list[i])
                     elif j == 6: # - SS_ik CC_ijk
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))

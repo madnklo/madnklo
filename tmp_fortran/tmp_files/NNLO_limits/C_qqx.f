@@ -66,7 +66,7 @@ c     checks
       endif
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1,real_leg_pdgs,0))return
+      if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -104,7 +104,7 @@ c     TODO: improve ktmuktnuBmunu / kt^2
 c     compute collinear limit of sector function
       call get_sig2(xs,alphaz,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)
-      call get_sig2(xsb,alphaz,nexternal-1)
+      call get_sig2(xsb,1d0,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)

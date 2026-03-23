@@ -218,9 +218,9 @@ c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Pij = TR*(1d0-2d0*zi*zj)
             Qij = TR*2d0*zi*zj
             Ebjlm = sblm/sbjl/sbjm
-            M2tmp = Pij*Ebjlm*ccBLO+Qij*(-(kmkm/sbjm)**2+2d0*klkm/sbjm/sbjl-(klkl/sbjl)**2)*ccBLO+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))*ccBLO
+            M2tmp = Pij*Ebjlm+Qij*(-(kmkm/sbjm)**2+2d0*klkm/sbjm/sbjl-(klkl/sbjl)**2)+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))
 c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
-            M2TMP = M2TMP/sab
+            M2TMP = -M2TMP/sab*ccBLO
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alphaz,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
@@ -238,7 +238,7 @@ c     Including correct multiplicity factor
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
+            wgtpl=wgtpl*%(proc_prefix_rr)s_fl_factor
             wgts=wgtpl
 c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
             if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)

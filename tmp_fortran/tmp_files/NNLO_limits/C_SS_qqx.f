@@ -12,21 +12,18 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer i,j,k,r
-      integer ia,ib,ik,ir,l,m,ierr,nit,idum,parent,map1,map2
+      integer ia,ib,ik,ir,l,m,ierr,nit,parent,map1,map2
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLO,extra
+      double precision BLO,ccBLO,extra,damp
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision xpbb(0:3,nexternal-2), kt(0:3)
-      double precision ktb2,ktb(0:3),kt2,WSCC_NNLO
-      double precision sab,sar,sbr
-      double precision wa,wb,wr
-      double precision sblm,sbjl,sbjm,ktkl,ktkm,klkl,kmkm,klkm
-      double precision x,y,xinit,damp,Ebjlm
+      double precision xpbb(0:3,nexternal-2),kt(0:3),kt2
+      double precision sab,sar,sbr,wa,wb,wr,x
+      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm
       double precision dot
       logical flavourmatch
       logical isNLOmappedQCDparton(nexternal-1)
@@ -71,30 +68,6 @@ c     initialise
       M2_C_SS_QQX=0d0
       M2tmp=0d0
       ierr=0
-      damp=0d0
-      idum=0
-      wa = 0d0
-      wb = 0d0
-      wr = 0d0
-      sab = 0d0
-      sar = 0d0
-      sbr = 0d0
-      x   = 0d0
-      y   = 0d0
-      xinit = 0d0
-      kt = 0d0
-      kt2 = 0d0
-      sblm = 0d0
-      sbjl = 0d0
-      sbjm = 0d0
-      ktkl = 0d0
-      ktkm = 0d0
-      klkl = 0d0
-      kmkm = 0d0
-      kt2 = 0d0
-c
-c     return if not a qqb pair
-      if((leg_pdgs(ia) + leg_pdgs(ib)).ne.0)return
 c
 c     check sector topology (only appears in ijjk)
       if(bsec.ne.csec) then
@@ -107,13 +80,6 @@ c     check flavour match
       if(.not.(flavourmatch))then
        write(*,*) 'Flavour mismatch in M2_C_SS_qqx', leg_PDGs(ia),leg_PDGs(ib)
        stop 1
-      endif
-c
-c     safety check on PDGs
-      if(size(leg_pdgs).ne.nexternal)then
-        write(*,*) 'm2_c_ss_qqx:'
-        write(*,*) 'wrong dimension for leg_pdgs',size(leg_pdgs),nexternal
-        stop
       endif
 c
       call phase_space_cs_inv(ia,ib,ir,xp,xpb,nexternal,leg_pdgs,xjcs1,real_mapped_labels)
@@ -136,15 +102,14 @@ c     invariant quantities
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
       x=sar/(sar+sbr)
-      y=sab/(sab+sar+sbr)
-      xinit = 1d0 - sab/(sar+sbr)
 c
 c     coefficients of kt
 c     kt = wa pa + wb pb + wr pr
-      wa= 1d0 - x
-      wb= - x
-      wr= - (1d0-2d0*x)*sab/(sar+sbr)
+      wa = 1d0-x
+      wb = -x
+      wr = -(1d0-2d0*x)*sab/(sar+sbr)
       kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir)
+      kt2 = dot(kt(:),kt(:))
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -189,19 +154,15 @@ c        underlying Born configuration is remapped
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpbb,nexternal-2,born_leg_pdgs,0))cycle
+            if(docut(xpbb,nexternal-2,born_leg_pdgs,2))cycle
 c
-c     invariant quantities TODO: check if this is correct
+c     invariant quantities
 c     (c,d) in the paper --> (m,l)
             sblm = xsb(lb,mb)
             sbjl = xsb(jb,lb)
             sbjm = xsb(jb,mb)
             ktkl = dot(kt(:),xpb(:,lb))
             ktkm = dot(kt(:),xpb(:,mb))
-            klkl = dot(xpb(:,lb),xpb(:,lb))
-            kmkm = dot(xpb(:,mb),xpb(:,mb))
-            klkm = dot(xpb(:,lb),xpb(:,mb))
-            kt2=dot(kt(:),kt(:))
 c
 c     safety check
             IF(SAB.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.or.kt2.eq.0d0)THEN
@@ -210,17 +171,13 @@ c     safety check
             ENDIF
 c
 c     call colour-connected Born
-c     TODO: fix strings for the associated underlying Born
-            call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
-            Pij = TR*(1d0-2d0*zi*zj)
-            Qij = TR*2d0*zi*zj
             Ebjlm = sblm/sbjl/sbjm
-            M2tmp = Pij*Ebjlm+Qij*(-(kmkm/sbjm)**2+2d0*klkm/sbjm/sbjl-(klkl/sbjl)**2)+2d0*Qij*((ktkm/sbjm)**2/kt2+(ktkl/sbjl)**2/kt2-2d0*(ktkl*ktkm/sbjl/sbjm/kt2))
-c     The above kernel structure is Pij + Qij*(-gmunu part) + Qij*(ktmuktnu/kt**2 part)
-            M2TMP = -M2TMP/sab*ccBLO
+            M2tmp = TR*(Ebjlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
+            m2tmp = m2tmp/sab*ccBLO
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alphaz,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
@@ -233,7 +190,7 @@ c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             damp=1d0
-            M2tmp=M2tmp*damp*xj/sab
+            M2tmp=M2tmp*damp*xj
             M2_C_SS_QQX=M2_C_SS_QQX+pref*M2tmp*extra
 c
 c     plot

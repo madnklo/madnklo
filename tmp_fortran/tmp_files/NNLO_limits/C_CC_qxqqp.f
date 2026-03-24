@@ -231,8 +231,8 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology
-      if(bsec.ne.csec .and. bsec.ne.dsec) then
+c     check sector topology (only appears in ijjk)
+      if(bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqqp',asec,bsec,csec,dsec
         stop 1
       endif
@@ -244,13 +244,8 @@ c     check flavour match
         stop 1
       endif
 c
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
-      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
-      if(ierr.eq.1)goto 999
-c
 c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,2))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -262,10 +257,10 @@ c     invariant quantities
       sjr  = xs(j,r)
 c
 c     safety checks
-      IF(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_C_SS_qqx_CC_qxqqp',SIJ,SIR,SJR
-        GOTO 999
-      ENDIF
+      if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in m2_c_ss_qqx_cc_qxqqp',sij,sir,sjr
+        goto 999
+      endif
       zi = sir/(sir+sjr)
       zj = 1d0-zi
       jb = real_mapped_labels(j)
@@ -274,10 +269,10 @@ c     safety checks
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
-      IF(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-         WRITE(77,*)'Inaccuracy 2 in M2_C_SS_qqx_CC_qxqqp',SBJK,SBJR,SBKR
-         GOTO 999
-      ENDIF
+      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+         write(77,*)'Inaccuracy 2 in m2_c_ss_qqx_cc_qxqqp',sbjk,sbjr,sbkr
+         goto 999
+      endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
 c
@@ -297,7 +292,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Qij = TR*2d0*zi*zj
       Pbjk = CF*(1d0+zbk**2)/zbj
       Ebjkr = sbkr/sbjk/sbjr
-      M2tmp = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2tmp = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
       M2tmp = M2tmp/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2

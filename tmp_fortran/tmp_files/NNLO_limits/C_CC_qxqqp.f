@@ -18,7 +18,7 @@ c     while k is a q (or qb) with any flavour
       double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ktb(0:3),ktb2,kt(0:3),kt2,WCCC_NNLO
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
       double precision x,y,xinit
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
@@ -193,7 +193,7 @@ c     while k is a q (or qb) with any flavour
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ktb(0:3),ktb2,kt(0:3),kt2,WSSCCC_NNLO
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
       double precision x,y,xinit
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr

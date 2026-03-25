@@ -23,8 +23,8 @@ c     (n+2)-body NNLO integrand for vegas
       double precision sNLO(nexternal-1,nexternal-1),sminNLO
       double precision sLO(nexternal-2,nexternal-2)
 c      double precision W_NNLO
-      double precision alphaZ
-      parameter(alphaZ=2d0)
+      double precision alphaW
+      parameter(alphaW=2d0)
       double precision RNNLO,KNNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30

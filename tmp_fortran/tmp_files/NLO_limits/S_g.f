@@ -45,7 +45,7 @@ c     external
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
-      DOUBLE PRECISION PMASS(NEXTERNAL)
+      double precision pmass(nexternal)
       INCLUDE 'pmass.inc'      
 c
 c     initialise
@@ -65,7 +65,6 @@ c     checks
       endif
 c
 c     call W soft
-c      CALL GET_SIG2(XS,ALPHAZ,NEXTERNAL)
       CALL GET_WS_NLO(ISEC,JSEC)
 c
 c     overall kernel prefix

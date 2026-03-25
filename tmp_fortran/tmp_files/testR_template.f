@@ -24,7 +24,7 @@ c
       write(iunit,*)dash10//dash10//dash10//dash10
       write(iunit,*)dash10//dash10//dash10//dash10
 %(limit_str)s
-c     
+c
 c     reinstate original xsave after testing
       xsave(1:3)=x0(1:3)
 c
@@ -69,17 +69,15 @@ c
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
       DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
-      integer %(NLO_proc_str)sfl_factor 
+      integer %(NLO_proc_str)sfl_factor
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       double precision e(2),l(2)
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
-c     
+c
 c     initialise
       x=x0
       str5 ='     '
@@ -111,7 +109,7 @@ c     initialise
 c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
-c     TODO: this rescaling is specific for (ijr) mapping; generalise 
+c     TODO: this rescaling is specific for (ijr) mapping; generalise
          x(1:2)=abs(l(1:2)-x0(1:2)*lam**e(1:2))
 c
 c     set xsave so that the counterterms will be called with
@@ -130,16 +128,16 @@ c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
-         call get_sig2(SNLO,alphaZ,nexternal)
+         call get_sig2(snlo,nexternal)
          CALL GET_W_NLO(%(isec)d,%(jsec)d)
 c
 c     counterterm
          call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
-         
+
          lim=KNLO
          single_real=RNLO*W_NLO*xjac
-         
+
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
          else

@@ -21,8 +21,6 @@ c     (n+1)-body NLO integrand for vegas
       double precision int_real_no_cnt
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
-      double precision alphaZ
-      parameter(alphaZ=1d0)
       double precision RNLO,KNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
@@ -127,7 +125,7 @@ c     real
       endif
 c
 c     real sector function
-      call get_sig2(SNLO,alphaZ,nexternal)
+      call get_sig2(snlo,nexternal)
       call get_W_NLO(isec,jsec)
       if(ierr.eq.1)then
          write(77,*) 'int_real: '

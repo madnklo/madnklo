@@ -19,7 +19,7 @@ c     while k is a q (or qb) with any flavour
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ktb(0:3),ktb2,kt(0:3),kt2,WCCC_NNLO
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
       double precision x,y,xinit
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
@@ -189,7 +189,7 @@ c     while k is a q (or qb) with any flavour
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ktb(0:3),ktb2,kt(0:3),kt2,WSSCCC_NNLO
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
       double precision x,y,xinit
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
@@ -227,8 +227,8 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology
-      if(bsec.ne.csec .and. bsec.ne.dsec) then
+c     check sector topology(only appears in ijjk)
+      if(bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
@@ -239,11 +239,6 @@ c     check flavour match
         write(*,*) 'Flavour mismatch in M2_C_SS_qqx_CC_qxqq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
-c
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
-      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
-      if(ierr.eq.1)goto 999
 c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -258,10 +253,10 @@ c     invariant quantities
       sjr  = xs(j,r)
 c
 c     safety checks
-      IF(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_C_SS_qqx_CC_qxqq',SIJ,SIR,SJR
-        GOTO 999
-      ENDIF
+      if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in m2_c_ss_qqx_cc_qxqq',sij,sir,sjr
+        goto 999
+      endif
       zi = sir/(sir+sjr)
       zj = 1d0-zi
       jb = real_mapped_labels(j)
@@ -270,10 +265,10 @@ c     safety checks
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
-      IF(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-         WRITE(77,*)'Inaccuracy 2 in M2_C_SS_qqx_CC_qxqq',SBJK,SBJR,SBKR
-         GOTO 999
-      ENDIF
+      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+         write(77,*)'Inaccuracy 2 in m2_c_ss_qqx_cc_qxqq',sbjk,sbjr,sbkr
+         goto 999
+      endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
 c
@@ -293,7 +288,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Qij = TR*2d0*zi*zj
       Pbjk = CF*(1d0+zbk**2)/zbj
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = 2d0*CF*Ebjkr*(Pij*-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2TMP = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
       M2TMP = M2TMP/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2

@@ -26,8 +26,6 @@ c     while k is a q (or qb) with any flavour
       double precision zi,zj,zbj,zbk,zbki
       double precision Pij,Qij,Pbjk,Ebjkr
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=2d0)
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -136,9 +134,9 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2TMP = M2TMP/sij*BLO
 c
 c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
-      call get_sig2(xs,alphaz,nexternal)
+      call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      call get_sig2(xsb,1d0,nexternal-1)
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wcbar_nlo(map1,map2,rb)
@@ -199,8 +197,6 @@ c     while k is a q (or qb) with any flavour
       logical flavourmatch
 c     set logical doplot
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=2D0)
       logical doplot
       common/cdoplot/doplot
       double precision sCM
@@ -292,7 +288,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       M2TMP = M2TMP/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
-c     TODO: maybe wrong invariants in wc_nlo
+      call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       M2TMP=M2TMP*wc_nlo
 c

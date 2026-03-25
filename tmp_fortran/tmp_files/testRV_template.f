@@ -84,8 +84,6 @@ c
       INTEGER, PARAMETER :: HEL=-1
       integer %(NNLO_RV_proc_str)sfl_factor
       common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=1D0)
       common/cxsave/xsave
       double precision e(2),l(2)
 C
@@ -185,7 +183,7 @@ c
       RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
       if(abs(RVNNLO(0)).ge.huge(1d0).or.isnan(RVNNLO(0)))cycle
 c
-      call get_sig2(SNLO,alphaZ,nexternal)
+      call get_sig2(snlo,nexternal)
       call get_W_NLO(isec,jsec)
 c
 c     counterterm

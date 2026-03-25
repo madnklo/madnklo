@@ -42,8 +42,6 @@ c     external
       double precision alphas,ans(0:NSQSO_BORN)
       double precision pij,qij,sij,zi,zj
       double precision alpha_qcd
-      double precision alphaZ
-      parameter(alphaZ=2d0)
       integer, parameter :: HEL = - 1
       double precision   %(proc_prefix_Born)s_GET_CCBLO
       integer %(proc_prefix_rr)s_den
@@ -175,9 +173,9 @@ c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             M2tmp = TR*(Ebjlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
             m2tmp = m2tmp/sab*ccBLO
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
-            call get_sig2(xs,alphaz,nexternal)
+            call get_sig2(xs,alpha_mod,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
-            call get_sig2(xsb,1d0,nexternal-1)
+            call get_sig2(xsb,alpha_mod_bar,nexternal-1)
             map1=real_mapped_labels(csec)
             map2=real_mapped_labels(dsec)
             call get_wsbar_nlo(map1,map2)

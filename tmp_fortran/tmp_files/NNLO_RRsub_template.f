@@ -23,8 +23,6 @@ c     (n+2)-body NNLO integrand for vegas
       double precision sNLO(nexternal-1,nexternal-1),sminNLO
       double precision sLO(nexternal-2,nexternal-2)
 c      double precision W_NNLO
-      double precision alphaW
-      parameter(alphaW=2d0)
       double precision RNNLO,KNNLO
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
@@ -138,13 +136,8 @@ c     double real
       endif
 c
 c     double real sector function
-      call get_sigNNLO(SNNLO,alphaz,nexternal)
+      call get_sigNNLO(snnlo,nexternal)
       call get_W_NNLO(asec,bsec,csec,dsec)
-      if(ierr.eq.1)then
-         write(77,*) 'int_double_real: '
-         write(77,*) 'Wrong W_NNLO', W_NNLO
-         goto 999
-      endif
 c
 c     full double real in sector Wijkl
       int_double_real_no_cnt=RNNLO*W_NNLO*xjac

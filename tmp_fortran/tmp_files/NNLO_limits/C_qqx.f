@@ -24,8 +24,6 @@ c     collinear limit C_(ia,ib) * Wcollinear
       integer nlo_mapped_labels(nexternal), nlo_mapped_flavours(nexternal)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
       double precision %(proc_prefix_C_qqx)s_get_kkblo
 c     set logical doplot
       logical doplot
@@ -102,9 +100,9 @@ c
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx=TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function
-      call get_sig2(xs,alphaz,nexternal)
+      call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)
-      call get_sig2(xsb,1d0,nexternal-1)
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)

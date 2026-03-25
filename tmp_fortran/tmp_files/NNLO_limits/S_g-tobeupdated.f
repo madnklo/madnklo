@@ -34,8 +34,6 @@ c     external
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
-      double precision alphaZ
-      parameter(alphaZ=1d0)
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_g)s_GET_CCBLO
       integer %(proc_prefix_rr)s_den
@@ -74,9 +72,9 @@ c      CALL GET_BORN_PDGS(ISEC,JSEC,NEXTERNAL-1,BORN_LEG_PDGS)
 c
 c     call Z soft
       if(i.eq.isec) then
-         CALL GET_ZS_NLO(XS,SCM,ALPHAZ,ISEC,JSEC,ZS_NLO,IERR)
+         CALL GET_ZS_NLO(XS,SCM,ISEC,JSEC,ZS_NLO,IERR)
       elseif(i.eq.jsec) then
-         CALL GET_ZS_NLO(XS,SCM,ALPHAZ,JSEC,ISEC,ZS_NLO,IERR)
+         CALL GET_ZS_NLO(XS,SCM,JSEC,ISEC,ZS_NLO,IERR)
       else
          write(*,*)'In M2_S_g i should be = isec or = jsec',i,isec,jsec
          stop

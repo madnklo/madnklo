@@ -81,8 +81,6 @@ c      DOUBLE PRECISION W_NNLO
       INTEGER, PARAMETER :: HEL=-1
       integer %(NNLO_proc_str)sfl_factor
       common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
-      DOUBLE PRECISION ALPHAZ
-      PARAMETER(ALPHAZ=2D0)
       common/cxsave/xsave
       double precision e(5),l(5)
       double precision K1,K2,K12
@@ -163,10 +161,8 @@ c     double real
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
 
-         call get_sigNNLO(SNNLO,alphaz,nexternal)
+         call get_sigNNLO(snnlo,nexternal)
          call get_W_NNLO(asec,bsec,csec,dsec)
-
-         if(ierr.eq.1)cycle
 c
 c     counterterm
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)

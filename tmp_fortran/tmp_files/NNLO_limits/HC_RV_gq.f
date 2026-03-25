@@ -177,8 +177,6 @@ c     for sector (ia,ib)
       double precision ANS(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=1d0)
       double precision %(proc_prefix_HC_RV_gq)s_GET_CCBLO
       double precision %(proc_prefix_HC_RV_gq)s_GET_KKBLO
       double precision %(proc_prefix_HC_RV_gq)s_GET_KKVLO

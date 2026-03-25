@@ -127,11 +127,6 @@ c
 c     real sector function
       call get_sig2(snlo,nexternal)
       call get_W_NLO(isec,jsec)
-      if(ierr.eq.1)then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong W_NLO', W_NLO
-         goto 999
-      endif
 c
 c     full real in sector Wij
       int_real_no_cnt=RNLO*W_NLO*xjac

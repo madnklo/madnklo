@@ -21,8 +21,6 @@ c     while k is a q (or qb) with same flavour
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=2D0)
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -101,7 +99,7 @@ c     double-collinear kernel, eq. (B.17) of 2212.11190
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function
-      call get_hatsignnlo(r,xs,alphaz,nexternal)
+      call get_hatsignnlo(r,xs,nexternal)
       call get_wcc_nnlo(asec,bsec,csec,dsec)
       M2TMP=M2TMP*WCC_NNLO
 c
@@ -153,8 +151,6 @@ c     while k is a q (or qb) with same flavour
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
-      double precision alphaz
-      parameter(alphaz=2D0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -230,7 +226,7 @@ c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       M2tmp = M2tmp*BLO
 c
 c     include double-soft double-collinear sector function
-      call get_hatsignnlo(r,xs,alphaz,nexternal)
+      call get_hatsignnlo(r,xs,nexternal)
       call get_wss_cc_nnlo(asec,bsec,csec,dsec)
       M2tmp=M2tmp*wss_cc_nnlo
 c

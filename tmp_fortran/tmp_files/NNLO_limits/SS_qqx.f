@@ -25,8 +25,6 @@ c     S(i,j) kernel times WSS
       double precision sil,sim,slm,sij,sjl,sjm,ml2,mm2,y,z,x,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
-      double precision alphaZ
-      parameter(alphaZ=2d0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -79,9 +77,8 @@ c     get PDGs
       enddo
 c
 c     call W double-soft
-      call get_sigNNLO(XS,alphaz,nexternal)
+      call get_sigNNLO(xs,nexternal)
       call get_wss_nnlo(asec,bsec,csec,dsec)
-      if(ierr.eq.1)goto 999
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)

@@ -1,4 +1,4 @@
-      double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors4_module
       implicit none
@@ -12,10 +12,10 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer i,j,k,r
-      integer ia,ib,ik,ir,l,m,ierr,nit,parent,map1,map2
+      integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2
       integer jb,lb,mb
       integer jbb,lbb,mbb
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2
       double precision xs(nexternal,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -82,12 +82,8 @@ c     check flavour match
        stop 1
       endif
 c
-      call phase_space_cs_inv(ia,ib,ir,xp,xpb,nexternal,leg_pdgs,xjcs1,real_mapped_labels)
-      if(xjcs1.eq.0d0)goto 999
-c
 c     parent leg
       jb = real_mapped_labels(ib)
-      parent = jb
       do l=1,nexternal
          if(l.eq.isec) cycle
           if(abs(leg_pdgs(l)).le.6.or.leg_pdgs(l).eq.21) isNLOmappedQCDparton(real_mapped_labels(l)) = .true.
@@ -103,6 +99,12 @@ c     invariant quantities
       sbr=xs(ib,ir)
       x=sar/(sar+sbr)
 c
+c     safety check
+      if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
+         write(77,*)'Inaccuracy 1 in M2_C_SS_QQX',sab,sar+sbr,x
+         goto 999
+      endif
+c
 c     coefficients of kt
 c     kt = wa pa + wb pb + wr pr
       wa = 1d0-x
@@ -110,12 +112,6 @@ c     kt = wa pa + wb pb + wr pr
       wr = -(1d0-2d0*x)*sab/(sar+sbr)
       kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir)
       kt2 = dot(kt(:),kt(:))
-c
-c     safety check
-      if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_C_SS_QQX',sab,sar+sbr,x
-         goto 999
-      endif
 c
 c     overall kernel prefix
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)

@@ -46,7 +46,7 @@ c     set logical doplot
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
-      integer map1,map2,parent_leg
+      integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
@@ -91,13 +91,6 @@ c
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
-c     check reshuffled real flavour -> not needed anymore?
-c      if(real_leg_pdgs(j).ne.21)then
-c         write(*,*) 'Wrong parent particle label 1 in M2_C_CC_qxqqp', j, real_leg_pdgs(j)
-c         stop
-c      endif
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       jb = real_mapped_labels(j)
       kb = real_mapped_labels(k)
       rb = real_mapped_labels(r)
@@ -110,22 +103,12 @@ c      endif
       ENDIF
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
-      parent_leg = real_mapped_labels(jb)
-c
-c     check reshuffled Born flavour -> not needed anymore?
-c      if(Born_leg_pdgs(kb).ne.real_leg_pdgs(k))then
-c         write(*,*) 'Wrong parent particle label 2 in M2_C_CC_qxqqp', kb,k,Born_leg_pdgs(kb),real_leg_pdgs(k)
-c         stop
-c      endif
-      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
-      if(ierr.eq.1)goto 999
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
-c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
-      kt2 = -zi*zj*sij
-      ktb(:) = zbk*xpb(:,jb) - zbj*xpb(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpb(:,rb)
-      ktb2 = -zbj*zbk*sbjk
+      kt(:)  = zj*xp(:,i) - zi*xp(:,j) - (zj-zi)*sij/(sir+sjr)*xp(:,r)
+      kt2    = -zi*zj*sij
+      ktb(:) = zbk*xpb(:,jb) - zbj*xpb(:,kb) - (zbk-zbj)*sbjk/(sbjr+sbkr)*xpb(:,rb)
+      ktb2   = -zbj*zbk*sbjk
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
@@ -134,7 +117,7 @@ c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = TR*(1d0-2d0*zi*zj)
       Qij = TR*2d0*zi*zj
-      Pbjk = CF*(1d0+zbk**2)/zbj
+      Pbjk = CF*(1d0+zbk**2)/(1d0-zbk)
       Ebjkr = sbkr/sbjk/sbjr
       M2tmp = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
       M2tmp = M2tmp/sij*BLO
@@ -193,7 +176,7 @@ c     while k is a q (or qb) with any flavour
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision ktb(0:3),ktb2,kt(0:3),kt2,WSSCCC_NNLO
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
       double precision x,y,xinit
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr

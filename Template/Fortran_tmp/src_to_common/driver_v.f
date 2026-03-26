@@ -57,9 +57,8 @@ c     read inputs
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITVTH =  NITERS_FO_GRID
       NCLVTH = NPOINTS_FO_GRID
-      NITV = 10 10 !!NITERS_FO
+      NITV = NITERS_FO
       NCLV = NPOINTS_FO
-
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
@@ -80,7 +79,6 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-c     call histo_init
       nwgt=1
       weights_info(1)='central'
       call analysis_begin(nwgt,weights_info)
@@ -90,16 +88,14 @@ c     call histo_init
       open(unit=iu8,file='V_chan.log')
       open(unit=iu,file='results_V.log')
       line='=================================================='
-c      write(iu,*)' Virtual contribution '
-c      write(iu,*)
+      write(iu,*)' Virtual contribution '
 c
 c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
       nclVth0=max(10000,int(nclVth/5d0))
       nitVth0=max(5,int(nitVth/2d0))
       sum_err_v_a=0d0
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          init=0
          doplot=.false.
          call vegas(region,ndim,int_virtual,init,nclVth0,nitVth0,nprn,
@@ -109,8 +105,7 @@ c     number of points thrown per channel in the main loop
       enddo
 c
 c     main loop over channels
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          write(*,*)'Virtual warmup for channel',ich
          write(iu7,*)'Failures for virtual warmup, channel',ich
          write(iu1,*)
@@ -141,22 +136,13 @@ c
          sum_err_v = sum_err_v + err_v**2
          write(iu8,*)' sigma V [pb], channel',ich,' = ',
      &   res_v,' +-',err_v
-c         write(iu,*)
-c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
       call analysis_end(1d0,'plot_V.dat')
       sum_err_v = dsqrt(sum_err_v)
-c      call histo_final('plot_V.dat',rescale_plot_V)
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       write(iu,*)' sigma V [pb]  = ',sum_v,' +-',sum_err_v
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       close(iu)
       close(iu1)
       close(iu2)

@@ -80,7 +80,7 @@ c     phase-space dimension, same for all contributions to this folder
 c
 c     initialise histograms and open output files
       nwgt=1
-      weights_info(1)='central'
+      weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_V.log')
       open(unit=iu2,file='test_poles_V.log')

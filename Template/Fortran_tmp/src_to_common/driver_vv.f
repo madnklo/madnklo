@@ -77,7 +77,7 @@ c     phase-space dimension, same for all contributions to this folder
 c
 c     initialise histograms and open output files
 c      call histo_init
-c     call analysis_begin(1,'central')
+c     call analysis_begin(1,'central value')
       nwgt=1
       weights_info(1)='central'
       call analysis_begin(nwgt,weights_info)

@@ -79,7 +79,7 @@ c
 c     initialise histograms and open output files
 c      call histo_init
       nwgt=1
-      weights_info(1)='central'
+      weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')

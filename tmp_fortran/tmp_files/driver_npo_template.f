@@ -7,6 +7,7 @@
       INCLUDE 'cuts.inc'
       include 'colored_partons.inc'
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
+      INCLUDE 'all_sector_list.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -58,8 +59,10 @@ c     read inputs
       idum = iseed
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITRTH = NITERS_FO_GRID
+c      NCLRTH = NPOINTS_FO_GRID/dble(lensectors)
       NCLRTH = NPOINTS_FO_GRID
       NITR = NITERS_FO
+c      NCLR = NPOINTS_FO/dble(lensectors)
       NCLR = NPOINTS_FO
 c     TODO: understand muR input fixed/dyn scale
 c
@@ -85,7 +88,7 @@ c     initialise histograms and open output files
       jsec=%(jsec)d
 c      call histo_init
       nwgt=1
-      weights_info(1)='central'
+      weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log')

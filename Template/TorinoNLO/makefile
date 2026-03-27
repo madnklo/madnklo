@@ -34,6 +34,11 @@ clean:
 	rm -f SubProcesses/collect_events
 	rm -f SubProcesses/combine_jobs
 	rm -f SubProcesses/*.o
-	for dir in `ls -d SubProcesses/P*`; do cd $$dir; make clean; cd ../../;\
-	    done
+	for dir in `ls -d SubProcesses/P*`; do cd $$dir; make clean; cd ../../; done
+	for dir in `ls -d LO_*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
+	for dir in `ls -d NLO_V*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
+	for dir in `ls -d NLO_R*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
+	for dir in `ls -d NNLO_VV*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
+	for dir in `ls -d NNLO_RV*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
+	for dir in `ls -d NNLO_RR*/SubProcesses/P*`; do cd $$dir; make clean; cd ../../../; done
 

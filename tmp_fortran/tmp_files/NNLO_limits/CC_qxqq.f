@@ -98,7 +98,7 @@ c     double-collinear kernel, using eq. (B.17) in eq. (B.14) of 2212.11190
       M2TMP = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
       M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ) /ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
       M2TMP = M2TMP + (2D0*CF**2-CA*CF)*(-SIJK**2*ZI/(2D0*SIK*SIJ)*(1D0+ZI**2)/(ZIK*ZIJ)+(SJK/SIK+SJK/SIJ)+SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK/ZIK)+ SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ ))
-      M2TMP = CF*(2d0*CF-CA)*M2TMP*BLO
+      M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)

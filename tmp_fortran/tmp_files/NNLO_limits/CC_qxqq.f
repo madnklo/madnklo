@@ -95,9 +95,20 @@ c     call Born matrix element
       BLO = ANS(0)
 c
 c     double-collinear kernel, using eq. (B.17) in eq. (B.14) of 2212.11190
-      M2TMP = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
-      M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ) /ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-      M2TMP = M2TMP + (2D0*CF**2-CA*CF)*(-SIJK**2*ZI/(2D0*SIK*SIJ)*(1D0+ZI**2)/(ZIK*ZIJ)+(SJK/SIK+SJK/SIJ)+SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK/ZIK)+ SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ ))
+c     the choice follows the order
+c     1. IJK = QX Q Q
+c     2. IJK = QX Q QX
+c
+      if (leg_pdgs(I).EQ.-leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
+        M2TMP = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
+        M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ) /ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+        M2TMP = M2TMP + (2D0*CF**2-CA*CF)*(-SIJK**2*ZI/(2D0*SIK*SIJ)*(1D0+ZI**2)/(ZIK*ZIJ)+(SJK/SIK+SJK/SIJ)+SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK/ZIK)+ SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ ))
+      else if (leg_pdgs(I).EQ.leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
+        M2TMP = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
+        M2TMP = M2TMP +CF*TR*(-SIJK**2/(2D0*SJK**2)*(SIJ/SIJK-SIK/SIJK+(ZK-ZJ)/ZJK)**2+SIJK/SJK*(2D0*(ZI-ZK*ZJ)/ZJK+ZJK)-1D0/2D0)
+        M2TMP = M2TMP +CF*(2D0*CF-CA)*(-SIJK**2*ZJ/(2D0*SJK*SIJ)*(1D0+ZJ**2)/ZJK/ZIJ+SIK/SJK+SIK/SIJ+SIJK/2D0/SJK*((1D0+ZJ**2)/ZIJ-2D0*ZK/ZJK)+SIJK/2D0/SIJ*((1D0+ZJ**2)/ZJK-2D0*ZI/ZIJ))
+      endif
+c
       M2TMP = M2TMP*BLO
 c
 c     include double-collinear sector function

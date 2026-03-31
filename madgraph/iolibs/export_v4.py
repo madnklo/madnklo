@@ -2819,6 +2819,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         strdirpath=(str(self.dir_path))
         strdirpath=strdirpath.split('/')
 
+        
+
+
         # Write include directory
         os.mkdir(pjoin(dirpath, 'include'))
         cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/math.inc'),pjoin(dirpath,'include'))
@@ -2836,7 +2839,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         proc_prefix_born=matrix_element.get('processes')[0].shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         
-
         filename = pjoin(dirpath,'channels.txt')
         self.write_nchannels_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
@@ -2918,7 +2920,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
        
         
+        # Copy script to combine results
 
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_plots.py'),pjoin(path_to_create,'Events'))
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_results.py'),pjoin(path_to_create,'Events'))
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/run_all.py'),pjoin(path_to_create,'bin'))
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

@@ -6,18 +6,18 @@
       call HwU_inithist(nwgt,weights_info)
       call HwU_book(1,'total  ',2,0d0,2d0)
       call HwU_book(3,'pt j1  ',100,2d0,502d0)
-c$$$      call HwU_book(4,'pt j2  ',50,2d0,502d0)
-c$$$      call HwU_book(5,'pt j3  ',50,2d0,502d0)
-c$$$      call HwU_book(6,'pt j4  ',50,2d0,502d0)
-c$$$      call HwU_book(7,'abs eta j1  ',30,0d0,6d0)
-c$$$      call HwU_book(8,'abs eta j2  ',30,0d0,6d0)
-c$$$      call HwU_book(9,'abs eta j3  ',30,0d0,6d0)
-c$$$      call HwU_book(10,'abs eta j4 ',30,0d0,6d0)
-c$$$      call HwU_book(11,'abs y j1  ',30,0d0,6d0)
-c$$$      call HwU_book(12,'abs y j2  ',30,0d0,6d0)
-c$$$      call HwU_book(13,'abs y j3  ',30,0d0,6d0)
-c$$$      call HwU_book(14,'abs y j4  ',30,0d0,6d0)
-c$$$      call HwU_book(15,'njet      ',4,0d0,4d0)
+      call HwU_book(4,'pt j2  ',50,2d0,502d0)
+      call HwU_book(5,'pt j3  ',50,2d0,502d0)
+      call HwU_book(6,'pt j4  ',50,2d0,502d0)
+      call HwU_book(7,'abs eta j1  ',30,0d0,6d0)
+      call HwU_book(8,'abs eta j2  ',30,0d0,6d0)
+      call HwU_book(9,'abs eta j3  ',30,0d0,6d0)
+      call HwU_book(10,'abs eta j4 ',30,0d0,6d0)
+      call HwU_book(11,'abs y j1  ',30,0d0,6d0)
+      call HwU_book(12,'abs y j2  ',30,0d0,6d0)
+      call HwU_book(13,'abs y j3  ',30,0d0,6d0)
+      call HwU_book(14,'abs y j4  ',30,0d0,6d0)
+      call HwU_book(15,'njet      ',4,0d0,4d0)
       return
       end
 
@@ -34,7 +34,8 @@ c$$$      call HwU_book(15,'njet      ',4,0d0,4d0)
       write(seedstr,'(I0)') iseed
       
 c      open(unit=99, file=trim(seedstr)//'_MADatNLO.HwU',
-      open(unit=99, file='seed'//'_'//trim(seedstr)//'_'//fname,status='unknown')
+      open(unit=99, file='seed'//'_'//trim(seedstr)
+     $     //'_'//fname,status='unknown')
       xnorm=1d0
       call HwU_output(99,xnorm)
       return                
@@ -43,49 +44,90 @@ c      open(unit=99, file=trim(seedstr)//'_MADatNLO.HwU',
       subroutine analysis_fill(p,s,nexternal,ipdg,wgts)
       implicit none
 c$$$      include 'nexternal.inc'
-c$$$      integer istatus(nexternal)
+c$$$  integer istatus(nexternal)
+      include 'run.inc'
+      include 'cuts.inc'
       integer nexternal,iPDG(nexternal)
       double precision p(0:3,nexternal),s(nexternal,nexternal)
       double precision wgts(*)
-c$$$      integer ibody
-c$$$      double precision wgt,var
-c$$$      integer i,kk,l
-c$$$      double precision www,pv(0:3),xmv,ptv,yv,etav
-c$$$      double precision getrapidity,getpseudorap,dot
-c$$$      external getrapidity,getpseudorap,dot
-c     
+      integer i,j,nQCD
+      double precision xsec,thrust
+      double precision getthrust_3body,getrapidity,getpseudorap
+      double precision rfj,sycut,palg,pQCD(0:3,nexternal),etamax
+      double precision, parameter :: tiny=1d-8
+      double precision eta
       double precision pt
       integer ich
       common/comich/ich
-      
+c     jets
+      pjet=0d0
+      jet=0
+      njet=0
+      ptjet=0d0
+      etajet=-100d0
+      yjet=-100d0
+c
+c     cluster partons into jets
+      nQCD=0
+      do j=3,nexternal
+         if(abs(ipdg(j)) .le. maxjetflavor .or. ipdg(j)
+     $        .eq. 21) then
+            nQCD=nQCD+1
+            do i=0,3
+               pQCD(i,nQCD)=p(i,j)
+            enddo
+         endif
+      enddo
+
+c     
+c     clustering parameters
+      palg = jetalgo
+      rfj = jetradius
+      sycut = ptj
+      etamax = etaj
+      call fastjetppgenkt_etamax(pQCD,nQCD,rfj,sycut,etamax,palg,pjet,njet,jet)
+
+c     check on jet pt ordering
+
+         do i=1,njet
+            ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
+            etajet(i)=eta(pjet(0,i))
+            if(i.gt.1)then
+               if (ptjet(i)-ptjet(i-1).gt.tiny) then
+                  write (*,*) 'Error 1 in analyis: jets unordered in pt'
+                  stop
+               endif
+            endif
+         enddo
+
       
       call HwU_fill(1,1d0,wgts)
-      pt = dsqrt(p(1,nexternal)**2+p(2,nexternal)**2)
-      call HwU_fill(3,pt,wgts)
+c      pt = dsqrt(p(1,nexternal)**2+p(2,nexternal)**2)
+c      call HwU_fill(3,pt,wgts)
+
+      
+      if(njet.ge.1)then
+         call HwU_fill(3,ptjet(1),wgts)
+         call HwU_fill(7,abs(etajet(1)),wgts)
+         call HwU_fill(11,abs(yjet(1)),wgts)
+      endif
+      if(njet.ge.2)then
+         call HwU_fill(4,ptjet(2),wgts)
+         call HwU_fill(8,abs(etajet(2)),wgts)
+         call HwU_fill(12,abs(yjet(2)),wgts)
+      endif
+      if(njet.ge.3)then
+         call HwU_fill(5,ptjet(3),wgts)
+         call HwU_fill(9,abs(etajet(3)),wgts)
+         call HwU_fill(13,abs(yjet(3)),wgts)
+      endif
+      if(njet.ge.4)then
+         call HwU_fill(6,ptjet(4),wgts)
+         call HwU_fill(10,abs(etajet(4)),wgts)
+         call HwU_fill(14,abs(yjet(4)),wgts)
+      endif
+      call HwU_fill(15,dble(njet),wgts)
       call HwU_add_points
-      
-
-
-      
-c$$$C
-c$$$      do i=0,3
-c$$$        pv(i)=p(i,3)
-c$$$      enddo
-c$$$      xmv=sqrt(max(dot(pv,pv),0d0))
-c$$$      ptv=sqrt(max(pv(1)**2+pv(2)**2,0d0))
-c$$$      yv=getrapidity(pv(0),pv(3))
-c$$$      etav=getpseudorap(pv(0),pv(1),pv(2),pv(3))
-c$$$C
-c$$$      do i=1,2
-c$$$         l=(i-1)*5
-c$$$         if (ibody.ne.3 .and.i.eq.2) cycle
-c$$$         call HwU_fill(l+1,ptv,WGTS)
-c$$$         if(ptv.gt.0) call HwU_fill(l+2,log10(ptv),WGTS)
-c$$$         call HwU_fill(l+3,yv,WGTS)
-c$$$         call HwU_fill(l+4,etav,WGTS)
-c$$$         call HwU_fill(l+5,xmv,WGTS)
-c$$$      enddo
-C
  999  return      
       end
 
@@ -241,27 +283,27 @@ c$$$      call mfill(15,dble(njet),www)
 c$$$c
 c$$$      return
 c$$$      end
-c$$$
-c$$$
-c$$$
-c$$$      subroutine histo_final(fname,xresc)
-c$$$      implicit none
-c$$$      integer i,maxpl,iupl
-c$$$      parameter(maxpl=100)
-c$$$      double precision xresc
-c$$$      character*(*) fname
-c$$$c
-c$$$      iupl=98
-c$$$      open(unit=iupl,file=trim(fname))
-c$$$c
-c$$$      do i=1,maxpl
-c$$$         call mfinal3(i)
-c$$$         call mprint(i,xresc)
-c$$$      enddo
-c$$$c
-c$$$      return
-c$$$      end
-c$$$
+c$$$c$$$
+c$$$c$$$
+c$$$c$$$
+c$$$c$$$      subroutine histo_final(fname,xresc)
+c$$$c$$$      implicit none
+c$$$c$$$      integer i,maxpl,iupl
+c$$$c$$$      parameter(maxpl=100)
+c$$$c$$$      double precision xresc
+c$$$c$$$      character*(*) fname
+c$$$c$$$c
+c$$$c$$$      iupl=98
+c$$$c$$$      open(unit=iupl,file=trim(fname))
+c$$$c$$$c
+c$$$c$$$      do i=1,maxpl
+c$$$c$$$         call mfinal3(i)
+c$$$c$$$         call mprint(i,xresc)
+c$$$c$$$      enddo
+c$$$c$$$c
+c$$$c$$$      return
+c$$$c$$$      end
+c$$$c$$$
 
       function getthrust_3body(xp,n)
       implicit none

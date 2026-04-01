@@ -396,7 +396,7 @@ C
       INTEGER I,J
 
 ## if (spin_correlation) {
-      include 'spin_correlations.inc'      
+      include '%(proc_prefix)sspin_correlations.inc'      
 ## }
 
 C ----------
@@ -474,7 +474,7 @@ C
 	  common/%(proc_prefix)sMP_DONE/MP_DONE
 
 ## if (spin_correlation) {
-      include 'spin_correlations.inc'      
+      include '%(proc_prefix)sspin_correlations.inc'      
 ## }
 
 C ----------

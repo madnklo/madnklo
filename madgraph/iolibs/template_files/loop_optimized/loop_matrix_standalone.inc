@@ -462,7 +462,7 @@ C     consider. POLARIZATIONS(0,0) is -1 if there is not such requirement.
       COMMON/%(proc_prefix)sBEAM_POL/POLARIZATIONS
 
 ## if (spin_correlation) {
-      include 'spin_correlations.inc'
+      include '%(proc_prefix)sspin_correlations.inc'
       INTEGER SPINCORR_HEL_INDICES(NEXTERNAL)
       LOGICAL SKIP_THIS_HELICITY
       INTEGER ISC

@@ -2426,8 +2426,10 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                                       matrix_element,
                                       OptimizedFortranModel)    
         
+
+
         if not self.opt['spin_correlators'] is None:
-            filename = 'spin_correlations.inc'
+            filename = '%sspin_correlations.inc'%matrix_element.rep_dict['proc_prefix']
             self.write_spin_correlations_include(writers.FortranWriter(filename), 
                             proc_prefix = matrix_element.rep_dict['proc_prefix'])
         

@@ -153,7 +153,7 @@ contains
     num = sigNNLO(a,b,c,d)
     sigma = 0d0
     do i=1,len
-       sec=ss_sector_list(a,b,i,:)
+       sec=ss_sector_list(a,c,i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma +  sigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo
@@ -187,21 +187,21 @@ contains
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
 
-  subroutine get_WSS_CC_NNLO(a,b,ic,id)
+  subroutine get_WSS_CC_NNLO(a,b,c,d)
     ! NNLO double-soft triple-collinear sector functions WSSCC
     implicit none
-    integer :: i,a,b,c,d,ic,id,sec(4)
+    integer :: i,a,b,c,d,ib,sec(4)
     double precision :: num, sigma
     include 'all_K2_sector_list.inc'
-    num = hatsigNNLO(a,b,ic,id)
+    num = hatsigNNLO(a,b,c,d)
     sigma = 0d0
-    if(b.eq.ic) then
-      c = id
-    elseif(b.eq.id) then
-      c = ic
+    if(b.eq.c) then
+       ib = b
+    elseif(b.eq.d) then
+       ib = c
     endif
     do i=1,len
-       sec=ss_cc_sector_list(a,b,c,i,:)
+       sec=ss_cc_sector_list(a,ib,d,i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + &
             hatsigNNLO(sec(1),sec(2),sec(3),sec(4))

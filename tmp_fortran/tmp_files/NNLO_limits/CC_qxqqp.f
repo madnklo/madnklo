@@ -43,7 +43,6 @@ c     set logical doplot
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-
 c
 c     initialise
       M2_CC_qxqqp=0d0

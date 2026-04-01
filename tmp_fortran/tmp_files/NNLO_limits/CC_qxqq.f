@@ -4,12 +4,12 @@ c     while k is a q (or qb) with same flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -20,9 +20,9 @@ c     while k is a q (or qb) with same flavour
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
       double precision zi,zj,zk,zij,zik,zjk
-      double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
       logical flavourmatch
+      double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -50,7 +50,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.bsec .and. bsec.ne.csec) then
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
@@ -91,7 +91,7 @@ c     safety check
       ENDIF
 c
 c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     double-collinear kernel, using eq. (B.17) in eq. (B.14) of 2212.11190
@@ -114,12 +114,12 @@ c
 c     include double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)
       call get_wcc_nnlo(asec,bsec,csec,dsec)
-      M2TMP=M2TMP*WCC_NNLO
+      M2tmp=M2tmp*wcc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_CC_qxqq = M2tmp*pref/sijk**2*xj*extra ! see [eq.(C.15); is consistent]
+      M2_CC_qxqq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
 c
 c     plot
       wgtpl=-M2_CC_qxqq*wgt/nit*wgt_chan
@@ -145,12 +145,12 @@ c     while k is a q (or qb) with same flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -192,7 +192,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(dsec.ne.bsec .and. bsec.ne.csec) then
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
@@ -230,7 +230,7 @@ c     safety check
       ENDIF
 c
 c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
@@ -246,7 +246,7 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra ! see [eq.(C.16)]
+      M2_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra ! eq.(C.16)
 c
 c     plot
       wgtpl=+M2_SS_qqx_CC_qxqq*wgt/nit*wgt_chan

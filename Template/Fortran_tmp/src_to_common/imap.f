@@ -10,6 +10,11 @@ c     outputs: mapped_labels,mapped_flavours,mapped_indices_shuff
       logical isgg,isqq,isqg,isgq,assigned(npart-1)
 c
 c     initialise
+      if (a.eq.b) then
+         write(*,*)'mapped_labels cannot be identical'
+         write(*,*)a,b,pdgs(a),pdgs(b)
+         stop
+      endif
       i1=min(a,b)
       i2=max(a,b)
       mapped_labels(:)=0

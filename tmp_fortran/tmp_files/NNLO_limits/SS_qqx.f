@@ -53,6 +53,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
+      common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
 c
 c     initialise
       M2_SS_qqx=0d0
@@ -77,7 +79,6 @@ c     get PDGs
       enddo
 c
 c     call W double-soft
-      call get_sigNNLO(xs,nexternal)
       call get_wss_nnlo(asec,bsec,csec,dsec)
 c
 c     overall kernel prefix

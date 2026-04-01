@@ -190,6 +190,8 @@ c
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
+      common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
       include 'all_sector_list.inc'
 C
 c     cpartindices:
@@ -224,13 +226,23 @@ c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
       call get_mapped_labels(nexternal,asec,bsec,leg_pdgs,real_leg_pdgs,real_mapped_labels)
 c     for mapped n+1 -> n mapped labels:
-c     if lsec =0 the unresolved pair is bsec, csec,
-c     if lsec!=0 the unresolved pair is csec, dsec.
+c     if lsec =0 the unresolved pair is jsec, ksec,
+c     if lsec!=0 the unresolved pair is ksec, lsec.
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(bsec)
-      if(lsec.ne.0)map2=real_mapped_labels(dsec)
+      map1=real_mapped_labels(ksec)
+      map2=real_mapped_labels(jsec)
+      if(lsec.ne.0)map2=real_mapped_labels(lsec)
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_mapped_labels)
+c
+c     fill mapped labels for double-soft mapping
+c     for ijkj and ijkl if pdg(i)+pdg(k)=0
+      if((bsec.ne.csec).and.(leg_pdgs(asec)+leg_pdgs(ksec).eq.0)) then
+         call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_ss_mapped_labels)
+         map1=real_ss_mapped_labels(ksec)
+         map2=real_ss_mapped_labels(jsec)
+         if(lsec.ne.0)map2=real_ss_mapped_labels(lsec)
+         call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_ss_mapped_labels)
+      endif
 
       j=1
       do i=1,lensectors

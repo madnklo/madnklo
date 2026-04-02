@@ -997,7 +997,7 @@ sector_%d_%d: $(FILES_%d_%d)
 """ %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)
 
         object_str = """
-%.o: %.f $(INCLUDE) | $(OBJ)/polynomial.o
+%.o: %.f $(INCLUDE) | $(OBJ)/RV_polynomial.o
 \t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
 
 %.o: $(PATH_TO_USR_FILES)/%.f $(INCLUDE)

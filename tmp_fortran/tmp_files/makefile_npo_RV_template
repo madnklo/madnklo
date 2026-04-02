@@ -123,8 +123,8 @@ USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o HwU.o cuts.o config
 %(sector_str)s
 
 # Compile polynomial first
-$(OBJ)/polynomial.o: polynomial.f
-	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/polynomial.o polynomial.f
+$(OBJ)/RV_polynomial.o: RV_polynomial.f
+	$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/RV_polynomial.o RV_polynomial.f
 
 .PHONY: clean libs
 clean:

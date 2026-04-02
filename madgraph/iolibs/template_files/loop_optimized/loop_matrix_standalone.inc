@@ -242,7 +242,7 @@ C
 C  
 C GLOBAL VARIABLES
 C 
-      include 'process_info.inc'
+      include '%(loopstr)sprocess_info.inc'
       include 'unique_id.inc'
       include 'coupl.inc'
 	  include 'mp_coupl.inc'
@@ -462,7 +462,7 @@ C     consider. POLARIZATIONS(0,0) is -1 if there is not such requirement.
       COMMON/%(proc_prefix)sBEAM_POL/POLARIZATIONS
 
 ## if (spin_correlation) {
-      include '%(proc_prefix)sspin_correlations.inc'
+      include 'spin_correlations.inc'
       INTEGER SPINCORR_HEL_INDICES(NEXTERNAL)
       LOGICAL SKIP_THIS_HELICITY
       INTEGER ISC

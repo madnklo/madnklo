@@ -1089,6 +1089,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     #gl
     def write_makefile_v_template(self, writer, matrix_element):
         
+
+        loop_str = 'V_'
         replace_dict = {}
         proc_prefix = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
@@ -2377,7 +2379,15 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         and loop_num.f only but with the optimized FortranModel.
         The arguments group_number and proc_id are just for the LoopInduced
         output with MadEvent and only used in get_ME_identifier."""
-                
+                        
+        if((self.dir_path).split('/')[-1][0:9]=='NLO_V_x_B'):
+            loop_str= 'V_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_RV_x_R'):
+            loop_str='RV_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_VV_x_B'):    
+            loop_str='VV_'
+
+
         # Warn the user that the 'matrix' output where all relevant code is
         # put together in a single file is not supported in this loop output.
         if writer:
@@ -2420,8 +2430,10 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
         proc_prefix_writer = writers.FortranWriter('proc_prefix.txt','w')
         proc_prefix_writer.write(matrix_element.rep_dict['proc_prefix'])
         proc_prefix_writer.close()
-                    
-        filename = 'loop_matrix.f'
+        # GIOVANNI
+                
+        filename = '%sloop_matrix.f'%loop_str
+    
         calls = self.write_loopmatrix(writers.FortranWriter(filename),
                                       matrix_element,
                                       OptimizedFortranModel)    
@@ -2429,47 +2441,56 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
 
 
         if not self.opt['spin_correlators'] is None:
-            filename = '%sspin_correlations.inc'%matrix_element.rep_dict['proc_prefix']
+            filename = '%s%sspin_correlations.inc'%(loop_str,matrix_element.rep_dict['proc_prefix'])
             self.write_spin_correlations_include(writers.FortranWriter(filename), 
                             proc_prefix = matrix_element.rep_dict['proc_prefix'])
         
-        filename = 'polynomial.f'
+        #filename = 'polynomial.f'
+        filename = '%spolynomial.f'%loop_str
         calls = self.write_polynomial_subroutines(
                                       writers.FortranWriter(filename),
                                       matrix_element)
         
-        filename = 'improve_ps.f'
+        #filename = 'improve_ps.f'
+        filename = '%simprove_ps.f'%loop_str
         calls = self.write_improve_ps(writers.FortranWriter(filename),
                                                                  matrix_element)
         
-        filename = 'CT_interface.f'
+        #filename = 'CT_interface.f'
+        filename = '%sCT_interface.f'%loop_str
         self.write_CT_interface(writers.FortranWriter(filename),\
                                 matrix_element)
         
-        filename = 'TIR_interface.f'
+        #filename = 'TIR_interface.f'
+        filename = '%sTIR_interface.f'%loop_str
         self.write_TIR_interface(writers.FortranWriter(filename),
                                 matrix_element)
         
         if 'golem' in self.tir_available_dict and self.tir_available_dict['golem']:
-            filename = 'GOLEM_interface.f'
+            #filename = 'GOLEM_interface.f'
+            filename = '%sGOLEM_interface.f'%loop_str
             self.write_GOLEM_interface(writers.FortranWriter(filename),
                                        matrix_element)
 
         if 'collier' in self.tir_available_dict and self.tir_available_dict['collier']:
-            filename = 'COLLIER_interface.f'
+            #filename = 'COLLIER_interface.f'
+            filename = '%sCOLLIER_interface.f'%loop_str
             self.write_COLLIER_interface(writers.FortranWriter(filename),
                                        matrix_element)
 
-        filename = 'loop_num.f'
+        #filename = 'loop_num.f'
+        filename = '%sloop_num.f'%loop_str
         self.write_loop_num(writers.FortranWriter(filename),\
                                            matrix_element,OptimizedFortranModel)
         
-        filename = 'mp_compute_loop_coefs.f'
+        #filename = 'mp_compute_loop_coefs.f'
+        filename = '%smp_compute_loop_coefs.f'%loop_str
         self.write_mp_compute_loop_coefs(writers.FortranWriter(filename),\
                                      matrix_element,OptimizedFortranModel)
 
         if self.get_context(matrix_element)['ComputeColorFlows']:
-            filename = 'compute_color_flows.f'
+            #filename = 'compute_color_flows.f'
+            filename = '%scompute_color_flows.f'%loop_str
             self.write_compute_color_flows(writers.FortranWriter(filename),
                                         matrix_element, config_map = config_map)
 
@@ -2480,20 +2501,24 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                                                             nexternal, ninitial)
         
         # Write general process information                        
-        filename = 'process_info.inc'
+        #filename = 'process_info.inc'
+        filename = '%sprocess_info.inc'%loop_str
         self.write_process_info_file(writers.FortranWriter(filename),
                                                                  matrix_element)
 
         # Write the user access subroutines, i.e. all the
-        filename = 'user_access_subroutines.f'
+        #filename = 'user_access_subroutines.f'
+        filename = '%suser_access_subroutines.f'%loop_str
         self.write_user_access_subroutines(writers.FortranWriter(filename),
                                                                  matrix_element)
 
         if self.get_context(matrix_element)['TIRCaching']:
-            filename = 'tir_cache_size.inc'
+            #filename = 'tir_cache_size.inc'
+            filename = '%stir_cache_size.inc'%loop_str
             self.write_tir_cache_size_include(writers.FortranWriter(filename))
 
-        filename = 'check_sa.f'
+        #filename = 'check_sa.f'
+        filename = '%scheck_sa.f'%loop_str
         self.write_check_sa(writers.FortranWriter(filename),matrix_element)
 
         return calls
@@ -2565,6 +2590,13 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
          defining the loop HELAS-like calls along with the general interfacing 
          subroutine. """
 
+        if((self.dir_path).split('/')[-1][0:9]=='NLO_V_x_B'):
+            loop_str= 'V_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_RV_x_R'):
+            loop_str='RV_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_VV_x_B'):    
+            loop_str='VV_'
+
         # First write TIR_interface which interfaces MG5 with TIR.
         replace_dict=copy.copy(matrix_element.rep_dict)
             
@@ -2601,6 +2633,11 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                      ','.join(['.TRUE.' if l else '.FALSE.' for l in 
                                            has_HEFT_vertex[k:k + chunk_size]])))
         replace_dict['has_HEFT_list'] = '\n'.join(has_HEFT_list)
+
+        # GIOVANNIIIII
+
+        replace_dict['loopstr'] = loop_str
+
 
         file = file % replace_dict
         
@@ -3162,6 +3199,15 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
                                                    write_auxiliary_files=True,):
         """Create the loop_matrix.f file."""
         
+
+        if((self.dir_path).split('/')[-1][0:9]=='NLO_V_x_B'):
+            loop_str= 'V_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_RV_x_R'):
+            loop_str='RV_'
+        elif((self.dir_path).split('/')[-1][0:11]=='NNLO_VV_x_B'):    
+            loop_str='VV_'
+
+
         if not matrix_element.get('processes') or \
                not matrix_element.get('diagrams'):
             return 0
@@ -3345,6 +3391,11 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
         matrix_element.rep_dict['coef_construction']=replace_dict['coef_construction']            
         
         replace_dict['coef_merging']='\n'.join(coef_merging)
+
+        #### GIOVANNI
+        replace_dict['loopstr'] = loop_str
+
+
 
         file = file % replace_dict
         number_of_calls = len(filter(lambda call: call.find('CALL LOOP') != 0, \

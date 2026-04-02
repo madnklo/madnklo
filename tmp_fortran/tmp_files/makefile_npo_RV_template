@@ -82,25 +82,25 @@ SOURCE=../../Source
 FFLAGS+= -I$(INCLUDE0) -I$(INCLUDE1) -I$(INCLUDE2) -I$(SOURCE)
 
 PROCESS= MadLoopParamReader.o MadLoopCommons.o \
- $(patsubst $(DOTF),$(DOTO),$(wildcard polynomial.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard loop_matrix.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard improve_ps.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_polynomial.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_loop_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_improve_ps.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard born_matrix.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard CT_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard loop_num.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_CT_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_loop_num.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard helas_calls*.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard jamp?_calls_*.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard mp_born_amps_and_wfs.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard mp_compute_loop_coefs.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_mp_compute_loop_coefs.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard mp_helas_calls*.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard coef_construction_*.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard loop_CT_calls_*.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard mp_coef_construction_*.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard TIR_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard GOLEM_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard COLLIER_interface.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard compute_color_flows.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard user_access_subroutines.f))
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_TIR_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_GOLEM_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_COLLIER_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_compute_color_flows.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard RV_user_access_subroutines.f))
 
 VPATH = $(OBJ)
 

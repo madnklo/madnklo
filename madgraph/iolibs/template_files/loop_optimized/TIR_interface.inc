@@ -477,7 +477,7 @@ C
 C GLOBAL VARIABLES
 C
 	        INCLUDE 'MadLoopParams.inc'
-			INCLUDE 'process_info.inc'
+			INCLUDE '%(loopstr)sprocess_info.inc'
 C Change the list 'LOOPLIBS_QPAVAILABLE' in loop_matrix_standalone.inc to change the list of QPTools availables
             LOGICAL QP_TOOLS_AVAILABLE
             INTEGER INDEX_QP_TOOLS(QP_NLOOPLIB+1)

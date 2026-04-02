@@ -113,8 +113,9 @@ c
 c     call colour-connected Born and Virtual
             lb=mapped_labels(l)
             mb=mapped_labels(m)
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+            ANS=0d0
 c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccVLO = (/0d0,0d0,0d0/) !%(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c

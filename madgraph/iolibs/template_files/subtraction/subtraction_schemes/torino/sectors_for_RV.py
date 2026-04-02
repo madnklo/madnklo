@@ -952,7 +952,7 @@ c     spurious collinear limit
         sector_str = ''
         all_str = 'all: libs'
         # the RV matel is originally "loop_matrix.f" -- it is renamed "matrix_<str_proc>.f" for consistency
-        os.rename("%s/loop_matrix.f" % dirpath, "%s/matrix_%s.f" % (dirpath, defining_process.shell_string(
+        os.rename("%s/RV_loop_matrix.f" % dirpath, "%s/matrix_%s.f" % (dirpath, defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
         proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o matrix_R_%s.o """ % (
             defining_process.shell_string(

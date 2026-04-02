@@ -75,6 +75,8 @@ c
       double precision e(2),l(2)
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      double precision CSpow(2)
+      common /cCSpow/CSpow
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c
@@ -110,7 +112,7 @@ c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise
-         x(1:2)=abs(l(1:2)-x0(1:2)*lam**e(1:2))
+         x(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
 c
 c     set xsave so that the counterterms will be called with
 c     more and more singular kinematics

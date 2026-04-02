@@ -27,6 +27,9 @@ c     npart = n+1
       double precision vel
       integer mapped_labels(npart)
       double precision pmass(nexternal)
+      double precision CSpow(2)
+      data CSpow /1d0,1d0/
+      common/cCSpow/CSpow
       include 'pmass.inc'
 c
 c     initialise
@@ -98,8 +101,11 @@ c        Eu is the energy of p(iU)
          sinthUB= dsqrt(abs(1d0-costhUB**2))
       else
 c     Catani-Seymour parametrisation for massless case
-         zCS =xx(1)
-         yCS =xx(2)
+         zCS =xx(1)**CSpow(1)
+         xjac=xjac* CSpow(1)*xx(1)**(CSpow(1)-1d0)
+         yCS =xx(2)**CSpow(2)
+         xjac=xjac* CSpow(2)*xx(2)**(CSpow(2)-1d0)
+         if(1d0-yCS.eq.1d0 .or. 1d0-yCS.eq.1d0) return
          phCS=2d0*pi*xx(3)
          costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
          sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))
@@ -163,15 +169,12 @@ c     CS massive mapping
 c     construct xjac
          xjac = xjac * (sdip**2*(1d0-yCS))/(4d0*dsqrt(lam1)*(2d0*Pi)**3)
       else
-         
 c     CS massless mapping         
-      p(:,iB)=(1d0-yCS)*pbBsave(:)
-      p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
-      
+         p(:,iB)=(1d0-yCS)*pbBsave(:)
+         p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
 c     construct xjac
-      GG=1d0/16d0/pi**3
-      xjac=GG*(4d0*pmod**2)*pi*(1-yCS)
-
+         GG=1d0/16d0/pi**3
+         xjac=xjac*GG*(4d0*pmod**2)*pi*(1-yCS)
       endif
       
       do j=1,npart

@@ -72,14 +72,20 @@ c     overall kernel prefix
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
-      do m=1,nexternal
+c      do m=1,nexternal
+c         if(.not.isNLOQCDparton(m))cycle
+c         if(m.eq.i)cycle
+c         do l=1,nexternal
+c            if(.not.isNLOQCDparton(l))cycle
+c            if(l.eq.i)cycle
+c            if(l.eq.m)cycle
+      do m=1,nexternal-1
          if(.not.isNLOQCDparton(m))cycle
          if(m.eq.i)cycle
-         do l=1,nexternal
+         do l=m+1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
-            if(l.eq.m)cycle
-c
+c            
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
@@ -113,7 +119,7 @@ c     call colour-connected Born
 c
 c     eikonal
             M2TMP = SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
-            M2TMP = CCBLO*M2TMP
+            M2TMP = CCBLO*M2TMP * 2d0
 c
 c     damping factors
             if(m.gt.2.and.l.gt.2)then

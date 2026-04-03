@@ -23,7 +23,7 @@ C     These are constants related to the split orders
       PARAMETER (NORMALIZATION = 1.D0/(16.D0*3.14159265358979323846D0**2))
 ## if(TIRCaching){
       INTEGER TIR_CACHE_SIZE
-      include 'tir_cache_size.inc'
+      include '%(loopstr)stir_cache_size.inc'
 ## }
 C  
 C ARGUMENTS 
@@ -549,7 +549,7 @@ C  DP EVALUATION
 		INTEGER NLOOPGROUPS
         PARAMETER (NLOOPGROUPS=%(nloop_groups)d)
         INTEGER TIR_CACHE_SIZE
-        include 'tir_cache_size.inc'
+        include '%(loopstr)stir_cache_size.inc'
 
 		INTEGER I,J
 
@@ -571,7 +571,7 @@ C No TIR caching implemented, this is dummy. (The subroutine is kept as it might
 	  integer function %(proc_prefix)sTIRCACHE_INDEX(CTMODE)
 C Mapping function from CTMode to index and the TIR_cache
         INTEGER TIR_CACHE_SIZE
-        include 'tir_cache_size.inc'
+        include '%(loopstr)stir_cache_size.inc'
 
 		INTEGER CTMODE
 

@@ -1052,7 +1052,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
     def write_NLO_V_template(self, writer, matrix_element, group_number = None, proc_id = None):
         
         replace_dict = {}
-        replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
+        replace_dict['long_proc_prefix'] = 'V_'+self.get_ME_identifier(matrix_element,
                        group_number = group_number, group_elem_number = proc_id)
 
         # write driver
@@ -1252,9 +1252,18 @@ virtual: $(FILES)
         # A general process prefix which appears in front of all MadLooop
         # subroutines and common block so that several processes can be compiled
         # together into one library, as necessary to follow BLHA guidelines.
-        
-        dict['proc_prefix'] = self.get_ME_identifier(matrix_element,
-                       group_number = group_number, group_elem_number = proc_id)
+
+        strdirpath=(str(self.dir_path))
+        strdirpath=strdirpath.split('/')
+        if strdirpath[-1][0:5] == 'NLO_V':
+            dict['proc_prefix'] = 'V_'+self.get_ME_identifier(matrix_element,
+                                                              group_number = group_number, group_elem_number = proc_id)
+        elif strdirpath[-1][0:7] == 'NNLO_RV':
+            dict['proc_prefix'] = 'RV_'+self.get_ME_identifier(matrix_element,
+                                                               group_number = group_number, group_elem_number = proc_id)
+        else:
+            dict['proc_prefix'] = self.get_ME_identifier(matrix_element,
+                                                         group_number = group_number, group_elem_number = proc_id)
 
         # The proc_id is used for MadEvent grouping, so none of our concern here
         # and it is simply set to an empty string.        
@@ -2441,7 +2450,7 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
 
 
         if not self.opt['spin_correlators'] is None:
-            filename = '%s%sspin_correlations.inc'%(loop_str,matrix_element.rep_dict['proc_prefix'])
+            filename = '%sspin_correlations.inc'% matrix_element.rep_dict['proc_prefix']
             self.write_spin_correlations_include(writers.FortranWriter(filename), 
                             proc_prefix = matrix_element.rep_dict['proc_prefix'])
         

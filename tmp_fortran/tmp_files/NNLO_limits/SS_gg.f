@@ -60,7 +60,7 @@ c     initialise
       ierr=0
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j) then
+      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
         write(*,*) 'Flavour mismatch in M2_SS_gg', leg_PDGs(i),leg_PDGs(j)
         stop 1
       endif

@@ -99,7 +99,7 @@ c
       parent_leg = real_mapped_labels(ib)
       KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2_C_gg=-2d0*CA*((xa/xb+xb/xa)*BLO+xa*xb*KKBLO)/sab
+      M2_C_gg=-2d0*CA*((xa/xb+xb/xa)*BLO+xa*xb*KKBLO)
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)

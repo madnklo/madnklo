@@ -349,7 +349,9 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 'alt_Born_str'  :   '',
                 'alt_Born_path' :   '',
                 'Real_str'      :   '',
+                'Virt_str'      :   '',
                 'path_to_Real'  :   '',
+                'path_to_Virt'  :   '',
             }
             sector_info['isec'] = isec
             sector_info['jsec'] = jsec
@@ -426,18 +428,25 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                 R_proc = str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False))
+
                 # list of proc str permutations '1_epem_ddx' for directory
                 uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
-                    dirpathNLO = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
+                    dirpathNLOR = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
+                    dirpathNLOV = pjoin(dirmadnklo,glob.glob("%s/NLO_V_x_B_*" % interface.user_dir_name[0])[0])
+                    Vsubproc_base = pjoin(dirpathNLOV, 'SubProcesses')
+                    V_proc = uB_proc[j]
+                    dirpathNLOV = glob.glob(pjoin(Vsubproc_base, "P1_*_%s" % V_proc))[0]
                     if os.path.exists(dirpathLO):
                         replace_dict_int_real['strUB'] = uB_proc[j]
                         replace_dict_limits['proc_prefix_S_RV_g'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
                         overall_sector_info[i]['Real_str'] = R_proc
+                        overall_sector_info[i]['Virt_str'] = V_proc
                         overall_sector_info[i]['path_to_Born'] = dirpathLO
-                        overall_sector_info[i]['path_to_Real'] = dirpathNLO
+                        overall_sector_info[i]['path_to_Real'] = dirpathNLOR
+                        overall_sector_info[i]['path_to_Virt'] = dirpathNLOV
                         if uB_proc[j] not in Born_processes:
                             Born_processes.append(uB_proc[j])
                             path_Born_processes.append(dirpathLO)
@@ -460,14 +469,20 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     flag = False
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
-                        dirpathNLO = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
+                        dirpathNLOR = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
+                        dirpathNLOV = pjoin(dirmadnklo,glob.glob("%s/NLO_V_x_B_*" % interface.user_dir_name[0])[0])
+                        Vsubproc_base = pjoin(dirpathNLOV, 'SubProcesses')
+                        V_proc = uB_proc[j]
+                        dirpathNLOV = glob.glob(pjoin(Vsubproc_base, "P1_*_%s" % V_proc))[0]
                         if os.path.exists(dirpathLO):
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
                             overall_sector_info[i]['Real_str'] = R_proc
+                            overall_sector_info[i]['Virt_str'] = V_proc
                             overall_sector_info[i]['path_to_Born'] = dirpathLO
-                            overall_sector_info[i]['path_to_Real'] = dirpathNLO
+                            overall_sector_info[i]['path_to_Real'] = dirpathNLOR
+                            overall_sector_info[i]['path_to_Virt'] = dirpathNLOV
                             if uB_proc[j] not in Born_processes:
                                 Born_processes.append(uB_proc[j])
                                 path_Born_processes.append(dirpathLO)
@@ -580,8 +595,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            proc_V_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
-            replace_dict_int_real['long_proc_prefix'] = proc_V_pref
+            proc_RV_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
+            replace_dict_int_real['long_proc_prefix'] = proc_RV_pref
             filename_int_real = pjoin(dirpath, 'NNLO_RVsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RVsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
@@ -660,7 +675,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
 ######### Link Born files to each real process directory
 
-        self.link_files_from_B_and_R_to_RV_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
+        self.link_files_from_B_R_V_to_RV_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
 
 
 # Links to virtual dir
@@ -1027,7 +1042,7 @@ sector_%d_%d: $(FILES_%d_%d)
     # function for linking files to Real-Virtual subprocess directory
     #===========================================================================
 
-    def link_files_from_B_and_R_to_RV_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
+    def link_files_from_B_R_V_to_RV_dir(self, dirpath, Born_processes, path_Born_processes, overall_sector_info):
 
         for i in range(0,len(overall_sector_info)):
 
@@ -1045,7 +1060,6 @@ sector_%d_%d: $(FILES_%d_%d)
                            dirpath + '/leshouche_%s.f' % overall_sector_info[i]['Born_str'])
 
             # Set up link to matrix elements and their spin_correlation files related to the the flavour-dependent Born string
-            dirmadnklo=os.getcwd()
             if not overall_sector_info[i]['path_to_Born']:
                 if not glob.glob("%s/matrix_%s.f" % (dirpath, overall_sector_info[i]['alt_Born_str'])):
                     os.symlink( "%s/matrix_%s.f" % (overall_sector_info[i]['alt_Born_path'], overall_sector_info[i]['alt_Born_str']),
@@ -1063,5 +1077,21 @@ sector_%d_%d: $(FILES_%d_%d)
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Born_str'] )
                 os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
+
+                os.symlink( "%s/V_polynomial.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_polynomial.f" % dirpath )
+                os.symlink( "%s/V_loop_matrix.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_loop_matrix.f" % dirpath )
+                os.symlink( "%s/V_improve_ps.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_improve_ps.f" % dirpath )
+                os.symlink( "%s/born_matrix.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_born_matrix.f" % dirpath )
+                os.symlink( "%s/V_CT_interface.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_CT_interface.f" % dirpath )
+                os.symlink( "%s/V_loop_num.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_loop_num.f" % dirpath )
+                os.symlink( "%s/helas_calls_ampb_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_helas_calls_ampb_1.f" % dirpath )
+                os.symlink( "%s/V_mp_compute_loop_coefs.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_mp_compute_loop_coefs.f" % dirpath )
+                os.symlink( "%s/mp_helas_calls_ampb_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_mp_helas_calls_ampb_1.f" % dirpath )
+                os.symlink( "%s/coef_construction_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_coef_construction_1.f" % dirpath )
+                os.symlink( "%s/loop_CT_calls_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_loop_CT_calls_1.f" % dirpath )
+                os.symlink( "%s/mp_coef_construction_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_mp_coef_construction_1.f" % dirpath )
+                os.symlink( "%s/V_TIR_interface.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_TIR_interface.f" % dirpath )
+                os.symlink( "%s/V_user_access_subroutines.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_user_access_subroutines.f" % dirpath )
+
 
         return #all_sectors

@@ -3426,6 +3426,7 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
         
         # Return a dummy entry since this is not needed here given that the matrices are written as data files.
         return_dict = {}
+        color_dipole_list = []
         
         
         dat_writer = open(pjoin('..','MadLoop5_resources','%s%s.dat'
@@ -3441,10 +3442,19 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
                 dat_writer.write('\n')
             dat_writer.write('%d #%s\n'%(icc+1, description))
             self.write_color_matrix_data_file(dat_writer, color_matrix)
+
+            color_dipoles = []
+            for icc2, dipole_leg in enumerate(color_correlated_matrices[color_correlator_key][2]):
+                if icc2 == 0:
+                    color_dipoles.append(int(dipole_leg))
+                elif icc2 == 1:
+                    color_dipoles.append(int(dipole_leg))
+            color_dipole_list.append(color_dipoles)
         
         dat_writer.write('\nEOF')
         dat_writer.close() 
 
+        return_dict['color_dipoles'] = str(color_dipole_list).replace('[','').replace(']','').replace(' ','')
         return return_dict
 
 #===============================================================================

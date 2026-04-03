@@ -1085,6 +1085,30 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of color-correlated MEs.
 C --------------------------------------------------------------
 
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)
+      IMPLICIT NONE
+C     given a color dipole pair, return the
+C     corresponding COLOR_CORRELATED_EVALS value
+      INTEGER I,J
+      INTEGER LEG_A, LEG_B
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
+      INTEGER NSQAMPSO
+      PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS,0:NSQAMPSO)
+C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
+      COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
+      INTEGER COLOR_DIPOLES(2,NCOLORCORRELATORS)
+      DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
+      DO I=1,NCOLORCORRELATORS
+         IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
+            %(proc_prefix)sGET_CCBLO = COLOR_CORRELATED_EVALS(I,1)
+            EXIT
+         ENDIF
+      ENDDO
+      RETURN
+      END FUNCTION
 
       SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
         IMPLICIT NONE

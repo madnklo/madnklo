@@ -47,12 +47,11 @@ c     set logical doplot
 c
 c     initialise
       M2_C_gg=0d0
-      M2_HC_gg=0d0
       ierr=0
       damp=0d0
 c
 c     checks
-      if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia).eq.21.and.leg_pdgs(ib).eq.21))then
+      if(.not.(leg_pdgs(ia).eq.21.and.leg_pdgs(ib).eq.21))then
          write(*,*)'Wrong pdgs in M2_C_gg',leg_pdgs(ia),leg_pdgs(ib)
          stop
       endif
@@ -114,7 +113,6 @@ c     account for different damping factors according to recoiler position (ir)
       else
          damp=xinit**beta_FI
       endif
-      M2_C_gg=M2_C_gg
 c     include prefactors
       M2_C_gg = M2_C_gg*dble(%(proc_prefix_C_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
 c

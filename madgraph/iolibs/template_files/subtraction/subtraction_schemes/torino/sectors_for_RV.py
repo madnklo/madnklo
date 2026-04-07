@@ -1091,7 +1091,22 @@ sector_%d_%d: $(FILES_%d_%d)
                 os.symlink( "%s/loop_CT_calls_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_loop_CT_calls_1.f" % dirpath )
                 os.symlink( "%s/mp_coef_construction_1.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_mp_coef_construction_1.f" % dirpath )
                 os.symlink( "%s/V_TIR_interface.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_TIR_interface.f" % dirpath )
+                os.symlink( "%s/V_compute_color_flows.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_compute_color_flows.f" % dirpath )
                 os.symlink( "%s/V_user_access_subroutines.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_user_access_subroutines.f" % dirpath )
-
+                os.symlink( "%s/V_tir_cache_size.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_tir_cache_size.inc" % dirpath )
+                os.symlink( "%s/V_process_info.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_process_info.inc" % dirpath )
+                os.symlink( "%s/V_ML5_1_1_spin_correlations.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_ML5_1_1_spin_correlations.inc" % dirpath )
+                os.symlink( "%s/nsquaredSO.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_nsquaredSO.inc" % dirpath )
+                os.symlink( "%s/ngraphs.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_ngraphs.inc" % dirpath )
+                src_dir = "%s/MadLoop5_resources/" % overall_sector_info[i]['path_to_Virt']
+                tgt_dir = "%s/MadLoop5_resources/" % dirpath
+                for name in os.listdir(src_dir):
+                    src_path = os.path.join(src_dir,name)
+                    tgt_path = os.path.join(tgt_dir,name)
+                    try:
+                        os.remove(tgt_path)
+                    except OSError:
+                        pass
+                    os.symlink(src_path, tgt_path)
 
         return #all_sectors

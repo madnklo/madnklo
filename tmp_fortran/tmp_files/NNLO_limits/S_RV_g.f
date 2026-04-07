@@ -12,13 +12,14 @@ c     it returns 0 if i is not a gluon
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
+      INCLUDE 'V_nsquaredSO.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       double precision ret(-2:0)
       integer i,l,m,q,lb,mb,qb,ierr,nit
       double precision pref,M2tmp(-2:0),wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,ccBLO,triBLO,VLO(-2:0),ccVLO(-2:0),extra
+      double precision BLO,ccBLO,triBLO,VNLO(-2:0),ccVNLO(-2:0),extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
@@ -34,11 +35,11 @@ c     set logical doplot
 c     external
       integer get_color_dipole_index
       external get_color_dipole_index
-      double precision alphas,ans(0:NSQSO_BORN)
+      double precision alphas,ans(0:nsqso_born)
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
-      double precision  %(proc_prefix_S_RV_g)s_GET_CCVLO
+      double precision  %(proc_prefix_S_RV_g)s_GET_CCVNLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
@@ -50,14 +51,29 @@ c     external
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
-      DOUBLE PRECISION PMASS(NEXTERNAL)
-      INCLUDE 'pmass.inc'
+      logical v_init
+      data v_init/.true./
+      common/v_initchecksa/v_init
+      integer v_matelem_array_dim
+      real*8 , allocatable :: v_matelem(:,:)
+      integer v_returncode
+      integer v_nsquaredso_loop
+      real*8 , allocatable :: v_prec_found(:)
+      double precision pmass(nexternal)
+      include 'pmass.inc'
 c
 c     initialise
       ret=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
+      if (v_init) then
+        v_init=.false.
+        call V_ML5_1_1_get_answer_dimension(v_matelem_array_dim)
+        allocate(v_matelem(0:3,0:v_matelem_array_dim))
+        call V_ML5_1_1_get_nsqso_loop(v_nsquaredso_loop)
+        allocate(v_prec_found(0:v_nsquaredso_loop))
+      endif
 c
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -70,10 +86,10 @@ c     checks
       endif
 c
 c     call W soft
-      CALL GET_WS_NLO(ISEC,JSEC)
+      call get_ws_nlo(isec,jsec)
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -116,8 +132,9 @@ c     call colour-connected Born and Virtual
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             ANS=0d0
-c            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccVLO = (/0d0,0d0,0d0/) !%(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
+            call V_ML5_1_1_sloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
+            VNLO(-2:0) = V_MATELEM(1:3,0)
+            ccVNLO = (/0d0,0d0,0d0/) !%(proc_prefix_S_RV_g)s_GET_CCVLO(lb,mb)
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -125,7 +142,7 @@ c     eikonals
             EIK1(-1) = -CA*EIK0*log(sil*sim/slm/scale**2)
             EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/scale**2)**2-5d0*zeta2)
 
-            M2TMP(-2:0) = M2TMP(-2:0) + CCVLO(-2:0)*EIK0
+            M2TMP(-2:0) = M2TMP(-2:0) + CCVNLO(-2:0)*EIK0
             M2TMP(-2:0) = M2TMP(-2:0) - alphas/2d0/pi*CCBLO*EIK1(-2:0)
             M2TMP(-1)   = M2TMP(-1) - alphas*beta0/4d0/pi*CCBLO*EIK0
 

@@ -72,7 +72,6 @@ c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      xa=sar/(sar+sbr)
       xb=sbr/(sar+sbr)
       x=sar/(sar+sbr)
       y=sab/(sab+sar+sbr)
@@ -91,14 +90,14 @@ c     safety check
          goto 999
       endif
 c
-c     call Born
+c     call Real as per eq. (C.9)
       call %(proc_prefix_C_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
+      RNLO = ANS(0)
 c
       parent_leg = real_mapped_labels(ib)
-      KKBLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
-c     TODO: improve ktmuktnuBmunu / kt^2
-      M2_C_gg=-2d0*CA*((xa/xb+xb/xa)*BLO+xa*xb*KKBLO)
+      KKRNLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
+c     TODO: improve ktmuktnuRmunu / kt^2
+      M2_C_gg=-2d0*CA*((x/xb+xb/x)*RNLO+x*xb*KKRNLO)
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)

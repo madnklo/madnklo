@@ -15,7 +15,7 @@ c     collinear limit C_(ia,ib) * Wcollinear
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_HC_qqx,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,KKBLO
+      double precision RNLO,KKRNLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr
@@ -62,6 +62,8 @@ c     checks
          write(*,*)'Wrong indices in M2_C_qqx',ia,ib,isec,jsec
          stop
       endif
+
+
 c
 c     possible cuts
       if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
@@ -91,14 +93,14 @@ c     safety check
          goto 999
       endif
 c
-c     call Born
+c     call Real as per eq.(C.9)
       call %(proc_prefix_C_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = ANS(0)
+      RNLO = ANS(0)
 c
       parent_leg = real_mapped_labels(ib)
-      KKBLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
-c     TODO: improve ktmuktnuBmunu / kt^2
-      M2_C_qqx=TR*(BLO-4d0/sab*KKBLO)
+      KKRNLO = %(proc_prefix_C_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+c     TODO: improve ktmuktnuRmunu / kt^2
+      M2_C_qqx=TR*(RNLO-4d0/sab*KKRNLO)
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)

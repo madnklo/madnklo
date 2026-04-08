@@ -13,7 +13,7 @@ c     collinear limit C_(ia,ib) * Wcollinear
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_HC_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
-      double precision BLO,KKBLO
+      double precision RNLO,KKRNLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
       double precision sab,sar,sbr,x,y,xinit,damp
       double precision wa,wb,wr,xa,xb
@@ -97,7 +97,7 @@ c
       parent_leg = real_mapped_labels(ib)
       KKRNLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
-      M2_C_gg=-2d0*CA*((x/xb+xb/x)*RNLO+x*xb*KKRNLO)
+      M2_C_gg=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)

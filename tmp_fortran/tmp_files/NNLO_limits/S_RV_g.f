@@ -39,7 +39,6 @@ c     external
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
-      double precision  V_ML5_1_1_GET_CCVNLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       integer %(proc_prefix_real)s_den
       common/%(proc_prefix_real)s_iden/%(proc_prefix_real)s_den
@@ -131,10 +130,9 @@ c     call colour-connected Born and Virtual
             mb=mapped_labels(m)
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-            ANS=0d0
             call V_ML5_1_1_sloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = V_MATELEM(1:3,0)
-            ccVNLO = (/0d0,0d0,0d0/) !V_ML5_1_1_GET_CCVLO(lb,mb)
+            call V_ML5_1_1_get_ccvnlo(lb,mb,ccvnlo)
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2

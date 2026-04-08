@@ -1085,7 +1085,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of color-correlated MEs.
 C --------------------------------------------------------------
 
-      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCVNLO(LEG_A,LEG_B)
       IMPLICIT NONE
 C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
@@ -1103,7 +1103,7 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
-            %(proc_prefix)sGET_CCBLO = COLOR_CORRELATED_EVALS(I,1)
+            %(proc_prefix)sGET_CCVNLO = COLOR_CORRELATED_EVALS(I,1)
             EXIT
          ENDIF
       ENDDO

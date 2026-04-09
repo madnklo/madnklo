@@ -584,6 +584,11 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
             # write NNLO_RV_IR_limits
             filename = pjoin(dirpath, 'NNLO_RV_IR_limits_%d_%d.f' % (isec, jsec))
+            if os.path.lexists("%s/V_proc_prefix.txt" % dirpath):
+                os.remove("%s/V_proc_prefix.txt" % dirpath)
+            os.symlink( "%s/proc_prefix.txt" % overall_sector_info[i]['path_to_Virt'], "%s/V_proc_prefix.txt" % dirpath )
+            proc_V_pref = open(pjoin(dirpath,"V_proc_prefix.txt")).read()
+            replace_dict_limits['V_long_proc_prefix'] = proc_V_pref
             file = open(NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
@@ -824,8 +829,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
-        proc_V_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
-        replace_dict['long_proc_prefix'] = proc_V_pref
+        proc_RV_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
+        replace_dict['long_proc_prefix'] = proc_RV_pref
 
         limit_str = ''
         if necessary_ct_list[i][0] != 0 : #Si limit
@@ -1078,6 +1083,7 @@ sector_%d_%d: $(FILES_%d_%d)
                 os.symlink( overall_sector_info[i]['path_to_Real'] + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'],
                             dirpath + '/%s_spin_correlations.inc' % overall_sector_info[i]['Real_str'] )
 
+                Vpref = open(pjoin(dirpath,"V_proc_prefix.txt")).read()
                 os.symlink( "%s/V_polynomial.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_polynomial.f" % dirpath )
                 os.symlink( "%s/V_loop_matrix.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_loop_matrix.f" % dirpath )
                 os.symlink( "%s/V_improve_ps.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_improve_ps.f" % dirpath )
@@ -1095,7 +1101,7 @@ sector_%d_%d: $(FILES_%d_%d)
                 os.symlink( "%s/V_user_access_subroutines.f" % overall_sector_info[i]['path_to_Virt'], "%s/V_user_access_subroutines.f" % dirpath )
                 os.symlink( "%s/V_tir_cache_size.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_tir_cache_size.inc" % dirpath )
                 os.symlink( "%s/V_process_info.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_process_info.inc" % dirpath )
-                os.symlink( "%s/V_ML5_1_1_spin_correlations.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_ML5_1_1_spin_correlations.inc" % dirpath )
+                os.symlink( "%s/%sspin_correlations.inc" % (overall_sector_info[i]['path_to_Virt'], Vpref),"%s/%sspin_correlations.inc" % (dirpath, Vpref) )
                 os.symlink( "%s/nsquaredSO.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_nsquaredSO.inc" % dirpath )
                 os.symlink( "%s/ngraphs.inc" % overall_sector_info[i]['path_to_Virt'], "%s/V_ngraphs.inc" % dirpath )
                 src_dir = "%s/MadLoop5_resources/" % overall_sector_info[i]['path_to_Virt']

@@ -68,9 +68,9 @@ c     initialise
       damp=0d0
       if (v_init) then
         v_init=.false.
-        call V_ML5_1_1_get_answer_dimension(v_matelem_array_dim)
+        call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
         allocate(v_matelem(0:3,0:v_matelem_array_dim))
-        call V_ML5_1_1_get_nsqso_loop(v_nsquaredso_loop)
+        call %(V_long_proc_prefix)sget_nsqso_loop(v_nsquaredso_loop)
         allocate(v_prec_found(0:v_nsquaredso_loop))
       endif
 c
@@ -130,9 +130,9 @@ c     call colour-connected Born and Virtual
             mb=mapped_labels(m)
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
-            call V_ML5_1_1_sloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
+            call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = V_MATELEM(1:3,0)
-            call V_ML5_1_1_get_ccvnlo(lb,mb,ccvnlo)
+            call %(V_long_proc_prefix)sget_ccvnlo(lb,mb,ccvnlo)
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2

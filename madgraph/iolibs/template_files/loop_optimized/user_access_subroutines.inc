@@ -879,7 +879,43 @@ C --------------------------------------------------------------
 C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
+
+      SUBROUTINE %(proc_prefix)sGET_KKVNLO(PARENT_LEG,PB,KT,KKVNLO)
+      implicit NONE
+      INTEGER I
+      INTEGER NEXTERNAL
+      PARAMETER (NEXTERNAL=%(nexternal)d)
+      INTEGER NSQAMPSO
+      PARAMETER (NSQAMPSO=%(nSquaredSO)d)
+      integer PARENT_LEG
+      double precision PB(0:3,NEXTERNAL)
+      double precision KT(0:3)
+      double precision MATELEMS(0:3,0:NSQAMPSO)
+      double precision KKVNLO(-2:0)
       
+      INCLUDE '%(proc_prefix)sspin_correlations.inc'
+      INTEGER NENTRIES
+      PARAMETER(NENTRIES=MAX_N_SPIN_CORR_VECTORS*4)
+      REAL*8 SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4)
+      DATA SCVECTORS/NENTRIES*.0D0/
+      INTEGER NVECTOR_TO_TRY_PER_LEG
+      PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
+
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+
+      DO I=1,4
+         SCVECTORS(1,I) = KT(I-1)
+      ENDDO
+
+      CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
+      CALL %(proc_prefix)sSLOOPMATRIX(PB,MATELEMS)
+      KKVNLO = MATELEMS(1:3,0)
+
+      CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
+
+      return
+      end subroutine %(proc_prefix)sGET_KKVNLO
+
       SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
         IMPLICIT NONE
 C       Sets a list of up to MAX_N_VECTORS to use instead of the polarization vectors for leg number LEG_INDEX

@@ -262,6 +262,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
         sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
         import Born_PDGs as PDGs_from_Born
+        import Real_PDGs as PDGs_from_Real
 
 #==================================================================================
 #  Necessary template files for real-virtual subprocess directories
@@ -706,9 +707,19 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 filename = pjoin(dirpath_virtual, 'virtual_recoilers.inc')
                 writer(filename).writelines(file)
 
-            if not glob.glob('%s/virtual_recoilers.inc' % dirpath):
-                os.symlink( '%s/virtual_recoilers.inc' % dirpath_virtual, '%s/virtual_recoilers.inc' % dirpath)
+            #if not glob.glob('%s/virtual_recoilers.inc' % dirpath):
+            #    os.symlink( '%s/virtual_recoilers.inc' % dirpath_virtual, '%s/virtual_recoilers.inc' % dirpath)
 
+            # writing virtual_recoilers.inc
+            v_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Real, "leg_PDGs_%s" % overall_sector_info[i]['Real_str']))
+            data_v_rec = str(v_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+            file = """ \
+              integer, parameter :: len_iref = %d
+              integer iref(2,len_iref)
+              data iref/%s/
+            """ % (len(v_rec), data_v_rec)
+            filename = pjoin(dirpath, 'virtual_recoilers.inc')
+            writer(filename).writelines(file)
 
         return all_sectors
 

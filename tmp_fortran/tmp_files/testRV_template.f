@@ -86,37 +86,13 @@ c
       common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
       common/cxsave/xsave
       double precision e(2),l(2)
-C
-C     block for virtual matel
-C
-      LOGICAL INITTEST
-      DATA INITTEST/.TRUE./
-      COMMON/INITCHECKSA/INITTEST
-      INTEGER MATELEM_ARRAY_DIM
-      REAL*8 , ALLOCATABLE :: MATELEM(:,:)
-      REAL*8 SQRTS,AO2PI,TOTMASS
-C     sqrt(s)= center of mass energy
-      REAL*8 PIN(0:3), POUT(0:3)
-      CHARACTER*120 BUFF(NEXTERNAL)
-      INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
-      INTEGER NSQUAREDSO_LOOP
-      REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
-      REAL*8 BLO
-C
-C     GLOBAL VARIABLES
-C
-C     This is from ML code for the list of split orders selected by
-C     the process definition
-C
-      INTEGER NLOOPCHOSEN
-      CHARACTER*20 CHOSEN_LOOP_SO_INDICES(NSQUAREDSO)
-      LOGICAL CHOSEN_LOOP_SO_CONFIGS(NSQUAREDSO)
-      COMMON/%(long_proc_prefix)sCHOSEN_LOOP_SQSO/CHOSEN_LOOP_SO_CONFIGS
-      INTEGER NBORNCHOSEN
-      CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
-      LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
-      COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
-      integer iconfig,mincfig,maxcfig,invar
+      logical inittest
+      data inittest/.true./
+      integer matelem_array_dim
+      real*8 , allocatable :: matelem(:,:)
+      integer returncode
+      integer nsquaredso_loop
+      real*8 , allocatable :: prec_found(:)
 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
@@ -171,15 +147,15 @@ c     recompute momenta after rescaling
          if(ierr.eq.1)cycle
 c
 c     real virtual
-      IF (INITTEST) THEN
-         INITTEST=.FALSE.
-         CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-         ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
-         CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-         ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
-      ENDIF
+      if (inittest) then
+         inittest=.false.
+         call %(long_proc_prefix)sget_answer_dimension(matelem_array_dim)
+         allocate(matelem(0:3,0:matelem_array_dim))
+         call %(long_proc_prefix)sget_nsqso_loop(nsquaredso_loop)
+         allocate(prec_found(0:nsquaredso_loop))
+      endif
 c
-      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+      call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
       RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
       if(abs(RVNNLO(0)).ge.huge(1d0).or.isnan(RVNNLO(0)))cycle
 c

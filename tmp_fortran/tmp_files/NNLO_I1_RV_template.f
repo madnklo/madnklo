@@ -21,12 +21,14 @@ c     DOUBLE_POLE = I1NNLO(-2)
       double precision sNLO(nexternal,nexternal),sLO(nexternal-1,nexternal-1)
       double precision I1NNLO(-2:0),I1NNLOS(-2:0),pref
       double precision RNLO,CCRNLO
-      integer %(NLO_proc_str)sfl_factor 
+      double precision Lij,Lkr
+      integer %(NLO_proc_str)sfl_factor
+      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
       INTEGER, PARAMETER :: HEL = - 1
-      double precision  %(NLO_proc_str)sGET_CCRNLO
+      double precision  %(NLO_proc_str)sGET_CCBLO
       integer iref1(nexternal)
       double precision vv,ypl,Q2,ddilog
       double precision pmass(nexternal)
@@ -49,8 +51,8 @@ c     initialise
       res = 0d0
 c
 c     real
-c      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNLO = 0d0 !ANS(0) * %(NLO_proc_str)sfl_factor
+      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
       if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
          write(77,*) 'int_real: '
          write(77,*) 'Wrong RNLO', RNLO
@@ -65,21 +67,23 @@ c
 c     Hard-collinear contribution
       do k=1,nexternal
          if(pmass(k).ne.0d0)cycle
-         if(leg_pdgs_%(NLO_process)s(k).ne.0.and.abs(leg_pdgs_%(NLO_process)s(k)).le.6) then
+         Lkr = log(sNLO(k,iref1(k))/MU_R**2)
+         if(abs(leg_pdgs_%(NLO_process)s(k)).le.6) then
             I1NNLO(-2) = 0d0
-            I1NNLO(-1) = I1NNLO(-1) + gamma_q
-            I1NNLO( 0) = I1NNLO( 0) - gamma_q*log(sNLO(k,iref1(k))/MU_R**2) + phi_q
+            I1NNLO(-1) = I1NNLO(-1) + gamma_hc_q
+            I1NNLO( 0) = I1NNLO( 0) - gamma_hc_q*Lkr + phi_hc_q
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I1NNLO( 0) = I1NNLO( 0) + pi**2/12d0 * CF
          elseif(leg_pdgs_%(NLO_process)s(k).eq.21) then
             I1NNLO(-2) = 0d0
-            I1NNLO(-1) = I1NNLO(-1) + gamma_g
-            I1NNLO( 0) = I1NNLO( 0) - gamma_g*log(sNLO(k,iref1(k))/MU_R**2) + phi_g
+            I1NNLO(-1) = I1NNLO(-1) + gamma_hc_g
+            I1NNLO( 0) = I1NNLO( 0) - gamma_hc_g*Lkr + phi_hc_g
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I1NNLO( 0) = I1NNLO( 0) + pi**2/12d0 * CF
          endif
       enddo
 c
+c     TODO: check (gamma/gamma_hc)
 c     Include damping factors
       A20a=A20(alpha)
       A21a=A21(alpha)
@@ -98,11 +102,13 @@ c     Soft contribution
          do j=1,nexternal
             if(.not.ISNLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
-            CCRNLO = 0d0 !%(NLO_proc_str)sGET_CCRNLO(i,j)
+            call %(NLO_proc_str)sME_ACCESSOR_HOOK(p,hel,alphas,ans)
+            CCRNLO = %(NLO_proc_str)sGET_CCBLO(I,J)
+            Lij = log(sNLO(i,j)/MU_R**2)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
                I1NNLOS(-2) = I1NNLOS(-2) + 1d0
-               I1NNLOS(-1) = I1NNLOS(-1) + 2d0 - log(sNLO(i,j)/MU_R**2)
-               I1NNLOS( 0) = I1NNLOS( 0) + 6d0-7d0/2d0*zeta2 - 2d0*log(sNLO(i,j)/MU_R**2) + log(sNLO(i,j)/MU_R**2)**2d0/2d0
+               I1NNLOS(-1) = I1NNLOS(-1) + 2d0 - Lij
+               I1NNLOS( 0) = I1NNLOS( 0) + 6d0-7d0/2d0*zeta2 - 2d0*Lij + Lij**2d0/2d0
                I1NNLOS = -I1NNLOS*CCRNLO
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
                continue
@@ -202,4 +208,3 @@ C
 C
       RETURN
       END
-

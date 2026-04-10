@@ -4,12 +4,12 @@ module sectors4_module
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
   double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
-  double precision, public :: Wbar_NLO, WSbar_NLO, WC_NLO, WCbar_NLO
+  double precision, public :: Wbar_NLO, WS_NLO,  WSbar_NLO, WC_NLO, WCbar_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
-  public :: get_sig2, get_Wbar_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO
+  public :: get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO
   private
 
 contains
@@ -256,6 +256,23 @@ contains
     enddo
     Wbar_NLO = num/sigma
   end subroutine get_Wbar_NLO
+
+  subroutine get_WS_NLO(i1,i2)
+    !     NLO soft sector functions WS(i1,i2) = barS_i1 W(i1,i2)
+    implicit none
+    integer :: i,i1,i2,sec(2)
+    double precision :: num,sigma
+    include 'all_K1_sector_list.inc'
+    num = sig2(i1,i2)
+    sigma = 0d0
+    do i=1,len
+       sec=s_sector_list(i1,i,:)
+       if(all(sec.eq.0))cycle
+       sigma = sigma + &
+            sig2(sec(1),sec(2))
+    enddo
+    WS_NLO = num/sigma
+  end subroutine get_WS_NLO
 
   subroutine get_WSbar_NLO(i1,i2)
     !     NLO sector functions WSbar(i1,i2)

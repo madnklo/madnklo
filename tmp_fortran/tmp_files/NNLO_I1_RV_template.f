@@ -3,7 +3,6 @@ c     MSbar integrated counterterm
 c     FINITE_PART = I1NNLO(0)
 c     SINGLE_POLE = I1NNLO(-1)
 c     DOUBLE_POLE = I1NNLO(-2)
-      use sectors2_module
       implicit none
       INCLUDE 'nexternal.inc'
       INCLUDE 'damping_factors.inc'
@@ -14,28 +13,23 @@ c     DOUBLE_POLE = I1NNLO(-2)
       INCLUDE 'virtual_recoilers.inc'
       INCLUDE 'leg_PDGs_%(NLO_process)s.inc'
       INCLUDE 'colored_partons.inc'
-      integer i,j,k,r
-      integer isec, jsec
-      integer ierr
+      integer i,j,k,r,iref1(nexternal),ierr
       double precision p(0:3,nexternal)
       double precision sNLO(nexternal,nexternal),sLO(nexternal-1,nexternal-1)
-      double precision I1NNLO(-2:0),I1NNLOS(-2:0),pref
+      double precision I1NNLO(-2:0),I1NNLOS(-2:0),I1S(-2:0),pref
       double precision RNLO,CCRNLO
       double precision Lij,Lkr
-      integer %(NLO_proc_str)sfl_factor
-      common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
       INTEGER, PARAMETER :: HEL = - 1
       double precision  %(NLO_proc_str)sGET_CCBLO
-      integer iref1(nexternal)
       double precision vv,ypl,Q2,ddilog
-      double precision pmass(nexternal)
       DOUBLE PRECISION SS,MK2,ML2
-      DOUBLE PRECISION FF1,FF2,FF3
-      PARAMETER(FF1=1D0,FF2=1D0,FF3=0D0)
       double precision res
+      integer isec,jsec,ksec,lsec,iref0
+      common/csecindices/isec,jsec,ksec,lsec,iref0
+      double precision pmass(nexternal)
       include 'pmass.inc'
 c
 c     initialise
@@ -49,15 +43,6 @@ c     initialise
       CCRNLO = 0d0
       RNLO = 0d0
       res = 0d0
-c
-c     real
-      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
-      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong RNLO', RNLO
-         goto 999
-      endif
 c
 c     recoilers
       do i=1,len_iref
@@ -96,6 +81,14 @@ c     Include damping factors
          if(leg_pdgs_%(NLO_process)s(i).ne.0.and.abs(leg_pdgs_%(NLO_process)s(i)).le.6)I1NNLO(0) = I1NNLO(0) + CF*(A20a*(A20a-2d0*A20b)-A21a)+(gamma_q-2d0*CF)*A20b
       enddo
 c
+c     real
+      call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      RNLO = ANS(0)
+      if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))then
+         write(77,*) 'int_real: '
+         write(77,*) 'Wrong RNLO', RNLO
+         goto 999
+      endif
       I1NNLO=I1NNLO*RNLO
 c
 c     Soft contribution
@@ -104,14 +97,15 @@ c     Soft contribution
          do j=1,nexternal
             if(.not.ISNLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
-            call %(NLO_proc_str)sME_ACCESSOR_HOOK(p,hel,alphas,ans)
-            CCRNLO = %(NLO_proc_str)sGET_CCBLO(I,J)
-            Lij = log(sNLO(i,j)/MU_R**2)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
-               I1NNLOS(-2) = I1NNLOS(-2) + 1d0
-               I1NNLOS(-1) = I1NNLOS(-1) + 2d0 - Lij
-               I1NNLOS( 0) = I1NNLOS( 0) + 6d0-7d0/2d0*zeta2 - 2d0*Lij + Lij**2d0/2d0
-               I1NNLOS = -I1NNLOS*CCRNLO
+               Lij = log(sNLO(i,j)/MU_R**2)
+               I1S(-2) = 1d0
+               I1S(-1) = 2d0 - Lij
+               I1S( 0) = 6d0-7d0/2d0*zeta2 - 2d0*Lij + Lij**2d0/2d0
+               call %(NLO_proc_str)sME_ACCESSOR_HOOK(p,hel,alphas,ans)
+               CCRNLO = %(NLO_proc_str)sGET_CCBLO(I,J)
+               I1S = -I1S*CCRNLO
+               I1NNLOS = I1NNLOS + I1S
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
@@ -131,15 +125,12 @@ c     Soft contribution
       enddo
 c
       I1NNLO=I1NNLO+I1NNLOS
+      I1NNLO=pref*I1NNLO
 c
       if(abs(I1NNLO(0)).ge.huge(1d0).or.isnan(I1NNLO(0)))then
          write(77,*)'Exception caught in int_counter_I1_NNLO',I1NNLO(0)
          goto 999
       endif
-c
-c     adding sectors
-      call get_w_nlo(isec,jsec)
-      I1NNLO = I1NNLO*pref*w_nlo
 c
       return
  999  ierr=1

@@ -12,19 +12,18 @@ c     (n+1)-body NNLO integrand for vegas
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
-      integer i
-      integer ierr
-      integer ievt,nthres,ntest
+      integer i,ierr
+      integer ntest
+      parameter(ntest=20)
+      integer ntested
+      save ntested
       integer iunit
       common/ciunitNLO/iunit
-      integer ntested
-      parameter(ntest=20)
-      save ievt,nthres,ntested
-      double precision int_real_virtual_no_cnt
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision RVNNLO(-2:0),KRVNNLO(-2:0)
       double precision I1NNLO(-2:0),I12NNLO(-2:0)
+      double precision int_rv_i1, int_krv_i12
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
@@ -65,7 +64,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       real*8 , allocatable :: prec_found(:)
       double precision pmass(nexternal)
       INCLUDE 'pmass.inc'
-
 c
 c     call initialisation function
       if(firsttime)then
@@ -85,16 +83,7 @@ c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
 c     initialise
-      xjac = 0d0
-      xjacB = 0d0
-      iref = %(iref)d
       int_real_virtual_%(isec)d_%(jsec)d=0d0
-      int_real_virtual_no_cnt=0d0
-      RVNNLO  = 0d0
-      KRVNNLO = 0d0
-      I1NNLO  = 0d0
-      I12NNLO = 0d0
-c      pb_to_ME=0d0
       xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
 c
@@ -124,11 +113,6 @@ c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 555
 c
-c     Call the Underlying Born matrix element to fill the amp2 array,
-c     in order to implement the multi channel
-c      call %(strUB)s_ME_ACCESSOR_HOOK(PB,HEL,ALPHAS,dummy_ANS)
-c      WGT_CHAN=AMP2(ICH)
-c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
          ntested=ntested+1
@@ -146,7 +130,7 @@ c     real virtual
       endif
 c
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
+      RVNNLO(-2:0) = MATELEM(1:3,0)
       do i=-2,0
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
@@ -164,11 +148,16 @@ c     real sector function
          goto 999
       endif
 c
-c     full real virtual in sector Wij
-      int_real_virtual_no_cnt=RVNNLO(0)*W_NLO*xjac
+c     1-unresolved integrated counterterm
+      call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
+      if(ierr.eq.1)goto 999
+c
+c     pole-free combination RV+I1
+      int_rv_i1 = (RVNNLO(0)+I1NNLO(0))*w_nlo*xjac
+      int_rv_i1 = int_rv_i1 * %(NNLO_RV_proc_str)sfl_factor
 c
 c     plot real virtual
-      wgtpl=int_real_virtual_no_cnt*wgt/nitRV*wgt_chan
+      wgtpl=int_rv_i1*wgt/nitRV*wgt_chan
 c     if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
@@ -182,10 +171,6 @@ c     real-virtual counterterm
          write(77,*) 'Something wrong in the RV counterterm', KRVNNLO
          goto 999
       endif
-c
-c     1-unresolved integrated counterterm
-      call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
-      if(ierr.eq.1)goto 999
 c
 c     12-unresolved integrated counterterm
       call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I12NNLO,ierr)
@@ -206,23 +191,11 @@ c     test coefficients of epsilon poles
       endif
 c
 c     subtraction (phase-space jacobian included in counterterm definition)
-      int_real_virtual_%(isec)d_%(jsec)d=(int_real_virtual_no_cnt+I1NNLO(0)) - (KRVNNLO(0)+I12NNLO(0))
+      int_krv_i12 = KRVNNLO(0)+I12NNLO(0)
+      int_real_virtual_%(isec)d_%(jsec)d = int_rv_i1 - int_krv_i12
       int_real_virtual_%(isec)d_%(jsec)d = int_real_virtual_%(isec)d_%(jsec)d*wgt_chan
-c
-c     print out current run progress
-c     TODO: adapt progress bar
-c     999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodRV*1d0)),' done'
-c         nthres=nthres+int(nprodRV/rfactRV)
-c      endif
-c 111  format(a1,i3,a6,$)
-c
  999  return
       end
-
-
-
 
       subroutine initialise_sector()
       implicit none
@@ -234,12 +207,6 @@ c
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
-c      integer mapped_labels_s(nexternal)
-c      integer mapped_flavours_s(nexternal-1),mapped_indices_shuff_s(nexternal-1)
-c      common/c_mapped_quantities_s/mapped_labels_s,mapped_flavours_s,mapped_indices_shuff_s
-c      integer mapped_labels_c(nexternal)
-c      integer mapped_flavours_c(nexternal-1),mapped_indices_shuff_c(nexternal-1)
-c      common/c_mapped_quantities_c/mapped_labels_c,mapped_flavours_c,mapped_indices_shuff_c
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
 c

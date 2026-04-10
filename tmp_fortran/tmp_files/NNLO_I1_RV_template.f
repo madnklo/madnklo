@@ -59,7 +59,7 @@ c     real
          goto 999
       endif
 c
-c     TODO: add check
+c     recoilers
       do i=1,len_iref
          iref1(iref(1,i)) = iref(2,i)
       enddo
@@ -67,6 +67,8 @@ c
 c     Hard-collinear contribution
       do k=1,nexternal
          if(pmass(k).ne.0d0)cycle
+         if(iref1(k).eq.0)cycle
+         if(iref1(k).eq.isec.or.iref1(k).eq.jsec.or.iref1(k).eq.k)cycle
          Lkr = log(sNLO(k,iref1(k))/MU_R**2)
          if(abs(leg_pdgs_%(NLO_process)s(k)).le.6) then
             I1NNLO(-2) = 0d0
@@ -136,7 +138,7 @@ c
       endif
 c
 c     adding sectors
-      call get_w_nlo(i,j)
+      call get_w_nlo(isec,jsec)
       I1NNLO = I1NNLO*pref*w_nlo
 c
       return

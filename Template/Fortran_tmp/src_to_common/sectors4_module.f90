@@ -4,7 +4,7 @@ module sectors4_module
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
   double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
-  double precision, public :: Wbar_NLO, WS_NLO,  WSbar_NLO, WC_NLO, WCbar_NLO
+  double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO

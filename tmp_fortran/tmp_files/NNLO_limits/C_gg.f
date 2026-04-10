@@ -67,12 +67,10 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
-c     TODO: to clean up invariants
 c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
-      xb=sbr/(sar+sbr)
       x=sar/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)

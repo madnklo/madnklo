@@ -12,16 +12,15 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      include 'pmass.inc'
       integer i,j,l,m,ierr,nit
       integer jb,lb,mb
       integer jbb,lbb,mbb
       logical isNLOmappedQCDparton(nexternal-1)
       logical isLOmappedQCDparton(nexternal-2)
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgts,wgt_chan,xj,xjB,xjCS1,xjCS2
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLO,QUADBLO_mlml,extra
+      double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sil,sim,slm,sij,sjl,sjm,ml2,mm2,y,z,x,damp
@@ -43,8 +42,8 @@ c     external
       double precision  %(proc_prefix_S_g)s_GET_CCBLO
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
-c      integer %(proc_prefix_S_g)s_den
-c      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
+      integer %(proc_prefix_S_g)s_den
+      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
       integer isec,jsec,ksec,lsec,iref
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
@@ -54,6 +53,7 @@ c      common/%(proc_prefix_S_g)s_iden/%(proc_prefix_S_g)s_den
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      include 'pmass.inc'
 c
 c     initialise
       M2_S_g=0d0
@@ -85,22 +85,22 @@ c     overall kernel prefix
 c
 c     eikonal double sum
       do m=1,nexternal
-         if(.not.ismappedQCDparton(m))cycle
+         if(.not.isnnloQCDparton(m))cycle
          if(m.eq.i)cycle
          do l=1,nexternal
-            if(.not.ismappedQCDparton(l))cycle
+            if(.not.isnnloQCDparton(l))cycle
             if(l.eq.i)cycle
             if(l.eq.m)cycle
 c
-            lb=mapped_labels(l)
-            mb=mapped_labels(m)
+            lb=real_mapped_labels(l)
+            mb=real_mapped_labels(m)
 c
 c         check labels and pdgs
-          if(.not.(ismappedqcdparton(lb).and.ismappedqcdparton(mb)))then
+          if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
             write(*,*)'wrong indices 1 in M2_S_g',lb,mb
             stop
           endif
-          if(leg_pdgs(l).ne.underlying_leg_pdgs(lb).or.leg_pdgs(m).ne.underlying_leg_pdgs(mb))then
+          if(leg_pdgs(l).ne.born_leg_pdgs(lb).or.born_leg_pdgs(m).ne.born_leg_pdgs(mb))then
             write(*,*)'wrong indices 2 in M2_S_g',l,m,lb,mb
             stop
           endif
@@ -110,13 +110,12 @@ c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
             call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
-            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
-            if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+            if(xjCS1.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))cycle
+            if(docut(xpb,nexternal-1,born_leg_pdgs,0))cycle
 c
 c     invariant quantities
             sil=xs(i,l)

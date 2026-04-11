@@ -23,7 +23,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a g-g pair
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2),kt(0:3),kt2
       double precision sab,sar,sbr,wa,wb,wr,x
-      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm
+      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm,kmkl,kmkm,klkl
       double precision dot
       logical flavourmatch
       logical isNLOmappedQCDparton(nexternal-1)
@@ -157,9 +157,9 @@ c     (c,d) in the paper --> (m,l)
             sbjm = xsb(jb,mb)
             ktkl = dot(kt(:),xpb(:,lb))
             ktkm = dot(kt(:),xpb(:,mb))
-            kmkm = dot(xpb(:,mb,xpb(:,mb))
-            klkl = dot(xpb(:,lb,xpb(:,lb))
-            kmkl = dot(xpb(:,mbb,xpb(:,lb))
+            kmkm = dot(xpb(:,mb),xpb(:,mb))
+            klkl = dot(xpb(:,lb),xpb(:,lb))
+            kmkl = dot(xpb(:,mbb),xpb(:,lb))
 c
 c     safety check
             if(sab.le.0d0.or.sbjl.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0)then

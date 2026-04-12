@@ -129,7 +129,7 @@ c
       end
 
 
-      double precision function M2_SC_ggq_CC_ggq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_gg_CC_ggq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)C(i,j,k) kernel times WSCC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module
@@ -176,20 +176,20 @@ c     set logical doplot
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
 c
 c     initialise
-      M2_SC_ggq_CC_ggq=0d0
+      M2_SS_gg_CC_ggq=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology
       if(bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_SC_ggq_CC_ggq',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_SS_gg_CC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
       if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_SC_ggq_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_SS_gg_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -217,7 +217,7 @@ c     invariant quantities
 c
 c     safety check
       if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_SC_ggq_CC_ggq',sij,sik,sjk,zi,zj,zk
+        write(77,*)'Inaccuracy 1 in M2_SS_gg_CC_ggq',sij,sik,sjk,zi,zj,zk
         goto 999
       endif
 c
@@ -238,17 +238,17 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SC_ggq_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
+      M2_SS_gg_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
 c
 c     plot
-      wgtpl=-M2_SC_ggq_CC_ggq*wgt/nit*wgt_chan
+      wgtpl=-M2_SS_gg_CC_ggq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_SC_ggq_CC_ggq).ge.huge(1d0).or.isnan(M2_SC_ggq_CC_ggq))then
-         write(77,*)'Exception caught in M2_SC_ggq_CC_ggq',M2_SC_ggq_CC_ggq
+      if(abs(M2_SS_gg_CC_ggq).ge.huge(1d0).or.isnan(M2_SS_gg_CC_ggq))then
+         write(77,*)'Exception caught in M2_SS_gg_CC_ggq',M2_SS_gg_CC_ggq
          goto 999
       endif
 c

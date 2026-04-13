@@ -74,10 +74,6 @@ c
 c     call soft limit of sector function according to eq. (C.51)
       call get_sig2(xs,alpha_mod,nexternal)
       call get_WS_NLO(asec,bsec)
-      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
-      call get_wbar_nlo(map1,map2)
 c
 c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
@@ -95,27 +91,23 @@ c
             lb=real_mapped_labels(l)
             mb=real_mapped_labels(m)
 c
-c         check labels and pdgs
-          if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
-            write(*,*)'wrong indices 1 in M2_S_g',lb,mb
-            stop
-          endif
-          if(leg_pdgs(l).ne.born_leg_pdgs(lb).or.born_leg_pdgs(m).ne.born_leg_pdgs(mb))then
-            write(*,*)'wrong indices 2 in M2_S_g',l,m,lb,mb
-            stop
-          endif
-c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
             call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             if(xjCS1.eq.0d0)goto 999
-            call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+            call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpb,nexternal-1,born_leg_pdgs,0))cycle
+            if(docut(xpb,nexternal-1,real_leg_pdgs,0))cycle
+c
+c     call Wbar
+            call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+            map1=real_mapped_labels(csec)
+            map2=real_mapped_labels(dsec)
+            call get_wbar_nlo(map1,map2)
 c
 c     invariant quantities
             sil=xs(i,l)

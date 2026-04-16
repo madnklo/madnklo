@@ -98,14 +98,14 @@ c
       KKRNLO = %(proc_prefix_C_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
       M2_C_gg=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
-      M2_S_C_gg=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
+      M2_SC_gg=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
 c
 c     compute soft-collinear limit of sector function
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)
-      M2_S_C_gg=M2_S_C_gg*wbar_nlo
+      M2_SC_gg=M2_SC_gg*wbar_nlo
 c
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)

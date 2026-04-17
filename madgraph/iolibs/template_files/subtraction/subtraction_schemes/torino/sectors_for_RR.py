@@ -199,16 +199,16 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         if not k.get('state'):
                             continue
 
-                        # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                        if ij['id'] == 21 and k['id'] == 21 and k['state']:
-                            if k.get('number') < ij.get('number') :
-                                continue
+                        # # if both i and j are gluons, then keep just the case in which i (number) < j (number)
+                        # if ij['id'] == 21 and k['id'] == 21 and k['state']:
+                        #     if k.get('number') < ij.get('number') :
+                        #         continue
 
-                        # if j and i are quarks and antiquark in the final state, let j be the quark
-                        #   this is needed in order to comply with the fct combine_ij inside fks_common
-                        if ij['id'] == -k['id'] and k['state']:
-                            if k['id'] < 0:
-                                continue
+                        # # if ij and k are quarks and antiquark in the final state, let k be the quark
+                        # #   this is needed in order to comply with the fct combine_ij inside fks_common
+                        # if ij['id'] == -k['id'] and k['state']:
+                        #     if k['id'] < 0:
+                        #         continue
 
                         fks_k_ij[ij.get('number')] = []
 
@@ -217,7 +217,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                                     model, pert_dict)
 
                         if len(ijklist)==0:
-                            continue
+                            ijklist = fks_common.combine_ij(fks_common.to_fks_leg(k, model),
+                                                            fks_common.to_fks_leg(ij, model),
+                                                            model, pert_dict)
+                            if len(ijklist)==0:
+                                continue
 
                         #print('ij, k : ' + str(ij['id']) + ', ' + str(k['id']))
                         #print('3P ijklist : ' + str(ijklist))
@@ -420,27 +424,31 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             continue
                         if l.get('number') == k.get('number') or l.get('number') == i.get('number') or l.get('number') == j.get('number'):
                             continue
-                        # if k is not a gluon, then l must not be a final state gluon
-                        if k['id'] != 21 and l['id'] == 21 and l['state']:  # [g q] [q g]
-                            continue
+                        # # if k is not a gluon, then l must not be a final state gluon
+                        # if k['id'] != 21 and l['id'] == 21 and l['state']:  # [g q] [q g]
+                        #     continue
 
-                        # if both k and l are gluons, then keep just the case in which k (number) < l (number)
-                        if k['id'] == 21 and l['id'] == 21 and l['state']: # [g1 g2] [g2 g1]
-                            if l.get('number') < k.get('number') :
-                                continue
+                        # # if both k and l are gluons, then keep just the case in which k (number) < l (number)
+                        # if k['id'] == 21 and l['id'] == 21 and l['state']: # [g1 g2] [g2 g1]
+                        #     if l.get('number') < k.get('number') :
+                        #         continue
 
-                        # if j and i are quarks and antiquark in the final state, let j be the quark
-                        #   this is needed in order to comply with the fct combine_ij inside fks_common
-                        if k['id'] == -l['id'] and l['state']: # [q qb] [qb q]
-                            if l['id'] < 0:
-                                continue
+                        # # if j and i are quarks and antiquark in the final state, let j be the quark
+                        # #   this is needed in order to comply with the fct combine_ij inside fks_common
+                        # if k['id'] == -l['id'] and l['state']: # [q qb] [qb q]
+                        #     if l['id'] < 0:
+                        #         continue
 
                         kllist = fks_common.combine_ij(fks_common.to_fks_leg(k, model),
                                                fks_common.to_fks_leg(l, model),
                                                model, pert_dict)
 
                         if len(kllist)==0:
-                            continue
+                            kllist = fks_common.combine_ij(fks_common.to_fks_leg(l, model),
+                                                           fks_common.to_fks_leg(k, model),
+                                                           model, pert_dict)
+                            if len(kllist)==0:
+                                continue
 
                         for kl in kllist:
                             # copy the defining process, remove i and j
@@ -947,6 +955,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg,jleg,lleg])) and \
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([kleg,lleg])) and \
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg,jleg])) and \
+                        (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg,kleg])) and \
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([ileg])) and \
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([jleg])) and \
                         (not sorted([l.n for l in current.get('singular_structure').get_all_legs()]) == sorted([kleg])) and \

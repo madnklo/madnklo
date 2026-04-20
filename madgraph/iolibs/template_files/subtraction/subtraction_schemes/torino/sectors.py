@@ -1069,6 +1069,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file += """ \
             integer s_sector_list(1:1,1:1,2)
             """
+        if 'C' not in K_sector_lists:
+            file += """ \
+            integer c_sector_list(1:1,1:1,1:1,2)
+            """
 
         file += """ \
         """
@@ -1111,6 +1115,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             file += """
 !         data S (dummy)
             DATA (S_SECTOR_LIST(1,1,L),L=1,2) /0,0/ \n"""
+
+        if 'C' not in K_sector_lists:
+            file += """
+!         data C (dummy)
+            DATA (C_SECTOR_LIST(1,1,1,L),L=1,2) /0,0/ \n"""
 
         filename = pjoin(dirpath, 'all_K_sector_list.inc')
         writer(filename).writelines(file)

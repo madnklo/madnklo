@@ -66,7 +66,7 @@ c     return if not gluon
 c
 c     safety check on PDGs
       if(size(leg_pdgs).ne.nexternal)then
-        write(*,*) 'M2_s_g:'
+        write(*,*) 'M2_S_g:'
         write(*,*) 'Wrong dimension for leg_pdgs',size(leg_pdgs),nexternal
         stop
       endif

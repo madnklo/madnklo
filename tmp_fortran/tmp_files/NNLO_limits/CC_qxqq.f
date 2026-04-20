@@ -1,3 +1,4 @@
+
       double precision function M2_CC_qxqq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j,k) kernel times WCC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with same flavour
@@ -224,10 +225,10 @@ c     invariant quantities
       zij  = zi+zj
 c
 c     safety check
-      IF(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_SS_qqx_CC_qxqq',SIJ,SIK,SJK,ZI,ZJ,ZK
-        GOTO 999
-      ENDIF
+      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in M2_SS_qqx_CC_qxqq',sij,sik,sjk,zi,zj,zk
+        goto 999
+      endif
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)

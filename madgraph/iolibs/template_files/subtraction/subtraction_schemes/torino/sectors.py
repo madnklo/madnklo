@@ -1166,7 +1166,10 @@ c     soft limit"""
 
             if mass_list[-1] != 'ZERO':
                 limit_str += """
-      e=[0d0,1d0]"""
+      e=[0d0,1d0]
+      l=[0d0,0d0]
+      call do_limit_R_%d_%d(iunit,'Si      ',x0,e,l)
+"""%(isec,jsec)
             else:
                 limit_str += """
       e=[1d0,1d0]

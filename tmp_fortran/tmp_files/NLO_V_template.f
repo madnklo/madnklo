@@ -70,6 +70,15 @@ C
       integer ich
       common/comich/ich
       double precision pmass(nexternal)
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=4)
+C     
+C     Index 0 is the number of correlators to consider and the next
+C      indices are which one to consider
+      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3,0:NSQUAREDSO)
+      COMMON/V_ML5_1_1_COLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
+
       INCLUDE 'pmass.inc'
 
 
@@ -132,6 +141,7 @@ c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
 c
 c     call virtual
+      COLOR_CORRELATED_EVALS = 0d0
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
       VNLO(1:3) = MATELEM(1:3,0)
 c

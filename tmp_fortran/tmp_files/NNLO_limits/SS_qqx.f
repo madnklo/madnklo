@@ -134,10 +134,10 @@ c     invariant quantities: (c,d) in the paper --> (m,l)
             slm = xs(l,m)
 c
 c     safety check
-            IF(SIJ.LE.0D0.or.(SIL+SJL).le.0d0.or.(SIM+SJM).le.0d0)THEN
-               WRITE(77,*)'Inaccuracy 1 in M2_SS_qqx',SIJ, SIL+SJL, SIM+SJM
-               GOTO 999
-            ENDIF
+            if(sij.le.0d0.or.(sil+sjl).le.0d0.or.(sim+sjm).le.0d0)then
+               write(77,*)'Inaccuracy 1 in M2_SS_qqx',sij, sil+sjl, sim+sjm
+               goto 999
+            endif
 c
 c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born

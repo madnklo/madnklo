@@ -3,12 +3,13 @@ module sectors4_module
   integer, public :: n_ext
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
-  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO
+  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
+  public :: get_WSC_NNLO, get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO
   public :: get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO
   private
 
@@ -128,7 +129,7 @@ contains
 
   subroutine get_W_NNLO(a,b,c,d)
     ! NNLO sector functions
-    implicit none
+     implicit none
     integer :: i,a,b,c,d,i1,i2,i3,i4
     double precision :: num,sigma
     include 'all_sector_list.inc'
@@ -228,7 +229,7 @@ contains
     do i=3,n_ext
        do j=3,n_ext
           if(i.eq.j)cycle
-          if( (xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(i,j)*xs_mod(1,2).ne.0d0 )then
+          if((xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*xs_mod(1,2).ne.0d0)then
              ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
              ej=(xs_mod(j,1)+xs_mod(j,2))/xs_mod(1,2)
              wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
@@ -237,6 +238,33 @@ contains
        enddo
     enddo
   end subroutine get_sig2
+
+  double precision function hatsig4(i,j,k,l,r,xs_in,alpha_in,n_ext_in)
+    implicit none
+    ! global
+    integer :: n_ext_in
+    double precision :: alpha_in
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    ! local
+    integer :: i,j,k,l,r,n_ext
+    double precision :: ei,ek,wij,wkl,wir,wkr
+    ! set global module variables
+    n_ext=n_ext_in
+    if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
+    xs_mod=xs_in
+    ! calculate (sig[i,j]/wir)^alpha*sig[k,l]/wkr where l=i,j,k for the NNLO SC sector functions
+    hatsig4=0d0
+    if((xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*(xs_mod(k,1)+xs_mod(k,2))* &
+       (xs_mod(r,1)+xs_mod(r,2))*xs_mod(1,2).ne.0d0)then
+        ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
+        ek=(xs_mod(j,1)+xs_mod(j,2))/xs_mod(1,2)
+        wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
+        wkl=xs_mod(1,2)*xs_mod(k,l)/(xs_mod(l,1)+xs_mod(l,2))/(xs_mod(k,1)+xs_mod(k,2))
+        wir=xs_mod(1,2)*xs_mod(i,r)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(r,1)+xs_mod(r,2))
+        wkr=xs_mod(1,2)*xs_mod(k,r)/(xs_mod(k,1)+xs_mod(k,2))/(xs_mod(r,1)+xs_mod(r,2))
+        hatsig4=((1d0/ei/wij)/wir)**alpha_in*(1d0/ek/wkl)/wkr
+    endif
+  end
 
   subroutine get_Wbar_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
@@ -318,6 +346,80 @@ contains
     sigma = sig2(i1,ir) + sig2(i2,ir)
     WCbar_NLO = num/sigma
   end subroutine get_WCbar_NLO
+
+  subroutine get_WSC_NNLO(a,b,c,d,xs_in,n_ext_in)
+    !     NNLO soft-collinear sector functions WSC(a,b,c,d)
+    implicit none
+    integer :: n_ext_in
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    integer :: a,b,c,d,ic,r
+    double precision :: num,sigma
+    num = hatsig4(a,ic,ic,d,r,xs_in,alpha_mod,n_ext_in)
+    if(b.eq.c) then
+       ic=b
+    elseif(b.eq.d)then
+        ic=c
+    endif
+    ! 1 at the moment
+    sigma = hatsig4(a,ic,ic,d,r,xs_in,alpha_mod,n_ext_in)
+    WSC_NNLO = num/sigma
+  end subroutine get_WSC_NNLO
+
+  subroutine get_WSS_SC_NNLO(a,b,c,d,xs_in,n_ext_in)
+    !     NNLO double-soft soft-collinear sector functions WSS_SC(a,b,c,d)
+    implicit none
+    integer :: n_ext_in
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    integer :: a,b,c,d,ic,r
+    double precision :: num,sigma
+    num = hatsig4(a,ic,ic,d,r,xs_in,alpha_mod,n_ext_in)
+    if(b.eq.c) then
+       ic=b
+    elseif(b.eq.d)then
+       ic=c
+    endif
+    ! 1 at the moment
+    sigma = hatsig4(a,ic,ic,d,r,xs_in,alpha_mod,n_ext_in)
+    WSS_SC_NNLO = num/sigma
+  end subroutine get_WSS_SC_NNLO
+
+  subroutine get_WSC_CC_NNLO(a,b,c,d,xs_in,n_ext_in)
+    !     NNLO soft-collinear triple-collinear sector functions WSC_CC(a,b,c,d)
+    implicit none
+    integer :: n_ext_in
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    integer :: a,b,c,d,ic,r
+    double precision :: num,sigma
+    num = hatsig4(a,b,c,d,r,xs_in,alpha_mod,n_ext_in)
+    if(b.eq.c) then
+        ic=b
+    elseif(b.eq.d)then
+        ic=c
+    endif
+    sigma = hatsig4(a,ic,ic,d,r,xs_in,alpha_mod,n_ext_in) + hatsig4(a,d,d,ic,r,xs_in,alpha_mod,n_ext_in) &
+          + hatsig4(ic,d,a,d,r,xs_in,alpha_mod,n_ext_in) + hatsig4(d,ic,a,ic,r,xs_in,alpha_mod,n_ext_in)
+    WSC_CC_NNLO = num/sigma
+  end subroutine get_WSC_CC_NNLO
+
+  subroutine get_WSS_SC_CC_NNLO(a,b,c,d,xs_in,n_ext_in)
+    !     NNLO double-soft soft-collinear triple-collinear sector functions WSS_SC_CC(a,b,c,d)
+    implicit none
+    integer :: n_ext_in
+    double precision, dimension (n_ext_in,n_ext_in) :: xs_in
+    integer :: a,b,c,d,ic,r
+    double precision :: num,sigma
+    num = hatsig4(a,b,c,d,r,xs_in,alpha_mod,n_ext_in)
+    if(b.eq.c) then
+        ic=b
+    elseif(b.eq.d)then
+        ic=c
+    endif
+    sigma = hatsig4(a,ic,a,d,r,xs_in,alpha_mod,n_ext_in)+hatsig4(a,d,ic,d,r,xs_in,alpha_mod,n_ext_in) &
+          + hatsig4(ic,d,a,d,r,xs_in,alpha_mod,n_ext_in)
+    WSS_SC_CC_NNLO = num/sigma
+  end subroutine get_WSS_SC_CC_NNLO
+
+
 
   subroutine swap(x,y)
   integer :: x,y,t

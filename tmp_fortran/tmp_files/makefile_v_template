@@ -43,17 +43,12 @@ DEBUG=
 #DEBUG= -ggdb -pg
 
 LINKLIBS = -L$(LIBDIR) -ldhelas -lmodel $(LINK_LOOP_LIBS) $(LDFLAGS)
-#LIBS+=  $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LOOP_LIBS)
 
 # TODO: compile libraries when generating process
 LINKLIBS+=  -lpdf -lgeneric
 
-LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
-
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext) $(LOOP_LIBS)
-
-LIBS+= $(LIBDIR)V_libdhelas.$(libext) $(LIBDIRBORN)B_libdhelas.$(libext)
 
 OPT=O3
 
@@ -101,7 +96,7 @@ PROCESS= MadLoopParamReader.o MadLoopCommons.o \
 
 VPATH = $(OBJ)
 
-%(object_str)s 
+%(object_str)s
 
 COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o myamp.o idenparts.o dsample.o matrix.o ranmar.o
 
@@ -119,13 +114,10 @@ all: libs virtual
 
 .PHONY: clean libs
 clean:
-	rm -rf ./*.o $(OBJ)/*.o ../../lib/libdhelas.a  ../../lib/V_libdhelas.a
+	rm -rf ./*.o $(OBJ)/*.o ../../lib/libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:
 	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
-	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
-	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
-

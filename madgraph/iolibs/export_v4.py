@@ -995,70 +995,20 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         write_dir=pjoin(self.dir_path, 'Source', 'DHELAS')
         
         aloha_model.write(write_dir, 'Fortran')
-
-        #gl writing files in DHELAS
-        if not os.path.isdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS')):
-            os.mkdir(pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS'))
-        write_dir_user=pjoin(self.dir_path, 'Source', 'DHELAS', 'PROC_DHELAS')
-        #aloha_model.write_user(write_dir_user, 'Fortran')
-
-        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
-            user_prefix = 'V_'
-        elif (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
-            user_prefix = 'R_'
-        elif (self.dir_path).split('/')[-1][0:2] == 'LO':
-            user_prefix = 'B_'
-        #gl
-        elif (self.dir_path).split('/')[-1][0:12] == 'NNLO_RR_x_RR':
-            user_prefix = 'RR_'
-        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
-            user_prefix = 'VV_'
-        elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
-            user_prefix = 'RV_'
-
-        aloha_model.write_user(write_dir_user, 'Fortran', user_prefix)
-        
         
         # Revert the original aloha loop mode
         aloha.loop_mode = old_loop_mode
 
-        # #copy Helas Template
-        # cp(MG5DIR + '/aloha/template_files/Makefile_F', write_dir+'/makefile')
-        # if any([any(['L' in tag for tag in d[1]]) for d in wanted_lorentz]):
-        #     cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
-        #                                          write_dir+'/aloha_functions.f')
-        #     aloha_model.loop_mode = False
-        # else:
-        #     cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
-        #                                          write_dir+'/aloha_functions.f')
-        # create_aloha.write_aloha_file_inc(write_dir, '.f', '.o')
-
-
-        #copy Helas Template in PROC_DHELAS
+        # Copy Helas Template
         cp(MG5DIR + '/aloha/template_files/Makefile_F', write_dir+'/makefile')
-
-        #write makefile template according to user_prefix
-        replace_dict = {}
-        replace_dict['user_prefix'] = user_prefix
-        filename = pjoin(write_dir_user, 'makefile' )
-        file = open(pjoin(MG5DIR, 'aloha/template_files/Makefile_F_user')).read()
-        file = file % replace_dict
-        writers.FortranWriter(filename).write(file)
-
-        #cp(MG5DIR + '/aloha/template_files/Makefile_F_user', write_dir_user+'/makefile')
         if any([any(['L' in tag for tag in d[1]]) for d in wanted_lorentz]):
             cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
-                                                  write_dir+'/aloha_functions.f')
-            cp(MG5DIR + '/aloha/template_files/aloha_functions_loop.f', 
-                                                 write_dir_user+'/aloha_functions.f')
+                                                 write_dir+'/aloha_functions.f')
             aloha_model.loop_mode = False
         else:
             cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
-                                                  write_dir+'/aloha_functions.f')
-            cp(MG5DIR + '/aloha/template_files/aloha_functions.f', 
-                                                 write_dir_user+'/aloha_functions.f')
+                                                 write_dir+'/aloha_functions.f')
         create_aloha.write_aloha_file_inc(write_dir, '.f', '.o')
-        create_aloha.write_aloha_file_inc(write_dir_user, '.f', '.o')
 
         # Make final link in the Process
         self.make_model_symbolic_link()
@@ -3643,28 +3593,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         filename = pjoin(tmp_proc_dir,'contributions.mg')
 
         # Extract helas calls
-        if proc_prefix:
-            # if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
-            #     files.append_to_file(filename,self.write_contributions,(self.dir_path))
-            #     self.write_contributions,(self.dir_path)                  
-            #     user_prefix = 'V_'
-            if (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
-                files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
-                user_prefix = 'R_'
-            elif (self.dir_path).split('/')[-1][0:2] == 'LO':
-                files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
-                user_prefix = 'B_'
-            helas_calls = fortran_model.get_matrix_element_calls_user(\
-                    matrix_element, user_prefix)
-        else:
-            helas_calls = fortran_model.get_matrix_element_calls(\
-                        matrix_element)
-        
-        proc_prefix=False
+        helas_calls = fortran_model.get_matrix_element_calls(matrix_element)
 
         #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
-
-        
 
         #os.chdir(path)
         # Create the directory PN_xx_xxxxx in the specified path
@@ -3715,56 +3646,31 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         replace_dict = {'global_variable':'', 'amp2_lines':'',
                                        'proc_prefix':proc_prefix, 'proc_id':''}
 
-
         tmp_proc_dir = pjoin(self.dir_path,'../')
         filename = pjoin(tmp_proc_dir,'contributions.mg')
 
-
-
         if proc_prefix:
             if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
-                # subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                # #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
-                # files.append_to_file(filename,self.write_contributions,subprocdir)
-                # self.write_contributions,(self.dir_path)                  
-                user_prefix = 'V_'
+                subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
+                files.append_to_file(filename,self.write_contributions,subprocdir)
             elif (self.dir_path).split('/')[-1][0:9] == 'NLO_R_x_R':
                 subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
-                user_prefix = 'R_'
             elif (self.dir_path).split('/')[-1][0:2] == 'LO':
                 subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
-                user_prefix = 'B_'
             elif (self.dir_path).split('/')[-1][0:12] == 'NNLO_RR_x_RR':
                 subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
-                user_prefix = 'RR_'
             elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
                 subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
-                user_prefix = 'RV_'
             elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
                 subprocdir = pjoin((self.dir_path).split('/')[-1]+'/SubProcesses/',"P%s" % matrix_element.get('processes')[0].shell_string())
-                #files.append_to_file(filename,self.write_contributions,(self.dir_path).split('/')[-1])
                 files.append_to_file(filename,self.write_contributions,subprocdir)
-                user_prefix = 'VV_'
-            helas_calls = fortran_model.get_matrix_element_calls_user(\
-                    matrix_element, user_prefix)
+            helas_calls = fortran_model.get_matrix_element_calls(matrix_element)
         else:
-            helas_calls = fortran_model.get_matrix_element_calls(\
-                        matrix_element)
-
-        
-                
-
-
-        #helas_calls = fortran_model.get_matrix_element_calls_user(\
-        #            matrix_element,proc_prefix)
+            helas_calls = fortran_model.get_matrix_element_calls(matrix_element)
 
         replace_dict['helas_calls'] = "\n".join(helas_calls)
 
@@ -4032,7 +3938,7 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
 
 
     #===========================================================================
-    # write_controbutions
+    # write_contributions
     #===========================================================================
     def write_contributions(self, writer, procdir):
         """Append this subprocess to the contributions.mg file for MG4"""

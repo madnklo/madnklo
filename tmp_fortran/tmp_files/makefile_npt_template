@@ -27,14 +27,8 @@ LIBDIR=../../lib/
 # TODO: compile libraries when generating process
 LINKLIBS= -L../../lib/ -ldhelas -lmodel -lpdf -lgeneric
 
-LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
-
-LIBDIRREAL= $(wildcard ../../../NLO_R*/lib/)
-
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext)
-
-LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIRREAL)R_libdhelas.$(libext) $(LIBDIR)RR_libdhelas.$(libext)
 
 OPT=O3
 
@@ -79,13 +73,10 @@ USR_FILES=alphaS.o kinematics.o sectors4_module.o analysis.o HwU.o cuts.o
 
 .PHONY: clean libs
 clean:
-	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/RR_libdhelas.a
+	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:
 	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
-	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
-	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
-	cd ../../../NLO_R*/Source/DHELAS/PROC_DHELAS; make; cd -

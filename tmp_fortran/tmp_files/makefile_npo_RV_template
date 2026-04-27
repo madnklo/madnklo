@@ -43,19 +43,12 @@ DEBUG=
 #DEBUG= -ggdb -pg
 
 LINKLIBS = -L$(LIBDIR) -ldhelas -lmodel $(LINK_LOOP_LIBS) $(LDFLAGS)
-#LIBS+=  $(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LOOP_LIBS)
 
 # TODO: compile libraries when generating process
 LINKLIBS+=  -lpdf -lgeneric
 
-LIBDIRBORN= $(wildcard ../../../LO_*/lib/)
-LIBDIRREAL= $(wildcard ../../../NLO_R_*/lib/)
-LIBDIRVIRT= $(wildcard ../../../NLO_V_*/lib/)
-
 LIBS=$(LIBDIR)libdhelas.$(libext) $(LIBDIR)libmodel.$(libext) $(LIBDIR)libgeneric.$(libext) \
 	$(LIBDIR)libpdf.$(libext) $(LOOP_LIBS)
-
-LIBS+= $(LIBDIRBORN)B_libdhelas.$(libext) $(LIBDIRREAL)R_libdhelas.$(libext) $(LIBDIRVIRT)V_libdhelas.$(libext) $(LIBDIR)RV_libdhelas.$(libext)
 
 OPT=O3
 
@@ -148,14 +141,10 @@ $(OBJ)/RV_polynomial.o: RV_polynomial.f
 
 .PHONY: clean libs
 clean:
-	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a ../../lib/RV_libdhelas.a
+	rm -rf $(OBJ)/*.o ../../lib/libdhelas.a
 	cd ../../../Source; make clean; cd -
 
 libs:
 	mkdir -p $(OBJ)
 	cd ../../Source/DHELAS; make; cd -
-	cd ../../Source/DHELAS/PROC_DHELAS; make; cd -
 	cd ../../../Source; make ; cd -
-	cd ../../../LO_*/Source/DHELAS/PROC_DHELAS; make; cd -
-	cd ../../../NLO_R_*/Source/DHELAS/PROC_DHELAS; make; cd -
-	cd ../../../NLO_V_*/Source/DHELAS/PROC_DHELAS; make; cd -

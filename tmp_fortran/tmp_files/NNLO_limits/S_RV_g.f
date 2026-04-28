@@ -23,7 +23,7 @@ c     it returns 0 if i is not a gluon
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision sil,sim,slm,ml2,mm2,siq,smq,y,z,x,damp
       double precision eik0,eik1(-2:0),eik2(-2:0)
-      double precision res_delta
+      double precision res_delta(-2:0)
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -58,6 +58,17 @@ c     external
       integer v_returncode
       integer v_nsquaredso_loop
       real*8 , allocatable :: v_prec_found(:)
+c     TODO: fix hard-coded ncolorcorr
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=8)
+C
+C     Index 0 is the number of correlators to consider and the next
+C     indices are which one to consider
+      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3
+     $ ,0:NSQUAREDSO)
+      COMMON/V_ML5_1_1_COLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER
+     $ ,COLOR_CORRELATED_EVALS
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -133,6 +144,7 @@ c     call colour-connected Born and Virtual
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = V_MATELEM(1:3,0)
             call %(V_long_proc_prefix)sget_ccvnlo(lb,mb,ccvnlo)
+            COLOR_CORRELATED_EVALS = 0D0
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -286,6 +298,7 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
+      damp=x**alpha
       delta_s=0d0
       ccBLO_lm = 0d0
       ccBLO_ml = 0d0
@@ -379,11 +392,11 @@ c
 c     Sum over e
             do t=1,nexternal
                if(.not.(isNLOQCDparton(t))) cycle
-               if(t.eq.l) cycle
+               if(t.eq.i) cycle
                if(t.eq.m) cycle
                tb = mapped_labels(t)
                stm = xs(t,m)
-               sbtm = xsb(tb,mb)
+               sbtm = xsb_lm(tb,mb)
                ANS = 0d0
                call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                QUADBLO_tmlm= 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
@@ -527,6 +540,7 @@ c     sanity check
          goto 999
       endif
 c
+      return
  999  ierr=1
       return
       end

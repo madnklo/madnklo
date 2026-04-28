@@ -66,7 +66,6 @@ c     check flavour match
         stop 1
       endif
 c
-c     TODO: check the PDGs
 c     get PDGs
       jb = real_mapped_labels(j)
       do l=1,nexternal
@@ -82,7 +81,7 @@ c     call W double-soft
       call get_wss_nnlo(asec,bsec,csec,dsec)
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref=32d0*pi**2*alphas**2
 c
 c     eikonal double sum
@@ -99,18 +98,18 @@ c
             mbb = Born_mapped_labels(mb)
 c
 c         check labels and pdgs
-            IF(.NOT.(ISNLOMAPPEDQCDPARTON(LB).AND.ISNLOMAPPEDQCDPARTON(MB)))THEN
-               WRITE(*,*)'Wrong indices 1 in M2_SS_gg',LB,MB
-               STOP
-            ENDIF
-            IF(.NOT.(ISLOMAPPEDQCDPARTON(LBB).AND.ISLOMAPPEDQCDPARTON(MBB)))THEN
-               WRITE(*,*)'Wrong indices 2 in M2_SS_gg',LBB,MBB
-               STOP
-            ENDIF
-            IF(leg_pdgs(l).ne.Born_leg_pdgs(lbb).or.leg_pdgs(m).ne.Born_leg_pdgs(mbb))THEN
-               WRITE(*,*)'Wrong indices 3 in M2_SS_gg',L,M,LBB,MBB
-               STOP
-            ENDIF
+            if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
+               write(*,*)'Wrong indices 1 in M2_SS_gg',lb,mb
+               stop
+            endif
+            if(.not.(islomappedqcdparton(lbb).and.islomappedqcdparton(mbb)))then
+               write(*,*)'Wrong indices 2 in M2_SS_gg',lbb,mbb
+               stop
+            endif
+            if(leg_pdgs(l).ne.born_leg_pdgs(lbb).or.leg_pdgs(m).ne.born_leg_pdgs(mbb))then
+               write(*,*)'Wrong indices 3 in M2_SS_gg',l,m,lbb,mbb
+               stop
+            endif
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -134,15 +133,19 @@ c     invariant quantities: (c,d) in the paper --> (m,l)
             slm = xs(l,m)
 c
 c     safety check
-            IF(SIJ.LE.0D0.or.(SIL+SJL).le.0d0.or.(SIM+SJM).le.0d0)THEN
-               WRITE(77,*)'Inaccuracy 1 in M2_SS_gg',SIJ, SIL+SJL, SIM+SJM
-               GOTO 999
-            ENDIF
+            if(sij.le.0d0.or.(sil+sjl).le.0d0.or.(sim+sjm).le.0d0)then
+               write(77,*)'Inaccuracy 1 in M2_SS_gg',sij, sil+sjl, sim+sjm
+               goto 999
+            endif
 c
 c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
+c
+c     call Born matrix element
+            call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+            BLO = ANS(0)
 c
 c     TODO: call quadruple born B[icd,jcd]_{cdcd}
 c            QUADBLO_mlml = 0d0
@@ -151,7 +154,7 @@ c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l) (verified)
             M2tmp = -2d0*CA*CCBLO*(((sim*sjl+sil*sjm)/((sim+sjm)*(sil+sjl))-sim*sjm/(sim+sjm)**2-sil*sjl/(sil+sjl)**2)/sij**2-2d0*slm/(sij*(sim+sjm)*(sil+sjl))+slm*(sim*sjl+sil*sjm-sij*slm)/(sij*sim*sjl*sil*sjm)*(1d0-1d0/2d0*(sim*sjl+sil*sjm)/((sim+sjm)*(sil+sjl))))
-            M2tmp = M2tmp + 2d0*(slm/sim/sil)*(slm/sjm/sjl)*QUADBLO_mlml
+            M2tmp = M2tmp + 2d0*(slm/sim/sil)*(slm/sjm/sjl)*2d0*CF**2*BLO
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

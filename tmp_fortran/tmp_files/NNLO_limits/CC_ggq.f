@@ -97,7 +97,7 @@ c     call Born matrix element
 c
 c     double-collinear kernel, using eq. (B.19) in eq. (B.14) for (B.13) of 2212.11190
 c     CF^2 part including i <-> j permutation
-      Pijkr = CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sjk/sik+sijk/sik*(zk*zjk+zik**3)/zi/zj)+CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sik/sjk+sijk/sjk*(zk*zik+zjk**3)/zi/zj)
+      Pijkr = CF**2*((sijk**2*zk*((1d0+zk**2)/zi/zj)/2d0/sik/sjk)-sjk/sik+sijk/sik*(zk*zjk+zik**3)/zi/zj)+CF**2*((sijk**2*zk*((1d0+zk**2)/zi/zj)/2d0/sik/sjk)-sik/sjk+sijk/sjk*(zk*zik+zjk**3)/zi/zj)
 c     CF*CA term
       Pijkr = Pijkr +  CF*CA*(sijk**2/4d0/sij**2*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2-sijk**2*zk/4d0/sik/sjk*((zij**2+2d0*zk)/zi/zj)+sijk**2/2d0/sij/sik*((zij**2+2d0*zk)/zj+(zj**2+2d0*zik)/zij)+1d0/4d0+sijk/2d0/sik*((zik**3+zk**2-zj)/zj/zij-(zk*zjk+zik**3)/zi/zj)+sijk/2d0/sij*(zi*(2d0*zjk+zi**2)-zj*(6d0*zik+zj**2))/zj/zij)
 c     Permuting i and j for CF*CA part

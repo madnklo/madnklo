@@ -101,16 +101,16 @@ c     1. IJK = QX Q Q
 c     2. IJK = QX Q QX
 c
       if (leg_pdgs(I).EQ.-leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
-        M2TMP = CF*TR*(-SIJK**2/(2D0*SIK**2)*(SJK/SIJK-SIJ/SIJK+(ZI-ZK)/ZIK)**2+SIJK/SIK*(2D0*(ZJ-ZI*ZK)/ZIK+ZIK)-1D0/2D0)
-        M2TMP = M2TMP + CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ) /ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-        M2TMP = M2TMP + (2D0*CF**2-CA*CF)*(-SIJK**2*ZI/(2D0*SIK*SIJ)*(1D0+ZI**2)/(ZIK*ZIJ)+(SJK/SIK+SJK/SIJ)+SIJK/(2D0*SIK)*((1D0+ZI**2)/ZIJ-2D0*ZK/ZIK)+ SIJK/(2D0*SIJ)*((1D0+ZI**2)/ZIK-2D0*ZJ/ZIJ ))
-      else if (leg_pdgs(I).EQ.leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
-        M2TMP = CF*TR*(-SIJK**2/(2D0*SIJ**2)*(SJK/SIJK-SIK/SIJK+(ZI-ZJ)/ZIJ)**2+SIJK/SIJ*(2D0*(ZK-ZI*ZJ)/ZIJ+ZIJ)-1D0/2D0)
-        M2TMP = M2TMP +CF*TR*(-SIJK**2/(2D0*SJK**2)*(SIJ/SIJK-SIK/SIJK+(ZK-ZJ)/ZJK)**2+SIJK/SJK*(2D0*(ZI-ZK*ZJ)/ZJK+ZJK)-1D0/2D0)
-        M2TMP = M2TMP +CF*(2D0*CF-CA)*(-SIJK**2*ZJ/(2D0*SJK*SIJ)*(1D0+ZJ**2)/ZJK/ZIJ+SIK/SJK+SIK/SIJ+SIJK/2D0/SJK*((1D0+ZJ**2)/ZIJ-2D0*ZK/ZJK)+SIJK/2D0/SIJ*((1D0+ZJ**2)/ZJK-2D0*ZI/ZIJ))
+        M2tmp = CF*TR*(-sijk**2/(2d0*sik**2)*(sjk/sijk-sij/sijk+(zi-zk)/zik)**2+sijk/sik*(2d0*(zj-zi*zk)/zik+zik)-1d0/2d0)
+        M2tmp = M2tmp + CF*TR*(-sijk**2/(2d0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj) /zij)**2+sijk/sij*(2d0*(zk-zi*zj)/zij+zij)-1d0/2d0)
+        M2tmp = M2tmp + (2d0*CF**2-CA*CF)*(-sijk**2*zi/(2d0*sik*sij)*(1d0+zi**2)/(zik*zij)+(sjk/sik+sjk/sij)+sijk/(2d0*sik)*((1d0+zi**2)/zij-2d0*zk/zik)+ sijk/(2d0*sij)*((1d0+zi**2)/zik-2d0*zj/zij ))
+      else if (leg_pdgs(i).eq.leg_pdgs(k).and.leg_pdgs(i).eq.-leg_pdgs(j)) then
+        M2tmp = CF*TR*(-sijk**2/(2d0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2+sijk/sij*(2d0*(zk-zi*zj)/zij+zij)-1d0/2d0)
+        M2tmp = M2tmp +CF*TR*(-sijk**2/(2d0*sjk**2)*(sij/sijk-sik/sijk+(zk-zj)/zjk)**2+sijk/sjk*(2d0*(zi-zk*zj)/zjk+zjk)-1d0/2d0)
+        M2tmp = M2tmp +CF*(2d0*CF-CA)*(-sijk**2*zj/(2d0*sjk*sij)*(1d0+zj**2)/zjk/zij+sik/sjk+sik/sij+sijk/2d0/sjk*((1d0+zj**2)/zij-2d0*zk/zjk)+sijk/2d0/sij*((1d0+zj**2)/zjk-2d0*zi/zij))
       endif
 c
-      M2TMP = M2TMP*BLO
+      M2tmp = M2tmp*BLO
 c
 c     include double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)

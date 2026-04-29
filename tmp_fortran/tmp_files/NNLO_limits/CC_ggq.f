@@ -20,7 +20,7 @@ c     while k is a q (or qb)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk
+      double precision zi,zj,zk,zij,zik,zjk,Pijkr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -95,14 +95,17 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
-c     triple-collinear kernel, using eq. (B.19) in eq. (B.14) of 2212.11190
-      M2tmp = CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sjk/sik+sijk/sik*(zk*zjk+zik**3)/zi/zj)+ CF*CA*(sijk**2/4d0/sij**2*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2 - sijk**2*zk/4d0/sik/sjk*((zij**2+2d0*zk)/zi/zj) + sijk**2/2d0/sij/sik*((zij**2+2d0*zk)/zj+(zj**2+2d0*zik)/zij)+ 1d0/4d0 + sijk/2d0/sik*((zik**3+zk**2-zj)/zi/zij-(zk*zjk+zik**3)/zi/zj) + sijk/2d0/sik*(zi*(2d0*zjk+zi**2)-zj*(6d0*zik+zj**2))/zi/zij)
-c     permuting i and j
-      M2tmp = M2tmp + CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sik/sjk+sijk/sjk*(zk*zik+zjk**3)/zi/zj) + CF*CA*(sijk**2/4d0/sij**2*(sik/sijk-sjk/sijk+(zj-zi)/zij)**2 - sijk**2*zk/4d0/sik/sjk*((zij**2+2d0*zk)/zi/zj) + sijk**2/2d0/sij/sjk*((zij**2+2d0*zk)/zi+(zi**2+2d0*zjk)/zij)+ 1d0/4d0 + sijk/2d0/sjk*((zjk**3+zk**2-zi)/zj/zij-(zk*zik+zjk**3)/zi/zj) + sijk/2d0/sjk*(zj*(2d0*zik+zj**2)-zi*(6d0*zjk+zi**2))/zj/zij)
+c     double-collinear kernel, using eq. (B.19) in eq. (B.14) for (B.13) of 2212.11190
+c     CF^2 part including i <-> j permutation
+      Pijkr = CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sjk/sik+sijk/sik*(zk*zjk+zik**3)/zi/zj)+CF**2*((sijk**2*zk*(1d0+zk**2/zi/zj)/2d0/sik/sjk)-sik/sjk+sijk/sjk*(zk*zik+zjk**3)/zi/zj)
+c     CF*CA term
+      Pijkr = Pijkr +  CF*CA*(sijk**2/4d0/sij**2*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2-sijk**2*zk/4d0/sik/sjk*((zij**2+2d0*zk)/zi/zj)+sijk**2/2d0/sij/sik*((zij**2+2d0*zk)/zj+(zj**2+2d0*zik)/zij)+1d0/4d0+sijk/2d0/sik*((zik**3+zk**2-zj)/zj/zij-(zk*zjk+zik**3)/zi/zj)+sijk/2d0/sij*(zi*(2d0*zjk+zi**2)-zj*(6d0*zik+zj**2))/zj/zij)
+c     Permuting i and j for CF*CA part
+      Pijkr = Pijkr +  CF*CA*(sijk**2/4d0/sij**2*(sik/sijk-sjk/sijk+(zj-zi)/zij)**2-sijk**2*zk/4d0/sjk/sik*((zij**2+2d0*zk)/zi/zj)+sijk**2/2d0/sij/sjk*((zij**2+2d0*zk)/zi+(zi**2+2d0*zjk)/zij)+1d0/4d0+sijk/2d0/sjk*((zjk**3+zk**2-zi)/zi/zij-(zk*zik+zjk**3)/zi/zj)+sijk/2d0/sij*(zj*(2d0*zik+zj**2)-zi*(6d0*zjk+zi**2))/zi/zij)
+      M2tmp = Pijkr*BLO
 c
-      M2tmp = M2tmp*BLO
 c
-c     include triple-collinear sector function
+c     include double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)
       call get_wcc_nnlo(asec,bsec,csec,dsec)
       M2tmp=M2tmp*wcc_nnlo
@@ -226,12 +229,12 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
-c     double-soft triple-collinear kernel, eq. (C.16) of 2212.11190
+c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       Eijkr = (((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2)/sij**2-2d0*skr/(sij*(sik+sjk)*(sir+sjr))+skr*(sik*sjr+sir*sjk-sij*skr)/(sij*sik*sjr*sir*sjk)*(1d0-1d0/2d0*(sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))))
       M2tmp = CF*(4d0*CF*skr/sik/sir*skr/sjk/sjr-2d0*CA*Eijkr)
       M2tmp = M2tmp*BLO
 c
-c     include double-soft triple-collinear sector function
+c     include double-soft double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)
       call get_wss_cc_nnlo(asec,bsec,csec,dsec)
       M2tmp=M2tmp*wss_cc_nnlo

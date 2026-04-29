@@ -1,3 +1,4 @@
+
       double precision function M2_C_SS_GG(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a g-g pair
       use sectors4_module

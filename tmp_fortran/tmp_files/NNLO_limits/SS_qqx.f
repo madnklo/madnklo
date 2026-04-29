@@ -82,7 +82,7 @@ c     call W double-soft
       call get_wss_nnlo(asec,bsec,csec,dsec)
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref=32d0*pi**2*alphas**2
 c
 c     eikonal double sum
@@ -99,18 +99,18 @@ c
             mbb = Born_mapped_labels(mb)
 c
 c         check labels and pdgs
-            IF(.NOT.(ISNLOMAPPEDQCDPARTON(LB).AND.ISNLOMAPPEDQCDPARTON(MB)))THEN
-               WRITE(*,*)'Wrong indices 1 in M2_SS_qqx',LB,MB
-               STOP
-            ENDIF
-            IF(.NOT.(ISLOMAPPEDQCDPARTON(LBB).AND.ISLOMAPPEDQCDPARTON(MBB)))THEN
-               WRITE(*,*)'Wrong indices 2 in M2_SS_qqx',LBB,MBB
-               STOP
-            ENDIF
-            IF(leg_pdgs(l).ne.Born_leg_pdgs(lbb).or.leg_pdgs(m).ne.Born_leg_pdgs(mbb))THEN
-               WRITE(*,*)'Wrong indices 3 in M2_SS_qqx',L,M,LBB,MBB
-               STOP
-            ENDIF
+            if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
+               write(*,*)'Wrong indices 1 in M2_SS_qqx',lb,mb
+               stop
+            endif
+            if(.not.(islomappedqcdparton(lbb).and.islomappedqcdparton(mbb)))then
+               write(*,*)'Wrong indices 2 in M2_SS_qqx',lbb,mbb
+               stop
+            endif
+            if(leg_pdgs(l).ne.born_leg_pdgs(lbb).or.leg_pdgs(m).ne.born_leg_pdgs(mbb))then
+               write(*,*)'Wrong indices 3 in M2_SS_qqx',l,m,lbb,mbb
+               stop
+            endif
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -154,10 +154,10 @@ c     Including correct multiplicity factor
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_SS_qqx=M2_SS_qqx+pref*M2tmp*WSS_NNLO*extra
+            M2_SS_qqx=M2_SS_qqx+pref*M2tmp*wss_nnlo*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*WSS_NNLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*wss_nnlo*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             wgts=wgtpl
 c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)

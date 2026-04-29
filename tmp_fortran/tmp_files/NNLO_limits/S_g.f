@@ -1,3 +1,4 @@
+
       double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon

@@ -1,3 +1,4 @@
+
       double precision function M2_C_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a g-g pair
 c     while k is a q (or qb) with any flavour
@@ -15,7 +16,7 @@ c     while k is a q (or qb) with any flavour
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO
+      double precision BLO,KKBLO
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
@@ -24,7 +25,7 @@ c     while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk,zbki
-      double precision Pij,Qij,Pbjk,Ebjkr
+      double precision Pij,Qij,Pbjk,Ebjkr,Ebkjr
       double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
       logical flavourmatch
@@ -34,6 +35,7 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+      double precision %(proc_prefix_rr)s_GET_KKBLO
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
       integer %(proc_prefix_rr)s_den
@@ -95,6 +97,7 @@ c      if(real_leg_pdgs(j).ne.21)then
 c         write(*,*) 'Wrong parent particle label 1 in M2_C_CC_qxqqp', j, real_leg_pdgs(j)
 c         stop
 c      endif
+c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
       jb = real_mapped_labels(j)
@@ -103,10 +106,10 @@ c      endif
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      IF(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        WRITE(77,*)'Inaccuracy 2 in M2_C_CC_ggq',SBJK,SBJR,SBKR
-        GOTO 999
-      ENDIF
+      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+        write(77,*)'Inaccuracy 2 in M2_C_CC_ggq',sbjk,sbjr,sbkr
+        goto 999
+      endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       parent_leg = real_mapped_labels(jb)
@@ -125,14 +128,18 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
+      KKBLO = %(proc_prefix_rr)s_GET_KKBLO(parent_leg,xpbb,ktb)
+c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
-      Pbjk = CF*(1d0+zbk**2)/zbj !change
+      Pbjk = 2d0*CA*(zbj/zbk+zbk/zbj)
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
-!change
-      M2TMP = M2TMP/sij*BLO
+      Ebkjr = sbjr/sbjk/sbkr
+      M2tmp = Pij/sbjk*(Pbjk*BLO+2d0*KKBLO)
+      M2tmp = M2tmp + 2d0*CA*Ebkjr*(-BLO+2d0*KKBLO)
+      M2tmp = M2tmp - 2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2tmp = M2tmp/sij
 c
 c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
@@ -284,13 +291,13 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
       Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
-      M2TMP = M2TMP/sij*BLO
+      M2tmp = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2tmp = M2tmp/sij*BLO
 c
 c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      M2TMP=M2TMP*wc_nlo
+      M2tmp=M2tmp*wc_nlo
 c
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

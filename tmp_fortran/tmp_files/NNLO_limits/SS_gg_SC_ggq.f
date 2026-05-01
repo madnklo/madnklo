@@ -178,7 +178,7 @@ c     apply flavour factor
 c
 c     sanity check
       if(abs(M2_SS_gg_SC_ggq).ge.huge(1d0).or.isnan(M2_SS_gg_SC_ggq))then
-         write(77,*)'Exception caught in M2_SC_ggq',M2_SS_gg_SC_ggq
+         write(77,*)'Exception caught in M2_SS_SC_ggq',M2_SS_gg_SC_ggq
          goto 999
       endif
 c

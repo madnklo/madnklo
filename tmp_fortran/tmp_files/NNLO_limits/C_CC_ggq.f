@@ -35,7 +35,7 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
-      double precision %(proc_prefix_rr)s_GET_KKBLO
+      double precision %(proc_prefix_Born)s_GET_KKBLO
       integer %(proc_prefix_rr)s_fl_factor
       common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
       integer %(proc_prefix_rr)s_den
@@ -128,7 +128,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
-      KKBLO = %(proc_prefix_rr)s_GET_KKBLO(parent_leg,xpbb,ktb)
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,ktb)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)

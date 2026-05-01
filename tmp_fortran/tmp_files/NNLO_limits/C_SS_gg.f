@@ -113,7 +113,7 @@ c     kt = wa pa + wb pb + wr pr
       kt2 = dot(kt(:),kt(:))
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref = -64d0*pi**2*alphas**2
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -191,7 +191,7 @@ c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_C_SS_GG=M2_C_SS_GG+pref*M2tmp*extra
+            M2_C_SS_gg=M2_C_SS_gg+pref*M2tmp*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
@@ -205,11 +205,11 @@ c
 c     Double sum ends here
 c
 c     apply flavour factor
-      M2_C_SS_GG = M2_C_SS_GG * %(proc_prefix_rr)s_fl_factor
+      M2_C_SS_gg = M2_C_SS_gg * %(proc_prefix_rr)s_fl_factor
 c
 c     sanity check
-      if(abs(M2_C_SS_GG).ge.huge(1d0).or.isnan(M2_C_SS_GG))then
-         write(77,*)'Exception caught in M2_C_SS_GG',M2_C_SS_GG
+      if(abs(M2_C_SS_gg).ge.huge(1d0).or.isnan(M2_C_SS_gg))then
+         write(77,*)'Exception caught in M2_C_SS_gg',M2_C_SS_gg
          goto 999
       endif
 c

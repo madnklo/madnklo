@@ -181,7 +181,6 @@ c
       jsec = %(jsec)d
       ksec = 0
       lsec = 0
-      iref = %(iref)d
 c
 c     check we are not in the ISR case
       if(isec.le.2.or.jsec.le.2)then
@@ -201,5 +200,8 @@ c
 c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
       call get_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels)
+      call get_iref(nexternal,isec,jsec,mapped_labels,iref)
+      ib = iref
+c
       return
       end

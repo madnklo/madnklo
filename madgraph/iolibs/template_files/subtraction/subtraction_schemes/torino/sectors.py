@@ -351,11 +351,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 if i['id'] != 21 and j['id'] == 21 and j['state']:
                     continue
 
-                #if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                if i['id'] == 21 and j['id'] == 21 and j['state']:
-                    if j.get('number') < i.get('number') :
-                        continue
-
+#                #if both i and j are gluons, then keep just the case in which i (number) < j (number)
+#                if i['id'] == 21 and j['id'] == 21 and j['state']:
+#                    if j.get('number') < i.get('number') :
+#                        continue
+#
                 #if j and i are quarks and antiquark in the final state, let j be the quark
                 #  this is needed in order to comply with the fct combine_ij inside fks_common
                 if i['id'] == -j['id'] and j['state']:
@@ -365,10 +365,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 ijlist = fks_common.combine_ij(fks_common.to_fks_leg(i, model),
                                                fks_common.to_fks_leg(j, model),
                                                model, pert_dict)
-                # if not ijlist:
-                #     ijlist = fks_common.combine_ij(fks_common.to_fks_leg(j, model),
-                #                                    fks_common.to_fks_leg(i, model),
-                #                                    model, pert_dict)
+                if not ijlist:
+                    ijlist = fks_common.combine_ij(fks_common.to_fks_leg(j, model),
+                                                   fks_common.to_fks_leg(i, model),
+                                                   model, pert_dict)
 
                 # print('list of ij : ' + str(ijlist))
 
@@ -684,7 +684,6 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             mapping_str = """ \
                 iU = %s
                 iS = %s
-                iB = %s
                 iA = 1 ! default azimuth for NLO
             """ % (mapping[0][0], mapping[1][0], mapping[2][0])
             overall_sector_info.append(sector_info)
@@ -724,6 +723,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # Write ct template in NLO_IR_limits
                     os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K_sector_lists['C'][(isec,jsec)].append((isec,iref))
+                    if (necessary_ct_list[i][1] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
+                        K_sector_lists['C'][(isec,jsec)].append((jsec,iref))
+
 
 
             # outside loop on necessary_ct_list
@@ -1176,16 +1178,16 @@ c     soft limit"""
       l=[0d0,0d0]
       call do_limit_R_%d_%d(iunit,'Si      ',x0,e,l)
 """%(isec,jsec)
-#        if necessary_ct_list[i][1] != 0 : #Sj limit
-#            #TODO for future: massive recoiler to be implemented
-#            limit_str += """
-#c
-#c     soft limit
-#      e=[1d0,1d0]
-#      l=[1d0,0d0]
-#      call do_limit_R_%d_%d(iunit,'Sj      ',x0,e,l)
-#"""%(isec,jsec)
-#        # Loop over sectors with final state particles only
+        if necessary_ct_list[i][1] != 0 : #Sj limit
+            #TODO for future: massive recoiler to be implemented
+            limit_str += """
+c
+c     soft limit
+      e=[1d0,1d0]
+      l=[1d0,0d0]
+      call do_limit_R_%d_%d(iunit,'Sj      ',x0,e,l)
+"""%(isec,jsec)
+        # Loop over sectors with final state particles only
         if isec > 2 and jsec > 2:
             if necessary_ct_list[i][2] != 0 : #Cij
                 limit_str += """

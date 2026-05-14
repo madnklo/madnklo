@@ -685,7 +685,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 iU = %s
                 iS = %s
                 iA = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0], mapping[2][0])
+            """ % (mapping[0][0], mapping[1][0])
             overall_sector_info.append(sector_info)
 
             # Initialise NLO_IR_limits.f for every sector [ij]

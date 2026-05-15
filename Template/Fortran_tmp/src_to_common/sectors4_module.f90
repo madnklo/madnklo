@@ -371,42 +371,71 @@ contains
     WCbar_NLO = num/sigma
   end subroutine get_WCbar_NLO
 
-  subroutine get_WSC_NNLO(i,j,k,l,ir)
+  subroutine get_WSC_NNLO(a,b,c,d,r)
     implicit none
-    integer :: i,j,k,l,ir
-    integer :: legs(4),m,b,d
-    double precision :: num,sigma
-    double precision :: sum_b_T1,sum_d_T2,sum_d_T3
-    num=sig2(i,j)**alpha_mod*sig2(k,l)/w(k,ir)
-    ! by construction of legs none of the indices sum over i
-    legs=[j,k,l,ir]
-    ! sig2(i,b)**alpha
-    sum_b_T1=0d0
-    do m=1,4
-       b=legs(m)
-       if(any(legs(1:m-1)==b))cycle
-       sum_b_T1=sum_b_T1+sig2(i,b)**alpha_mod
+    integer :: a,b,c,d,r
+    integer :: i,sec(4)
+    !integer :: i,j,k,l,ir
+    !integer :: legs(4),m,b,d
+    double precision :: wr,num,sigma
+    !double precision :: sum_b_T1,sum_d_T2,sum_d_T3
+    ! num=sig2(i,j)**alpha_mod*sig2(k,l)/w(k,ir)
+    ! ! by construction of legs none of the indices sum over i
+    ! legs=[j,k,l,ir]
+    ! ! sig2(i,b)**alpha
+    ! sum_b_T1=0d0
+    ! do m=1,4
+    !    b=legs(m)
+    !    if(any(legs(1:m-1)==b))cycle
+    !    sum_b_T1=sum_b_T1+sig2(i,b)**alpha_mod
+    ! enddo
+    ! ! sig2(i,d) where d!=k
+    ! sum_d_T2=0d0
+    ! do m=1,4
+    !    d=legs(m)
+    !    if(d.eq.k)cycle
+    !    ! let's say in 3445 the legs will be [4,4,5,6], so now we want to avoid double-summing the index
+    !    ! should/might work for 3454, legs will be [4,5,4,6]
+    !    if(any(legs(1:m-1)==d))cycle
+    !    sum_d_T2=sum_d_T2+sig2(i,d)
+    ! enddo
+    ! ! sig2(i,d) where d!=l
+    ! sum_d_T3=0d0
+    ! do m=1,4
+    !    d=legs(m)
+    !    if(d.eq.l)cycle
+    !    if(any(legs(1:m-1)==d))cycle
+    !    sum_d_T3=sum_d_T3+sig2(i,d)
+    ! enddo
+    ! sigma=sum_b_T1*(sig2(k,l)/w(k,ir)+sig2(l,k)/w(l,ir))+sig2(k,l)**alpha_mod/w(k,ir)*sum_d_T2+sig2(l,k)**alpha_mod/w(l,ir)*sum_d_T3
+    ! WSC_NNLO=num/sigma
+
+    include 'all_K2_sector_list.inc'
+    num = sig2(a,b)**alpha_mod*sig2(c,d)/w(c,r)
+    sigma = 0d0
+    do i=1,len
+       sec=sc_sector_list(a,c,d,i,:)
+       if(all(sec.eq.0))cycle
+       if(sec(1).eq.a) then
+          wr=w(sec(3),r)
+       else
+          wr=w(sec(1),r)
+       endif
+       sigma = sigma + &
+            sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
     enddo
-    ! sig2(i,d) where d!=k
-    sum_d_T2=0d0
-    do m=1,4
-       d=legs(m)
-       if(d.eq.k)cycle
-       ! let's say in 3445 the legs will be [4,4,5,6], so now we want to avoid double-summing the index
-       ! should/might work for 3454, legs will be [4,5,4,6]
-       if(any(legs(1:m-1)==d))cycle
-       sum_d_T2=sum_d_T2+sig2(i,d)
+    do i=1,len
+       sec=sc_sector_list(a,d,c,i,:)
+       if(all(sec.eq.0))cycle
+       if(sec(1).eq.a) then
+          wr=w(sec(3),r)
+       else
+          wr=w(sec(1),r)
+       endif
+       sigma = sigma + &
+            sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
     enddo
-    ! sig2(i,d) where d!=l
-    sum_d_T3=0d0
-    do m=1,4
-       d=legs(m)
-       if(d.eq.l)cycle
-       if(any(legs(1:m-1)==d))cycle
-       sum_d_T3=sum_d_T3+sig2(i,d)
-    enddo
-    sigma=sum_b_T1*(sig2(k,l)/w(k,ir)+sig2(l,k)/w(l,ir))+sig2(k,l)**alpha_mod/w(k,ir)*sum_d_T2+sig2(l,k)**alpha_mod/w(l,ir)*sum_d_T3
-    WSC_NNLO=num/sigma
+    WSC_NNLO = num/sigma
   end subroutine get_WSC_NNLO
 
   subroutine get_WSS_SC_NNLO(a,b,c,d)

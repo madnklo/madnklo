@@ -162,7 +162,7 @@ contains
   end subroutine get_WSS_NNLO
 
   subroutine get_WCC_NNLO(a,b,ic,id)
-    ! NNLO triple-collinear sector functions WCC
+          ! NNLO double-collinear sector functions WCC
     implicit none
     integer :: i,ii(3),a,b,c,d,ic,id,sec(4)
     double precision :: num, sigma
@@ -263,33 +263,6 @@ contains
     enddo
   end subroutine get_sig2
 
-!   double precision function hatsig4(i,j,k,l,r,xs_in,alpha_in,n_ext_in)
-!     implicit none
-!     ! global
-!     integer :: n_ext_in
-!     double precision :: alpha_in
-!     double precision, dimension (n_ext_in,n_ext_in) :: xs_in
-!     ! local
-!     integer :: i,j,k,l,r,n_ext
-!     double precision :: ei,ek,wij,wkl,wir,wkr
-!     ! set global module variables
-!     n_ext=n_ext_in
-!     if (.not.allocated(xs_mod)) allocate(xs_mod(n_ext,n_ext))
-!     xs_mod=xs_in
-!     ! calculate (sig[i,j]/wir)^alpha*sig[k,l]/wkr where l=i,j,k for the NNLO SC sector functions
-!     hatsig4=0d0
-!     if((xs_mod(i,1)+xs_mod(i,2))*(xs_mod(j,1)+xs_mod(j,2))*(xs_mod(k,1)+xs_mod(k,2))* &
-!        (xs_mod(r,1)+xs_mod(r,2))*xs_mod(1,2).ne.0d0)then
-!         ei=(xs_mod(i,1)+xs_mod(i,2))/xs_mod(1,2)
-!         ek=(xs_mod(j,1)+xs_mod(j,2))/xs_mod(1,2)
-!         wij=xs_mod(1,2)*xs_mod(i,j)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(j,1)+xs_mod(j,2))
-!         wkl=xs_mod(1,2)*xs_mod(k,l)/(xs_mod(l,1)+xs_mod(l,2))/(xs_mod(k,1)+xs_mod(k,2))
-!         wir=xs_mod(1,2)*xs_mod(i,r)/(xs_mod(i,1)+xs_mod(i,2))/(xs_mod(r,1)+xs_mod(r,2))
-!         wkr=xs_mod(1,2)*xs_mod(k,r)/(xs_mod(k,1)+xs_mod(k,2))/(xs_mod(r,1)+xs_mod(r,2))
-!         hatsig4=((1d0/ei/wij)/wir)**alpha_in*(1d0/ek/wkl)/wkr
-!     endif
-!   end
-
   subroutine get_Wbar_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
     implicit none
@@ -375,41 +348,7 @@ contains
     implicit none
     integer :: a,b,c,d,r
     integer :: i,sec(4)
-    !integer :: i,j,k,l,ir
-    !integer :: legs(4),m,b,d
     double precision :: wr,num,sigma
-    !double precision :: sum_b_T1,sum_d_T2,sum_d_T3
-    ! num=sig2(i,j)**alpha_mod*sig2(k,l)/w(k,ir)
-    ! ! by construction of legs none of the indices sum over i
-    ! legs=[j,k,l,ir]
-    ! ! sig2(i,b)**alpha
-    ! sum_b_T1=0d0
-    ! do m=1,4
-    !    b=legs(m)
-    !    if(any(legs(1:m-1)==b))cycle
-    !    sum_b_T1=sum_b_T1+sig2(i,b)**alpha_mod
-    ! enddo
-    ! ! sig2(i,d) where d!=k
-    ! sum_d_T2=0d0
-    ! do m=1,4
-    !    d=legs(m)
-    !    if(d.eq.k)cycle
-    !    ! let's say in 3445 the legs will be [4,4,5,6], so now we want to avoid double-summing the index
-    !    ! should/might work for 3454, legs will be [4,5,4,6]
-    !    if(any(legs(1:m-1)==d))cycle
-    !    sum_d_T2=sum_d_T2+sig2(i,d)
-    ! enddo
-    ! ! sig2(i,d) where d!=l
-    ! sum_d_T3=0d0
-    ! do m=1,4
-    !    d=legs(m)
-    !    if(d.eq.l)cycle
-    !    if(any(legs(1:m-1)==d))cycle
-    !    sum_d_T3=sum_d_T3+sig2(i,d)
-    ! enddo
-    ! sigma=sum_b_T1*(sig2(k,l)/w(k,ir)+sig2(l,k)/w(l,ir))+sig2(k,l)**alpha_mod/w(k,ir)*sum_d_T2+sig2(l,k)**alpha_mod/w(l,ir)*sum_d_T3
-    ! WSC_NNLO=num/sigma
-
     include 'all_K2_sector_list.inc'
     num = sig2(a,b)**alpha_mod*sig2(c,d)/w(c,r)
     sigma = 0d0

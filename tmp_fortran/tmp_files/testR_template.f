@@ -1,4 +1,4 @@
-      subroutine test_R_%(isec)d_%(jsec)d(iunit,x0)
+      subroutine test_R_%(isec)d_%(jsec)d(ievnt)
       implicit none
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
@@ -6,37 +6,28 @@
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer iunit,ievnt
-      INTEGER, PARAMETER :: MXDIM = 30
-      double precision x0(mxdim)
+      integer ievnt
       character*10 dash10
-      save ievnt
-      double precision xsave(3)
-      common/cxsave/xsave
       double precision e(2),l(2)
 c
       dash10='----------'
-      ievnt=ievnt+1
 c
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)' EVENT NUMBER ',ievnt
-      write(iunit,*)dash10//dash10//dash10//dash10
-      write(iunit,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)' EVENT NUMBER ',ievnt
+      write(88,*)dash10//dash10//dash10//dash10
+      write(88,*)dash10//dash10//dash10//dash10
 %(limit_str)s
 c
-c     reinstate original xsave after testing
-      xsave(1:3)=x0(1:3)
-c
-      write(iunit,*)
-      write(iunit,*)
-      write(iunit,*)
+      write(88,*)
+      write(88,*)
+      write(88,*)
 c
       return
       end
 
 
-      subroutine do_limit_R_%(isec)d_%(jsec)d(iunit,limstr,x0,e,l)
+      subroutine do_limit_R_%(isec)d_%(jsec)d(limstr,e,l)
       use sectors2_module
       implicit none
       INCLUDE 'coupl.inc'
@@ -45,14 +36,13 @@ c
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
-      integer iitn,i,j,maxitn,iunit,ierr
+      integer iitn,i,j,maxitn,ierr
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
-      integer, parameter :: mxdim=30
       parameter(maxitn=12)
-      double precision x0(mxdim),x(mxdim)
+      double precision x0(3*nexternal-10),xr(3*nexternal-10)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision KS,KC,KSC,KNLO
@@ -75,51 +65,42 @@ c
       double precision e(2),l(2)
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      double precision ran2
       double precision CSpow(2)
       common /cCSpow/CSpow
+c
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
 c
 c     initialise
-      x=x0
       str5 ='     '
       str10='          '
       xjac=0d0
       sNLO=0d0
       sLO=0d0
       wgt_chan=1d0
-c
-c     TODO: MAP SOFT LIMIT AS (ilm), I.E. ONE MAPPING PER DIPOLE
+      do i=1,3*nexternal-10
+         x0(i)=ran2(33+10*i)
+      enddo
+      xr=x0
 c
 c     start testing
-      write(iunit,*)
-      write(iunit,*)
-      write(iunit,*)'LIM = '//trim(limstr)
-      write(iunit,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
-c
-c     possibility to set by hand the starting point
-c     for the limiting procedure
-c      x0(1)=0.5d0
-c      x0(2)=0.5d0
+      write(88,*)
+      write(88,*)
+      write(88,*)'LIM = '//trim(limstr)
+      write(88,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
 c
 c     loop to get closer and closer to the limit
       do iitn=1,maxitn
          lam=10d0**(1d0-iitn)
 c
-c     initialise
-         KNLO=0d0
-c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
 c     TODO: this rescaling is specific for (ijr) mapping; generalise
-         x(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
-c
-c     set xsave so that the counterterms will be called with
-c     more and more singular kinematics
-         xsave(1:3)=x(1:3)
+         xr(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         call phase_space_npo(xr,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle
@@ -134,19 +115,18 @@ c     real
          CALL GET_W_NLO(%(isec)d,%(jsec)d)
 c
 c     counterterm
-         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
+         call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,xr,KNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
 
          lim=KNLO
          single_real=RNLO*W_NLO*xjac
 
          if(abs(lim).gt.0d0)then
-            write(iunit,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
+            write(88,*)lam,single_real,lim,abs(single_real-lim)/abs(lim)
          else
-            write(iunit,*)lam,single_real,lim,single_real,' *** '
+            write(88,*)lam,single_real,lim,single_real,' *** '
          endif
       enddo
-      x=x0
 c
       return
       end

@@ -13,8 +13,6 @@ c     (n+1)-body NLO integrand for vegas
       integer i
       integer ierr
       integer ievt,nthres,ntest
-      integer iunit
-      common/ciunitNLO/iunit
       integer ntested
       parameter(ntest=20)
       save ievt,nthres,ntested
@@ -37,10 +35,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
-      double precision xsave(3)
       double precision sCM
       common/cscm/sCM
-      common/cxsave/xsave
       integer nitr
       common/iterations/nitr
       integer %(NLO_proc_str)sfl_factor 
@@ -80,8 +76,13 @@ c     initialise
       int_real_%(isec)d_%(jsec)d=0d0
       int_real_no_cnt=0d0
       RNLO=0d0
-      xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
+c
+c     test phase-space singularities of matrix elements
+      if(ntested.lt.ntest)then
+         ntested=ntested+1
+         call test_R_%(isec)d_%(jsec)d(ntested)
+      endif
 c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
@@ -108,12 +109,6 @@ c     tiny technical phase-space cut to avoid fluctuations
 c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
-c
-c     test phase-space singularities of matrix elements
-      if(ntested.lt.ntest)then
-         ntested=ntested+1
-         call test_R_%(isec)d_%(jsec)d(iunit,x)
-      endif
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

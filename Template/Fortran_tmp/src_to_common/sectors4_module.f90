@@ -418,8 +418,9 @@ contains
   subroutine get_WSS_SC_CC_NNLO(a,b,c,d,r)
     !     NNLO double-soft soft-collinear double-collinear sector functions WSS_SC_CC(a,b,c,d)
     implicit none
-    integer :: a,b,c,d,r,ic,sec(4)
+    integer :: i,a,b,c,d,r,ic,sec(4)
     double precision :: num,sigma
+    include 'all_K2_sector_list.inc'
     num = (sig2(a,b)/w(a,r))**alpha_mod*sig2(c,d)/w(c,r)
     if(b.eq.c) then
         ic=b

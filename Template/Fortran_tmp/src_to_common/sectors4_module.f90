@@ -398,20 +398,24 @@ contains
     WSS_SC_NNLO = num/sigma
   end subroutine get_WSS_SC_NNLO
 
-  subroutine get_WSC_CC_NNLO(a,b,c,d,ir)
+  subroutine get_WSC_CC_NNLO(a,b,c,d,r)
     !     NNLO soft-collinear double-collinear sector functions WSC_CC(a,b,c,d)
     implicit none
-    integer :: a,b,c,d,ir,ic
+    integer :: i,a,b,c,d,r,ic
     double precision :: num,sigma
-    num = (sig2(a,b)/w(a,ir))**alpha_mod*sig2(c,d)/w(c,ir)
+    include 'all_K2_sector_list.inc'
+    num = (sig2(a,b)/w(a,r))**alpha_mod*sig2(c,d)/w(c,r)
     if(b.eq.c) then
         ic=b
     elseif(b.eq.d)then
         ic=c
     endif
-    sigma = (sig2(a,ic)/w(a,ir))**alpha_mod*sig2(ic,d)/w(ic,ir) + (sig2(a,ic)/w(a,ir))**alpha_mod*sig2(d,ic)/w(d,ir) &
-          + (sig2(a,d)/w(a,ir))**alpha_mod*sig2(ic,d)/w(ic,ir)  + (sig2(a,d)/w(a,ir))**alpha_mod*sig2(d,ic)/w(d,ir)  &
-          + (sig2(ic,d)/w(ic,ir))**alpha_mod*sig2(a,d)/w(a,ir)  + (sig2(d,ic)/w(d,ir))**alpha_mod*sig2(a,ic)/w(a,ir)
+    sigma=0d0
+    do i=1,len
+       sec=sc_cc_sector_list(a,ic,d,i,:)
+       if(all(sec.eq.0))cycle
+       sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
+    enddo
     WSC_CC_NNLO = num/sigma
   end subroutine get_WSC_CC_NNLO
 

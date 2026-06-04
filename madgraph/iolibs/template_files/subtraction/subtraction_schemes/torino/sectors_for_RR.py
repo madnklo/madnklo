@@ -599,7 +599,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
                         # Si
-                        if s['sector'].id[0] == 21 :
+                        if i_id == 21 and sorted([l.n for l in all_legs])[0] == ileg:
                             s['counterterms'].append(i_ct)
                             necessary_3p_ct1_list[0] = 'S_g'
                             necessary_3p_ct1[0] = ct
@@ -650,9 +650,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     s['counterterms'].append(i_ct)
                                     if (i_id == 21 and j_id == 21 and k_id == 21):
                                         necessary_3p_ct2_list[3] = 'CC_ggg'
-                                    elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                    #elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                    elif ([i_id,j_id,k_id].count(21) == 2):
                                         necessary_3p_ct2_list[3] = 'CC_ggq'
-                                    elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                    #elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                    elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[3] = 'CC_gqqx'
                                     else:
                                         if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
@@ -670,7 +672,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (j_id == 21 and k_id == 21):
                                     necessary_3p_ct2_list[1] = 'SC_ggg'
-                                elif (j_id == 21 and k_id != 21):
+                                elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
@@ -720,9 +722,11 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     s['counterterms'].append(i_ct)
                                     if (i_id == 21 and j_id == 21 and k_id == 21):
                                         necessary_3p_ct2_list[5] = 'CC_ggg'
-                                    elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                    #elif (i_id == 21 and j_id == 21 and k_id != 21):
+                                    elif ([i_id,j_id,k_id].count(21) == 2):
                                         necessary_3p_ct2_list[5] = 'CC_ggq'
-                                    elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                    #elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
+                                    elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[5] = 'CC_gqqx'
                                     else:
                                         if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
@@ -740,7 +744,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (j_id == 21 and k_id == 21):
                                     necessary_3p_ct2_list[1] = 'SC_ggg'
-                                elif (j_id == 21 and k_id != 21):
+                                elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
@@ -750,7 +754,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (i_id == 21 and j_id == 21):
                                     necessary_3p_ct2_list[2] = 'SC_ggg'
-                                elif (i_id == 21 and j_id != 21):
+                                elif ((i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21)):
                                     necessary_3p_ct2_list[2] = 'SC_ggq'
                                 else:
                                     necessary_3p_ct2_list[2] = 'SC_gqqx'
@@ -967,12 +971,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
                         # Si
-                        if i_id == 21 :
+                        if i_id == 21 and sorted([l.n for l in all_legs])[0] == ileg:
                             s['counterterms'].append(i_ct)
                             necessary_4p_ct1_list[0] = 'S_g'
                             necessary_4p_ct1[0] = ct
 
-                    if singular_structure.name()=='C' and len(all_legs)==2:
+                    if singular_structure.name()=='C' and len(all_legs)==2 and len(n_subs) == 1:
                         if not singular_structure.substructures:
                             # Cij
                             if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
@@ -985,9 +989,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     necessary_4p_ct1_list[1] = 'C_qqx'
                                 necessary_4p_ct1[1] = ct
                             # Ckl
-                            Ckl_flag = False
-                            if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
-                                Ckl_flag = True
+                            #Ckl_flag = False
+                            #if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
+                            #    Ckl_flag = True
 
                     # SiCij
                     necessary_4p_ct1_list[2] = (''.join(('S_',necessary_4p_ct1_list[1])) \
@@ -1017,7 +1021,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             if i_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])):
                                 if (k_id == 21 and l_id == 21):
                                     necessary_4p_ct2_list[1] = 'SC_ggg'
-                                elif (k_id == 21 and l_id != 21):
+                                elif ((k_id == 21 and l_id != 21) or (k_id != 21 and l_id == 21)):
                                     necessary_4p_ct2_list[1] = 'SC_ggq'
                                 else:
                                     necessary_4p_ct2_list[1] = 'SC_gqqx'
@@ -1026,7 +1030,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             if k_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg])):
                                 if (i_id == 21 and j_id == 21):
                                     necessary_4p_ct2_list[2] = 'SC_ggg'
-                                elif (i_id == 21 and j_id != 21):
+                                elif ((i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21)):
                                     necessary_4p_ct2_list[2] = 'SC_ggq'
                                 else:
                                     necessary_4p_ct2_list[2] = 'SC_gqqx'
@@ -1034,26 +1038,28 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                         # Cijkl
                         if n_subs[0].name()=='C' and n_subs[1].name()=='C':
-                            if sorted([l.n for l in n_subs[0].get_all_legs()]) == (sorted([ileg,jleg])) and \
-                                sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])) and \
-                                    Ckl_flag == True:
+                            if (sorted([l.n for l in n_subs[0].get_all_legs()]) == (sorted([ileg,jleg])) and \
+                                sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg]))) or \
+                                (sorted([l.n for l in n_subs[0].get_all_legs()]) == (sorted([kleg,lleg])) and \
+                                sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg]))): # and \
+                                    #Ckl_flag == True:
                                 if i_id == 21 and j_id == 21 and k_id == 21 and l_id == 21:
                                     necessary_4p_ct2_list[5] = 'CC_gggg'
-                                elif i_id == 21 and j_id == 21 and k_id == 21 and l_id != 21:
+                                elif i_id == 21 and j_id == 21 and [k_id,l_id].count(21) == 1: #k_id == 21 and l_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gggq'
-                                elif k_id == 21 and l_id == 21 and i_id == 21 and j_id != 21:
+                                elif k_id == 21 and l_id == 21 and [i_id,j_id].count(21) == 1: #i_id == 21 and j_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gqgg'
-                                elif i_id == 21 and j_id == 21 and abs(k_id) == abs(l_id):
+                                elif i_id == 21 and j_id == 21 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id):
                                     necessary_4p_ct2_list[5] = 'CC_ggqxq'
-                                elif k_id == 21 and l_id == 21 and abs(i_id) == abs(j_id):
+                                elif k_id == 21 and l_id == 21 and [i_id,j_id].count(21) == 0 and abs(i_id) == abs(j_id):
                                     necessary_4p_ct2_list[5] = 'CC_qxqgg'
-                                elif i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
+                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 1: #i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gqgq'
-                                elif i_id == 21 and j_id != 21 and abs(k_id) == abs(l_id):
+                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21 
                                     necessary_4p_ct2_list[5] = 'CC_gqqxq'
-                                elif k_id == 21 and l_id != 21 and abs(i_id) == abs(j_id):
+                                elif [k_id,l_id].count(21) == 1 and [i_id,j_id].count(21) == 0 and abs(i_id) == abs(j_id): #k_id == 21 and l_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_qxqgq'
-                                elif abs(i_id) == abs(j_id) and abs(k_id) == abs(l_id):
+                                elif [i_id,j_id,k_id,l_id].count(21) == 0 and abs(i_id) == abs(j_id) and abs(k_id) == abs(l_id):
                                     necessary_4p_ct2_list[5] = 'CC_qxqqxq'
                                 necessary_4p_ct2[5] = ct
 
@@ -2071,25 +2077,33 @@ c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)"""
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    K2_sector_lists['CC'][(min(isec,jsec),max(isec,jsec),min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
+                    K2_sector_lists['CCCC'][min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
+                                            min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1], \
+                                            max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
+                                            max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1]].append(all_4p_sector_list[i]) 
+                    #(min(isec,jsec),max(isec,jsec),min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
                 elif j == 6: # + SS_ik CC_ijkl
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    K2_sector_lists['SS_CC'][(isec,jsec,ksec,lsec)].append(all_4p_sector_list[i])
+                    K2_sector_lists['SS_CCCC'][min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
+                                               min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1], \
+                                               max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
+                                               max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1]].append(all_4p_sector_list[i])
+                    #K2_sector_lists['SS_CCCC'][(isec,jsec,ksec,lsec)].append(all_4p_sector_list[i])
                 elif j == 7: # - SC_ikl CC_ijkl
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    K2_sector_lists['SC_CC'][(isec,jsec,min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
+                    K2_sector_lists['SC_CCCC'][(isec,jsec,min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
                 elif j == 8: # - SC_kij CC_ijkl
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    K2_sector_lists['SC_CC'][(ksec,lsec,min(isec,jsec),max(isec,jsec))].append(all_4p_sector_list[i])
+                    K2_sector_lists['SC_CCCC'][(ksec,lsec,min(isec,jsec),max(isec,jsec))].append(all_4p_sector_list[i])
                 # Extract underlying Born string
                 self.get_uproc_str('Born', uB_all_4p_K2_ct[i][j], all_4p_K2_ct[i][j], dirpathB_head, replace_dict_limits,
                                        replace_dict_double_real, UBorn_procs, path_UBorn_procs, sector_info)
@@ -2294,6 +2308,10 @@ c       %s
         UProc = ct.current.shell_string_user(
                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         UProc_1 = ct.current.shell_string_user()
+
+        #print(str(sector_info['isec'])+str(sector_info['jsec'])+str(sector_info['c3p'])+str(sector_info['d3p']))
+        #print(ct_name)
+        #print(ct)
 
         flag = False
         for i in range(0,len(UProc)):

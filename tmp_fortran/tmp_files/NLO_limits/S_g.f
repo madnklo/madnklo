@@ -45,6 +45,8 @@ c     external
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      logical sig2_called
+      common/c_sig2_called/sig2_called
       double precision pmass(nexternal)
       INCLUDE 'pmass.inc'      
 c
@@ -65,6 +67,7 @@ c     checks
       endif
 c
 c     call W soft
+      if(.not.sig2_called)call GET_SIG2(xs,nexternal)
       CALL GET_WS_NLO(ISEC,JSEC)
 c
 c     overall kernel prefix

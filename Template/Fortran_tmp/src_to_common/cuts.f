@@ -37,9 +37,12 @@ c     initialise
       ptjet=0d0
       ptg=0d0
       pgamma=0d0
-c     
-
-
+c
+c     check
+      if (nUnres.ne.0.and.nUnres.ne.1.and.nUnres.ne.2) then
+         write(*,*)'Wrong nUnres in cuts.f ',nUnres
+         stop
+      endif
 C***************************************************************
 C***************************************************************
 C     Cuts from the run_card.dat
@@ -130,6 +133,10 @@ c     cluster partons into jets
                enddo
             endif
          enddo
+         if(nQCD.gt.nexternal-nincoming) then
+            write(*,*)'Wrong nQCD in cuts.f ',nQCD,nexternal,nincoming
+            stop
+         endif
 c
 c     clustering parameters
          palg = jetalgo
@@ -157,10 +164,8 @@ c     necessarily correspond to the particle
 c     label in the process
 c
          call fastjetppgenkt_etamax(pQCD,nQCD,rfj,sycut,etamax,palg,pjet,njet,jet)
-         
 c         call fastjetppgenkt(pQCD,nQCD,rfj,sycut,palg,pjet,njet,jet)
-
-c     
+c
 c******************************************************************************
          do i=1,njet
             ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
@@ -172,43 +177,11 @@ c******************************************************************************
                endif
             endif
          enddo
+         if (njet.lt.nQCD-nUnres) then
+            docut = .true.
+            return
+         endif
       endif
-c
-c
-c check
-      if(nQCD.gt.nexternal-nincoming) then
-         write(*,*)'Wrong nQCD in cuts.f ',nQCD,nexternal,nincoming
-         stop
-      endif
-      if (nUnres .ne. 0 .and. nUnres .ne. 1 .and. nUnres.ne.2) then
-         write(*,*)'Wrong nUnres in cuts.f ',nUnres
-         stop
-      endif
-
-      if (njet.lt.nQCD-nUnres) then
-         docut = .true.
-         return
-      endif
-
-
-
-c$$$
-c$$$
-c$$$      if (nUnres.eq.0) then
-c$$$         if(njet.ne.nQCD) then
-c$$$            docut = .true.
-c$$$            return
-c$$$         endif
-c$$$      elseif(nUnres.eq.1) then
-c$$$         if(njet.ne.nQCD .and. njet.ne.nQCD-1) then
-c$$$            docut = .true.
-c$$$            return
-c$$$         endif
-c$$$      else
-c$$$         write(*,*)'Unknown number of unresolved particles',nUnres
-c$$$         stop
-c$$$      endif
-
 
 c PHOTON (ISOLATION) CUTS
 c

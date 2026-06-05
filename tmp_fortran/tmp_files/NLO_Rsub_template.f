@@ -53,6 +53,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       save firsttime
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      logical sig2_called
+      common/c_sig2_called/sig2_called
 c
 c     call initialisation function
       if(firsttime)then
@@ -77,6 +79,7 @@ c     initialise
       int_real_no_cnt=0d0
       RNLO=0d0
       WGT_CHAN=1d0
+      sig2_called=.false.
 c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
@@ -121,6 +124,7 @@ c     real
 c
 c     real sector function
       call get_sig2(snlo,nexternal)
+      sig2_called=.true.
       call get_W_NLO(isec,jsec)
 c
 c     full real in sector Wij

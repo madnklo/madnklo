@@ -186,7 +186,7 @@ c
 
 
       double precision function M2_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     SC(i,j,k)SC(i,j,k) kernel times WSC_CC: i, j is a g-g pair
+c     SC(i,j,k)CC(i,j,k) kernel times WSC_CC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module
       implicit none
@@ -236,6 +236,12 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
+c     check sector topology
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
+        write (*,*) 'Wrong topology in M2_SC_ggq_CC_ggq',asec,bsec,csec,dsec
+        stop 1
+      endif
+c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
       if(.not.(flavourmatch))then
@@ -280,7 +286,7 @@ c     TODO: write the kernel
       M2tmp = CF
       M2tmp = M2tmp/sjk
 c
-c     include triple-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190
+c     include double-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190
 c     a small detail is that sig2 is always called with alpha=1 in the limit
 c     the necessary sig2's are raised to the respective alpha in the soft-collinear sector functions
       call get_w(xs,nexternal)

@@ -51,7 +51,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(bsec.ne.csec) then
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_CC_ggq',asec,bsec,csec,dsec
         stop 1
       endif

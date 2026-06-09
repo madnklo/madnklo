@@ -1055,7 +1055,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     necessary_4p_ct2_list[5] = 'CC_qxqgg'
                                 elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 1: #i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gqgq'
-                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21 
+                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_gqqxq'
                                 elif [k_id,l_id].count(21) == 1 and [i_id,j_id].count(21) == 0 and abs(i_id) == abs(j_id): #k_id == 21 and l_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_qxqgq'
@@ -1496,13 +1496,13 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS'][tuple(sorted((isec,ksec)))].append(all_3p_sector_list[i])
                     elif j == 1: # + SC_ijk
-                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC'][(isec,min(jsec,ksec),max(jsec,ksec))].append(all_3p_sector_list[i])
                     elif j == 2: # + SC_kij
-                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -1532,19 +1532,19 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_CC'][(min(isec,ksec),max(isec,ksec),jsec)].append(all_3p_sector_list[i])
                     elif j == 7: # - SC_ijk CC_ijk
-                        list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC_CC'][(isec,min(jsec,ksec),max(jsec,ksec))].append(all_3p_sector_list[i])
                     elif j == 8: # + SS_ik SC_ijk CC_ijk
-                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_SC_CC'][(isec,ksec,jsec)].append(all_3p_sector_list[i])
                     elif j == 9: # - SC_kij CC_ijk
-                        list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -2080,7 +2080,7 @@ c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)"""
                     K2_sector_lists['CCCC'][min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
                                             min((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1], \
                                             max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[0], \
-                                            max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1]].append(all_4p_sector_list[i]) 
+                                            max((min(isec,jsec),max(isec,jsec)),(min(ksec,lsec),max(ksec,lsec)))[1]].append(all_4p_sector_list[i])
                     #(min(isec,jsec),max(isec,jsec),min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
                 elif j == 6: # + SS_ik CC_ijkl
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'

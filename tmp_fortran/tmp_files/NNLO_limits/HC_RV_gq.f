@@ -46,6 +46,15 @@ c     set logical doplot
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
       double precision pmass(nexternal)
+      LOGICAL V_INIT
+      DATA V_INIT/.TRUE./
+      COMMON/V_INITCHECKSA/V_INIT
+      INTEGER V_MATELEM_ARRAY_DIM
+      REAL*8 , ALLOCATABLE :: V_MATELEM(:,:)
+      INTEGER V_RETURNCODE
+      INTEGER V_NSQUAREDSO_LOOP
+      REAL*8 , ALLOCATABLE :: V_PREC_FOUND(:)
+
       include 'pmass.inc'
 c
 c     initialise
@@ -65,6 +74,17 @@ c     checks
          write(*,*)'Wrong indices in M2_HC_RV_gq',ia,ib,isec,jsec
          stop
       endif
+
+
+      IF (V_INIT) THEN
+         V_INIT=.FALSE.
+         CALL V_ML5_1_1_GET_ANSWER_DIMENSION(V_MATELEM_ARRAY_DIM)
+         ALLOCATE(V_MATELEM(0:3,0:V_MATELEM_ARRAY_DIM))
+         CALL V_ML5_1_1_GET_NSQSO_LOOP(V_NSQUAREDSO_LOOP)
+         ALLOCATE(V_PREC_FOUND(0:V_NSQUAREDSO_LOOP))
+      ENDIF
+
+      
 c
 c     possible cuts
       if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
@@ -80,10 +100,10 @@ c     invariant quantities
       mb2=pmass(ib)**2
       mr2=pmass(ir)**2
 c     TODO: CHECK x
-      x=sar/(sar+sbr)
+      x=sbr/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
-      logab=log(sab/scale**2)
+      logab=dlog(sab/scale**2)
 c
       EIK0     =  SBR/(SAB*SAR) - MB2/SAB**2 - MR2/SAR**2
       EIK1(-2) =  CA*EIK0
@@ -97,17 +117,22 @@ c     safety check
       endif
 c
 c     call Born
-c      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      BLO = 0d0 !ANS(0)
-c      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-      VLO = 0d0 !ANS(0)
+      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      BLO = ANS(0)
+      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      VLO(-2) = V_MATELEM(3,0)
+      VLO(-1) = V_MATELEM(2,0)
+      VLO(0) =  V_MATELEM(1,0)
+
+
 c
 c     In the following equation the x variable is related to the quark energy
       M2_C_gq_0=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
 c
       M2_C_gq(-2:0) = M2_C_gq(-2:0) + VLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
       M2_C_gq(-2) = M2_C_gq(-2) + alphas/2d0/pi*M2_C_gq_0*(-CA)
-      M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CF*log(x*(1d0-x))-beta0/2d0)
+c      M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CF*log(x*(1d0-x))-beta0/2d0)
+      M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CA*dlog(1d0-x)+(2d0*CF-CA)*dlog(x)-BETA0/2D0)
       M2_C_gq( 0) = M2_C_gq( 0) + alphas/2d0/pi*(M2_C_gq_0*(CA*(7d0*zeta2-logab**2)/2d0+CF*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+BLO*CF*(CA-CF))
 c
       if(ia.eq.isec) then
@@ -116,6 +141,12 @@ c
       else
          continue
       endif
+
+c     Add terms from N1 expansion
+
+      M2_C_GQ(-1) = M2_C_GQ(-1) + M2_C_GQ(-2)*dlog(exp(eulergamma)*scale**2/4d0/pi)
+
+      
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gq =  M2_C_gq*wc_nlo

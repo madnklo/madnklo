@@ -76,14 +76,14 @@ c     checks
       endif
 
 
-      IF (V_INIT) THEN
-         V_INIT=.FALSE.
-         CALL V_ML5_1_1_GET_ANSWER_DIMENSION(V_MATELEM_ARRAY_DIM)
-         ALLOCATE(V_MATELEM(0:3,0:V_MATELEM_ARRAY_DIM))
-         CALL V_ML5_1_1_GET_NSQSO_LOOP(V_NSQUAREDSO_LOOP)
-         ALLOCATE(V_PREC_FOUND(0:V_NSQUAREDSO_LOOP))
-      ENDIF
 
+      if (v_init) then
+        v_init=.false.
+        call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
+        allocate(v_matelem(0:3,0:v_matelem_array_dim))
+        call %(V_long_proc_prefix)sget_nsqso_loop(v_nsquaredso_loop)
+        allocate(v_prec_found(0:v_nsquaredso_loop))
+      endif
       
 c
 c     possible cuts
@@ -119,7 +119,7 @@ c
 c     call Born
       call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
-      call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+      call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
       VLO(-2) = V_MATELEM(3,0)
       VLO(-1) = V_MATELEM(2,0)
       VLO(0) =  V_MATELEM(1,0)

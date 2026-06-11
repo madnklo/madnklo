@@ -201,15 +201,17 @@ c     while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      integer ib,jb,kb,rb
+      integer jbb,kbb,rbb
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO
+      double precision BLOkrjirj,BLOjrkirk
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,Eijkr
+      double precision zi,zj,zk,zij,zik,zjk
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -255,6 +257,46 @@ c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
+c     Mapping 1 for B[krj,irj]
+c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      rb = real_mapped_labels(r)
+      jb = real_mapped_labels(j)
+      rbb = Born_mapped_labels(rb)
+      jbb = Born_mapped_labels(jb)
+c
+c     underlying Born configuration is remapped
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+      if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+      if(ierr.eq.1)goto 999
+c
+c     call Born matrix element with the mapping [krj,irj]
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+      BLOkrjirj = ANS(0)
+c
+c     Mapping 2 for B[jrk,irk]
+c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      rb = real_mapped_labels(r)
+      kb = real_mapped_labels(k)
+      rbb = Born_mapped_labels(rb)
+      kbb = Born_mapped_labels(kb)
+c
+c     underlying Born configuration is remapped
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+      if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+      if(ierr.eq.1)goto 999
+c
+c     call Born matrix element with the mapping [jrk,irk]
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+      BLOjrkirk = ANS(0)
+c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=64d0*pi**2*alphas**2
@@ -280,14 +322,8 @@ c     safety check
         goto 999
       endif
 c
-c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO = ANS(0)
-c
 c     double-soft double-colinear soft-collinear kernel, eq. (C.19) of 2212.11190
-c     TODO: fix the kernel here
-      M2tmp = CF*(4d0*CF*skr/sik/sir*skr/sjk/sjr-2d0*CA*Eijkr)
-      M2tmp = M2tmp*BLO
+      M2tmp = 2d0*CF*skr/sjk/sjr*(CA*sjr/sij/sir*BLOkrjirj+(2*CF-CA)*skr/sik/sir*BLOjrkirk)
 c
 c     include double-soft double-collinear soft-collinear sector function, eq.(C.65-C.67) of 2212.11190
 c     a small detail is that sig2 is always called with alpha=1 in the limit
@@ -300,7 +336,7 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SS_gg_SC_ggq_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
+      M2_SS_gg_SC_ggq_CC_ggq = M2tmp*pref*xj*extra
 c
 c     plot
       wgtpl=-M2_SS_gg_SC_ggq_CC_ggq*wgt/nit*wgt_chan

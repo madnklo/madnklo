@@ -60,6 +60,12 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
+c     check sector topology
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
+        write (*,*) 'Wrong topology in M2_SC_ggq',asec,bsec,csec,dsec
+        stop 1
+      endif
+c
 c     check flavour match
       if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
         write(*,*) 'Flavour mismatch in M2_SC_ggq', leg_PDGs(i),leg_PDGs(j)
@@ -198,14 +204,16 @@ c     while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit,parent_leg
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      integer ib,jb,kb,rb
+      integer jbb,kbb,rbb
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO
+      double precision BLOkrjirj,BLOjrkirk
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      double precision sijk,sij,sik,sjk,sir,sjr,skr
+      double precision sijk,sij,sik,sjk,sir,sjr,skr,Pjkr
       double precision zi,zj,zk,zij,zik,zjk
       integer, parameter :: hel = - 1
       logical flavourmatch
@@ -252,6 +260,46 @@ c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
+c     Mapping 1 for B[krj,irj]
+c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      rb = real_mapped_labels(r)
+      jb = real_mapped_labels(j)
+      rbb = Born_mapped_labels(rb)
+      jbb = Born_mapped_labels(jb)
+c
+c     underlying Born configuration is remapped
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+      if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+      if(ierr.eq.1)goto 999
+c
+c     call Born matrix element with the mapping [krj,irj]
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+      BLOkrjirj = ANS(0)
+c
+c     Mapping 2 for B[jrk,irk]
+c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      rb = real_mapped_labels(r)
+      kb = real_mapped_labels(k)
+      rbb = Born_mapped_labels(rb)
+      kbb = Born_mapped_labels(kb)
+c
+c     underlying Born configuration is remapped
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+      if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
+      if(ierr.eq.1)goto 999
+c
+c     call Born matrix element with the mapping [jrk,irk]
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+      BLOjrkirk = ANS(0)
+c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=64d0*pi**2*alphas**2
@@ -265,8 +313,8 @@ c     invariant quantities
       sjr  = xs(j,r)
       skr  = xs(k,r)
       zi   = sir/(sir+sjr+skr)
-      zj   = sjr/(sir+sjr+skr)
-      zk   = skr/(sir+sjr+skr)
+      zj   = sjr/(sjr+skr)
+      zk   = skr/(sjr+skr)
       zik  = zi+zk
       zjk  = zj+zk
       zij  = zi+zj
@@ -277,14 +325,10 @@ c     safety check
         goto 999
       endif
 c
-c     call Born matrix element
-      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO = ANS(0)
-c
 c     double-colinear soft-collinear kernel, eq. (C.18) of 2212.11190
-c     TODO: write the kernel
-      M2tmp = CF
-      M2tmp = M2tmp/sjk
+c     since Qjk(r) is Qgq(r) = 0, the kperp term is zero
+      Pjkr = -2d0*CA*(zj/zk+zk/zj+zj*zk)
+      M2tmp = CF*Pjkr*(CA/CF*sjr/sij/sir*BLOkrjirj+(2d0*CF-CA)/CF*skr/sik/sir*BLOjrkirk)
 c
 c     include double-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190
 c     a small detail is that sig2 is always called with alpha=1 in the limit
@@ -297,7 +341,7 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_SC_ggq_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
+      M2_SC_ggq_CC_ggq = M2tmp*pref/sjk*xj*extra ! eq.(C.18)
 c
 c     plot
       wgtpl=-M2_SC_ggq_CC_ggq*wgt/nit*wgt_chan

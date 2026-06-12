@@ -149,5 +149,4 @@ c     finalise histograms and output files
       close(iu7)
       close(iu8)
 c
-      stop
       end

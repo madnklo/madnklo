@@ -40,7 +40,6 @@ def run_parallel(paths, worker, n, pass_n=False):
 
 # ---------------- LO ----------------
 def process_lo(p):
-    run("make -j2", p)
     run("make", p)
     run("./Born", p)
     return p
@@ -53,7 +52,6 @@ def run_lo(n):
 
 # ---------------- NLO_V ----------------
 def process_nlo_v(p):
-    run("make -j2", p)
     run("make", p)
     run("./virtual", p)
     return p
@@ -73,7 +71,6 @@ def run_sector(task):
 
 def process_nlo_r(task):
     p, n = task
-    run("make -j2", p)
     run("make", p)
 
     sectors = sorted(glob.glob(os.path.join(p, "sector_*")))

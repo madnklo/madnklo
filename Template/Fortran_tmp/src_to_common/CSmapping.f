@@ -105,7 +105,7 @@ c     Catani-Seymour parametrisation for massless case
          xjac=xjac* CSpow(1)*xx(1)**(CSpow(1)-1d0)
          yCS =xx(2)**CSpow(2)
          xjac=xjac* CSpow(2)*xx(2)**(CSpow(2)-1d0)
-         if(1d0-yCS.eq.1d0 .or. 1d0-yCS.eq.1d0) return
+         if(1d0-yCS.eq.1d0 .or. 1d0-zCS.eq.1d0) return
          phCS=2d0*pi*xx(3)
          costhUB=1d0-2d0*zCS/(1d0-(1d0-yCS)*(1d0-zCS))
          sinthUB=2d0*sqrt(yCS*(1d0-zCS)*zCS)/(1d0-(1d0-yCS)*(1d0-zCS))

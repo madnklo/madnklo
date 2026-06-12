@@ -157,5 +157,4 @@ c      write(iu,*)
       close(iu1)
       close(iu7)
 c
-      stop
       end

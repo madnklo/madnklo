@@ -59,7 +59,7 @@ def collect_from_pattern(top_pattern: str) -> Summary:
 
     top_dirs = sorted(glob.glob(top_pattern))
     for top_dir in top_dirs:
-        result_logs = sorted(glob.glob(os.path.join(top_dir, "SubProcesses", "P1_*", "results*.log")))
+        result_logs = sorted(glob.glob(os.path.join(top_dir, "SubProcesses", "P1_*", "results_*.log")))
         for path in result_logs:
             summary.n_files += 1
             try:
@@ -85,7 +85,7 @@ def format_block(name: str, summary: Summary) -> List[str]:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Collect sigma values from results*.log under "
+            "Collect sigma values from results_*.log under "
             "LO_*, NLO_V_*, NLO_R_* and compute sums/errors."
         )
     )

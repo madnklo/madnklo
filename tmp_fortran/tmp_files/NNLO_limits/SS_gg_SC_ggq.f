@@ -12,9 +12,9 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,l,m,ierr,nit
-      integer ib,lb,mb,rb,kb
-      integer jbb,lbb,mbb,rbb,kbb
+      integer i,j,k,r,m,ierr,nit
+      integer ib,jb,mb,rb,kb
+      integer jbb,mbb,rbb,kbb
       logical isNLOmappedQCDparton(nexternal-1)
       logical isLOmappedQCDparton(nexternal-2)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
@@ -23,7 +23,7 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       double precision BLO,ccBLOlrkimk,ccBLOkrliml,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision sij,sik,sil,sim,skl,skr,slr,skm,slm,ml2,mm2,y,z,x,damp
+      double precision sij,sjk,sjm,sik,sim,sjr,skr,skm,xk,xl,ml2,mm2,y,z,x,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
@@ -85,7 +85,7 @@ c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
-         if(m.eq.i.or.m.eq.j.or.m.eq.l)cycle
+         if(m.eq.i.or.m.eq.k.or.m.eq.j)cycle
 c
             mb = real_mapped_labels(m)
             mbb = Born_mapped_labels(mb)
@@ -95,11 +95,12 @@ c
 c           get PDGs
             ib = real_mapped_labels(i)
             rb = real_mapped_labels(r)
-            kb = real_mapped_labels(j)
+            kb = real_mapped_labels(k)
             rbb = Born_mapped_labels(rb)
+            kbb = Born_mapped_labels(kb)
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(l,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+            call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
@@ -107,51 +108,51 @@ c           underlying Born configuration is remapped
 c
 c           call colour-connected Born matrix element with the mapping [lrk,imk]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLOlrkimk = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)!TODO: fix lbb
+            ccBLOlrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 
 c
 c           Mapping 2 for B[krl,icl]
 c
 c           get PDGs
             ib = real_mapped_labels(i)
-            lb = real_mapped_labels(l)
+            jb = real_mapped_labels(j)
             kb = real_mapped_labels(k)
             rbb = Born_mapped_labels(rb)
             kbb = Born_mapped_labels(kb)
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(k,r,l,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
-            call phase_space_CS_inv(ib,mb,lb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+            call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
 c
 c           call colour-connected Born matrix element with the mapping [krl,iml]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-            ccBLOkrliml = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)!TODO: fix lbb
+            ccBLOkrliml = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
 c           possible cuts
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c           invariant quantities: (c --> m)
             sij = xs(i,j)
+            sjk = xs(j,k)
+            sjm = xs(j,m)
             sik = xs(i,k)
-            sil = xs(i,l)
+            sik = xs(i,k)
             sim = xs(i,m)
-            skl = xs(k,l)
             skr = xs(k,r)
-            slr = xs(l,r)
+            sjr = xs(j,r)
             skm = xs(k,m)
-            slm = xs(l,m)
 c
 c           safety check
-            if(sij.le.0d0.or.(sil).le.0d0.or.(sim).le.0d0)then
-               write(77,*)'Inaccuracy 1 in M2_SS_gg_SC_ggq',sij, sil, sim
+            if(sij.le.0d0.or.skr.le.0d0.or.sjk.le.0d0)then
+               write(77,*)'Inaccuracy 1 in M2_SS_gg_SC_ggq',sij, skr, sjk
                goto 999
             endif
 c
 c           Double-soft soft-collinear kernel according to the eq.(C.14)
-            M2tmp = -2d0*slr/skr/skl*(CA*skm/sik/sim*ccBLOlrkimk+(2d0*CF-CA)*slm/sim/sil*ccBLOkrliml)
+            M2tmp = -2d0*sjr/skr/sjk*(CA*skm/sik/sim*ccBLOlrkimk+(2d0*CF-CA)*sjm/sim/sij*ccBLOkrliml)
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

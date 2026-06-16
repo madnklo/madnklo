@@ -333,6 +333,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         fourp_sectors = []
         fourp_sectors_id = []
         all_4p_sectors = []
+        all_4p_sector_recoilers = []
         combs = []
         for i, col_i in zip(leglist, colorlist):
             if col_i == 1:
@@ -475,8 +476,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 a_sector['sector'] = sectors.Sector(leg_numbers=(k.get('number'), l.get('number')))
                                 # TODO: define recoiler
                                 a_sector['recoiler'] = None
+                                # GB: TO BE IMPLEMENTED recoielr choice
                                 #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
-                                #all_sector_recoilers.append(a_sector['recoiler'].get('number'))
+                                all_4p_sector_recoilers.append(0)
 
                                 all_sector_legs.append(k.get('number'))
                                 all_sector_legs.append(l.get('number'))
@@ -541,6 +543,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_3p_K12_ct = []
         uB_all_3p_K1_ct = []
         uB_all_3p_K2_ct = []
+        leg_list_3p_K1 = []
+        leg_list_3p_K2 = []
+        leg_list_3p_K12 = []
         reduced_all_3p_sectors = []
         for s in all_3p_sectors:
             s['sector'].all_3p_sector_list = all_3p_sector_list
@@ -551,7 +556,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 s['counterterms'] = []
                 necessary_3p_ct1_list = [0] * (2)
                 necessary_3p_ct1 = [0] * (2)
+                ordered_legs_3p_K1_ct = [0] * (2)
                 necessary_3p_ct12_list = [0] * (13) # same number of CTs in K12 for ijjk&ijkj
+                ordered_legs_3p_K12_ct = [0] * (13)
                 if (leg_numbers[1] == leg_numbers[2]):  #ijjk
                     label = 'ijjk'
                     ileg = leg_numbers[0]
@@ -562,6 +569,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     k_id = s['sector'].id[3]
                     necessary_3p_ct2_list = [0] * (7)
                     necessary_3p_ct2 = [0] * (7)
+                    ordered_legs_3p_K2_ct = [0] * (7)
                 elif (leg_numbers[1] == leg_numbers[3]):  #ijkj
                     label = 'ijkj'
                     ileg = leg_numbers[0]
@@ -572,6 +580,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     k_id = s['sector'].id[2]
                     necessary_3p_ct2_list = [0] * (11)
                     necessary_3p_ct2 = [0] * (11)
+                    ordered_legs_3p_K2_ct = [0] * (11)
 
                 print('****** NEW SECTOR ******')
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]) + ' ' + str(s['sector'].leg_numbers[3]))
@@ -603,6 +612,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             s['counterterms'].append(i_ct)
                             necessary_3p_ct1_list[0] = 'S_g'
                             necessary_3p_ct1[0] = ct
+                            ordered_legs_3p_K1_ct[0] = (ileg)
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
@@ -611,10 +621,13 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                                     necessary_3p_ct1_list[1] = 'HC_gg'
-                                elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
+                                    ordered_legs_3p_K1_ct[1] = (ileg,jleg)
+                                elif (i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21):
                                     necessary_3p_ct1_list[1] = 'HC_gq'
+                                    ordered_legs_3p_K1_ct[1] = (ileg,jleg) if s['sector'].id[0] == 21 else (jleg,ileg)
                                 else :
                                     necessary_3p_ct1_list[1] = 'HC_qqx'
+                                    ordered_legs_3p_K1_ct[1] = (ileg,jleg)
                                 necessary_3p_ct1[1] = ct
 
 
@@ -639,6 +652,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                         else:
                                             necessary_3p_ct2_list[0] =  'SS_qqx'
                                         necessary_3p_ct2[0] = ct
+                                        ordered_legs_3p_K2_ct[0] = (ileg,jleg)
 
                             if singular_structure.name()=='C' and len(all_legs)==3:
                                 # Cijk
@@ -646,17 +660,31 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     s['counterterms'].append(i_ct)
                                     if (i_id == 21 and j_id == 21 and k_id == 21):
                                         necessary_3p_ct2_list[3] = 'CC_ggg'
+                                        ordered_legs_3p_K2_ct[3] = (ileg,jleg,kleg)
                                     #elif (i_id == 21 and j_id == 21 and k_id != 21):
                                     elif ([i_id,j_id,k_id].count(21) == 2):
                                         necessary_3p_ct2_list[3] = 'CC_ggq'
+                                        if (k_id != 21):
+                                            ordered_legs_3p_K2_ct[3] = (ileg,jleg,kleg)
+                                        elif (i_id != 21):
+                                            ordered_legs_3p_K2_ct[3] = (jleg,kleg,ileg)
+                                        elif (j_id != 21):
+                                            ordered_legs_3p_K2_ct[3] = (ileg,kleg,jleg)
                                     #elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
                                     elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[3] = 'CC_gqqx'
+                                        if (k_id == 21):
+                                            ordered_legs_3p_K2_ct[3] = (kleg,ileg,jleg) 
+                                        elif (i_id == 21):
+                                            ordered_legs_3p_K2_ct[3] = (ileg,jleg,kleg)
+                                        elif (j_id == 21):
+                                            ordered_legs_3p_K2_ct[3] = (jleg,ileg,kleg)
                                     else:
                                         if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
                                             necessary_3p_ct2_list[3] = 'CC_qxqq'
                                         else:
                                             necessary_3p_ct2_list[3] = 'CC_qxqqp'
+                                        ordered_legs_3p_K2_ct[3] = (ileg,jleg,kleg)
                                     necessary_3p_ct2[3] = ct
 
                         if len(n_subs) == 2 :
@@ -668,28 +696,35 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (j_id == 21 and k_id == 21):
                                     necessary_3p_ct2_list[1] = 'SC_ggg'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg) 
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 necessary_3p_ct2[1] = ct
 
                         # SijSCijk
                         necessary_3p_ct2_list[2] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
                         necessary_3p_ct2[2] = necessary_3p_ct2[1]
+                        ordered_legs_3p_K2_ct[2] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0
                         # SijCijk
                         necessary_3p_ct2_list[4] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
                         necessary_3p_ct2[4] = necessary_3p_ct2[3]
+                        ordered_legs_3p_K2_ct[4] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0
                         # SCijkCijk
                         necessary_3p_ct2_list[5] = (''.join((necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
                         necessary_3p_ct2[5] = necessary_3p_ct2[3]
+                        ordered_legs_3p_K2_ct[5] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0
                         # SijSCijkCijk
                         necessary_3p_ct2_list[6] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
                         necessary_3p_ct2[6] = necessary_3p_ct2[3]
+                        ordered_legs_3p_K2_ct[6] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0
 
 
                     elif (label == 'ijkj'):
@@ -703,7 +738,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                             if singular_structure.name()=='S' and len(all_legs)==2:
                                 if not singular_structure.substructures:
-                                    # Sij
+                                    # Sik
                                     if sorted([l.n for l in all_legs]) == sorted([ileg,kleg]):
                                         s['counterterms'].append(i_ct)
                                         if (i_id == 21 and k_id == 21):
@@ -711,6 +746,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                         else:
                                             necessary_3p_ct2_list[0] =  'SS_qqx'
                                         necessary_3p_ct2[0] = ct
+                                        ordered_legs_3p_K2_ct[0] = (ileg,kleg) 
 
                             if singular_structure.name()=='C' and len(all_legs)==3:
                                 # Cijk
@@ -718,17 +754,31 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     s['counterterms'].append(i_ct)
                                     if (i_id == 21 and j_id == 21 and k_id == 21):
                                         necessary_3p_ct2_list[5] = 'CC_ggg'
+                                        ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg)
                                     #elif (i_id == 21 and j_id == 21 and k_id != 21):
                                     elif ([i_id,j_id,k_id].count(21) == 2):
                                         necessary_3p_ct2_list[5] = 'CC_ggq'
+                                        if (k_id != 21):
+                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg) 
+                                        elif (i_id != 21):
+                                            ordered_legs_3p_K2_ct[5] = (jleg,kleg,ileg) 
+                                        elif (j_id != 21):
+                                            ordered_legs_3p_K2_ct[5] = (ileg,kleg,jleg) 
                                     #elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
                                     elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[5] = 'CC_gqqx'
+                                        if (k_id == 21):
+                                            ordered_legs_3p_K2_ct[5] = (kleg,ileg,jleg)
+                                        elif (i_id == 21):
+                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg) 
+                                        elif (j_id == 21):
+                                            ordered_legs_3p_K2_ct[5] = (jleg,ileg,kleg) 
                                     else:
                                         if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
                                             necessary_3p_ct2_list[5] = 'CC_qxqq'
                                         else:
                                             necessary_3p_ct2_list[5] = 'CC_qxqqp'
+                                        ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg)
                                     necessary_3p_ct2[5] = ct
 
                         if len(n_subs) == 2 :
@@ -740,50 +790,65 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (j_id == 21 and k_id == 21):
                                     necessary_3p_ct2_list[1] = 'SC_ggg'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg) 
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) 
                                 necessary_3p_ct2[1] = ct
                             # SCkij
                             if (k_id == 21 and sorted([l.n for l in all_legs_C]) == sorted([ileg,jleg])) :
                                 s['counterterms'].append(i_ct)
                                 if (i_id == 21 and j_id == 21):
                                     necessary_3p_ct2_list[2] = 'SC_ggg'
+                                    ordered_legs_3p_K2_ct[2] = (kleg,ileg,jleg)
                                 elif ((i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21)):
                                     necessary_3p_ct2_list[2] = 'SC_ggq'
+                                    ordered_legs_3p_K2_ct[2] = (kleg,ileg,jleg) if i_id == 21 else (kleg,jleg,ileg)
                                 else:
                                     necessary_3p_ct2_list[2] = 'SC_gqqx'
+                                    ordered_legs_3p_K2_ct[2] = (kleg,ileg,jleg)
                                 necessary_3p_ct2[2] = ct
 
                         # SikSCijk
                         necessary_3p_ct2_list[3] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
                         necessary_3p_ct2[3] = necessary_3p_ct2[1]
+                        ordered_legs_3p_K2_ct[3] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0 
                         # SikSCkij
                         necessary_3p_ct2_list[4] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
                         necessary_3p_ct2[4] = necessary_3p_ct2[2]
+                        ordered_legs_3p_K2_ct[4] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0
                         # SikCijk
                         necessary_3p_ct2_list[6] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         necessary_3p_ct2[6] = necessary_3p_ct2[5]
+                        ordered_legs_3p_K2_ct[6] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # SCijkCijk
                         necessary_3p_ct2_list[7] = (''.join((necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         necessary_3p_ct2[7] = necessary_3p_ct2[5]
+                        ordered_legs_3p_K2_ct[7] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # SikSCijkCijk
                         necessary_3p_ct2_list[8] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1],'_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         necessary_3p_ct2[8] = necessary_3p_ct2[5]
+                        ordered_legs_3p_K2_ct[8] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0 \
+                                                                                and necessary_3p_ct2_list[5] != 0) else 0
                         # SCkijCijk
                         necessary_3p_ct2_list[9] = (''.join((necessary_3p_ct2_list[2],'_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct2_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         necessary_3p_ct2[9] = necessary_3p_ct2[5]
+                        ordered_legs_3p_K2_ct[9] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct2_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # SikSCkijCijk
                         necessary_3p_ct2_list[10] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[2],'_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         necessary_3p_ct2[10] = necessary_3p_ct2[5]
+                        ordered_legs_3p_K2_ct[10] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0 and \
+                                                                                 necessary_3p_ct2_list[5] != 0) else 0
 
 
                     #### Identify cts for K12 ####
@@ -799,42 +864,58 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         # Si Sij
                         necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        ordered_legs_3p_K12_ct[0] = ordered_legs_3p_K2_ct[0] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0
                         # Si SCijk
                         necessary_3p_ct12_list[1] = (''.join(('S_',necessary_3p_ct2_list[1])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        ordered_legs_3p_K12_ct[1] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0
                         # Si SijSCijk
                         necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        ordered_legs_3p_K12_ct[2] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0
                         # Si Cijk
                         necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        ordered_legs_3p_K12_ct[3] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0
                         # Si SijCijk
                         necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[4])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
+                        ordered_legs_3p_K12_ct[4] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[4] != 0) else 0
                         # Si SCijkCijk
                         necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # Si SijSCijkCijk
                         necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[6])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
+                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[6] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0
                         # Cij Sij
                         necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[0])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K1_ct[1] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0
                         # Cij Cijk
                         necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        ordered_legs_3p_K12_ct[8] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0
                         # Cij SijCijk
                         necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[4])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
+                        ordered_legs_3p_K12_ct[9] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0
                         # SiCij Sij
                         necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[0])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        ordered_legs_3p_K12_ct[10] = ordered_legs_3p_K1_ct[1] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                  and necessary_3p_ct2_list[0] != 0) else 0
                         # SiCij Cijk
                         necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        ordered_legs_3p_K12_ct[11] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                  and necessary_3p_ct2_list[3] != 0) else 0
                         # SiCij SijCijk
                         necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[4])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
+                        ordered_legs_3p_K12_ct[12] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                  and necessary_3p_ct2_list[4] != 0) else 0
 
                     elif (label == 'ijkj'):
                         # K12
@@ -847,42 +928,58 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         # Si Sik
                         necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
+                        ordered_legs_3p_K12_ct[0] = ordered_legs_3p_K2_ct[0] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[0] != 0) else 0
                         # Si SCijk
                         necessary_3p_ct12_list[1] = (''.join(('S_',necessary_3p_ct2_list[1])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
+                        ordered_legs_3p_K12_ct[1] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0
                         # Si SikSCijk
                         necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
+                        ordered_legs_3p_K12_ct[2] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0
                         # Si Cijk
                         necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        ordered_legs_3p_K12_ct[3] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # Si SikCijk
                         necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[6])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
+                        ordered_legs_3p_K12_ct[4] = ordered_legs_3p_K2_ct[6] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0
                         # Si SCijkCijk
                         necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[7])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[7] != 0) else 0)
+                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K2_ct[7] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[7] != 0) else 0
                         # Si SikSCijkCijk
                         necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[8])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[8] != 0) else 0)
+                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[8] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[8] != 0) else 0
                         # Cij SCkij
                         necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0
                         # Cij Cijk
                         necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        ordered_legs_3p_K12_ct[8] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0
                         # Cij SCkijCijk
                         necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[9])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
+                        ordered_legs_3p_K12_ct[9] = ordered_legs_3p_K2_ct[9] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0
                         # SiCij SCkij
                         necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
+                        ordered_legs_3p_K12_ct[10] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                  and necessary_3p_ct2_list[2] != 0) else 0
                         # SiCij Cijk
                         necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
+                        ordered_legs_3p_K12_ct[11] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                 and necessary_3p_ct2_list[5] != 0) else 0
                         # SiCij SCkijCijk
                         necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[9])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
+                        ordered_legs_3p_K12_ct[12] = ordered_legs_3p_K2_ct[9] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
+                                                                                  and necessary_3p_ct2_list[9] != 0) else 0
 
 
                 # skip sectors with no assigned cts
@@ -896,15 +993,18 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     print(necessary_3p_ct1_list)
                     all_3p_K1_ct.append(necessary_3p_ct1_list)
                     uB_all_3p_K1_ct.append(necessary_3p_ct1)
+                    leg_list_3p_K1.append(ordered_legs_3p_K1_ct)
 
                     print('K2 3p sector')
                     print(necessary_3p_ct2_list)
                     all_3p_K2_ct.append(necessary_3p_ct2_list)
                     uB_all_3p_K2_ct.append(necessary_3p_ct2)
+                    leg_list_3p_K2.append(ordered_legs_3p_K2_ct)
 
                     print('K12 3p sector')
                     print(necessary_3p_ct12_list)
                     all_3p_K12_ct.append(necessary_3p_ct12_list)
+                    leg_list_3p_K12.append(ordered_legs_3p_K12_ct)
 
         all_3p_sector_list = reduced_all_3p_sectors
 
@@ -915,6 +1015,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         uB_all_4p_K1_ct = []
         uB_all_4p_K2_ct = []
         reduced_all_4p_sectors = []
+        leg_list_4p_K1 = []
+        leg_list_4p_K2 = []
+        leg_list_4p_K12 = []
         for s in all_4p_sectors:
             s['sector'].all_4p_sector_list = all_4p_sector_list
             s['sector'].all_4p_sector_id_list = all_4p_sector_id_list
@@ -923,9 +1026,12 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 s['counterterms'] = []
                 necessary_4p_ct1_list = [0] * (2)
                 necessary_4p_ct1 = [0] * (2)
+                ordered_legs_4p_K1_ct = [0] * (2)
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
+                ordered_legs_4p_K2_ct = [0] * (9)
                 necessary_4p_ct12_list = [0] * (9)
+                ordered_legs_4p_K12_ct = [0] * (9)
 
                 print('****** NEW SECTOR ******')
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]) \
@@ -971,6 +1077,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             s['counterterms'].append(i_ct)
                             necessary_4p_ct1_list[0] = 'S_g'
                             necessary_4p_ct1[0] = ct
+                            ordered_legs_4p_K1_ct[0] = (ileg)
 
                     if singular_structure.name()=='C' and len(all_legs)==2 and len(n_subs) == 1:
                         if not singular_structure.substructures:
@@ -979,10 +1086,13 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 s['counterterms'].append(i_ct)
                                 if (i_id == 21 and j_id == 21):
                                     necessary_4p_ct1_list[1] = 'HC_gg'
-                                elif (i_id == 21 and j_id != 21):
+                                    ordered_legs_4p_K1_ct[1] = (ileg,jleg)
+                                elif (i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21):
                                     necessary_4p_ct1_list[1] = 'HC_gq'
+                                    ordered_legs_4p_K1_ct[1] = (ileg,jleg) if (i_id == 21) else (jleg,ileg)
                                 else :
                                     necessary_4p_ct1_list[1] = 'HC_qqx'
+                                    ordered_legs_4p_K1_ct[1] = (ileg,jleg)
                                 necessary_4p_ct1[1] = ct
                             # Ckl
                             #Ckl_flag = False
@@ -1004,6 +1114,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 else:
                                     necessary_4p_ct2_list[0] =  'SS_qqx'
                                 necessary_4p_ct2[0] = ct
+                                ordered_legs_4p_K2_ct[0] = (ileg,kleg)
 
                     if len(n_subs) == 2 and len(singular_structure.substructures) == 0 :
 
@@ -1012,19 +1123,25 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             if i_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([kleg,lleg])):
                                 if (k_id == 21 and l_id == 21):
                                     necessary_4p_ct2_list[1] = 'SC_ggg'
+                                    ordered_legs_4p_K2_ct[1] = (ileg,kleg,lleg)
                                 elif ((k_id == 21 and l_id != 21) or (k_id != 21 and l_id == 21)):
                                     necessary_4p_ct2_list[1] = 'SC_ggq'
+                                    ordered_legs_4p_K2_ct[1] = (ileg,kleg,lleg) if (k_id == 21) else (ileg,lleg,kleg)
                                 else:
                                     necessary_4p_ct2_list[1] = 'SC_gqqx'
+                                    ordered_legs_4p_K2_ct[1] = (ileg,kleg,lleg)
                                 necessary_4p_ct2[1] = ct
                             # SCkij
                             if k_id == 21 and sorted([l.n for l in n_subs[1].get_all_legs()]) == (sorted([ileg,jleg])):
                                 if (i_id == 21 and j_id == 21):
                                     necessary_4p_ct2_list[2] = 'SC_ggg'
+                                    ordered_legs_4p_K2_ct[2] = (kleg,ileg,jleg)
                                 elif ((i_id == 21 and j_id != 21) or (i_id != 21 and j_id == 21)):
                                     necessary_4p_ct2_list[2] = 'SC_ggq'
+                                    ordered_legs_4p_K2_ct[2] = (kleg,ileg,jleg) if (i_id == 21) else (kleg,jleg,ileg)
                                 else:
                                     necessary_4p_ct2_list[2] = 'SC_gqqx'
+                                    ordered_legs_4p_K2_ct[2] = (kleg,ileg,jleg)
                                 necessary_4p_ct2[2] = ct
 
                         # Cijkl
@@ -1046,34 +1163,40 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     necessary_4p_ct2_list[5] = 'CC_qxqgg'
                                 elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 1: #i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gqgq'
-                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21
+                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21 
                                     necessary_4p_ct2_list[5] = 'CC_gqqxq'
                                 elif [k_id,l_id].count(21) == 1 and [i_id,j_id].count(21) == 0 and abs(i_id) == abs(j_id): #k_id == 21 and l_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_qxqgq'
                                 elif [i_id,j_id,k_id,l_id].count(21) == 0 and abs(i_id) == abs(j_id) and abs(k_id) == abs(l_id):
                                     necessary_4p_ct2_list[5] = 'CC_qxqqxq'
+                                ordered_legs_4p_K2_ct[5] = (ileg,jleg,kleg,lleg)
                                 necessary_4p_ct2[5] = ct
 
                     # SikSCikl
                     necessary_4p_ct2_list[3] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[1])) \
                                                  if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0)
                     necessary_4p_ct2[3] = necessary_4p_ct2[1]
+                    ordered_legs_4p_K2_ct[3] = ordered_legs_4p_K2_ct[1] if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0
                     # SikSCkij
                     necessary_4p_ct2_list[4] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[2])) \
                                                  if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
                     necessary_4p_ct2[4] = necessary_4p_ct2[2]
+                    ordered_legs_4p_K2_ct[4] = ordered_legs_4p_K2_ct[2] if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[2] != 0) else 0
                     # SikCijkl
                     necessary_4p_ct2_list[6] = (''.join((necessary_4p_ct2_list[0],'_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
                     necessary_4p_ct2[6] = necessary_4p_ct2[5]
+                    ordered_legs_4p_K2_ct[6] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct2_list[0] != 0 and necessary_4p_ct2_list[5] != 0) else 0
                     # SCiklCijkl
                     necessary_4p_ct2_list[7] = (''.join((necessary_4p_ct2_list[1],'_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct2_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
                     necessary_4p_ct2[7] = necessary_4p_ct2[5]
+                    ordered_legs_4p_K2_ct[7] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct2_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0
                     # SCkijCijkl
                     necessary_4p_ct2_list[8] = (''.join((necessary_4p_ct2_list[2],'_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct2_list[2] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
                     necessary_4p_ct2[8] = necessary_4p_ct2[5]
+                    ordered_legs_4p_K2_ct[8] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct2_list[2] != 0 and necessary_4p_ct2_list[5] != 0) else 0
 
                     # L12_ijkl : 9  ->  [Si Sik, Si SCikl, Si SikSCikl
                     #                    Cij SCkij, Cij Cijkl, Cij SCkijCijkl,
@@ -1082,30 +1205,42 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     # Si Sik
                     necessary_4p_ct12_list[0] = (''.join(('S_',necessary_4p_ct2_list[0])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[0] != 0) else 0)
+                    ordered_legs_4p_K12_ct[0] = ordered_legs_4p_K2_ct[0] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[0] != 0) else 0
                     # Si SCikl
                     necessary_4p_ct12_list[1] = (''.join(('S_',necessary_4p_ct2_list[1])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0)
+                    ordered_legs_4p_K12_ct[1] = ordered_legs_4p_K2_ct[1] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[1] != 0) else 0
                     # Si SikSCikl
                     necessary_4p_ct12_list[2] = (''.join(('S_',necessary_4p_ct2_list[3])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[3] != 0) else 0)
+                    ordered_legs_4p_K12_ct[2] = ordered_legs_4p_K2_ct[3] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[3] != 0) else 0
                     # Cij SCkij
                     necessary_4p_ct12_list[3] = (''.join(('C_',necessary_4p_ct2_list[2])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
+                    ordered_legs_4p_K12_ct[3] = ordered_legs_4p_K2_ct[2] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0
                     # Cij Cijkl
                     necessary_4p_ct12_list[4] = (''.join(('C_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    ordered_legs_4p_K12_ct[4] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0
                     # Cij SCkijCijkl
                     necessary_4p_ct12_list[5] = (''.join(('C_',necessary_4p_ct2_list[8])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
+                    ordered_legs_4p_K12_ct[5] = ordered_legs_4p_K2_ct[8] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0
                     # SiCij SCkij
                     necessary_4p_ct12_list[6] = (''.join(('SC_',necessary_4p_ct2_list[2])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
+                    ordered_legs_4p_K12_ct[6] = ordered_legs_4p_K2_ct[2] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
+                                                                             and necessary_4p_ct2_list[2] != 0) else 0
                     # SiCij Cijkl
                     necessary_4p_ct12_list[7] = (''.join(('SC_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
+                    ordered_legs_4p_K12_ct[7] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
+                                                                             and necessary_4p_ct2_list[5] != 0) else 0
                     # SiCij SCkijCijkl
                     necessary_4p_ct12_list[8] = (''.join(('SC_',necessary_4p_ct2_list[8])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
+                    ordered_legs_4p_K12_ct[8] = ordered_legs_4p_K2_ct[8] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
+                                                                             and necessary_4p_ct2_list[8] != 0) else 0
 
                 # skip sectors with no assigned cts
                 if (not any(necessary_4p_ct1_list)) and (not any(necessary_4p_ct2_list)):
@@ -1117,17 +1252,40 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     print(necessary_4p_ct1_list)
                     all_4p_K1_ct.append(necessary_4p_ct1_list)
                     uB_all_4p_K1_ct.append(necessary_4p_ct1)
+                    leg_list_4p_K1.append(ordered_legs_4p_K1_ct)
 
                     print('K2 4p sector')
                     print(necessary_4p_ct2_list)
                     all_4p_K2_ct.append(necessary_4p_ct2_list)
                     uB_all_4p_K2_ct.append(necessary_4p_ct2)
+                    leg_list_4p_K2.append(ordered_legs_4p_K2_ct)
 
                     print('K12 4p sector')
                     print(necessary_4p_ct12_list)
                     all_4p_K12_ct.append(necessary_4p_ct12_list)
+                    leg_list_4p_K12.append(ordered_legs_4p_K12_ct)
 
         all_4p_sector_list = reduced_all_4p_sectors
+
+        ### SECTOR FILTERING PROCEDURE
+	    # Return filtered lists of 3p & 4p sectors
+        filtered_3p, filtered_4p = self.get_sector_filtering( \
+            all_3p_sector_list, all_3p_sector_id_list, all_3p_sector_recoilers, \
+            all_3p_K1_ct, all_3p_K2_ct, all_3p_K12_ct, \
+            uB_all_3p_K1_ct, uB_all_3p_K2_ct, leg_list_3p_K1, leg_list_3p_K2, leg_list_3p_K12, \
+            all_4p_sector_list, all_4p_sector_id_list, all_4p_sector_recoilers, \
+            all_4p_K1_ct, all_4p_K2_ct, all_4p_K12_ct,\
+            uB_all_4p_K1_ct, uB_all_4p_K2_ct, leg_list_4p_K1, leg_list_4p_K2, leg_list_4p_K12)
+
+        # Unpack sector info
+        all_3p_sector_list, all_3p_sector_id_list, all_3p_sector_recoilers, \
+        all_3p_K1_ct, all_3p_K2_ct, all_3p_K12_ct, \
+        uB_all_3p_K1_ct, uB_all_3p_K2_ct, _, _, _ = self.unpack_dict(filtered_3p)
+        all_4p_sector_list, all_4p_sector_id_list, all_4p_sector_recoilers, \
+        all_4p_K1_ct, all_4p_K2_ct, all_4p_K12_ct,\
+        uB_all_4p_K1_ct, uB_all_4p_K2_ct, _, _, _ = self.unpack_dict(filtered_4p)
+
+	    ### SECTOR FILTERING PROCEDURE
 
 ######### Set writer
         writer = writers.FortranWriter
@@ -1361,7 +1519,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 f.writelines(string)
 
             # Loop on K1 cts
-            # Recall that all_3p_K1_ct = [Si, Cij]
+            # Recall that all_3p_K1_ct = [Si, HCij]
             ct_list = []
             write_S = True
             write_HC = True
@@ -1984,7 +2142,7 @@ c       %s
                 f.writelines(string)
 
             # Loop on K1 cts
-            # Recall that all_4p_K1_ct = [Si, Cij]
+            # Recall that all_4p_K1_ct = [Si, HCij]
             ct_list = []
             for j in range(0, len(all_4p_K1_ct[i])):
                 if all_4p_K1_ct[i][j] ==  0:
@@ -2228,7 +2386,7 @@ c       %s
             writer(filename).writelines(file)
 
             # write driver_RR
-            UBgraphs = overall_sector_info[i+len(all_4p_sector_list)]['Born_str']
+            UBgraphs = overall_sector_info[i+len(all_3p_sector_list)]['Born_str']
             self.write_driver_npt_template(writer, dirpath, dirmadnklo, i , isec, jsec, ksec, lsec, UBgraphs)
 
             # write test_RR
@@ -2276,7 +2434,161 @@ c       %s
 
 
 
+    #===========================================================================
+    # filtering function applying selection rule to sectors
+    #===========================================================================
 
+    def get_sector_filtering(self, 
+        sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p, 
+        K1_ct_list_3p, K2_ct_list_3p, K12_ct_list_3p,
+        uB_K1_3p, uB_K2_3p, order_leg_K1_3p, order_leg_K2_3p, order_leg_K12_3p,
+        sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p, 
+        K1_ct_list_4p, K2_ct_list_4p, K12_ct_list_4p,
+        uB_K1_4p, uB_K2_4p, order_leg_K1_4p, order_leg_K2_4p, order_leg_K12_4p):
+
+        # Full pipeline:
+        #     1. Build sector dictionary (link raw lists -> structured objects)
+        #     2. Sort by number of CTs (descending)
+        #     3. Build CT identifier tuples ('K*, particles, label')
+        #     4. Filter: keep sectors with at least one new CT tuple
+        #     5. Ensure soft-limit factorisation -> adjust sector list
+        #     6. Return (filtered_3p, filtered_4p)
+    
+        # Step 1: build sector dictionaries
+        sectors_3p = self.build_dict('3p', sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p, 
+            K1_ct_list_3p, K2_ct_list_3p, K12_ct_list_3p,
+            uB_K1_3p, uB_K2_3p, order_leg_K1_3p, order_leg_K2_3p, order_leg_K12_3p)
+        sectors_4p = self.build_dict('4p', sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p, 
+            K1_ct_list_4p, K2_ct_list_4p, K12_ct_list_4p,
+            uB_K1_4p, uB_K2_4p, order_leg_K1_4p, order_leg_K2_4p, order_leg_K12_4p)
+
+        # Step 2: sort by the # of cts 
+        def count_ct(s):
+            return sum(1 for label in s['K1'] + s['K2'] + s['K12'] if label != 0)
+    
+        sorted_sectors = sectors_3p + sectors_4p
+        sorted_sectors.sort(key=count_ct, reverse=True)
+
+        # Step 3: build ct-identifier tuples
+        cts = []
+        seen_cts = set()
+        filtered_all = []
+        removed_all = []
+        for s in sorted_sectors:
+            for i, label in enumerate(s['K1']):
+                if isinstance(label,str):
+                    cts.append(('K1', s['order_leg_K1'][i], label))
+                    if s['order_leg_K1'][i] == 0: 
+                        print('Empty leg list for K1 ct:' + str(label))
+                        return
+                        
+            for i, label in enumerate(s['K2']):
+                if isinstance(label,str):
+                    cts.append(('K2', s['order_leg_K2'][i], label))
+                    if s['order_leg_K2'][i] == 0: 
+                        print('Empty leg list for K2 ct:' + str(label))
+                        return
+                    
+            for i, label in enumerate(s['K12']):
+                if isinstance(label,str):
+                    cts.append(('K12', s['order_leg_K12'][i], label))
+                    if s['order_leg_K12'][i] == 0: 
+                        print('Empty leg list for K12 ct:' + str(label))
+                        return
+
+        # Step 4: filter keeping sectors with at least one nee ct tuple
+            is_redundant = all(item in seen_cts for item in cts)
+
+            if not is_redundant:
+                filtered_all.append(s)
+                print('Selected sector : ' + str(s['original_pos']))
+                for item in cts:
+                    seen_cts.add(item)
+            else:
+                removed_all.append(s)
+                print('Removed sector  : ' + str(s['original_pos']))
+
+        # Step 5: implement single-soft limit factorisation 
+        if any(s['original_pdg'][0] == 21 for s in filtered_all):
+
+            # Build lookup: pos tuple -> sector dict, for fast recovery from removed
+            removed_lookup = {tuple(s['original_pos']): s for s in removed_all}
+
+            # Group selected sectors by first particle position
+            # key: first particle pos, value: {(1st,2nd): set of (3rd,4th)}
+            groups = defaultdict(lambda: defaultdict(set))
+            for s in filtered_all:
+                if s['original_pdg'][0] != 21:
+                    continue
+                pos   = s['original_pos']
+                pair  = (pos[0], pos[1])
+                tail  = (pos[2], pos[3])
+                groups[pos[0]][pair].add(tail)
+
+            # For each gluon group, compute union of all tails and recover missing sectors
+            recovered = []
+            for first, pair_tails in groups.items():
+                all_tails = set()
+                for tails in pair_tails.values():
+                    all_tails |= tails
+
+                for pair, tails in pair_tails.items():
+                    missing_tails = all_tails - tails
+                    for tail in missing_tails:
+                        missing_pos = tuple(list(pair) + list(tail))
+                        if missing_pos in removed_lookup:
+                            recovered.append(removed_lookup[missing_pos])
+                            print('Recovered sector for factorisation: ' + str(missing_pos))
+                        else:
+                            print('WARNING: missing sector ' + str(missing_pos) + ' not found in removed list')
+
+            filtered_all = filtered_all + recovered
+
+        # Step 6: return final filtered sector list
+        filtered_3p = [s for s in filtered_all if s['type'] == '3p']
+        filtered_4p = [s for s in filtered_all if s['type'] == '4p']
+
+        return filtered_3p, filtered_4p
+
+    # -------- helpers --------
+    def build_dict(self, type, sector_list, sector_id_list, sector_recoilers_list, 
+                    K1_ct_list, K2_ct_list, K12_ct_list,
+                    uB_K1, uB_K2, order_leg_K1, order_leg_K2, order_leg_K12):
+            
+        sector_dict = []
+        for i in range(len(sector_list)):
+            sector_dict.append({
+                'type' : type,
+                'list': list(zip(sector_list[i], sector_id_list[i])),
+                'K1': K1_ct_list[i],
+                'K2': K2_ct_list[i],
+                'K12': K12_ct_list[i],
+                'original_pos': sector_list[i],
+                'original_pdg': sector_id_list[i],
+                'recoilers' : sector_recoilers_list[i],
+                'uB_K1' : uB_K1[i],
+                'uB_K2' : uB_K2[i],
+                'order_leg_K1' : order_leg_K1[i],
+                'order_leg_K2' : order_leg_K2[i],
+                'order_leg_K12' : order_leg_K12[i]
+            })
+
+        return sector_dict
+    
+    def unpack_dict(self,sectors):
+        return (
+            [s['original_pos']     for s in sectors],
+            [s['original_pdg']     for s in sectors],
+            [s['recoilers']        for s in sectors],
+            [s['K1']               for s in sectors],
+            [s['K2']               for s in sectors],
+            [s['K12']              for s in sectors],
+            [s['uB_K1']            for s in sectors],
+            [s['uB_K2']            for s in sectors],
+            [s['order_leg_K1']     for s in sectors],
+            [s['order_leg_K2']     for s in sectors],
+            [s['order_leg_K12']    for s in sectors]
+        )
 
 
     #===========================================================================

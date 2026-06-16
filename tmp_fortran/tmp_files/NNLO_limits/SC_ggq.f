@@ -1,5 +1,5 @@
 
-      double precision function M2_SC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     SC(i,j,k) kernel times WSC
       use sectors4_module
       implicit none
@@ -23,7 +23,7 @@ c     SC(i,j,k) kernel times WSC
       double precision BLO,ccBLOlrkimk,ccBLOkrliml,Pklr,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision sij,sjk,sjm,sik,sim,sjr,skr,skm,xk,xl,ml2,mm2,y,z,x,damp
+      double precision sij,sjk,sjm,sik,sim,sjr,skr,zj,zk,skm,xk,xl,ml2,mm2,y,z,x,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
@@ -145,17 +145,17 @@ c           invariant quantities: c --> m
             skr = xs(k,r)
             sjr = xs(j,r)
             skm = xs(k,m)
-            xk = skr/(skr+sjr)
-            xj = sjr/(sjr+skr)
+            zk = skr/(skr+sjr)
+            zj = sjr/(sjr+skr)
 c
 c           safety check
-            if(sij.le.0d0.or.(skr+sjr).le.0d0.or.sjk.le.0d0)then
-               write(77,*)'Inaccuracy 1 in M2_SC_ggq',sij, skr+sjr, sjk
+            if(sij.le.0d0.or.(skr+sjr).le.0d0.or.sjk.le.0d0.or.sim.le.0d0)then
+               write(77,*)'Inaccuracy 1 in M2_SC_ggq',sij, skr+sjr, sim
                goto 999
             endif
 c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
-            Pklr = CF*(2d0*xj/xk+xk)
+            Pklr = CF*(2d0*zj/zk+zk)
             M2tmp = -Pklr/sjk*(skm/sik/sim*(CA/CF*ccBLOlrkimk+(2d0*CF-CA)/CF*ccBLOkrliml))
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -187,7 +187,7 @@ c
       end
 
 
-      double precision function M2_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     SC(i,j,k)CC(i,j,k) kernel times WSC_CC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module
@@ -323,7 +323,7 @@ c     safety check
 c
 c     double-colinear soft-collinear kernel, eq. (C.18) of 2212.11190
 c     since Qjk(r) is Qgq(r) = 0, the kperp term is zero
-      Pjkr = -2d0*CA*(zj/zk+zk/zj+zj*zk)
+      Pjkr = -CF*(2d0*zk/zj+zk)
       M2tmp = CF*Pjkr*(CA/CF*sjr/sij/sir*BLOkrjirj+(2d0*CF-CA)/CF*skr/sik/sir*BLOjrkirk)
 c
 c     include double-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190

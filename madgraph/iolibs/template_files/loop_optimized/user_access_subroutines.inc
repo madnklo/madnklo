@@ -1140,7 +1140,9 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
-            CCVNLO = COLOR_CORRELATED_EVALS(I,1:3,1)
+	 do j=-2,0	 
+            CCVNLO(j) = COLOR_CORRELATED_EVALS(I,i-j,1)
+	 enddo     	
             EXIT
          ENDIF
       ENDDO

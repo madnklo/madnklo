@@ -90,7 +90,7 @@ c     possible cuts
       if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+      alphas=alpha_QCD(asmz,nloop,mu_r)
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -103,12 +103,12 @@ c     TODO: CHECK x
       x=sbr/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
-      logab=dlog(sab/scale**2)
+      logab=dlog(sab/mu_r**2)
 c
       EIK0     =  SBR/(SAB*SAR) - MB2/SAB**2 - MR2/SAR**2
       EIK1(-2) =  CA*EIK0
-      EIK1(-1) = -CA*EIK0*log(sab*sar/sbr/scale**2)
-      EIK1( 0) =  CA*EIK0/2d0*(log(sab*sar/sbr/scale**2)**2-5d0*zeta2)
+      EIK1(-1) = -CA*EIK0*log(sab*sar/sbr/mu_r**2)
+      EIK1( 0) =  CA*EIK0/2d0*(log(sab*sar/sbr/mu_r**2)**2-5d0*zeta2)
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -144,7 +144,7 @@ c
 
 c     Add terms from N1 expansion
 
-      M2_C_GQ(-1) = M2_C_GQ(-1) + M2_C_GQ(-2)*dlog(exp(eulergamma)*scale**2/4d0/pi)
+c      M2_C_GQ(-1) = M2_C_GQ(-1) + M2_C_GQ(-2)*dlog(exp(eulergamma)*mu_r**2/4d0/pi)
 
       
 c     compute collinear limit of sector function
@@ -260,7 +260,7 @@ c     checks
          stop
       endif
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+      alphas=alpha_QCD(asmz,nloop,mu_r)
       pref=8d0*pi*alphas
 c     invariant quantities
       sab=xs(ia,ib)
@@ -457,10 +457,10 @@ c     Term with rprime missing
       if(ia.eq.isec) then
          if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 998
          M2tmp_SC(-1) = M2tmp_SC(-1) + alphas/2d0/pi*gamma_q*BLO
-         M2tmp_SC(0) = M2tmp_SC(0) + alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/scale**2))*BLO
+         M2tmp_SC(0) = M2tmp_SC(0) + alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/mu_r**2))*BLO
  998     if(docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) return
         M2tmp_SC(-1) = M2tmp_SC(-1) - alphas/2d0/pi*gamma_q*BLO_arb
-        M2tmp_SC(0) = M2tmp_SC(0) - alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/scale**2))*BLO_arb
+        M2tmp_SC(0) = M2tmp_SC(0) - alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/mu_r**2))*BLO_arb
         ret(-2:0)=ret(-2:0)-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
         ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot

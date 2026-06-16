@@ -97,7 +97,7 @@ c     call W soft
       call get_ws_nlo(isec,jsec)
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
+      alphas=alpha_qcd(asmz,nloop,mu_r)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -147,8 +147,8 @@ c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             EIK1(-2) =  CA*EIK0
-            EIK1(-1) = -CA*EIK0*log(sil*sim/slm/scale**2)
-            EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/scale**2)**2-5d0*zeta2)
+            EIK1(-1) = -CA*EIK0*log(sil*sim/slm/mu_r**2)
+            EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/mu_r**2)**2-5d0*zeta2)
 
             M2TMP(-2:0) = M2TMP(-2:0) + CCVNLO(-2:0)*EIK0
             M2TMP(-2:0) = M2TMP(-2:0) - alphas/2d0/pi*CCBLO*EIK1(-2:0)
@@ -170,7 +170,7 @@ c
 c     eikonals
                EIK2(-2) = 0d0
                EIK2(-1) = EIK0
-               EIK2( 0) = -EIK0*log(sim*siq/smq/scale**2)
+               EIK2( 0) = -EIK0*log(sim*siq/smq/mu_r**2)
 
                M2TMP(-2:0) = M2TMP(-2:0) + alphas*TRIBLO*EIK2(-2:0)
             enddo
@@ -318,7 +318,7 @@ c     checks
       endif
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,MU_R)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum

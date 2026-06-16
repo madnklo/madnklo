@@ -156,7 +156,13 @@ c     real virtual
       endif
 c
       call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
-      RVNNLO(-2:0) = MATELEM(1:3,0) * %(NNLO_RV_proc_str)sfl_factor
+
+
+      do j=-2,0
+         RVNNLO(j) = MATELEM(1-j,0) 
+      enddo
+       RVNNLO = RVNNLO* %(NNLO_RV_proc_str)sfl_factor
+
       if(abs(RVNNLO(0)).ge.huge(1d0).or.isnan(RVNNLO(0)))cycle
 c
       call get_sig2(snlo,nexternal)

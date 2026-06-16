@@ -111,7 +111,7 @@ c     tiny technical phase-space cut to avoid fluctuations
       if(dotechcut(snlo,nexternal,tiny1)) goto 999
 c
 c     possible cuts
-      if(docut(p,nexternal,leg_pdgs,0))goto 555
+      if(docut(p,nexternal,leg_pdgs,1))goto 555
 c
 c     test phase-space singularities of matrix elements
       if(ntested.lt.ntest)then
@@ -130,8 +130,11 @@ c     real virtual
       endif
 c
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      RVNNLO(-2:0) = MATELEM(1:3,0)
+      
+
       do i=-2,0
+         RVNNLO(i) = MATELEM(1-i,0)
+         
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
             write(77,*) 'Wrong RVNNLO at eps^',i,' : ', RVNNLO(i)

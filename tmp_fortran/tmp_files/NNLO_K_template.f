@@ -42,19 +42,18 @@ c     local NNLO counterterm K1 for sector [%(isec)d,%(jsec)d,%(c3p)d,%(d3p)d]
       double precision wgt,xj,xjB
       INTEGER, PARAMETER :: MXDIM = 30
       DOUBLE PRECISION X(MXDIM)
-      double precision KS,KC,KSC,K1,wgt_chan%(str_defK1)s
+      double precision KS,KHC,K1,wgt_chan%(str_defK1)s
 c
 c     initialise
       KS=0d0
-      KC=0d0
-      KSC=0d0
+      KHC=0d0
       K1=0d0
 c
 c     counterterms
       %(str_M2_K1)s
 c
 c     combination
-      K1=KS+KC-KSC
+      K1=KS+KHC
 c
       return
  999  ierr=1

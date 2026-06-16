@@ -549,8 +549,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             if counterterms is not None:
                 s['counterterms'] = []
-                necessary_3p_ct1_list = [0] * (3)
-                necessary_3p_ct1 = [0] * (3)
+                necessary_3p_ct1_list = [0] * (2)
+                necessary_3p_ct1 = [0] * (2)
                 necessary_3p_ct12_list = [0] * (13) # same number of CTs in K12 for ijjk&ijkj
                 if (leg_numbers[1] == leg_numbers[2]):  #ijjk
                     label = 'ijjk'
@@ -594,7 +594,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         continue
 
                     ### Identify cts for L1_ij
-                    # L1_ij  : 3  -> [Si, Cij, SiCij]
+                    # L1_ij  : 2  -> [Si, HCij]
                     # Ref. eq. 3.15, 1st line
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
@@ -606,21 +606,17 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                     if singular_structure.name()=='C' and len(all_legs)==2:
                         if not singular_structure.substructures:
-                            # Cij
+                            # HCij
                             if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
                                 s['counterterms'].append(i_ct)
                                 if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
-                                    necessary_3p_ct1_list[1] = 'C_gg'
+                                    necessary_3p_ct1_list[1] = 'HC_gg'
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
-                                    necessary_3p_ct1_list[1] = 'C_gq'
+                                    necessary_3p_ct1_list[1] = 'HC_gq'
                                 else :
-                                    necessary_3p_ct1_list[1] = 'C_qqx'
+                                    necessary_3p_ct1_list[1] = 'HC_qqx'
                                 necessary_3p_ct1[1] = ct
 
-                    # SiCij
-                    necessary_3p_ct1_list[2] = (''.join(('S_',necessary_3p_ct1_list[1])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0) else 0)
-                    necessary_3p_ct1[2] = necessary_3p_ct1[1]  # GB: why???
 
                     #### Identify cts for K2 ####
 
@@ -925,8 +921,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
             if counterterms is not None:
                 s['counterterms'] = []
-                necessary_4p_ct1_list = [0] * (3)
-                necessary_4p_ct1 = [0] * (3)
+                necessary_4p_ct1_list = [0] * (2)
+                necessary_4p_ct1 = [0] * (2)
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
                 necessary_4p_ct12_list = [0] * (9)
@@ -967,7 +963,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         continue
 
 
-                    # L1_ijkl  : 3 -> [Si, Cij, SiCij]
+                    # L1_ijkl  : 2 -> [Si, HCij]
 
                     if len(n_subs) == 1 and len(all_legs) == 1:
                         # Si
@@ -978,25 +974,20 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                     if singular_structure.name()=='C' and len(all_legs)==2 and len(n_subs) == 1:
                         if not singular_structure.substructures:
-                            # Cij
+                            # HCij
                             if sorted([l.n for l in all_legs]) == (sorted([ileg,jleg])):
                                 s['counterterms'].append(i_ct)
                                 if (i_id == 21 and j_id == 21):
-                                    necessary_4p_ct1_list[1] = 'C_gg'
+                                    necessary_4p_ct1_list[1] = 'HC_gg'
                                 elif (i_id == 21 and j_id != 21):
-                                    necessary_4p_ct1_list[1] = 'C_gq'
+                                    necessary_4p_ct1_list[1] = 'HC_gq'
                                 else :
-                                    necessary_4p_ct1_list[1] = 'C_qqx'
+                                    necessary_4p_ct1_list[1] = 'HC_qqx'
                                 necessary_4p_ct1[1] = ct
                             # Ckl
                             #Ckl_flag = False
                             #if sorted([l.n for l in all_legs]) == (sorted([kleg,lleg])):
                             #    Ckl_flag = True
-
-                    # SiCij
-                    necessary_4p_ct1_list[2] = (''.join(('S_',necessary_4p_ct1_list[1])) \
-                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0) else 0)
-                    necessary_4p_ct1[2] = necessary_4p_ct1[1]
 
 
                     # L2_ijkl  : 9  ->  [Sik, SCikl, SCkij, SikSCikl, SikSCkij,
@@ -1172,7 +1163,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         replace_dict_ct = {}
         replace_dict_limits = {}
         replace_dict_double_real = {}
-        necessary_default_3p_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'S_C_gg', 'S_C_gq', \
+        necessary_default_3p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
                                         'SS_gg', 'SS_qqx', \
                                         'SC_ggg', 'SC_ggq', 'SC_gqqx', \
                                         'SS_gg_SC_ggg', 'SS_gg_SC_ggq', \
@@ -1203,7 +1194,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         #                   Cij Sij, Cij Cijk, Cij SijCijk, SiCij Sij, SiCij Cijk, SiCij SijCijk]
         # K12_ijkj : 13 -> [Si Sik, Si SCijk, Si SikSCijk, Si Cijk, Si SikCijk, Si SCijkCijk, Si SikSCijkCijk,
         #                   Cij SCkij, Cij Cijk, Cij SCkijCijk, SiCij SCkij, SiCij Cijk, SiCij SCkijCijk]
-        K1_labels = ['S_i', 'C_ij', 'S_i C_ij']
+        K1_labels = ['S_i', 'HC_ij']
         K2_labels_ijjk = ['SS_ij', 'SC_ijk', 'SS_ij SC_ijk', 'CC_ijk', 'SS_ij CC_ijk', 'SC_ijk CC_ijk', 'SS_ij SC_ijk CC_ijk']
         K2_labels_ijkj = ['SS_ik', 'SC_ijk', 'SC_kij', 'SS_ik SC_ijk', 'SS_ik SCkij', \
                           'CC_ijk', 'SS_ik CC_ijk', 'SC_ijk CC_ijk', 'SS_ik SC_ijk CC_ijk', 'SC_kij CC_ijk', 'SS_ik SC_kij CC_ijk']
@@ -1370,7 +1361,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 f.writelines(string)
 
             # Loop on K1 cts
-            # Recall that all_3p_K1_ct = [Si, Cij, SiCij]
+            # Recall that all_3p_K1_ct = [Si, Cij]
             ct_list = []
             write_S = True
             write_HC = True
@@ -1394,11 +1385,6 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         write_HC = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
-                elif j == 2: # S_C_ij
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('SC', 'SC', all_3p_K1_ct[i][j], K1_3p_indices[j]))
-                    list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits,
@@ -1849,7 +1835,7 @@ c       %s
         replace_dict_limits = {}
         replace_dict_double_real ={}
 
-        necessary_default_4p_ct_list = ['S_g', 'C_gg', 'C_gq', 'C_qqx', 'S_C_gg', 'S_C_gq', \
+        necessary_default_4p_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx', \
                                         'SS_gg', 'SS_qqx', \
                                         'SC_ggg', 'SC_ggq', 'SC_gqqx', \
                                         'SS_gg_SC_ggg', 'SS_gg_SC_ggq', \
@@ -1872,7 +1858,7 @@ c       %s
 
         # K2_ijkl  : 9  ->  [Sik, SCikl, SCkij, SikSCikl, SikSCkij, Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
         # K12_ijkl : 9  ->  [Si Sik, Si SCikl, Si SikSCikl, Cij SCkij, Cij Cijkl, Cij SCkijCijkl, SiCij SCkij, SiCij Cijkl, SiCij SCkijCijkl]
-        K1_labels = ['S_i', 'C_ij', 'S_i C_ij']
+        K1_labels = ['S_i', 'HC_ij']
         K2_labels = ['SS_ik', 'SC_ikl', 'SC_kij', 'SS_ik SC_ikl', 'SS_ik SC_kij', \
                      'CC_ijkl', 'SS_ik CC_ijkl', 'SC_ikl CC_ijkl', 'SC_kij CC_ijkl']
         K12_labels = ['S_i SS_ik', 'S_i SC_ikl', 'S_i SS_ik SC_ikl', \
@@ -1998,7 +1984,7 @@ c       %s
                 f.writelines(string)
 
             # Loop on K1 cts
-            # Recall that all_4p_K1_ct = [Si, Cij, SiCij]
+            # Recall that all_4p_K1_ct = [Si, Cij]
             ct_list = []
             for j in range(0, len(all_4p_K1_ct[i])):
                 if all_4p_K1_ct[i][j] ==  0:
@@ -2011,11 +1997,6 @@ c       %s
                 elif j == 1: # C_ij
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j].split("_")[0], all_4p_K1_ct[i][j], K1_4p_indices[j]))
-                    list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 2: # S_C_ij
-                    list_str_M2_K1.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('SC', 'SC', all_4p_K1_ct[i][j], K1_4p_indices[j]))
                     list_str_M2_K1.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 

@@ -1,5 +1,5 @@
 
-      double precision function M2_SS_GG_SC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_GG_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)SC(i,j,k) kernel times WSS_SC
       use sectors4_module
       implicit none
@@ -146,8 +146,8 @@ c           invariant quantities: (c --> m)
             skm = xs(k,m)
 c
 c           safety check
-            if(sij.le.0d0.or.skr.le.0d0.or.sjk.le.0d0)then
-               write(77,*)'Inaccuracy 1 in M2_SS_gg_SC_ggq',sij, skr, sjk
+            if(sij.le.0d0.or.skr.le.0d0.or.sjk.le.0d0.or.sim.le.0d0)then
+               write(77,*)'Inaccuracy 1 in M2_SS_gg_SC_ggq',sij, skr, sjk, sim
                goto 999
             endif
 c
@@ -183,7 +183,7 @@ c
       end
 
 
-      double precision function M2_SS_GG_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_GG_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)C(i,j,k)SC(i,j,k) kernel times WSS_CC_SC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module

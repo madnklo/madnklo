@@ -20,10 +20,10 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLOlrkimk,ccBLOkrliml,extra
+      double precision BLO,ccBLO_lrkimk,ccBLO_krliml,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision sij,sjk,sjm,sik,sim,sjr,skr,skm,xk,xl,ml2,mm2,y,z,x,damp
+      double precision sij,sjk,sjm,sik,sim,sjr,skr,skm,zk,zj,ml2,mm2,y,z,x,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
@@ -82,6 +82,26 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
       pref=32d0*pi**2*alphas**2
 c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      jb = real_mapped_labels(j)
+      rb = real_mapped_labels(r)
+      kb = real_mapped_labels(k)
+      rbb = Born_mapped_labels(rb)
+      kbb = Born_mapped_labels(kb)
+c
+c     Invariant quantities
+      sij = xs(i,j)
+      sjk = xs(j,k)
+      sik = xs(i,k)
+      skr = xs(k,r)
+      sjr = xs(j,r)
+      zk = skr/(skr+sjr)
+      zj = sjr/(sjr+skr)
+c
+c     Mapping 1 for B[lrk,imk]
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
@@ -92,15 +112,7 @@ c
 c
 c           Mapping 1 for B[lrk,imk]
 c
-c           get PDGs
-            ib = real_mapped_labels(i)
-            rb = real_mapped_labels(r)
-            kb = real_mapped_labels(k)
-            rbb = Born_mapped_labels(rb)
-            kbb = Born_mapped_labels(kb)
-c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
@@ -108,20 +120,39 @@ c           underlying Born configuration is remapped
 c
 c           call colour-connected Born matrix element with the mapping [lrk,imk]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLOlrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
-
+            ccBLO_lrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
-c           Mapping 2 for B[krl,icl]
+c           possible cuts
+            if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
-c           get PDGs
-            ib = real_mapped_labels(i)
-            jb = real_mapped_labels(j)
-            kb = real_mapped_labels(k)
-            rbb = Born_mapped_labels(rb)
-            kbb = Born_mapped_labels(kb)
+c           invariant quantities: c --> m
+            skm = xs(k,m)
+            sim = xs(i,m)
+c
+c           Double-soft soft-collinear kernel according to the eq.(C.14)
+            M2tmp = -2d0*sjr/skr/sjk*CA*skm/sik/sim*ccBLO_lrkimk
+c           Including correct multiplicity factor
+            M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+c
+            damp=1d0
+            M2tmp=M2tmp*damp*xj
+            M2_SS_gg_SC_ggq=M2_SS_gg_SC_ggq+pref*M2tmp*wss_sc_nnlo*extra
+      enddo
+c
+c     Mapping 2 for B[krl,iml]
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c
+c     eikonal double sum
+      do m=1,nexternal
+         if(.not.ISNNLOQCDPARTON(m))cycle
+         if(m.eq.i.or.m.eq.k.or.m.eq.j)cycle
+c
+            mb = real_mapped_labels(m)
+            mbb = Born_mapped_labels(mb)
+c
+c           Mapping 2 for B[krl,iml]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
@@ -129,21 +160,14 @@ c           underlying Born configuration is remapped
 c
 c           call colour-connected Born matrix element with the mapping [krl,iml]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-            ccBLOkrliml = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
+            ccBLO_krliml = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
 c           possible cuts
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c           invariant quantities: (c --> m)
-            sij = xs(i,j)
-            sjk = xs(j,k)
-            sjm = xs(j,m)
-            sik = xs(i,k)
-            sik = xs(i,k)
             sim = xs(i,m)
-            skr = xs(k,r)
-            sjr = xs(j,r)
-            skm = xs(k,m)
+            sjm = xs(j,m)
 c
 c           safety check
             if(sij.le.0d0.or.skr.le.0d0.or.sjk.le.0d0.or.sim.le.0d0)then
@@ -152,7 +176,7 @@ c           safety check
             endif
 c
 c           Double-soft soft-collinear kernel according to the eq.(C.14)
-            M2tmp = -2d0*sjr/skr/sjk*(CA*skm/sik/sim*ccBLOlrkimk+(2d0*CF-CA)*sjm/sim/sij*ccBLOkrliml)
+            M2tmp = -2d0*sjr/skr/sjk*(2d0*CF-CA)*sjm/sim/sij*ccBLO_krliml
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -201,7 +225,7 @@ c     while k is a q (or qb)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLOkrjirj,BLOjrkirk
+      double precision BLO_krjirj,BLO_jrkirk
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
@@ -250,7 +274,7 @@ c     check flavour match
       endif
 c
 c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
+c      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     Mapping 1 for B[krj,irj]
 c
@@ -258,8 +282,10 @@ c     get PDGs
       ib = real_mapped_labels(i)
       rb = real_mapped_labels(r)
       jb = real_mapped_labels(j)
+      kb = real_mapped_labels(k)
       rbb = Born_mapped_labels(rb)
       jbb = Born_mapped_labels(jb)
+      kbb = Born_mapped_labels(kb)
 c
 c     underlying Born configuration is remapped
       call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -270,16 +296,9 @@ c     underlying Born configuration is remapped
 c
 c     call Born matrix element with the mapping [krj,irj]
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLOkrjirj = ANS(0)
+      BLO_krjirj = ANS(0)
 c
 c     Mapping 2 for B[jrk,irk]
-c
-c     get PDGs
-      ib = real_mapped_labels(i)
-      rb = real_mapped_labels(r)
-      kb = real_mapped_labels(k)
-      rbb = Born_mapped_labels(rb)
-      kbb = Born_mapped_labels(kb)
 c
 c     underlying Born configuration is remapped
       call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -290,7 +309,7 @@ c     underlying Born configuration is remapped
 c
 c     call Born matrix element with the mapping [jrk,irk]
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLOjrkirk = ANS(0)
+      BLO_jrkirk = ANS(0)
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -318,7 +337,7 @@ c     safety check
       endif
 c
 c     double-soft double-colinear soft-collinear kernel, eq. (C.19) of 2212.11190
-      M2tmp = 2d0*CF*skr/sjk/sjr*(CA*sjr/sij/sir*BLOkrjirj+(2*CF-CA)*skr/sik/sir*BLOjrkirk)
+      M2tmp = 2d0*CF*skr/sjk/sjr*(CA*sjr/sij/sir*BLO_krjirj+(2*CF-CA)*skr/sik/sir*BLO_jrkirk)
 c
 c     include double-soft double-collinear soft-collinear sector function, eq.(C.65-C.67) of 2212.11190
 c     a small detail is that sig2 is always called with alpha=1 in the limit

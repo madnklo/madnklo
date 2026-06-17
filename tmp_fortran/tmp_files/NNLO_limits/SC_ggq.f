@@ -91,6 +91,16 @@ c     get PDGs
       rbb = Born_mapped_labels(rb)
       kbb = Born_mapped_labels(kb)
 c
+c     Invariant quantities
+      sij = xs(i,j)
+      sjk = xs(j,k)
+      sik = xs(i,k)
+      skr = xs(k,r)
+      sjr = xs(j,r)
+      zk = skr/(skr+sjr)
+      zj = sjr/(sjr+skr)
+      Pklr = CF*(2d0*zj/zk+zk)
+c
 c     Mapping 1 for B[lrk,imk]
       call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
 c
@@ -114,18 +124,18 @@ c           call colour-connected Born matrix element with the mapping [lrk,imk]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_lrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
+c           possible cuts
+            if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
+c
 c           invariant quantities: c --> m
-            sjk = xs(j,k)
-            sik = xs(i,k)
             sim = xs(i,m)
-            skr = xs(k,r)
-            sjr = xs(j,r)
             skm = xs(k,m)
-            zk = skr/(skr+sjr)
-            zj = sjr/(sjr+skr)
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
-            Pklr = CF*(2d0*zj/zk+zk)
-            M2tmp = -Pklr/sjk*skm/sik/sim*(CA/CF*ccBLO_lrkimk)
+            M2tmp = - Pklr/sjk*skm/sik/sim*(CA/CF*ccBLO_lrkimk)
+c
+            damp=1d0
+            M2tmp=M2tmp*damp*xj
+            M2_SC_ggq=M2_SC_ggq+pref*M2tmp*wsc_nnlo*extra
 c
       enddo
 c
@@ -141,7 +151,7 @@ c
             mb = real_mapped_labels(m)
             mbb = Born_mapped_labels(mb)
 c
-c           Mapping 1 for B[lrk,imk]
+c           Mapping 2 for B[krl,icl]
 c
 c           underlying Born configuration is remapped
             call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
@@ -157,17 +167,9 @@ c           possible cuts
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c           invariant quantities: c --> m
-            sij = xs(i,j)
-            sjk = xs(j,k)
             sjm = xs(j,m)
-            sik = xs(i,k)
-            sik = xs(i,k)
             sim = xs(i,m)
-            skr = xs(k,r)
-            sjr = xs(j,r)
             skm = xs(k,m)
-            zk = skr/(skr+sjr)
-            zj = sjr/(sjr+skr)
 c
 c           safety check
             if(sij.le.0d0.or.(skr+sjr).le.0d0.or.sjk.le.0d0.or.sim.le.0d0)then
@@ -176,8 +178,7 @@ c           safety check
             endif
 c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
-            Pklr = CF*(2d0*zj/zk+zk)
-            M2tmp = M2tmp - Pklr/sjk*(skm/sik/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
+            M2tmp = - Pklr/sjk*(skm/sik/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -274,11 +275,6 @@ c     check flavour match
         stop 1
       endif
 c
-c     possible cuts
-c      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
-c
-c     Mapping 1 for B[krj,irj]
-c
 c     get PDGs
       ib = real_mapped_labels(i)
       rb = real_mapped_labels(r)
@@ -287,6 +283,8 @@ c     get PDGs
       rbb = Born_mapped_labels(rb)
       jbb = Born_mapped_labels(jb)
       kbb = Born_mapped_labels(kb)
+c
+c     Mapping 1 for B[krj,irj]
 c
 c     underlying Born configuration is remapped
       call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -311,6 +309,9 @@ c
 c     call Born matrix element with the mapping [jrk,irk]
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_jrkirk = ANS(0)
+c
+c     possible cuts
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)

@@ -75,6 +75,8 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
+c     todo: CHECK ALLOCATION AND DEALLOCATION ISSUES RELATED
+c     TO SOFT AND COLLINEAR LIMITS CHECKED TOGETHER
       if (v_init) then
         v_init=.false.
         call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
@@ -150,7 +152,7 @@ c     eikonals
             EIK1(-1) = -CA*EIK0*log(sil*sim/slm/mu_r**2)
             EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/mu_r**2)**2-5d0*zeta2)
 
-            M2TMP(-2:0) = M2TMP(-2:0) + CCVNLO(-2:0)*EIK0
+            M2TMP(-2:0) = CCVNLO(-2:0)*EIK0
             M2TMP(-2:0) = M2TMP(-2:0) - alphas/2d0/pi*CCBLO*EIK1(-2:0)
             M2TMP(-1)   = M2TMP(-1) - alphas*beta0/4d0/pi*CCBLO*EIK0
 
@@ -202,7 +204,7 @@ c
       enddo
 c
 c     apply flavour factor
-      ret(-2:0) = ret(-2:0) * %(proc_prefix_real)s_fl_factor
+      ret(-2:0) = ret(-2:0)*DBLE(EPEM_UUX_DEN)/DBLE(EPEM_GUUX_DEN)*%(proc_prefix_real)s_fl_factor
 c
 c     sanity check
       if(abs(ret(0)).ge.huge(1d0).or.isnan(ret(0)))then

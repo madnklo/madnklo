@@ -39,10 +39,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
-      double precision xsave(3)
       double precision sCM
       common/cscm/sCM
-      common/cxsave/xsave
       integer nitRV
       common/iterations/nitRV
       integer %(NNLO_RV_proc_str)sfl_factor
@@ -84,8 +82,14 @@ c     TODO: muR from card
 c
 c     initialise
       int_real_virtual_%(isec)d_%(jsec)d=0d0
-      xsave(1:3)=x(1:3)
       WGT_CHAN=1d0
+
+
+      if(ntested.lt.ntest)then
+         ntested=ntested+1
+         call test_RV_%(isec)d_%(jsec)d(ntested)
+      endif
+
 c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
@@ -112,13 +116,6 @@ c     tiny technical phase-space cut to avoid fluctuations
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,1))goto 555
-c
-c     test phase-space singularities of matrix elements
-      if(ntested.lt.ntest)then
-         ntested=ntested+1
-         call test_RV_%(isec)d_%(jsec)d(iunit,x)
-      endif
-c     TODO: implement flag 'test_only' to stop here
 c
 c     real virtual
       if (init) then

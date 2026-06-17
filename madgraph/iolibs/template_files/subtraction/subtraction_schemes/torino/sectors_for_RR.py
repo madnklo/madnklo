@@ -674,7 +674,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[3] = 'CC_gqqx'
                                         if (k_id == 21):
-                                            ordered_legs_3p_K2_ct[3] = (kleg,ileg,jleg) 
+                                            ordered_legs_3p_K2_ct[3] = (kleg,ileg,jleg)
                                         elif (i_id == 21):
                                             ordered_legs_3p_K2_ct[3] = (ileg,jleg,kleg)
                                         elif (j_id == 21):
@@ -699,7 +699,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
-                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg) 
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg)
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
                                     ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
@@ -746,7 +746,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                         else:
                                             necessary_3p_ct2_list[0] =  'SS_qqx'
                                         necessary_3p_ct2[0] = ct
-                                        ordered_legs_3p_K2_ct[0] = (ileg,kleg) 
+                                        ordered_legs_3p_K2_ct[0] = (ileg,kleg)
 
                             if singular_structure.name()=='C' and len(all_legs)==3:
                                 # Cijk
@@ -759,20 +759,20 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     elif ([i_id,j_id,k_id].count(21) == 2):
                                         necessary_3p_ct2_list[5] = 'CC_ggq'
                                         if (k_id != 21):
-                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg) 
+                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg)
                                         elif (i_id != 21):
-                                            ordered_legs_3p_K2_ct[5] = (jleg,kleg,ileg) 
+                                            ordered_legs_3p_K2_ct[5] = (jleg,kleg,ileg)
                                         elif (j_id != 21):
-                                            ordered_legs_3p_K2_ct[5] = (ileg,kleg,jleg) 
+                                            ordered_legs_3p_K2_ct[5] = (ileg,kleg,jleg)
                                     #elif (i_id == 21 and j_id != 21 and  j_id == (- k_id)):
                                     elif ([i_id,j_id,k_id].count(21) == 1):
                                         necessary_3p_ct2_list[5] = 'CC_gqqx'
                                         if (k_id == 21):
                                             ordered_legs_3p_K2_ct[5] = (kleg,ileg,jleg)
                                         elif (i_id == 21):
-                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg) 
+                                            ordered_legs_3p_K2_ct[5] = (ileg,jleg,kleg)
                                         elif (j_id == 21):
-                                            ordered_legs_3p_K2_ct[5] = (jleg,ileg,kleg) 
+                                            ordered_legs_3p_K2_ct[5] = (jleg,ileg,kleg)
                                     else:
                                         if abs(i_id) == abs(j_id) and abs(j_id) == abs(k_id):
                                             necessary_3p_ct2_list[5] = 'CC_qxqq'
@@ -793,10 +793,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 elif ((j_id == 21 and k_id != 21) or (j_id != 21 and k_id == 21)):
                                     necessary_3p_ct2_list[1] = 'SC_ggq'
-                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg) 
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) if j_id == 21 else (ileg,kleg,jleg)
                                 else:
                                     necessary_3p_ct2_list[1] = 'SC_gqqx'
-                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg) 
+                                    ordered_legs_3p_K2_ct[1] = (ileg,jleg,kleg)
                                 necessary_3p_ct2[1] = ct
                             # SCkij
                             if (k_id == 21 and sorted([l.n for l in all_legs_C]) == sorted([ileg,jleg])) :
@@ -816,7 +816,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         necessary_3p_ct2_list[3] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[1])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0)
                         necessary_3p_ct2[3] = necessary_3p_ct2[1]
-                        ordered_legs_3p_K2_ct[3] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0 
+                        ordered_legs_3p_K2_ct[3] = ordered_legs_3p_K2_ct[1] if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[1] != 0) else 0
                         # SikSCkij
                         necessary_3p_ct2_list[4] = (''.join((necessary_3p_ct2_list[0],'_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct2_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
@@ -1163,7 +1163,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                     necessary_4p_ct2_list[5] = 'CC_qxqgg'
                                 elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 1: #i_id == 21 and j_id != 21 and k_id == 21 and l_id != 21:
                                     necessary_4p_ct2_list[5] = 'CC_gqgq'
-                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21 
+                                elif [i_id,j_id].count(21) == 1 and [k_id,l_id].count(21) == 0 and abs(k_id) == abs(l_id): #i_id == 21 and j_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_gqqxq'
                                 elif [k_id,l_id].count(21) == 1 and [i_id,j_id].count(21) == 0 and abs(i_id) == abs(j_id): #k_id == 21 and l_id != 21
                                     necessary_4p_ct2_list[5] = 'CC_qxqgq'
@@ -1534,7 +1534,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if (write_S): # just one call to the kernel is needed
                         write_S = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                        K1_sector_lists['S'][(isec,)].append((isec,jsec))
+                    K1_sector_lists['S'][(isec,)].append((isec,jsec))
                 elif j == 1: # C_ij
                     list_str_M2_K1.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,nitRR,1d0,wgt_chan,ierr)\n'
                                        % (all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j].split("_")[0], all_3p_K1_ct[i][j], K1_3p_indices[j]))
@@ -1542,7 +1542,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     if (write_HC): # just one call to the kernel is needed
                         write_HC = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                        K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
+                    K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
 
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits,
@@ -1625,6 +1625,10 @@ c       %s
 
             # L2_ijkj : 11 -> [Sik, SCijk, SCkij, SikSCijk, SikSCkij, Cijk, SikCijk, SCijkCijk, SikSCijkCijk, SCkijCijk, SikSCkijCijk]
             elif label == 'ijkj':
+                write_SC = True
+                write_SS_SC = True
+                write_SC_CC = True
+                write_SS_SC_CC = True
                 tmp_str = """
 c       KSS = SS_ik
 c       KSC = (SC_ijk + SC_kij) (1 - SS_ik)
@@ -1643,25 +1647,33 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                         list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SC): # just one call to the kernel is needed
+                            write_SC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC'][(isec,min(jsec,ksec),max(jsec,ksec))].append(all_3p_sector_list[i])
                     elif j == 2: # + SC_kij
                         list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SC): # just one call to the kernel is needed
+                            write_SC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC'][(ksec,min(isec,jsec),max(isec,jsec))].append(all_3p_sector_list[i])
                     elif j == 3: # - SS_ik SC_ijk
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SS_SC): # just one call to the kernel is needed
+                            write_SS_SC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_SC'][(isec,ksec,jsec)].append(all_3p_sector_list[i])
                     elif j == 4: # - SS_ik SC_kij
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SS_SC): # just one call to the kernel is needed
+                            write_SS_SC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_SC'][(ksec,isec,jsec)].append(all_3p_sector_list[i])
                     elif j == 5: # + CC_ijk
                         list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
@@ -1679,25 +1691,33 @@ c       KCC = CC_ijk (1 - SS_ik) (1 - SC_ijk - SC_kij)"""
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SC_CC): # just one call to the kernel is needed
+                            write_SC_CC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC_CC'][(isec,min(jsec,ksec),max(jsec,ksec))].append(all_3p_sector_list[i])
                     elif j == 8: # + SS_ik SC_ijk CC_ijk
                         list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SS_SC_CC): # just one call to the kernel is needed
+                            write_SS_SC_CC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_SC_CC'][(isec,ksec,jsec)].append(all_3p_sector_list[i])
                     elif j == 9: # - SC_kij CC_ijk
                         list_str_M2_K2.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SC_CC): # just one call to the kernel is needed
+                            write_SC_CC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SC_CC'][(ksec,min(isec,jsec),max(isec,jsec))].append(all_3p_sector_list[i])
                     elif j == 10: # + SS_ik SC_kij CC_ijk
                         list_str_M2_K2.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_3p_K2_ct[i][j], K2_3p_indices[j]))
                         list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                        if (write_SS_SC_CC): # just one call to the kernel is needed
+                            write_SS_SC_CC = False
+                            os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                         K2_sector_lists['SS_SC_CC'][(ksec,isec,jsec)].append(all_3p_sector_list[i])
                     # Extract underlying Born string
                     # TODO: can I have more then one underlying born x sector?
@@ -2173,6 +2193,9 @@ c       %s
             # Loop on K2 cts
             # K2_ijkl  : 9  ->  [Sik, SCikl, SCkij, SikSCikl, SikSCkij, Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
             ct_list = []
+            write_SC = True
+            write_SS_SC = True
+            write_SC_CC = True
             tmp_str = """
 c       KSS = SS_ik
 c       KSC = SC_ikl (1 - SS_ik) + SC_kij (1 - SS_ik)
@@ -2191,25 +2214,33 @@ c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)"""
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SC): # just one call to the kernel is needed
+                        write_SC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SC'][(isec,min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
                 elif j == 2: # + SC_kij
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SC): # just one call to the kernel is needed
+                        write_SC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SC'][(ksec,min(isec,jsec),max(isec,jsec))].append(all_4p_sector_list[i])
                 elif j == 3: # - SS_ik SC_ikl
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SS_SC): # just one call to the kernel is needed
+                        write_SS_SC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SS_SC'][(isec,ksec,lsec)].append(all_4p_sector_list[i])
                 elif j == 4: # - SS_ik SC_kij
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('SC', 'SC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SS_SC): # just one call to the kernel is needed
+                        write_SS_SC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SS_SC'][(ksec,isec,jsec)].append(all_4p_sector_list[i])
                 elif j == 5: # + CC_ijkl
                     list_str_M2_K2.append('K%s=K%s+M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
@@ -2235,13 +2266,17 @@ c       KCC = CC_ijkl (1 + SS_ik - SC_ikl - SC_kij)"""
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SC_CC): # just one call to the kernel is needed
+                        write_SC_CC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SC_CCCC'][(isec,jsec,min(ksec,lsec),max(ksec,lsec))].append(all_4p_sector_list[i])
                 elif j == 8: # - SC_kij CC_ijkl
                     list_str_M2_K2.append('K%s=K%s-M2_%s(%s,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                            % ('CC', 'CC', all_4p_K2_ct[i][j], K2_4p_indices[j]))
                     list_str_M2_K2.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    if (write_SC_CC): # just one call to the kernel is needed
+                        write_SC_CC = False
+                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K2_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K2_sector_lists['SC_CCCC'][(ksec,lsec,min(isec,jsec),max(isec,jsec))].append(all_4p_sector_list[i])
                 # Extract underlying Born string
                 self.get_uproc_str('Born', uB_all_4p_K2_ct[i][j], all_4p_K2_ct[i][j], dirpathB_head, replace_dict_limits,
@@ -2438,11 +2473,11 @@ c       %s
     # filtering function applying selection rule to sectors
     #===========================================================================
 
-    def get_sector_filtering(self, 
-        sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p, 
+    def get_sector_filtering(self,
+        sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p,
         K1_ct_list_3p, K2_ct_list_3p, K12_ct_list_3p,
         uB_K1_3p, uB_K2_3p, order_leg_K1_3p, order_leg_K2_3p, order_leg_K12_3p,
-        sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p, 
+        sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p,
         K1_ct_list_4p, K2_ct_list_4p, K12_ct_list_4p,
         uB_K1_4p, uB_K2_4p, order_leg_K1_4p, order_leg_K2_4p, order_leg_K12_4p):
 
@@ -2453,19 +2488,19 @@ c       %s
         #     4. Filter: keep sectors with at least one new CT tuple
         #     5. Ensure soft-limit factorisation -> adjust sector list
         #     6. Return (filtered_3p, filtered_4p)
-    
+
         # Step 1: build sector dictionaries
-        sectors_3p = self.build_dict('3p', sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p, 
+        sectors_3p = self.build_dict('3p', sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p,
             K1_ct_list_3p, K2_ct_list_3p, K12_ct_list_3p,
             uB_K1_3p, uB_K2_3p, order_leg_K1_3p, order_leg_K2_3p, order_leg_K12_3p)
-        sectors_4p = self.build_dict('4p', sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p, 
+        sectors_4p = self.build_dict('4p', sector_list_4p, sector_id_list_4p, sector_recoilers_list_4p,
             K1_ct_list_4p, K2_ct_list_4p, K12_ct_list_4p,
             uB_K1_4p, uB_K2_4p, order_leg_K1_4p, order_leg_K2_4p, order_leg_K12_4p)
 
-        # Step 2: sort by the # of cts 
+        # Step 2: sort by the # of cts
         def count_ct(s):
             return sum(1 for label in s['K1'] + s['K2'] + s['K12'] if label != 0)
-    
+
         sorted_sectors = sectors_3p + sectors_4p
         sorted_sectors.sort(key=count_ct, reverse=True)
 
@@ -2478,21 +2513,21 @@ c       %s
             for i, label in enumerate(s['K1']):
                 if isinstance(label,str):
                     cts.append(('K1', s['order_leg_K1'][i], label))
-                    if s['order_leg_K1'][i] == 0: 
+                    if s['order_leg_K1'][i] == 0:
                         print('Empty leg list for K1 ct:' + str(label))
                         return
-                        
+
             for i, label in enumerate(s['K2']):
                 if isinstance(label,str):
                     cts.append(('K2', s['order_leg_K2'][i], label))
-                    if s['order_leg_K2'][i] == 0: 
+                    if s['order_leg_K2'][i] == 0:
                         print('Empty leg list for K2 ct:' + str(label))
                         return
-                    
+
             for i, label in enumerate(s['K12']):
                 if isinstance(label,str):
                     cts.append(('K12', s['order_leg_K12'][i], label))
-                    if s['order_leg_K12'][i] == 0: 
+                    if s['order_leg_K12'][i] == 0:
                         print('Empty leg list for K12 ct:' + str(label))
                         return
 
@@ -2508,7 +2543,7 @@ c       %s
                 removed_all.append(s)
                 print('Removed sector  : ' + str(s['original_pos']))
 
-        # Step 5: implement single-soft limit factorisation 
+        # Step 5: implement single-soft limit factorisation
         if any(s['original_pdg'][0] == 21 for s in filtered_all):
 
             # Build lookup: pos tuple -> sector dict, for fast recovery from removed
@@ -2551,10 +2586,10 @@ c       %s
         return filtered_3p, filtered_4p
 
     # -------- helpers --------
-    def build_dict(self, type, sector_list, sector_id_list, sector_recoilers_list, 
+    def build_dict(self, type, sector_list, sector_id_list, sector_recoilers_list,
                     K1_ct_list, K2_ct_list, K12_ct_list,
                     uB_K1, uB_K2, order_leg_K1, order_leg_K2, order_leg_K12):
-            
+
         sector_dict = []
         for i in range(len(sector_list)):
             sector_dict.append({
@@ -2574,7 +2609,7 @@ c       %s
             })
 
         return sector_dict
-    
+
     def unpack_dict(self,sectors):
         return (
             [s['original_pos']     for s in sectors],

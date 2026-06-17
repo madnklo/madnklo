@@ -20,7 +20,7 @@ c     SC(i,j,k) kernel times WSC
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLOlrkimk,ccBLOkrliml,Pklr,extra
+      double precision BLO,ccBLO_lrkimk,ccBLO_krliml,Pklr,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sjk,sjm,sik,sim,sjr,skr,zj,zk,skm,xk,xl,ml2,mm2,y,z,x,damp
@@ -83,6 +83,17 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
       pref=32d0*pi**2*alphas**2
 c
+c     get PDGs
+      ib = real_mapped_labels(i)
+      rb = real_mapped_labels(r)
+      kb = real_mapped_labels(k)
+      jb = real_mapped_labels(j)
+      rbb = Born_mapped_labels(rb)
+      kbb = Born_mapped_labels(kb)
+c
+c     Mapping 1 for B[lrk,imk]
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
@@ -93,15 +104,7 @@ c
 c
 c           Mapping 1 for B[lrk,imk]
 c
-c           get PDGs
-            ib = real_mapped_labels(i)
-            rb = real_mapped_labels(r)
-            kb = real_mapped_labels(k)
-            rbb = Born_mapped_labels(rb)
-            kbb = Born_mapped_labels(kb)
-c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
@@ -109,20 +112,38 @@ c           underlying Born configuration is remapped
 c
 c           call colour-connected Born matrix element with the mapping [lrk,imk]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLOlrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
-
+            ccBLO_lrkimk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
-c           Mapping 2 for B[krl,icl]
+c           invariant quantities: c --> m
+            sjk = xs(j,k)
+            sik = xs(i,k)
+            sim = xs(i,m)
+            skr = xs(k,r)
+            sjr = xs(j,r)
+            skm = xs(k,m)
+            zk = skr/(skr+sjr)
+            zj = sjr/(sjr+skr)
+c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
+            Pklr = CF*(2d0*zj/zk+zk)
+            M2tmp = -Pklr/sjk*skm/sik/sim*(CA/CF*ccBLO_lrkimk)
 c
-c           get PDGs
-            ib = real_mapped_labels(i)
-            jb = real_mapped_labels(j)
-            kb = real_mapped_labels(k)
-            rbb = Born_mapped_labels(rb)
-            kbb = Born_mapped_labels(kb)
+      enddo
+c
+c     Mapping 2 for B[krl,icl]
+c
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c
+c     eikonal double sum
+      do m=1,nexternal
+         if(.not.ISNNLOQCDPARTON(m))cycle
+         if(m.eq.i.or.m.eq.k.or.m.eq.j)cycle
+c
+            mb = real_mapped_labels(m)
+            mbb = Born_mapped_labels(mb)
+c
+c           Mapping 1 for B[lrk,imk]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
             call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
@@ -130,7 +151,7 @@ c           underlying Born configuration is remapped
 c
 c           call colour-connected Born matrix element with the mapping [krl,iml]
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-            ccBLOkrliml = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
+            ccBLO_krliml = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
 c           possible cuts
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -156,7 +177,7 @@ c           safety check
 c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
             Pklr = CF*(2d0*zj/zk+zk)
-            M2tmp = -Pklr/sjk*(skm/sik/sim*(CA/CF*ccBLOlrkimk+(2d0*CF-CA)/CF*ccBLOkrliml))
+            M2tmp = M2tmp - Pklr/sjk*(skm/sik/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -205,7 +226,7 @@ c     while k is a q (or qb)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLOkrjirj,BLOjrkirk
+      double precision BLO_krjirj,BLO_jrkirk
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
@@ -254,7 +275,7 @@ c     check flavour match
       endif
 c
 c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
+c      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     Mapping 1 for B[krj,irj]
 c
@@ -262,8 +283,10 @@ c     get PDGs
       ib = real_mapped_labels(i)
       rb = real_mapped_labels(r)
       jb = real_mapped_labels(j)
+      kb = real_mapped_labels(k)
       rbb = Born_mapped_labels(rb)
       jbb = Born_mapped_labels(jb)
+      kbb = Born_mapped_labels(kb)
 c
 c     underlying Born configuration is remapped
       call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -274,16 +297,9 @@ c     underlying Born configuration is remapped
 c
 c     call Born matrix element with the mapping [krj,irj]
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLOkrjirj = ANS(0)
+      BLO_krjirj = ANS(0)
 c
 c     Mapping 2 for B[jrk,irk]
-c
-c     get PDGs
-      ib = real_mapped_labels(i)
-      rb = real_mapped_labels(r)
-      kb = real_mapped_labels(k)
-      rbb = Born_mapped_labels(rb)
-      kbb = Born_mapped_labels(kb)
 c
 c     underlying Born configuration is remapped
       call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -294,7 +310,7 @@ c     underlying Born configuration is remapped
 c
 c     call Born matrix element with the mapping [jrk,irk]
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLOjrkirk = ANS(0)
+      BLO_jrkirk = ANS(0)
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -324,7 +340,7 @@ c
 c     double-colinear soft-collinear kernel, eq. (C.18) of 2212.11190
 c     since Qjk(r) is Qgq(r) = 0, the kperp term is zero
       Pjkr = -CF*(2d0*zk/zj+zk)
-      M2tmp = CF*Pjkr*(CA/CF*sjr/sij/sir*BLOkrjirj+(2d0*CF-CA)/CF*skr/sik/sir*BLOjrkirk)
+      M2tmp = CF*Pjkr*(CA/CF*sjr/sij/sir*BLO_krjirj+(2d0*CF-CA)/CF*skr/sik/sir*BLO_jrkirk)
 c
 c     include double-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190
 c     a small detail is that sig2 is always called with alpha=1 in the limit

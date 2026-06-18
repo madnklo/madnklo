@@ -56,7 +56,7 @@ c     set logical doplot
       REAL*8 , ALLOCATABLE :: V_PREC_FOUND(:)
 
       include 'pmass.inc'
-c
+c     
 c     initialise
       ret=0d0
       M2_C_gq_0=0d0
@@ -76,7 +76,7 @@ c     checks
       endif
 
 
-
+      v_init = .true.
       if (v_init) then
         v_init=.false.
         call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
@@ -129,14 +129,14 @@ c
 c     In the following equation the x variable is related to the quark energy
       M2_C_gq_0=BLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
 c
-      M2_C_gq(-2:0) = M2_C_gq(-2:0) + VLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
+      M2_C_gq(-2:0) = VLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
       M2_C_gq(-2) = M2_C_gq(-2) + alphas/2d0/pi*M2_C_gq_0*(-CA)
 c      M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CF*log(x*(1d0-x))-beta0/2d0)
       M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CA*dlog(1d0-x)+(2d0*CF-CA)*dlog(x)-BETA0/2D0)
       M2_C_gq( 0) = M2_C_gq( 0) + alphas/2d0/pi*(M2_C_gq_0*(CA*(7d0*zeta2-logab**2)/2d0+CF*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+BLO*CF*(CA-CF))
 c
       if(ia.eq.isec) then
-         M2_SC_gq(-2:0) = M2_SC_gq(-2:0)+2d0*CF*(EIK0*VLO(-2:0)-alphas/2d0/pi*EIK1(-2:0)*BLO)
+         M2_SC_gq(-2:0) = 2d0*CF*(EIK0*VLO(-2:0)-alphas/2d0/pi*EIK1(-2:0)*BLO)
          M2_SC_gq(-1)   = M2_SC_gq(-1)-2d0*CF*alphas/2d0/pi*beta0/2d0*EIK0*BLO
       else
          continue
@@ -156,9 +156,9 @@ c     account for different damping factors according to recoiler position (ir)
       else
          damp=xinit**beta_FI
       endif
-      ret = M2_C_gq-M2_SC_gq
+      ret = M2_C_gq/sab-M2_SC_gq
 c     include prefactors
-      ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
+      ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c
 c     plot
       wgtpl=-ret(0)*wgt/nit*wgt_chan
@@ -172,6 +172,8 @@ c     sanity check
          goto 999
       endif
 c
+      deallocate(v_matelem)
+      deallocate(v_prec_found)
       return
  999  ierr=1
       return

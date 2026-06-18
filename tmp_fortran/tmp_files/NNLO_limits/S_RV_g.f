@@ -77,6 +77,10 @@ c     initialise
       damp=0d0
 c     todo: CHECK ALLOCATION AND DEALLOCATION ISSUES RELATED
 c     TO SOFT AND COLLINEAR LIMITS CHECKED TOGETHER
+
+
+      v_init = .true.
+      
       if (v_init) then
         v_init=.false.
         call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
@@ -142,7 +146,9 @@ c     call colour-connected Born and Virtual
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
-            VNLO(-2:0) = V_MATELEM(1:3,0)
+            VNLO(-2) = V_MATELEM(3,0)
+            VNLO(-1) = V_MATELEM(2,0)
+            VNLO(0)  = V_MATELEM(1,0)
             call %(V_long_proc_prefix)sget_ccvnlo(lb,mb,ccvnlo)
             COLOR_CORRELATED_EVALS = 0D0
 c
@@ -216,6 +222,8 @@ c     add delta_s_rv_g (all prefactors included)
       call DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr,res_delta)
       ret = ret + res_delta
 c
+      deallocate(v_matelem)
+      deallocate(v_prec_found)
       return
  999  ierr=1
       return

@@ -148,13 +148,14 @@ contains
   subroutine get_WSS_NNLO(a,b,c,d)
     ! NNLO double-soft sector functions WSS
     implicit none
-    integer :: i,a,b,c,d,sec(4)
+    integer :: i,a,b,c,d,ii(2),sec(4)
     double precision :: num,sigma
     include 'all_K2_sector_list.inc'
     num = sigNNLO(a,b,c,d)
     sigma = 0d0
+    ii = sort2([a,c])
     do i=1,len
-       sec=ss_sector_list(a,c,i,:)
+       sec=ss_sector_list(ii(1),ii(2),i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma +  sigNNLO(sec(1),sec(2),sec(3),sec(4))
     enddo
@@ -174,12 +175,7 @@ contains
     elseif(b.eq.id) then
        c = ic
     endif
-
-    ! list-reading requires sorted a,b,c
-    ii = [a, b, c]
-    if (ii(1)>ii(2)) call swap(ii(1),ii(2))
-    if (ii(1)>ii(3)) call swap(ii(1),ii(3))
-    if (ii(2)>ii(3)) call swap(ii(2),ii(3))
+    ii = sort3([a,b,c])
     do i=1,len
        sec=cc_sector_list(ii(1),ii(2),ii(3),i,:)
        if(all(sec.eq.0))cycle
@@ -191,7 +187,7 @@ contains
   subroutine get_WSS_CC_NNLO(a,b,c,d)
           ! NNLO double-soft double-collinear sector functions WSSCC
     implicit none
-    integer :: i,a,b,c,d,ib,sec(4)
+    integer :: i,a,b,c,d,ib,ii(2),sec(4)
     double precision :: num, sigma
     include 'all_K2_sector_list.inc'
     num = hatsigNNLO(a,b,c,d)
@@ -201,8 +197,9 @@ contains
     elseif(b.eq.d) then
        ib = c
     endif
+    ii=sort2([a,ib])
     do i=1,len
-       sec=ss_cc_sector_list(a,ib,d,i,:)
+       sec=ss_cc_sector_list(ii(1),ii(2),d,i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + &
             hatsigNNLO(sec(1),sec(2),sec(3),sec(4))
@@ -346,14 +343,15 @@ contains
 
   subroutine get_WSC_NNLO(a,b,c,d,r)
     implicit none
-    integer :: a,b,c,d,r
+    integer :: a,b,c,d,r,ii(2)
     integer :: i,sec(4)
     double precision :: wr,num,sigma
     include 'all_K2_sector_list.inc'
     num = sig2(a,b)**alpha_mod*sig2(c,d)/w(c,r)
     sigma = 0d0
+    ii = sort2([c,d])
     do i=1,len
-       sec=sc_sector_list(a,c,d,i,:)
+       sec=sc_sector_list(a,ii(1),ii(2),i,:)
        if(all(sec.eq.0))cycle
        if(sec(1).eq.a) then
           wr=w(sec(3),r)
@@ -363,17 +361,17 @@ contains
        sigma = sigma + &
             sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
     enddo
-    do i=1,len
-       sec=sc_sector_list(a,d,c,i,:)
-       if(all(sec.eq.0))cycle
-       if(sec(1).eq.a) then
-          wr=w(sec(3),r)
-       else
-          wr=w(sec(1),r)
-       endif
-       sigma = sigma + &
-            sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
-    enddo
+    ! do i=1,len
+    !    sec=sc_sector_list(a,d,c,i,:)
+    !    if(all(sec.eq.0))cycle
+    !    if(sec(1).eq.a) then
+    !       wr=w(sec(3),r)
+    !    else
+    !       wr=w(sec(1),r)
+    !    endif
+    !    sigma = sigma + &
+    !         sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
+    ! enddo
     WSC_NNLO = num/sigma
   end subroutine get_WSC_NNLO
 
@@ -401,7 +399,7 @@ contains
   subroutine get_WSC_CC_NNLO(a,b,c,d,r)
     !     NNLO soft-collinear double-collinear sector functions WSC_CC(a,b,c,d)
     implicit none
-    integer :: i,a,b,c,d,r,ic,id,sec(4)
+    integer :: i,a,b,c,d,r,ic,id,ii(2),sec(4)
     double precision :: num,sigma
     include 'all_K2_sector_list.inc'
     num = (sig2(a,b)/w(a,r))**alpha_mod*sig2(c,d)/w(c,r)
@@ -413,8 +411,9 @@ contains
         id=c
     endif
     sigma=0d0
+    ii = sort2([ic,id])
     do i=1,len
-       sec=sc_cc_sector_list(a,ic,id,i,:)
+       sec=sc_cc_sector_list(a,ii(1),ii(2),i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
     enddo
@@ -448,5 +447,21 @@ contains
   integer :: x,y,t
   t=x; x=y; y=t
   end subroutine swap
+
+  function sort2(ii) result(jj)
+    integer, intent(in) :: ii(2)
+    integer :: jj(2)
+    jj = ii
+    if (jj(1) > jj(2)) call swap(jj(1), jj(2))
+  end function sort2
+
+  function sort3(ii) result(jj)
+    integer, intent(in) :: ii(3)
+    integer :: jj(3)
+    jj = ii
+    if (jj(1) > jj(2)) call swap(jj(1), jj(2))
+    if (jj(1) > jj(3)) call swap(jj(1), jj(3))
+    if (jj(2) > jj(3)) call swap(jj(2), jj(3))
+  end function sort3
 
 end module sectors4_module

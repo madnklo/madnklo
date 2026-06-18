@@ -1285,7 +1285,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_4p_K1_ct, all_4p_K2_ct, all_4p_K12_ct,\
         uB_all_4p_K1_ct, uB_all_4p_K2_ct, _, _, _ = self.unpack_dict(filtered_4p)
 
-	    ### SECTOR FILTERING PROCEDURE
+	### SECTOR FILTERING PROCEDURE
 
 ######### Set writer
         writer = writers.FortranWriter
@@ -2770,6 +2770,11 @@ c       %s
             integer s_sector_list(1:1,1:1,2)
             """
 
+        if 'C' not in K1_sector_lists:
+            file += """ \
+            integer c_sector_list(1:1,1:1,1:1,2)
+            """
+
         file += """ \
         """
 
@@ -2812,6 +2817,11 @@ c       %s
 !         data S (dummy)
             DATA (S_SECTOR_LIST(1,1,L),L=1,2) /0,0/ \n"""
 
+        if 'C' not in K1_sector_lists:
+            file += """
+!         data C (dummy)
+            DATA (C_SECTOR_LIST(1,1,1,L),L=1,2) /0,0/ \n"""
+
         filename = pjoin(dirpath, 'all_K1_sector_list.inc')
         writer(filename).writelines(file)
 
@@ -2846,6 +2856,26 @@ c       %s
                 file += """ \
           integer %s_SECTOR_LIST(%d:%d,%d:%d,%d:%d,%d:%d,LEN,4)
           """ % (type,minl,maxl,minl,maxl,minl,maxl,minl,maxl)
+
+        if 'SC' not in K2_sector_lists:
+            file += """ \
+            integer sc_sector_list(1:1,1:1,1:1,1:1,4)
+            """
+
+        if 'SS_SC' not in K2_sector_lists:
+            file += """ \
+            integer ss_sc_sector_list(1:1,1:1,1:1,1:1,4)
+            """
+
+        if 'SC_CC' not in K2_sector_lists:
+            file += """ \
+            integer sc_cc_sector_list(1:1,1:1,1:1,1:1,4)
+            """
+
+        if 'SS_SC_CC' not in K2_sector_lists:
+            file += """ \
+            integer ss_sc_cc_sector_list(1:1,1:1,1:1,1:1,4)
+            """
 
         file += """ \
         """
@@ -2891,6 +2921,26 @@ c       %s
                             i,j,k,l = key
                             file += """ \
           DATA (%s_SECTOR_LIST(%d,%d,%d,%d,%d,L),L=1,4) /%d,%d,%d,%d/ \n""" % (type,i,j,k,l,n,a,b,c,d)
+
+        if 'SC' not in K2_sector_lists:
+            file += """
+!         data SC (dummy)
+            DATA (SC_SECTOR_LIST(1,1,1,1,L),L=1,4) /0,0,0,0/ \n"""
+
+        if 'SS_SC' not in K2_sector_lists:
+            file += """
+!         data SS_SC (dummy)
+            DATA (SS_SC_SECTOR_LIST(1,1,1,1,L),L=1,4) /0,0,0,0/ \n"""
+
+        if 'SC_CC' not in K2_sector_lists:
+            file += """
+!         data SC_CC (dummy)
+            DATA (SC_CC_SECTOR_LIST(1,1,1,1,L),L=1,4) /0,0,0,0/ \n"""
+
+        if 'SS_SC_CC' not in K2_sector_lists:
+            file += """
+!         data SS_SC_CC (dummy)
+            DATA (SS_SC_CC_SECTOR_LIST(1,1,1,1,L),L=1,4) /0,0,0,0/ \n"""
 
         filename = pjoin(dirpath, 'all_K2_sector_list.inc')
         writer(filename).writelines(file)

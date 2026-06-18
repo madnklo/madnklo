@@ -1,7 +1,7 @@
 
-      double precision function M2_CC_ggq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j,k) kernel times WCC: i, j is a g-g pair
-c     while k is a q (or qb)
+      double precision function M2_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+c     S(i,j) C(i,j,k) kernel times WSSCC: i, j are a q-qb pair with same flavour
+c     while k is a q (or qb) with different flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -20,7 +20,7 @@ c     while k is a q (or qb)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,Pijkr
+      double precision zi,zj,zk,zij,eijkr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -40,6 +40,7 @@ c     set logical doplot
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
@@ -48,20 +49,20 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
-      M2_CC_ggq=0d0
+      M2_SS_qqx_CC_qxqqp=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology
-      if(bsec.ne.csec.and.bsec.ne.dsec) then
-        write (*,*) 'Wrong topology in M2_CC_ggq',asec,bsec,csec,dsec
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
+        write (*,*) 'Wrong topology in M2_SS_qqx_CC_qxqqp',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5.and.abs(leg_PDGs(k)).ne.abs(leg_PDGs(i))
       if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_SS_qqx_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -83,13 +84,11 @@ c     invariant quantities
       zi   = sir/(sir+sjr+skr)
       zj   = sjr/(sir+sjr+skr)
       zk   = skr/(sir+sjr+skr)
-      zik  = zi+zk
-      zjk  = zj+zk
       zij  = zi+zj
 c
 c     safety check
       if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_CC_ggq',sij,sik,sjk,zi,zj,zk
+        write(77,*)'Inaccuracy 1 in M2_SS_qqx_CC_qxqqp',sij,sik,sjk,zi,zj,zk
         goto 999
       endif
 c
@@ -97,36 +96,31 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
-c     double-collinear kernel, using eq. (B.19) in eq. (B.14) for (B.13) of 2212.11190
-c     CF^2 part including i <-> j permutation
-      Pijkr = CF**2*((sijk**2*zk*((1d0+zk**2)/zi/zj)/2d0/sik/sjk)-sjk/sik+sijk/sik*(zk*zjk+zik**3)/zi/zj)+CF**2*((sijk**2*zk*((1d0+zk**2)/zi/zj)/2d0/sik/sjk)-sik/sjk+sijk/sjk*(zk*zik+zjk**3)/zi/zj)
-c     CF*CA term
-      Pijkr = Pijkr +  CF*CA*(sijk**2/4d0/sij**2*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2-sijk**2*zk/4d0/sik/sjk*((zij**2+2d0*zk)/zi/zj)+sijk**2/2d0/sij/sik*((zij**2+2d0*zk)/zj+(zj**2+2d0*zik)/zij)+1d0/4d0+sijk/2d0/sik*((zik**3+zk**2-zj)/zj/zij-(zk*zjk+zik**3)/zi/zj)+sijk/2d0/sij*(zi*(2d0*zjk+zi**2)-zj*(6d0*zik+zj**2))/zj/zij)
-c     Permuting i and j for CF*CA part
-      Pijkr = Pijkr +  CF*CA*(sijk**2/4d0/sij**2*(sik/sijk-sjk/sijk+(zj-zi)/zij)**2-sijk**2*zk/4d0/sjk/sik*((zij**2+2d0*zk)/zi/zj)+sijk**2/2d0/sij/sjk*((zij**2+2d0*zk)/zi+(zi**2+2d0*zjk)/zij)+1d0/4d0+sijk/2d0/sjk*((zjk**3+zk**2-zi)/zi/zij-(zk*zik+zjk**3)/zi/zj)+sijk/2d0/sij*(zj*(2d0*zik+zj**2)-zi*(6d0*zjk+zi**2))/zi/zij)
-      M2tmp = Pijkr*BLO
+c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
+      Eijkr = (1/sij**2)*((sik*zj+zi*sjk)/((sik+sjk)*zij)-sik*sjk/(sik+sjk)**2-zi*zj/zij**2)-zk/sij/(sik+sjk)/zij
+      M2tmp = CF*(-2d0*TR*Eijkr)
+      M2tmp = M2tmp*BLO
 c
-c
-c     include double-collinear sector function
+c     include double-soft double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)
-      call get_wcc_nnlo(asec,bsec,csec,dsec)
-      M2tmp=M2tmp*wcc_nnlo
+      call get_wss_cc_nnlo(asec,bsec,csec,dsec)
+      M2tmp=M2tmp*wss_cc_nnlo
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
-      if(test_sector_function) M2_CC_ggq = WCC_NNLO
+      M2_SS_qqx_CC_qxqqp=M2tmp*pref*xj*extra ! eq (C.16)
+      if(test_sector_function) M2_SS_qqx_CC_qxqqp = WSS_CC_NNLO
 c
 c     plot
-      wgtpl=-M2_CC_ggq*wgt/nit*wgt_chan
+      wgtpl=+M2_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_CC_ggq).ge.huge(1d0).or.isnan(M2_CC_ggq))then
-         write(77,*)'Exception caught in M2_CC_ggq',M2_CC_ggq
+      if(abs(M2_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_SS_qqx_CC_qxqqp))then
+         write(77,*)'Exception caught in M2_SS_qqx_CC_qxqqp',M2_SS_qqx_CC_qxqqp
          goto 999
       endif
 c

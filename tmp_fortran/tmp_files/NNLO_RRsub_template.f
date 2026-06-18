@@ -62,6 +62,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       save firsttime
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
 c
 C     call initialisation function
       if(firsttime)then
@@ -121,6 +123,7 @@ c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,2))GOTO 555
 c
 c     test phase-space singularities of matrix elements
+      test_sector_function = .false.
       if(ntested.lt.ntest)then
          ntested=ntested+1
          call test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x)

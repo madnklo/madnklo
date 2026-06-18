@@ -55,6 +55,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
       common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
 c
 c     initialise
       M2_SS_qqx=0d0
@@ -167,6 +169,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_SS_qqx = M2_SS_qqx * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_SS_qqx = WSS_NNLO
 c
 c     sanity check
       if(abs(M2_SS_qqx).ge.huge(1d0).or.isnan(M2_SS_qqx))then

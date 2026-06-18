@@ -88,6 +88,8 @@ c      DOUBLE PRECISION W_NNLO
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
@@ -169,7 +171,11 @@ c     counterterm
          if(ierr.eq.1)cycle
 
          lim=KNNLO
-         double_real=RNNLO*W_NNLO*xjac
+         if(test_sector_function) then
+            double_real=W_NNLO
+         else
+            double_real=RNNLO*W_NNLO*xjac
+         endif
 
          if(abs(lim).gt.0d0)then
             write(iunit,*)lam,double_real,lim,abs(double_real-lim)/abs(lim)

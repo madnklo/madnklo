@@ -59,6 +59,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       integer mapped_sec(2,nexternal)
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -200,6 +202,7 @@ c     Double sum ends here
 c
 c     apply flavour factor
       M2_C_SS_QQX = M2_C_SS_QQX * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_C_SS_qqx = WC_NLO*WSBAR_NLO
 c
 c     sanity check
       if(abs(M2_C_SS_QQX).ge.huge(1d0).or.isnan(M2_C_SS_QQX))then

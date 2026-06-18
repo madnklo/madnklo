@@ -54,6 +54,8 @@ c     external
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
       include 'pmass.inc'
 c
 c     initialise
@@ -160,6 +162,7 @@ c
 c
 c     apply flavour factor
       M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_S_g = WS_NLO*Wbar_NLO
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then
@@ -171,4 +174,3 @@ c
  999  ierr=1
       return
       end
-

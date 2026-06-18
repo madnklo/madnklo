@@ -44,6 +44,8 @@ c     set logical doplot
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
 c
 c     initialise
       M2_HC_gg=0d0
@@ -126,6 +128,7 @@ c
       M2_HC_gg = M2_C_gg-M2_SC_gg
 c     include prefactors
       M2_HC_gg = M2_HC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+      if(test_sector_function) M2_HC_gg = (WC_NLO-1d0)*Wbar_NLO
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

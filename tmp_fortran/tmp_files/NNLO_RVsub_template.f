@@ -61,7 +61,7 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer nsquaredso_loop
       real*8 , allocatable :: prec_found(:)
       double precision pmass(nexternal)
-      INCLUDE 'pmass.inc'
+      include 'pmass.inc'
 c
 c     call initialisation function
       if(firsttime)then
@@ -83,13 +83,12 @@ c
 c     initialise
       int_real_virtual_%(isec)d_%(jsec)d=0d0
       WGT_CHAN=1d0
-
-
+c
+c     phase-space tests (for double pole, single pole, finite part)
       if(ntested.lt.ntest)then
          ntested=ntested+1
          call test_RV_%(isec)d_%(jsec)d(ntested)
       endif
-
 c
 c     phase space and invariants
       call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
@@ -127,11 +126,8 @@ c     real virtual
       endif
 c
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      
-
+      RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       do i=-2,0
-         RVNNLO(i) = MATELEM(1-i,0)
-         
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then
             write(77,*) 'int_real_virtual: '
             write(77,*) 'Wrong RVNNLO at eps^',i,' : ', RVNNLO(i)
@@ -162,7 +158,6 @@ c     if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
  555  continue
-c
 c
 c     real-virtual counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)

@@ -361,17 +361,6 @@ contains
        sigma = sigma + &
             sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
     enddo
-    ! do i=1,len
-    !    sec=sc_sector_list(a,d,c,i,:)
-    !    if(all(sec.eq.0))cycle
-    !    if(sec(1).eq.a) then
-    !       wr=w(sec(3),r)
-    !    else
-    !       wr=w(sec(1),r)
-    !    endif
-    !    sigma = sigma + &
-    !         sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
-    ! enddo
     WSC_NNLO = num/sigma
   end subroutine get_WSC_NNLO
 

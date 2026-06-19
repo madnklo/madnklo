@@ -12,9 +12,9 @@ c     it returns 0 if i is not a gluon
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'V_nsquaredSO.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'V_nsquaredSO.inc'
+      include 'input.inc'
+      include 'run.inc'
       double precision ret(-2:0)
       integer i,l,m,q,lb,mb,qb,ierr,nit
       double precision pref,M2tmp(-2:0),wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
@@ -52,21 +52,17 @@ c     external
       common/c_mapped_labels/mapped_labels
       logical v_init
       data v_init/.true./
-      common/v_initchecksa/v_init
       integer v_matelem_array_dim
       real*8 , allocatable :: v_matelem(:,:)
       integer v_returncode
       integer v_nsquaredso_loop
       real*8 , allocatable :: v_prec_found(:)
 c     TODO: fix hard-coded ncolorcorr
-      INTEGER NCOLORCORRELATORS
-      PARAMETER (NCOLORCORRELATORS=8)
-C
-C     Index 0 is the number of correlators to consider and the next
-C     indices are which one to consider
-      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
-      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3,0:NSQUAREDSO)
-      COMMON/V_ML5_1_1_COLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
+      integer ncolorcorrelators
+      parameter (ncolorcorrelators=4)
+      integer color_correlators_to_consider(0:ncolorcorrelators)
+      real*8 color_correlated_evals(ncolorcorrelators, 0:3,0:nsquaredso)
+      common/v_ml5_1_1_color_correlations/color_correlators_to_consider,color_correlated_evals
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -75,19 +71,6 @@ c     initialise
       M2tmp=0d0
       ierr=0
       damp=0d0
-c     todo: CHECK ALLOCATION AND DEALLOCATION ISSUES RELATED
-c     TO SOFT AND COLLINEAR LIMITS CHECKED TOGETHER
-
-
-      v_init = .true.
-      
-      if (v_init) then
-        v_init=.false.
-        call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
-        allocate(v_matelem(0:3,0:v_matelem_array_dim))
-        call %(V_long_proc_prefix)sget_nsqso_loop(v_nsquaredso_loop)
-        allocate(v_prec_found(0:v_nsquaredso_loop))
-      endif
 c
 c     checks
       if(leg_pdgs(i).ne.21)then
@@ -97,6 +80,14 @@ c     checks
       if(.not.(i.eq.isec))then
          write(*,*)'Wrong indices in M2_S_RV_g',i,isec
          stop
+      endif
+c
+      if (v_init) then
+        v_init=.false.
+        call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
+        allocate(v_matelem(0:3,0:v_matelem_array_dim))
+        call %(V_long_proc_prefix)sget_nsqso_loop(v_nsquaredso_loop)
+        allocate(v_prec_found(0:v_nsquaredso_loop))
       endif
 c
 c     call W soft
@@ -146,11 +137,9 @@ c     call colour-connected Born and Virtual
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
-            VNLO(-2) = V_MATELEM(3,0)
-            VNLO(-1) = V_MATELEM(2,0)
-            VNLO(0)  = V_MATELEM(1,0)
+            VNLO(-2:0) = [(V_MATELEM(i,0), i=3,1,-1)]
             call %(V_long_proc_prefix)sget_ccvnlo(lb,mb,ccvnlo)
-            COLOR_CORRELATED_EVALS = 0D0
+            color_correlated_evals = 0d0
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -222,8 +211,6 @@ c     add delta_s_rv_g (all prefactors included)
       call DELTA_S_RV_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr,res_delta)
       ret = ret + res_delta
 c
-      deallocate(v_matelem)
-      deallocate(v_prec_found)
       return
  999  ierr=1
       return

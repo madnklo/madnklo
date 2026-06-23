@@ -263,7 +263,7 @@ contains
   subroutine get_Wbar_NLO(i1,i2)
     !     NLO sector functions W(i1,i2)
     implicit none
-    integer :: i,j,a,b,i1,i2,sec1,sec2
+    integer :: i,j,i1,i2,sec1,sec2
     double precision :: num,sigma
     include 'all_sector_list.inc'
     num = sig2(i1,i2)
@@ -299,7 +299,7 @@ contains
   subroutine get_WSbar_NLO(i1,i2)
     !     NLO sector functions WSbar(i1,i2)
     implicit none
-    integer :: i,j,a,b,i1,i2,sec1,sec2
+    integer :: i,j,i1,i2,sec1,sec2
     double precision :: num,sigma
     include 'all_sector_list.inc'
     num = sig2(i1,i2)
@@ -332,12 +332,21 @@ contains
   end subroutine get_WC_NLO
 
   subroutine get_WCbar_NLO(i1,i2,ir)
-    !     NLO collinear sector functions WCbar(i1,i2) = barC_i1i2 Wbar(i1,i2)
+    !     NLO sector functions WCbar(i1,i2) = barC_i1i2 Wbar(i1,i2)
     implicit none
-    integer :: i,i1,i2,i3,ir,sec(2)
+    integer :: i,j,i1,i2,ir,sec1,sec2
     double precision :: num,sigma
+    include 'all_sector_list.inc'
     num = sig2(i1,ir)
-    sigma = sig2(i1,ir) + sig2(i2,ir)
+    sigma = 0d0
+    j=1
+    do i=1,lensectors
+       sec1=bar_indices(j)
+       sec2=bar_indices(j+1)
+       j=j+2
+       if((sec1.ne.i1.or.sec2.ne.i2).and.(sec1.ne.i2.or.sec2.ne.i1)) cycle
+       sigma = sigma + sig2(sec1,ir)
+    enddo
     WCbar_NLO = num/sigma
   end subroutine get_WCbar_NLO
 

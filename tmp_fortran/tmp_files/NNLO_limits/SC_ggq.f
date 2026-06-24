@@ -134,6 +134,8 @@ c           invariant quantities: c --> m
             sjm = xs(j,m)
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
             M2tmp = - Pjkr/sjk*sjm/sij/sim*(CA/CF*ccBLO_lrkimk)
+c           Including correct multiplicity factor
+            M2tmp = M2tmp*dble(%(proc_prefix_rr)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
@@ -181,7 +183,7 @@ c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
             M2tmp = - Pjkr/sjk*(sjm/sij/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
 c           Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+            M2tmp = M2tmp*dble(%(proc_prefix_rr)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj

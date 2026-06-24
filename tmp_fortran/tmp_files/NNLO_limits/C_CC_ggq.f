@@ -156,7 +156,7 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_C_CC_ggq = M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_CC_ggq = WC_NLO*WCBAR_NLO
+      if(test_sector_function) M2_C_CC_ggq = wc_nlo*wcbar_nlo
 c
 c     plot
       wgtpl=-M2_C_CC_ggq*wgt/nit*wgt_chan

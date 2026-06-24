@@ -23,7 +23,7 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       double precision BLO,ccBLO_lrkimk,ccBLO_krliml,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision sij,sjk,sjm,sik,sim,sjr,skr,skm,zk,zj,ml2,mm2,y,z,x,damp
+      double precision sij,sjk,sjm,sik,sim,sir,sjr,skr,skm,zk,zj,ml2,mm2,y,z,x,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
@@ -98,11 +98,12 @@ c     Invariant quantities
       sik = xs(i,k)
       skr = xs(k,r)
       sjr = xs(j,r)
+      sir = xs(i,r)
       zk = skr/(skr+sjr)
       zj = sjr/(sjr+skr)
 c
-c     Mapping 1 for B[lrk,imk]
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c     Mapping 1 for B[lrk,imk]  - for ijjk being ijkl it becomes [krj,imj]
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -115,7 +116,7 @@ c
 c           Mapping 1 for B[lrk,imk]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -132,7 +133,7 @@ c           invariant quantities: c --> m
             sim = xs(i,m)
 c
 c           Double-soft soft-collinear kernel according to the eq.(C.14)
-            M2tmp = -2d0*sjr/skr/sjk*CA*skm/sik/sim*ccBLO_lrkimk
+            M2tmp = -2d0*skr/sik/sir*CA*sjm/sij/sim*ccBLO_lrkimk
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -141,8 +142,8 @@ c
             M2_SS_gg_SC_ggq=M2_SS_gg_SC_ggq+pref*M2tmp*wss_sc_nnlo*extra
       enddo
 c
-c     Mapping 2 for B[krl,iml]
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c     Mapping 2 for B[krl,iml]  - for ijjk being ijkl it becomes [jrk,imk]
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -155,7 +156,7 @@ c
 c           Mapping 2 for B[krl,iml]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -178,7 +179,7 @@ c           safety check
             endif
 c
 c           Double-soft soft-collinear kernel according to the eq.(C.14)
-            M2tmp = -2d0*sjr/skr/sjk*(2d0*CF-CA)*sjm/sim/sij*ccBLO_krliml
+            M2tmp = -2d0*skr/sik/sir*(2d0*CF-CA)*sjm/sim/sij*ccBLO_krliml
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

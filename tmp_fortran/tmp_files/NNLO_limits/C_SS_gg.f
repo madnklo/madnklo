@@ -150,9 +150,6 @@ c        underlying Born configuration is remapped
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
 c
-c     possible cuts
-            if(docut(xpbb,nexternal-2,born_leg_pdgs,2))cycle
-c
 c     invariant quantities
 c     (c,d) in the paper --> (m,l)
             sblm = xsb(lb,mb)
@@ -174,12 +171,16 @@ c     call colour-connected Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c
+c     possible cuts
+            if(docut(xpbb,nexternal-2,born_leg_pdgs,2))cycle
+c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
             Qij = -2d0*CA*zi*zj
             Ebjlm = sblm/sbjl/sbjm
             M2tmp = Pij*Ebjlm + Qij*(2d0*(ktkm/sbjm-ktkl/sbjl)**2/kt2-(kmkm/sbjm**2-2d0*kmkl/sbjm/sbjl+klkl/sbjl**2))
             M2tmp = M2tmp/sab*ccBLO
+c
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alpha_mod,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
@@ -208,7 +209,7 @@ c     Double sum ends here
 c
 c     apply flavour factor
       M2_C_SS_gg = M2_C_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_C_SS_gg = WC_NLO*WSBAR_NLO
+      if(test_sector_function) M2_C_SS_gg = wc_nlo*wsbar_nlo
 c
 c     sanity check
       if(abs(M2_C_SS_gg).ge.huge(1d0).or.isnan(M2_C_SS_gg))then

@@ -1,6 +1,7 @@
 
       double precision function M2_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     SC(i,j,k) kernel times WSC
+c     SC(i,j,k) kernel times WSC; i, j is a g-g pair
+c     while k is a q (or qb)
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -101,7 +102,7 @@ c     Invariant quantities
       sjr = xs(j,r)
       zk = skr/(skr+sjr)
       zj = sjr/(sjr+skr)
-      Pjkr = CF*(2d0*zk/zj+zj)
+      Pjkr = 2d0*CF*(2d0*zk/zj+zj)
 c
 c     Mapping 1 for B[lrk,imk] - for ijjk being ijkl it becomes [krj,imj]
       call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
@@ -134,8 +135,6 @@ c           invariant quantities: c --> m
             sjm = xs(j,m)
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
             M2tmp = - Pjkr/sjk*sjm/sij/sim*(CA/CF*ccBLO_lrkimk)
-c           Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_rr)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
@@ -183,11 +182,12 @@ c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
             M2tmp = - Pjkr/sjk*(sjm/sij/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
 c           Including correct multiplicity factor
-            M2tmp = M2tmp*dble(%(proc_prefix_rr)s_den)/dble(%(proc_prefix_rr)s_den)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
             M2_SC_ggq=M2_SC_ggq+pref*M2tmp*wsc_nnlo*extra
+c           Including correct multiplicity factor
+            M2_SC_ggq=M2_SC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
 c           plot
             wgtpl=-pref*M2tmp*wsc_nnlo*extra*wgt/nit*wgt_chan

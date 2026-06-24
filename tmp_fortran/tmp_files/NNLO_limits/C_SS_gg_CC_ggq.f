@@ -59,7 +59,7 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology(only appears in ijjk)
+c     check sector topology (only appears in ijjk)
       if(bsec.ne.csec) then
         write (*,*) 'Wrong topology in M2_C_SS_gg_CC_ggq',asec,bsec,csec,dsec
         stop 1
@@ -72,9 +72,6 @@ c     check flavour match
         stop 1
       endif
 c
-c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
-c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=64d0*pi**2*alphas**2
@@ -83,26 +80,30 @@ c     invariant quantities
       sij  = xs(i,j)
       sir  = xs(i,r)
       sjr  = xs(j,r)
+      zi = sir/(sir+sjr)
+      zj = 1d0-zi
 c
 c     safety checks
       if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
         write(77,*)'Inaccuracy 1 in M2_C_SS_gg_CC_ggq',sij,sir,sjr
         goto 999
       endif
-      zi = sir/(sir+sjr)
-      zj = 1d0-zi
+c
+c     getting PDG's
       jb = real_mapped_labels(j)
       kb = real_mapped_labels(k)
       rb = real_mapped_labels(r)
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
+      zbj = sbjr/(sbjr+sbkr)
+      zbk = 1d0-zbj
+c
+c     safety check
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
          write(77,*)'Inaccuracy 2 in M2_C_SS_gg_CC_ggq',sbjk,sbjr,sbkr
          goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
 c
 c     calculate kt between i and j, as well as ktb between jb and kb
 c     TODO: check if labels are fine after reshufflings
@@ -114,6 +115,9 @@ c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
+c
+c     possible cuts
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
@@ -131,7 +135,7 @@ c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_C_SS_gg_CC_ggq=M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_SS_gg_CC_ggq = WC_NLO
+      if(test_sector_function) M2_C_SS_gg_CC_ggq = wc_nlo
 c
 c     plot
       wgtpl=-M2_C_SS_gg_CC_ggq*wgt/nit*wgt_chan

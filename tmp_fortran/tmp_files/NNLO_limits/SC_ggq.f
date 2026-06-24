@@ -20,7 +20,7 @@ c     SC(i,j,k) kernel times WSC
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLO_lrkimk,ccBLO_krliml,Pklr,extra
+      double precision BLO,ccBLO_lrkimk,ccBLO_krliml,Pjkr,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sjk,sjm,sik,sim,sjr,skr,zj,zk,skm,xk,xl,ml2,mm2,y,z,x,damp
@@ -101,10 +101,10 @@ c     Invariant quantities
       sjr = xs(j,r)
       zk = skr/(skr+sjr)
       zj = sjr/(sjr+skr)
-      Pklr = CF*(2d0*zj/zk+zk)
+      Pjkr = CF*(2d0*zk/zj+zj)
 c
-c     Mapping 1 for B[lrk,imk]
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+c     Mapping 1 for B[lrk,imk] - for ijjk being ijkl it becomes [krj,imj]
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -117,7 +117,7 @@ c
 c           Mapping 1 for B[lrk,imk]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -131,9 +131,9 @@ c           possible cuts
 c
 c           invariant quantities: c --> m
             sim = xs(i,m)
-            skm = xs(k,m)
+            sjm = xs(j,m)
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
-            M2tmp = - Pklr/sjk*skm/sik/sim*(CA/CF*ccBLO_lrkimk)
+            M2tmp = - Pjkr/sjk*sjm/sij/sim*(CA/CF*ccBLO_lrkimk)
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
@@ -141,9 +141,9 @@ c
 c
       enddo
 c
-c     Mapping 2 for B[krl,icl]
+c     Mapping 2 for B[krl,iml]  - for ijjk being ijkl it becomes [jrk,imk]
 c
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -153,10 +153,10 @@ c
             mb = real_mapped_labels(m)
             mbb = Born_mapped_labels(mb)
 c
-c           Mapping 2 for B[krl,icl]
+c           Mapping 2 for B[krl,iml]
 c
 c           underlying Born configuration is remapped
-            call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -171,7 +171,6 @@ c
 c           invariant quantities: c --> m
             sjm = xs(j,m)
             sim = xs(i,m)
-            skm = xs(k,m)
 c
 c           safety check
             if(sij.le.0d0.or.(skr+sjr).le.0d0.or.sjk.le.0d0.or.sim.le.0d0)then
@@ -180,7 +179,7 @@ c           safety check
             endif
 c
 c           Soft-collinear kernel according to the eq.(C.13) [see that the curly B part is zero for 2 jets]
-            M2tmp = - Pklr/sjk*(skm/sik/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
+            M2tmp = - Pjkr/sjk*(sjm/sij/sim*((2d0*CF-CA)/CF*ccBLO_krliml))
 c           Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

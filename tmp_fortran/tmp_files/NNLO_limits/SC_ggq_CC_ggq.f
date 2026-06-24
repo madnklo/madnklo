@@ -132,7 +132,7 @@ c     safety check
 c
 c     double-colinear soft-collinear kernel, eq. (C.18) of 2212.11190
 c     since Qjk(r) is Qgq(r) = 0, the kperp term is zero
-      Pjkr = -CF*(2d0*zk/zj+zk)
+      Pjkr = CF*(2d0*zk/zj+zj)
       M2tmp = CF*Pjkr*(CA/CF*sjr/sij/sir*BLO_krjirj+(2d0*CF-CA)/CF*skr/sik/sir*BLO_jrkirk)
 c
 c     include double-collinear soft-collinear sector function, eq. (C.62-C.64) of 2212.11190

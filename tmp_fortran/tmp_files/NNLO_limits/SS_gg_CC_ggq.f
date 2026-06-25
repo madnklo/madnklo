@@ -15,12 +15,12 @@ c     while k is a q (or qb)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,Eijkr
+      double precision zi,zj,zk,zij,zik,zjk
+      double precision BLO,Eij_kr,Ei_kr,Ej_kr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -67,7 +67,7 @@ c     check flavour match
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
-      pref=64d0*pi**2*alphas**2
+      pref=(8d0*pi*alphas)**2
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -97,10 +97,11 @@ c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
-c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
-      Eijkr = (((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2)/sij**2-2d0*skr/(sij*(sik+sjk)*(sir+sjr))+skr*(sik*sjr+sir*sjk-sij*skr)/(sij*sik*sjr*sir*sjk)*(1d0-1d0/2d0*(sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))))
-      M2tmp = CF*(4d0*CF*skr/sik/sir*skr/sjk/sjr-2d0*CA*Eijkr)
-      M2tmp = M2tmp*BLO
+c     double-soft double-collinear kernel, (C.16) of 2212.11190
+      Ei_kr = skr/sik/sir
+      Ej_kr = skr/sjk/sjr
+      Eij_kr = ((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2)/sij**2-2d0*skr/(sij*(sik+sjk)*(sir+sjr))+skr*(sik*sjr+sir*sjk-sij*skr)/(sij*sik*sjr*sir*sjk)*(1d0-1d0/2d0*(sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr)))
+      M2tmp = CF*(4d0*CF*Ei_kr*Ej_kr+2d0*CA*Eij_kr)*BLO
 c
 c     include double-soft double-collinear sector function
       call get_hatsignnlo(r,xs,nexternal)
@@ -114,7 +115,7 @@ c     include correct multiplicity and flavour factors
       if(test_sector_function) M2_SS_gg_CC_ggq = WSS_CC_NNLO
 c
 c     plot
-      wgtpl=-M2_SS_gg_CC_ggq*wgt/nit*wgt_chan
+      wgtpl=+M2_SS_gg_CC_ggq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)

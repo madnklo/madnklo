@@ -65,9 +65,6 @@ c     check flavour match
         stop 1
       endif
 c
-c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
-c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=64d0*pi**2*alphas**2
@@ -96,6 +93,9 @@ c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
+c
+c     possible cuts
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     double-soft double-collinear kernel, eq. (C.16) of 2212.11190
       Eijkr = (((sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))-sik*sjk/(sik+sjk)**2-sir*sjr/(sir+sjr)**2)/sij**2-2d0*skr/(sij*(sik+sjk)*(sir+sjr))+skr*(sik*sjr+sir*sjk-sij*skr)/(sij*sik*sjr*sir*sjk)*(1d0-1d0/2d0*(sik*sjr+sir*sjk)/((sik+sjk)*(sir+sjr))))

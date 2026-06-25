@@ -1,5 +1,5 @@
 
-      double precision function M2_SS_GG_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_gg_SC_ggq(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)SC(i,j,k) kernel times WSS_SC
       use sectors4_module
       implicit none
@@ -188,7 +188,7 @@ c
 c
 c     sanity check
       if(abs(M2_SS_gg_SC_ggq).ge.huge(1d0).or.isnan(M2_SS_gg_SC_ggq))then
-         write(77,*)'Exception caught in M2_SS_SC_ggq',M2_SS_gg_SC_ggq
+         write(77,*)'Exception caught in M2_SS_gg_SC_ggq',M2_SS_gg_SC_ggq
          goto 999
       endif
 c

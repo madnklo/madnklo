@@ -130,7 +130,12 @@ c
       M2_C_gq(-2:0) = VNLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
       M2_C_gq(-2) = M2_C_gq(-2) + alphas/2d0/pi*M2_C_gq_0*(-CA)
       M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CA*dlog(1d0-x)+(2d0*CF-CA)*dlog(x)-BETA0/2D0)
-      M2_C_gq( 0) = M2_C_gq( 0) + alphas/2d0/pi*(M2_C_gq_0*(CA*(7d0*zeta2-logab**2)/2d0+CF*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+BLO*CF*(CA-CF))
+
+            M2_C_GQ( 0) = M2_C_GQ(0) + ALPHAS/2D0/PI*(M2_C_GQ_0*(CA*(7D0*ZETA2-LOGAB**2)/2D0+CA*(ddilog(-x/(1d0-x))-logab*dlog(1d0-x))+(2d0*CF-CA)*(ddilog(-(1d0-x)/x)-logab*dlog(x)))+BLO*CF*(CA-CF))
+
+
+      
+c      M2_C_gq( 0) = M2_C_gq( 0) + alphas/2d0/pi*(M2_C_gq_0*(CA*(7d0*zeta2-logab**2)/2d0+CF*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+BLO*CF*(CA-CF))
 c
       if(ia.eq.isec) then
          M2_SC_gq(-2:0) = 2d0*CF*(EIK0*VNLO(-2:0)-alphas/2d0/pi*EIK1(-2:0)*BLO)

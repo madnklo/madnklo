@@ -1,3 +1,5 @@
+
+
       double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       use sectors4_module

@@ -1,7 +1,7 @@
 
-      double precision function M2_C_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a g-g pair
-c     while k is a q (or qb) with any flavour
+      double precision function M2_HC_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+c     C(i,j) C(i,j,k) - S(i)c(i,j)C(i,j,k) times the sector function
+c     i, j are a g-g pair while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
@@ -13,7 +13,7 @@ c     while k is a q (or qb) with any flavour
       INCLUDE 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      double precision pref,M2_C_CC_ggq,M2_SC_CC_ggqM2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO,KKBLO
@@ -55,20 +55,23 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
+      M2_HC_CC_ggq=0d0
       M2_C_CC_ggq=0d0
+      M2_SC_CC_ggq=0d0
       M2tmp=0d0
       ierr=0
+      damp=0d0
 c
 c     check sector topology
       if(bsec.ne.csec .and. bsec.ne.dsec) then
-        write (*,*) 'Wrong topology in M2_C_CC_ggq',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_CC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.leg_PDGs(i).ne.21.and.abs(leg_PDGs(k)).le.5
       if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_C_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_HC_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -83,22 +86,8 @@ c     invariant quantities
       sij  = xs(i,j)
       sir  = xs(i,r)
       sjr  = xs(j,r)
-c
-c     safety checks
-      IF(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_C_CC_ggq',SIJ,SIR,SJR
-        GOTO 999
-      ENDIF
-c
-c
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
-c
-c     check reshuffled real flavour -> not needed anymore?
-c      if(real_leg_pdgs(j).ne.21)then
-c         write(*,*) 'Wrong parent particle label 1 in M2_C_CC_qxqqp', j, real_leg_pdgs(j)
-c         stop
-c      endif
 c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -109,7 +98,7 @@ c
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_C_CC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_HC_CC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
       zbj = sbjr/(sbjr+sbkr)
@@ -143,7 +132,7 @@ c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       M2tmp = M2tmp - 2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
       M2tmp = M2tmp/sij
 c
-c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
+c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
@@ -159,14 +148,14 @@ c     include correct multiplicity and flavour factors
       if(test_sector_function) M2_C_CC_ggq = wc_nlo*wcbar_nlo
 c
 c     plot
-      wgtpl=-M2_C_CC_ggq*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_CC_ggq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_C_CC_ggq).ge.huge(1d0).or.isnan(M2_C_CC_ggq))then
-         write(77,*)'Exception caught in M2_C_CC_ggq',M2_C_CC_ggq
+      if(abs(M2_HC_CC_ggq).ge.huge(1d0).or.isnan(M2_HC_CC_ggq))then
+         write(77,*)'Exception caught in M2_HC_CC_ggq',M2_HC_CC_ggq
          goto 999
       endif
 c

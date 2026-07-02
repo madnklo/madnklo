@@ -1,5 +1,5 @@
 
-      double precision function M2_C_SS_GG(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SS_GG(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a g-g pair
       use sectors4_module
       implicit none
@@ -16,7 +16,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a g-g pair
       integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2
       integer jb,lb,mb
       integer jbb,lbb,mbb
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2
+      double precision pref,M2_C_SS_GG,M2_SC_SS_GG,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2
       double precision xs(nexternal,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -66,20 +66,22 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       include 'pmass.inc'
 c
 c     initialise
+      M2_HC_SS_GG=0d0
       M2_C_SS_GG=0d0
+      M2_SC_SS_GG=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology (only appears in ijjk)
       if(bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_C_SS_GG',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_SS_GG',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = (leg_PDGs(ia).eq.leg_PDGs(ib)).and.(leg_PDGs(ia).eq.21)
       if(.not.(flavourmatch))then
-       write(*,*) 'Flavour mismatch in M2_C_SS_GG', leg_PDGs(ia),leg_PDGs(ib)
+       write(*,*) 'Flavour mismatch in M2_HC_SS_GG', leg_PDGs(ia),leg_PDGs(ib)
        stop 1
       endif
 c
@@ -137,7 +139,7 @@ c        check labels and pdgs
                stop
             endif
             if(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb)) then
-               write(*,*)'Wrong indices 2 in M2_S_SS_gg',lb,mb,lbb,mbb
+               write(*,*)'Wrong indices 2 in M2_C_SS_gg',lb,mb,lbb,mbb
                stop
             endif
 c
@@ -208,12 +210,12 @@ c
 c     Double sum ends here
 c
 c     apply flavour factor
-      M2_C_SS_gg = M2_C_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_C_SS_gg = wc_nlo*wsbar_nlo
+      M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo
 c
 c     sanity check
-      if(abs(M2_C_SS_gg).ge.huge(1d0).or.isnan(M2_C_SS_gg))then
-         write(77,*)'Exception caught in M2_C_SS_gg',M2_C_SS_gg
+      if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then
+         write(77,*)'Exception caught in M2_HC_SS_gg',M2_HC_SS_gg
          goto 999
       endif
 c
@@ -221,3 +223,8 @@ c
  999  ierr=1
       return
       end
+
+
+
+
+

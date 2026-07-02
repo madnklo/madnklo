@@ -195,6 +195,8 @@ c
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
       common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
+      integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
+      common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       include 'all_sector_list.inc'
 C
 c     cpartindices:
@@ -246,7 +248,17 @@ c     for ijkj and ijkl if pdg(i)+pdg(k)=0
          if(lsec.ne.0)map2=real_ss_mapped_labels(lsec)
          call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_ss_mapped_labels)
       endif
-
+c
+c     fill mapped labels for soft-collinear mapping
+      call get_mapped_labels(nexternal,csec,dsec,leg_pdgs,real_leg_pdgs,real_sc_mapped_labels)
+      map1=real_sc_mapped_labels(isec)
+      map2=real_sc_mapped_labels(ksec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc1_mapped_labels)
+      map1=real_sc_mapped_labels(isec)
+      map2=real_sc_mapped_labels(jsec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc2_mapped_labels)
+c
+c     fill bar_indices for barred sector functions
       j=1
       do i=1,lensectors
          i1=all_sector_list(1,i)

@@ -97,7 +97,7 @@ c     start testing
       write(88,*)
       write(88,*)
       write(88,*)'LIM = '//trim(limstr)
-      write(88,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str5//'|RV-LIM|/|LIM|_0'//str10//'|RV-LIM|/|LIM|_-1'//str10//'|RV-LIM|/|LIM|_2'
+      write(88,*)str10//'lambda'//str10//str10//'RV'//str10//str10//str5//'LIM'//str10//str5//'|RV-LIM|/|LIM|_0'//str10//'|RV-LIM|/|LIM|_-1'//str10//'|RV-LIM|/|LIM|_-2'
 c
 c     loop to get closer and closer to the limit
       do iitn=1,maxitn

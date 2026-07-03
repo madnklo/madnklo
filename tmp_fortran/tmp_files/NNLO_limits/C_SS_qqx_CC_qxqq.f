@@ -5,13 +5,13 @@ c     while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
-      include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'leg_pdgs.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
@@ -26,7 +26,7 @@ c     while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk
-      double precision Pij,Qij,Pbjk,Ebjkr
+      double precision Pij,Qij,Eb_jkr
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -118,21 +118,20 @@ c
 c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Pij = TR*(1d0-2d0*zi*zj)
       Qij = TR*2d0*zi*zj
-      Pbjk = CF*(1d0+zbk**2)/zbj
-      Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
-      M2TMP = M2TMP/sij*BLO
+      Eb_jkr = sbkr/sbjk/sbjr
+      M2tmp = 2d0*CF*Eb_jkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2tmp = M2tmp/sij*BLO
 c
-c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
+c     compute soft-collinear double-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      M2TMP=M2TMP*wc_nlo
+      M2tmp=M2tmp*wc_nlo
 c
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_C_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_SS_qqx_CC_qxqq = WC_NLO
+      if(test_sector_function) M2_C_SS_qqx_CC_qxqq = wc_nlo
 c
 c     plot
       wgtpl=-M2_C_SS_qqx_CC_qxqq*wgt/nit*wgt_chan

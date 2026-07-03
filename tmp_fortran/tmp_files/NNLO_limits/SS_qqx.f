@@ -3,14 +3,14 @@ c     S(i,j) kernel times WSS
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGs.inc'
+      include 'leg_pdgs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,l,m,ierr,nit
       integer jb,lb,mb
       integer jbb,lbb,mbb
@@ -169,7 +169,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_SS_qqx = M2_SS_qqx * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_SS_qqx = WSS_NNLO
+      if(test_sector_function) M2_SS_qqx = wss_nnlo
 c
 c     sanity check
       if(abs(M2_SS_qqx).ge.huge(1d0).or.isnan(M2_SS_qqx))then

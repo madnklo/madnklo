@@ -1,5 +1,4 @@
 
-
       double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       use sectors4_module
@@ -130,7 +129,7 @@ c
       M2_HC_gg = M2_C_gg-M2_SC_gg
 c     include prefactors
       M2_HC_gg = M2_HC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
-      if(test_sector_function) M2_HC_gg = (WC_NLO-1d0)*Wbar_NLO
+      if(test_sector_function) M2_HC_gg = (wc_nlo-1d0)*wbar_nlo
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

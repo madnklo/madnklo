@@ -1,19 +1,19 @@
 
       double precision function M2_HC_CC_GGQ(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j) C(i,j,k) - S(i)c(i,j)C(i,j,k) times the sector function
+c     C(i,j) C(i,j,k) * Wcollinear-doublecollinear - S(i) C(i,j) C(i,j,k) * Wsoftcollinear-doublecollinear
 c     i, j are a g-g pair while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
-      double precision pref,M2_C_CC_ggq,M2_SC_CC_ggqM2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      double precision pref,M2_C_CC_ggq,M2_SC_CC_ggq,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO,KKBLO
@@ -25,7 +25,7 @@ c     i, j are a g-g pair while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk,zbki
-      double precision Pij,Qij,Pbjk,Ebjkr,Ebkjr
+      double precision Pij,Qij,Pb_jk,Eb_jkr,Eb_kjr
       double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
       logical flavourmatch
@@ -60,7 +60,6 @@ c     initialise
       M2_SC_CC_ggq=0d0
       M2tmp=0d0
       ierr=0
-      damp=0d0
 c
 c     check sector topology
       if(bsec.ne.csec .and. bsec.ne.dsec) then
@@ -124,13 +123,13 @@ c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
-      Pbjk = 2d0*CA*(zbj/zbk+zbk/zbj)
-      Ebjkr = sbkr/sbjk/sbjr
-      Ebkjr = sbjr/sbjk/sbkr
-      M2tmp = Pij/sbjk*(Pbjk*BLO+2d0*KKBLO)
-      M2tmp = M2tmp + 2d0*CA*Ebkjr*(-BLO+2d0*KKBLO)
-      M2tmp = M2tmp - 2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
-      M2tmp = M2tmp/sij
+      Pb_jk = 2d0*CA*(zbj/zbk+zbk/zbj)
+      Eb_jkr = sbkr/sbjk/sbjr
+      Eb_kjr = sbjr/sbjk/sbkr
+      M2tmp = Pij/sbjk*(Pb_jk*BLO+2d0*KKBLO)
+      M2tmp = M2tmp + 2d0*CA*Eb_kjr*(-BLO+2d0*KKBLO)
+      M2tmp = M2tmp - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2_C_CC_ggq = M2tmp/sij
 c
 c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
@@ -139,13 +138,27 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wcbar_nlo(map1,map2,rb)
-      M2tmp=M2tmp*wc_nlo*wcbar_nlo
+      M2_C_CC_ggq=M2_C_CC_ggq*wc_nlo*wcbar_nlo
+c
+c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
+      E_ijr = sjr/sij/sir
+      M2tmp = 2d0*CA*E_ijr*Pb_jk/sbjk*(1d0)
+      M2_SC_CC_ggq = M2tmp
+c
+c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
+      M2_SC_CC_ggq=M2_SC_CC_ggq*wcbar_nlo
+c
+      M2_HC_CC_ggq = M2_C_CC_ggq - M2_SC_CC_ggq
 c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_C_CC_ggq = M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_CC_ggq = wc_nlo*wcbar_nlo
+      M2_HC_CC_ggq = M2tmp*pref*xj*extra
+      if(test_sector_function) M2_HC_CC_ggq = wc_nlo*wcbar_nlo - wcbar_nlo
 c
 c     plot
       wgtpl=-M2_HC_CC_ggq*wgt/nit*wgt_chan

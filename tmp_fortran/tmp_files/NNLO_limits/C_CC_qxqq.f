@@ -1,15 +1,16 @@
+
       double precision function M2_C_CC_qxqq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) C(i,j,k) kernel times WC_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
-      include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'leg_pdgs.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
@@ -83,20 +84,15 @@ c     invariant quantities
       sjr  = xs(j,r)
 c
 c     safety checks
-      IF(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_C_CC_qxqqp',SIJ,SIR,SJR
-        GOTO 999
-      ENDIF
+      if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
+        write(77,*)'Inaccuracy 1 iN M2_C_CC_qxqqp',sij,sir,sjr
+        goto 999
+      endif
 c
 c
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
-c     check reshuffled real flavour -> not needed anymore?
-c      if(real_leg_pdgs(j).ne.21)then
-c         write(*,*) 'Wrong parent particle label 1 in M2_C_CC_qxqqp', j, real_leg_pdgs(j)
-c         stop
-c      endif
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
       jb = real_mapped_labels(j)
@@ -105,10 +101,10 @@ c      endif
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      IF(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        WRITE(77,*)'Inaccuracy 2 in M2_C_CC_qxqq',SBJK,SBJR,SBKR
-        GOTO 999
-      ENDIF
+      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+        write(77,*)'Inaccuracy 2 in M2_C_CC_qxqq',sbjk,sbjr,sbkr
+        goto 999
+      endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       parent_leg = real_mapped_labels(jb)
@@ -130,12 +126,12 @@ c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = TR*(1d0-2d0*zi*zj)
       Qij = TR*2d0*zi*zj
-      Pbjk = CF*(1d0+zbk**2)/zbj
-      Ebjkr = sbkr/sbjk/sbjr
-      M2TMP = Pij*Pbjk/sbjk-2d0*CF*Ebjkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
-      M2TMP = M2TMP/sij*BLO
+      Pb_jk = CF*(1d0+zbk**2)/zbj
+      Eb_jkr = sbkr/sbjk/sbjr
+      M2tmp = Pij*Pb_jk/sbjk-2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2tmp = M2tmp/sij*BLO
 c
-c     compute collinear triple-collinear sector function eq. (C.82) of 2212.11190v2
+c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
@@ -148,7 +144,7 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_C_CC_qxqq = M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_CC_qxqq = WC_NLO*WCBAR_NLO
+      if(test_sector_function) M2_C_CC_qxqq = wc_nlo*wcbar_nlo
 c
 c     plot
       wgtpl=-M2_C_CC_qxqq*wgt/nit*wgt_chan

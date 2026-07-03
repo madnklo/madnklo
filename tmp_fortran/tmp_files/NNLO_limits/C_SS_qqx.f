@@ -1,16 +1,17 @@
+
       double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGs.inc'
+      include 'leg_pdgs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r
       integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2
       integer jb,lb,mb
@@ -23,7 +24,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2),kt(0:3),kt2
       double precision sab,sar,sbr,wa,wb,wr,x
-      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm
+      double precision sblm,sbjl,sbjm,Eb_jlm,ktkl,ktkm
       double precision dot
       logical flavourmatch
       logical isNLOmappedQCDparton(nexternal-1)
@@ -122,23 +123,23 @@ c
 c     Eikonal double sum starts here
 c
       do mb=1,nexternal-1
-         if(.not.ISNLOMAPPEDQCDPARTON(MB))cycle
+         if(.not.isNLOmappedQCDparton(mb))cycle
          if(mb.eq.jb)cycle
          do lb=1,nexternal-1
-            if(.not.ISNLOMAPPEDQCDPARTON(LB))cycle
+            if(.not.isNLOmappedQCDparton(lb))cycle
             if(lb.eq.jb.or.lb.eq.mb)cycle
             lbb = Born_mapped_labels(lb)
             mbb = Born_mapped_labels(mb)
 c
 c        check labels and pdgs
-            IF(.NOT.(ISLOMAPPEDQCDPARTON(LBB).AND.ISLOMAPPEDQCDPARTON(MBB)))THEN
-               WRITE(*,*)'Wrong indices 1 in M2_C_SS_QQX',LBB,MBB
-               STOP
-            ENDIF
-            IF(real_leg_pdgs(lb).ne.Born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.Born_leg_pdgs(mbb)) THEN
-               WRITE(*,*)'Wrong indices 2 in M2_C_SS_QQX',LB,MB,LBB,MBB
-               STOP
-            ENDIF
+            if(.not.(isLOmappedQCDparton(lbb).and.isLOmappedQCDparton(mbb)))then
+               write(*,*)'Wrong indices 1 in M2_C_SS_qqx',lbb,mbb
+               stop
+            endif
+            if(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb)) then
+               write(*,*)'Wrong indices 2 in M2_C_SS_qqx',lb,mb,lbb,mbb
+               stop
+            endif
 c
 c        phase-space mapping according to lb and mb, at fixed radiation
 c        phase-space point: the singular kernel is in the same point
@@ -161,18 +162,18 @@ c     (c,d) in the paper --> (m,l)
             ktkm = dot(kt(:),xpb(:,mb))
 c
 c     safety check
-            IF(SAB.LE.0D0.or.SBJL.le.0d0.or.SBJM.le.0d0.or.kt2.eq.0d0)THEN
-               WRITE(77,*)'Inaccuracy 2 in M2_C_SS_QQX',SAB, SBJL, SBJM, KT2
-               GOTO 999
-            ENDIF
+            if(sab.le.0d0.or.sbjl.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0)then
+               write(77,*)'Inaccuracy 2 in M2_C_SS_qqx',sab, sbjl, sbjm, kt2
+               goto 999
+            endif
 c
 c     call colour-connected Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
-            Ebjlm = sblm/sbjl/sbjm
-            M2tmp = TR*(Ebjlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
+            Eb_jlm = sblm/sbjl/sbjm
+            M2tmp = TR*(Eb_jlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
             m2tmp = m2tmp/sab*ccBLO
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alpha_mod,nexternal)
@@ -187,7 +188,7 @@ c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_C_SS_QQX=M2_C_SS_QQX+pref*M2tmp*extra
+            M2_C_SS_qqx=M2_C_SS_qqx+pref*M2tmp*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
@@ -201,12 +202,12 @@ c
 c     Double sum ends here
 c
 c     apply flavour factor
-      M2_C_SS_QQX = M2_C_SS_QQX * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_C_SS_qqx = WC_NLO*WSBAR_NLO
+      M2_C_SS_qqx = M2_C_SS_qqx * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_C_SS_qqx = wc_nlo*wsbar_nlo
 c
 c     sanity check
-      if(abs(M2_C_SS_QQX).ge.huge(1d0).or.isnan(M2_C_SS_QQX))then
-         write(77,*)'Exception caught in M2_C_SS_QQX',M2_C_SS_QQX
+      if(abs(M2_C_SS_qqx).ge.huge(1d0).or.isnan(M2_C_SS_qqx))then
+         write(77,*)'Exception caught in M2_C_SS_qqx',M2_C_SS_qqx
          goto 999
       endif
 c

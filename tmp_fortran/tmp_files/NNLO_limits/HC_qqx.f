@@ -1,5 +1,4 @@
 
-
       double precision function M2_HC_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear
       use sectors4_module
@@ -64,8 +63,6 @@ c     checks
          write(*,*)'Wrong indices in M2_HC_qqx',ia,ib,isec,jsec
          stop
       endif
-
-
 c
 c     possible cuts
       if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
@@ -120,7 +117,7 @@ c     account for different damping factors according to recoiler position (ir)
       M2_HC_qqx=M2_C_qqx
 c     include prefactors
       M2_HC_qqx = M2_HC_qqx*dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
-      if(test_sector_function) M2_HC_qqx = WC_NLO*Wbar_NLO
+      if(test_sector_function) M2_HC_qqx = wc_nlo*wbar_nlo
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan

@@ -88,10 +88,10 @@ c     invariant quantities
       zij  = zi+zj
 c
 c     safety check
-      IF(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        WRITE(77,*)'Inaccuracy 1 in M2_CC_qxqq',SIJ,SIK,SJK,ZI,ZJ,ZK
-        GOTO 999
-      ENDIF
+      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zi.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in M2_CC_qxqq',sij,sik,sjk,zi,zj,zk
+        goto 999
+      endif
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
@@ -102,7 +102,7 @@ c     the choice follows the order
 c     1. IJK = QX Q Q
 c     2. IJK = QX Q QX
 c
-      if (leg_pdgs(I).EQ.-leg_pdgs(K).and.leg_pdgs(I).eq.-leg_pdgs(J)) then
+      if (leg_pdgs(i).EQ.-leg_pdgs(k).and.leg_pdgs(i).eq.-leg_pdgs(j)) then
         M2tmp = CF*TR*(-sijk**2/(2d0*sik**2)*(sjk/sijk-sij/sijk+(zi-zk)/zik)**2+sijk/sik*(2d0*(zj-zi*zk)/zik+zik)-1d0/2d0)
         M2tmp = M2tmp + CF*TR*(-sijk**2/(2d0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj) /zij)**2+sijk/sij*(2d0*(zk-zi*zj)/zij+zij)-1d0/2d0)
         M2tmp = M2tmp + (2d0*CF**2-CA*CF)*(-sijk**2*zi/(2d0*sik*sij)*(1d0+zi**2)/(zik*zij)+(sjk/sik+sjk/sij)+sijk/(2d0*sik)*((1d0+zi**2)/zij-2d0*zk/zik)+ sijk/(2d0*sij)*((1d0+zi**2)/zik-2d0*zj/zij ))
@@ -123,7 +123,7 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_CC_qxqq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
-      if(test_sector_function) M2_CC_qxqq = WCC_NNLO
+      if(test_sector_function) M2_CC_qxqq = wcc_nnlo
 c
 c     plot
       wgtpl=-M2_CC_qxqq*wgt/nit*wgt_chan

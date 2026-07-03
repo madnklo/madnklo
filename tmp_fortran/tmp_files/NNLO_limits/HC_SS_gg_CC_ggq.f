@@ -1,6 +1,6 @@
 
       double precision function M2_HC_SS_gg_CC_ggq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C_(i,j) S(i,j) C(i,j,k) * W kernel times WSS_C_CC:
+c     C(i,j) S(i,j) C(i,j,k) * Wcollinear-doublesoft-doublecollinear - S(i) C(i,j) S(i,j) C(i,j,k) * Wsoftcollinear-doublesoft-doublecollinear
 c     i, j are a g-g while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none

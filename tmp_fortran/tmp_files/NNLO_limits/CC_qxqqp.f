@@ -96,7 +96,7 @@ c     call Born matrix element
       BLO = ANS(0)
 c
 c     double-collinear kernel, eq. (B.16) of 2212.11190
-      M2tmp = CF*TR*(-sijk**2/(2D0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2+sijk/sij*(2D0*(zk-zi*zj)/zij+zij)-1D0/2D0)
+      M2tmp = CF*TR*(-sijk**2/(2D0*sij**2)*(sjk/sijk-sik/sijk+(zi-zj)/zij)**2+sijk/sij*(2d0*(zk-zi*zj)/zij+zij)-1d0/2d0)
       M2tmp = M2tmp*BLO
 c
 c     include double-collinear sector function
@@ -108,7 +108,7 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_CC_qxqqp = M2tmp*pref/sijk**2*xj*extra ! eq (C.15)
-      if(test_sector_function) M2_CC_qxqqp = WCC_NNLO
+      if(test_sector_function) M2_CC_qxqqp = wcc_nnlo
 c
 c     plot
       wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan

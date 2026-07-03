@@ -4,14 +4,14 @@ c     S(i,j) kernel times WSS
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGs.inc'
+      include 'leg_pdgs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,l,m,ierr,nit
       integer jb,lb,mb
       integer jbb,lbb,mbb
@@ -162,10 +162,10 @@ c     Including correct multiplicity factor
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_SS_gg=M2_SS_gg+pref*M2tmp*WSS_NNLO*extra
+            M2_SS_gg=M2_SS_gg+pref*M2tmp*wss_nnlo*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp*WSS_NNLO*extra*wgt/nit*wgt_chan
+            wgtpl=-pref*M2tmp*wss_nnlo*extra*wgt/nit*wgt_chan
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             wgts=wgtpl
 c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
@@ -175,7 +175,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_SS_gg = M2_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_SS_gg = WSS_NNLO
+      if(test_sector_function) M2_SS_gg = wss_nnlo
 c
 c     sanity check
       if(abs(M2_SS_gg).ge.huge(1d0).or.isnan(M2_SS_gg))then

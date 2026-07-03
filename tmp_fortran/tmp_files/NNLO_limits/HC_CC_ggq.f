@@ -123,7 +123,7 @@ c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
-      Pb_jk = 2d0*CA*(zbj/zbk+zbk/zbj)
+      Pb_jk = CF*(2d0*zbk/zbj+zbj)
       Eb_jkr = sbkr/sbjk/sbjr
       Eb_kjr = sbjr/sbjk/sbkr
       M2tmp = Pij/sbjk*(Pb_jk*BLO+2d0*KKBLO)

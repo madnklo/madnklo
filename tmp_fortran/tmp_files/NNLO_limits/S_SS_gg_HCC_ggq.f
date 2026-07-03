@@ -16,12 +16,12 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO_ijr_kjr,BLO_ijr_krj,BLO_irj_jkr,BLO_irj_krj,BLO_ikr_jkr
+      double precision BLO_ijr_jkr,BLO_ijr_krj,BLO_irj_jkr,BLO_irj_krj,BLO_ikr_jkr
       double precision BLO_ikr_jrk,BLO_irk_jkr,BLO_irk_jrk,BLO_ijk_jkr,BLO_ikj_jkr
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      double precision sij,sik,sjk,sir,sjr,skr
+      double precision sij,sik,sjk,sir,sjr,skr,sbjk,sbjr,sbkr
       double precision Ei_jr,Ei_kr,Ei_jk
       double precision Ebj_kr_ijr,Ebj_kr_irj,Ebj_kr_ikr,Ebj_kr_irk,Ebj_kr_ijk,Ebj_kr_ikj
       integer, parameter :: hel = - 1
@@ -97,11 +97,11 @@ c     safety check
         goto 999
       endif
 c
-c     soft double-soft hard-collinear sector function, (C.76-77) of 2212.11190
+c     soft double-soft hard-doublecollinear sector function, (C.76-77) of 2212.11190
       call get_sig2(xs,1d0,nexternal) ! TODO: call with alpha
       call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec) !TODO: does not exist yet!
 c
-c     mapping 1: [ijr,kjr]
+c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -115,7 +115,7 @@ c     mapping 1: [ijr,kjr]
 c
       Ebj_kr_ijr = sbkr/sbjk/sbjr
 c
-      call phase_space_CS_inv(kb,jb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -303,7 +303,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ikj_jkr = ans(0)
 c
-c     soft double-soft hard-collinear kernel, eq. (C.31)
+c     soft double-soft hard-doublecollinear kernel, eq. (C.31)
       M2tmp = CA*Ei_jr*(Ebj_kr_ijr*(BLO_irj_jkr-BLO_ijr_krj)+Ebj_kr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)*Ei_kr*(Ebj_kr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Ebj_kr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp + CA*Ei_jk*(Ebj_kr_ijk*BLO_ijk_jkr + Ebj_kr_ikj*BLO_ikj_jkr)

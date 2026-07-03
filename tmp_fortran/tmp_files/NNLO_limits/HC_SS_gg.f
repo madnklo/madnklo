@@ -166,7 +166,7 @@ c     (c,d) in the paper --> (m,l)
 c
 c     safety check
             if(sab.le.0d0.or.sbjl.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0)then
-               write(77,*)'Inaccuracy 2 in M2_C_SS_gg',sab, sbjl, sbjm, kt2
+               write(77,*)'Inaccuracy 2 in M2_HC_SS_gg',sab, sbjl, sbjm, kt2
                goto 999
             endif
 c

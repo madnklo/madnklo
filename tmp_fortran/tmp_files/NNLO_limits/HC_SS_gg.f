@@ -1,17 +1,18 @@
 
       double precision function M2_HC_SS_GG(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
-c     C(i,j) S(i,j) kernel times WC_SS: i, j are a g-g pair
+c     C(i,j) S(i,j) *  WC_SS - S(i) C(i,j) S(i,j) * WS_C_SS
+c     where  i, j are a g-g pair
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGs.inc'
+      include 'leg_pdgs.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r
       integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2
       integer jb,lb,mb
@@ -125,10 +126,10 @@ c
 c     Eikonal double sum starts here
 c
       do mb=1,nexternal-1
-         if(.not.ISNLOMAPPEDQCDPARTON(MB))cycle
+         if(.not.isNLOmappedQCDparton(mb))cycle
          if(mb.eq.jb)cycle
          do lb=1,nexternal-1
-            if(.not.ISNLOMAPPEDQCDPARTON(LB))cycle
+            if(.not.isNLOmappedQCDparton(lb))cycle
             if(lb.eq.jb.or.lb.eq.mb)cycle
             lbb = Born_mapped_labels(lb)
             mbb = Born_mapped_labels(mb)
@@ -192,11 +193,22 @@ c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_wsbar_nlo(map1,map2)
             M2tmp=M2tmp*wc_nlo*wsbar_nlo
 c
+c     soft-collinear double-soft kernel, eq. (C.37) of 2212.11190v2
+            Ei_jr = sbr/sab/sbr
+            M2_SC_SS_gg = -2d0*CA*Ei_jr*Ebjlm*ccBLO
+c
+c     Include soft-collinear double-soft sector functions, eq. (C.81) of 2212.11190v2
+            call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+            map1=real_mapped_labels(csec)
+            map2=real_mapped_labels(dsec)
+            call get_wsbar_nlo(map1,map2)
+            M2tmp=M2tmp*wsbar_nlo
+c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_C_SS_gg=M2_C_SS_gg+pref*M2tmp*extra
+            M2_SC_SS_gg=M2_SC_SS_gg+pref*M2tmp*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
@@ -209,9 +221,11 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     Double sum ends here
 c
+      M2_HC_SS_gg = M2_C_SS_gg - M2_SC_SS_gg
+c
 c     apply flavour factor
       M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo
+      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbarnlo
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then
@@ -223,8 +237,4 @@ c
  999  ierr=1
       return
       end
-
-
-
-
 

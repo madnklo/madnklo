@@ -5,13 +5,13 @@ c     i, j are a g-g while k is a q (or qb) with any flavour
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
-      include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'leg_pdgs.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
       double precision pref,M2_C_SS_gg_CC_ggq,M2_SC_SS_gg_CC_ggq,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
@@ -26,7 +26,7 @@ c     i, j are a g-g while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk
-      double precision Pij,Qij,Pbjk,Ebjkr
+      double precision Pij,Qij,Ei_jr,Eb_jkr
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -119,20 +119,28 @@ c
 c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
-      Ebjkr = sbkr/sbjk/sbjr
-      M2tmp = 2d0*CF*Ebjkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
-      M2tmp = M2tmp/sij*BLO
+      Eb_jkr = sbkr/sbjk/sbjr
+      M2tmp = 2d0*CF*Eb_jkr*(Pij-Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2))
+      M2_C_SS_gg_CC_ggq = M2tmp/sij*BLO
 c
-c     compute soft-collinear triple-collinear sector function eq. (C.84) of 2212.11190v2
+c     compute collinear double-soft double-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      M2tmp=M2tmp*wc_nlo
+      M2_C_SS_gg_CC_ggq=M2_C_SS_gg_CC_ggq*wc_nlo
+c
+c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.11190v2
+      Ei_jr = sjr/sij/sir
+      M2_SC_SS_gg_CC_ggq = 4d0*CA*CF*Ei_jr*Eb_jkr*BLO
+c
+c     soft-collinear double-soft double-collinear sector function eq. (C.85) of 2212.11190v2 is 1
+c
+      M2_HC_SS_gg_CC_ggq = M2_C_SS_gg_CC_ggq - M2_SC_SS_gg_CC_ggq
 c
 c     Including correct multiplicity factor
-      M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_HC_SS_gg_CC_ggq=M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_SS_gg_CC_ggq = wc_nlo
+      M2_HC_SS_gg_CC_ggq = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*%(proc_prefix_rr)s_fl_factor
+      M2_HC_SS_gg_CC_ggq=M2_HC_SS_gg_CC_ggq*pref*xj*extra
+      if(test_sector_function) M2_HC_SS_gg_CC_ggq = wc_nlo
 c
 c     plot
       wgtpl=-M2_HC_SS_gg_CC_ggq*wgt/nit*wgt_chan

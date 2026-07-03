@@ -25,7 +25,7 @@ c     i, j are a g-g pair while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk,zbki
-      double precision Pij,Qij,Pb_jk,Eb_jkr,Eb_kjr
+      double precision Pij,Qij,Pb_jk,Ei_jr,Eb_jkr,Eb_kjr
       double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
       logical flavourmatch
@@ -141,9 +141,8 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       M2_C_CC_ggq=M2_C_CC_ggq*wc_nlo*wcbar_nlo
 c
 c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
-      E_ijr = sjr/sij/sir
-      M2tmp = 2d0*CA*E_ijr*Pb_jk/sbjk*(1d0)
-      M2_SC_CC_ggq = M2tmp
+      Ei_jr = sjr/sij/sir
+      M2_SC_CC_ggq = 2d0*CA*Ei_jr*(Pb_jk*BLO+2d0*KKBLO)/sbjk
 c
 c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
@@ -155,9 +154,9 @@ c
       M2_HC_CC_ggq = M2_C_CC_ggq - M2_SC_CC_ggq
 c
 c     include correct multiplicity and flavour factors
-      M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_HC_CC_ggq = M2tmp*pref*xj*extra
+      M2_HC_CC_ggq = M2_HC_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_HC_CC_ggq = M2_HC_CC_ggq*%(proc_prefix_rr)s_fl_factor
+      M2_HC_CC_ggq = M2_HC_CC_ggq*pref*xj*extra
       if(test_sector_function) M2_HC_CC_ggq = wc_nlo*wcbar_nlo - wcbar_nlo
 c
 c     plot

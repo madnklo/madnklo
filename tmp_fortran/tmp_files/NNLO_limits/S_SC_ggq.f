@@ -14,7 +14,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,m,ierr,nit
-      integer ib,jb,kb,mb,kbb,mbb
+      integer ib,jb,kb,rb,mb,kbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -83,6 +83,7 @@ c     get mapped labels
       ib = real_sc_mapped_labels(i)
       jb = real_sc_mapped_labels(j)
       kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
 c
 c     invariant quantities
       sij = xs(i,j)
@@ -323,7 +324,7 @@ c     invariant quantities
 c
 c     soft soft-collinear kernel, (C.27)
 c     TODO: some contributions are 0 for ee->jj
-         M2tmp = (2d0*CF-CA)/CA*Ei_km*Pb_jrk_imk/2d0*ccBLO_imk_jrk
+         M2tmp = (2d0*CF-CA)/CA*Ei_km*Pb_jkr_imk/2d0*ccBLO_imk_jrk
          M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_S_SC_ggq = M2_S_SC_ggq + M2tmp*wcbar_nlo*ws_nlo

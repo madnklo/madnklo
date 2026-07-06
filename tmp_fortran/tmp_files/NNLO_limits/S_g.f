@@ -76,7 +76,7 @@ c     safety check on PDGs
 c
 c     call soft limit of sector function according to eq. (C.51)
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_WS_NLO(asec,bsec)
+      call get_ws_nlo(asec,bsec)
 c
 c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
@@ -149,7 +149,7 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_g=M2_S_g+pref*M2tmp*WS_NLO*Wbar_NLO*extra
+            M2_S_g=M2_S_g+pref*M2tmp*ws_nlo*wbar_nlo*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
@@ -162,7 +162,7 @@ c
 c
 c     apply flavour factor
       M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_S_g = WS_NLO*Wbar_NLO
+      if(test_sector_function) M2_S_g = ws_nlo*wbar_nlo
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

@@ -110,6 +110,7 @@ c
 c     underlying Born configuration is remapped
          call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
+c
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
          call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)

@@ -97,9 +97,13 @@ c     safety check
         goto 999
       endif
 c
-c     soft hard-doublecollinear sector function, (C.75) of 2212.11190
-      call get_sig2(xs,1d0,nexternal) ! TODO: call with alpha
-      call get_ws_hcc_nnlo(asec,bsec,csec,dsec) !TODO: does not exist yet!
+c     compute soft hard-doublecollinear sector function, (C.75) of 2212.11190
+      call get_sig2(xs,1d0,nexternal)
+      call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,r)
 c
 c     mapping 1: [ijr,kjr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
@@ -313,11 +317,11 @@ c     soft hard-doublecollinear kernel, eq. (C.30) TODO: Q_ij contribution is ze
       M2tmp = CA/CF*Ei_jr*(Pb_jkr_ijr*(BLO_irj_jkr-BLO_ijr_krj)+Pb_jkr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)/CF*Ei_kr*(Pb_jkr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Pb_jkr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp - (-CA/CF)*Ei_jk*(Pb_jkr_ijk*BLO_ijk_jkr + Pb_jkr_ikj*BLO_ikj_jkr)
-      M2tmp = CF/2d0*M2tmp*pref*ws_hcc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj
+      M2tmp = CF/2d0*M2tmp*pref*ws_ss_hcc_nnlo*wcbar_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_HCC_ggq = M2tmp
 c
-      if(test_sector_function) M2_S_HCC_ggq = ws_hcc_nnlo
+      if(test_sector_function) M2_S_HCC_ggq = ws_ss_hcc_nnlo*wcbar_nlo
 c
 c     plot
       wgtpl=+M2_S_HCC_ggq*wgt/nit*wgt_chan

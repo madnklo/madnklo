@@ -98,8 +98,8 @@ c     safety check
       endif
 c
 c     soft double-soft hard-doublecollinear sector function, (C.76-77) of 2212.11190
-      call get_sig2(xs,1d0,nexternal) ! TODO: call with alpha
-      call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec) !TODO: does not exist yet!
+      call get_sig2(xs,1d0,nexternal)
+      call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
 c
 c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)

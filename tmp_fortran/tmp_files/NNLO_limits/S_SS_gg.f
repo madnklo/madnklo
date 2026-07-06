@@ -80,7 +80,12 @@ c     get PDGs
       enddo
 c
 c     compute soft double-soft sector function from eq. (C.72)
-
+      call get_sig2(xs,alpha_mod,nexternal)
+      call get_ws_nlo(asec,bsec)
+      call get_sig2(xsb,1d0,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wsbar_nlo(map1,map2)
 c
 c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
@@ -162,10 +167,10 @@ c     Including correct multiplicity factor
 c
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_S_SS_gg=M2_S_SS_gg+pref*M2tmp*extra!sector function
+            M2_S_SS_gg=M2_S_SS_gg+pref*M2tmp*extra*ws_nlo*wsbar_nlo
 c
 c     plot
-            wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan!sector function
+            wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan*wsbar_nlo*ws_nlo
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
             wgts=wgtpl
 c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
@@ -175,7 +180,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_S_SS_gg = M2_S_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_S_SS_gg = wcbar_nlo*ws_nlo
+      if(test_sector_function) M2_S_SS_gg = wsbar_nlo*ws_nlo
 c
 c     sanity check
       if(abs(M2_S_SS_gg).ge.huge(1d0).or.isnan(M2_S_SS_gg))then

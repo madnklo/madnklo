@@ -3,13 +3,13 @@ module sectors4_module
   integer, public :: n_ext
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
-  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
+  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO, WS_SS_HCC_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: w,sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
-  public :: get_WSC_NNLO, get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO
+  public :: get_WSC_NNLO, get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO, get_WS_SS_HCC_NNLO
   public :: get_w, get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO
   private
 
@@ -439,6 +439,21 @@ contains
     WSS_SC_CC_NNLO = num/sigma
   end subroutine get_WSS_SC_CC_NNLO
 
+  subroutine get_WS_SS_HCC_NNLO(a,b,c,d)
+    !     NNLO soft double-soft double-hardcollinear sector function WS_SS_HCC(a,b,c,d)
+    implicit none
+    integer :: i,a,b,c,d,ic
+    double precision :: num,sigma
+    num = sig2(a,b)**alpha_mod
+    if(b.eq.c) then
+        ic=b
+    elseif(b.eq.d)then
+        ic=c
+    endif
+    sigma=0d0
+    sigma = sig2(a,b)**alpha_mod+sig2(a,ic)**alpha_mod
+    WS_SS_HCC_NNLO = num/sigma
+  end subroutine get_WS_SS_HCC_NNLO
 
 
   subroutine swap(x,y)

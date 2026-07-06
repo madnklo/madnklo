@@ -50,6 +50,8 @@ c     external
       integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
       common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       logical test_sector_function
@@ -91,13 +93,13 @@ c     invariant quantities
       zk = skr/(sjr+skr)
       Pjkr = CF*(2d0*zk/zj+zj)
 c
-c     soft soft-collinear sector function, (C.73) of 2212.11190
-      call get_sig2(xs,1d0,nexternal)
-      call get_wsbar_nlo(ia,ib,ksec,ir)
+c     compute soft soft-collinear sector function, (C.73) of 2212.11190
+      call get_sig2(xs,alpha_mod,nexternal)
+      call get_ws_nlo(asec,bsec)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
-      call get_wcbar_nlo(map1,map2)
+      call get_wcbar_nlo(map1,map2,r)
 c
 c     mapping 1: [krj,imj]
       call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)

@@ -93,7 +93,7 @@ c     Invariant quantities
       zk = skr/(sjr+skr)
 c
 c     compute soft double-soft soft-collinear sector function, (C.74) of 2212.11190
-      call get_sig2(xs,1d0,nexternal)
+      call get_sig2(xs,alpha_mod,nexternal)
       call get_ws_nlo(asec,bsec)
 c
 c     mapping 1: [krj,imj]

@@ -146,6 +146,9 @@ c     eikonals
             EIK1(-2) =  CA*EIK0
             EIK1(-1) = -CA*EIK0*log(sil*sim/slm/mu_r**2)
             EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/mu_r**2)**2-5d0*zeta2)
+c     EIK1 (B.5) is calculated in a different convention than MadLoop
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[eps eulergamma])
+            EIK1( 0) =  EIK1( 0)+CA*EIK0*zeta2/2d0
 
             M2TMP(-2:0) = CCVNLO(-2:0)*EIK0
             M2TMP(-2:0) = M2TMP(-2:0) - alphas/2d0/pi*CCBLO*EIK1(-2:0)

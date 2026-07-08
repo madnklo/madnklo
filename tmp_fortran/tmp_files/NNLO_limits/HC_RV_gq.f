@@ -110,6 +110,9 @@ c
       EIK1(-2) =  CA*EIK0
       EIK1(-1) = -CA*EIK0*log(sab*sar/sbr/mu_r**2)
       EIK1( 0) =  CA*EIK0/2d0*(log(sab*sar/sbr/mu_r**2)**2-5d0*zeta2)
+c     EIK1 (B.5) is calculated in a different convention than MadLoop
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[eps eulergamma])
+      EIK1( 0) =  EIK1( 0)+CA*EIK0*zeta2/2d0
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -130,22 +133,17 @@ c
       M2_C_gq(-2:0) = VNLO*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))
       M2_C_gq(-2) = M2_C_gq(-2) + alphas/2d0/pi*M2_C_gq_0*(-CA)
       M2_C_gq(-1) = M2_C_gq(-1) + alphas/2d0/pi*M2_C_gq_0*(CA*logab+CA*dlog(1d0-x)+(2d0*CF-CA)*dlog(x)-BETA0/2D0)
+      M2_C_GQ( 0) = M2_C_GQ(0) + alphas/2d0/pi*(M2_C_GQ_0*(CA*(7d0*zeta2-logab**2)/2d0+CA*(ddilog(-x/(1d0-x))-logab*dlog(1d0-x))+(2d0*CF-CA)*(ddilog(-(1d0-x)/x)-logab*dlog(x)))+BLO*CF*(CA-CF))
+c     Ptilde (B.27) is calculated in a different convention than MadLoop
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[eps eulergamma])
+      M2_C_GQ( 0) = M2_C_GQ(0) + alphas/2d0/pi*M2_C_GQ_0*(-CA)*zeta2/2d0
 
-            M2_C_GQ( 0) = M2_C_GQ(0) + ALPHAS/2D0/PI*(M2_C_GQ_0*(CA*(7D0*ZETA2-LOGAB**2)/2D0+CA*(ddilog(-x/(1d0-x))-logab*dlog(1d0-x))+(2d0*CF-CA)*(ddilog(-(1d0-x)/x)-logab*dlog(x)))+BLO*CF*(CA-CF))
-
-
-      
-c      M2_C_gq( 0) = M2_C_gq( 0) + alphas/2d0/pi*(M2_C_gq_0*(CA*(7d0*zeta2-logab**2)/2d0+CF*(-logab*log(x*(1d0-x))+ddilog(-(1d0-x)/x)+ddilog(-x/(1d0-x))))+BLO*CF*(CA-CF))
-c
       if(ia.eq.isec) then
          M2_SC_gq(-2:0) = 2d0*CF*(EIK0*VNLO(-2:0)-alphas/2d0/pi*EIK1(-2:0)*BLO)
          M2_SC_gq(-1)   = M2_SC_gq(-1)-2d0*CF*alphas/2d0/pi*beta0/2d0*EIK0*BLO
       else
          continue
       endif
-c
-c     Add terms from N1 expansion; TODO: not needed
-c      M2_C_GQ(-1) = M2_C_GQ(-1) + M2_C_GQ(-2)*dlog(exp(eulergamma)*mu_r**2/4d0/pi)
 c
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)

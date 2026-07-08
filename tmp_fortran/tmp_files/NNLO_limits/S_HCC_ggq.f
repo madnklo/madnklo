@@ -51,7 +51,7 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
-      M2_S_HCC_ggq=/0d0
+      M2_S_HCC_ggq=0d0
       M2tmp=0d0
       ierr=0
 c
@@ -314,7 +314,7 @@ c     call Born matrix element
       BLO_ikj_jkr = ans(0)
 c
 c     soft hard-doublecollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
-      M2tmp = CA/CF*Ei_jr*(Pb_jkr_ijr*(BLO_irj_jkr-BLO_ijr_krj)+Pb_jkr_irj*(BLO_irj_jkr-BLO_irj_krj))
+      M2tmp = CA/CF*Ei_jr*(Pb_jkr_ijr*(BLO_ijr_jkr-BLO_ijr_krj)+Pb_jkr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)/CF*Ei_kr*(Pb_jkr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Pb_jkr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp - (-CA/CF)*Ei_jk*(Pb_jkr_ijk*BLO_ijk_jkr + Pb_jkr_ikj*BLO_ikj_jkr)
       M2tmp = CF/2d0*M2tmp*pref*ws_ss_hcc_nnlo*wcbar_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj

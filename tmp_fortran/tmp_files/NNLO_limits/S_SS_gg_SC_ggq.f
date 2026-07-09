@@ -50,8 +50,8 @@ c     external
       integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
-      common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
+      integer real_s_sc_mapped_labels(nexternal),Born_s_sc_mapped_labels(nexternal-1)
+      common/c_NNLO_s_sc_mapped_labels/real_s_sc_mapped_labels,Born_s_sc_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
 c
@@ -77,10 +77,9 @@ c     overall kernel prefix
       pref=-2d0*(8d0*pi*alphas)**2
 c
 c     get PDGs
-      ib = real_sc_mapped_labels(i)
-      jb = real_sc_mapped_labels(j)
-      kb = real_sc_mapped_labels(k)
-      rb = real_sc_mapped_labels(r)
+      jb = real_s_sc_mapped_labels(j)
+      kb = real_s_sc_mapped_labels(k)
+      rb = real_s_sc_mapped_labels(r)
 c
 c     Invariant quantities
       sij = xs(i,j)
@@ -99,12 +98,12 @@ c     eikonal sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_sc_mapped_labels(m)
-         kbb = Born_sc1_mapped_labels(kb)
-         mbb = Born_sc1_mapped_labels(mb)
+         mb = real_s_sc_mapped_labels(m)
+         kbb = Born_s_sc_mapped_labels(kb)
+         mbb = Born_s_sc_mapped_labels(mb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(i,j,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
+         call phase_space_CS_inv(i,j,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
          if(ierr.eq.1)goto 999
          sbjr = xsb(jb,rb)
@@ -117,7 +116,7 @@ c     underlying Born configuration is remapped
 c
          Ebj_kr_ijm = sbkr/sbjk/sbjr
 c
-         call phase_space_CS_inv(kb,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+         call phase_space_CS_inv(kb,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_mapped_labels)
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -147,17 +146,17 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
          if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
-c     mapping 1: [imj,krj]
+c     mapping 2: [imj,krj]
 c     eikonal sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_sc_mapped_labels(m)
-         kbb = Born_sc1_mapped_labels(kb)
-         mbb = Born_sc1_mapped_labels(mb)
+         mb = real_s_sc_mapped_labels(m)
+         kbb = Born_s_sc_mapped_labels(kb)
+         mbb = Born_s_sc_mapped_labels(mb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(i,m,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
+         call phase_space_CS_inv(i,m,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
          if(ierr.eq.1)goto 999
          sbjr = xsb(jb,rb)
@@ -170,7 +169,7 @@ c     underlying Born configuration is remapped
 c
          Ebj_kr_imj = sbkr/sbjk/sbjr
 c
-         call phase_space_CS_inv(kb,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+         call phase_space_CS_inv(kb,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_mapped_labels)
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -205,12 +204,12 @@ c     eikonal sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_sc_mapped_labels(m)
-         kbb = Born_sc1_mapped_labels(kb)
-         mbb = Born_sc1_mapped_labels(mb)
+         mb = real_s_sc_mapped_labels(m)
+         kbb = Born_s_sc_mapped_labels(kb)
+         mbb = Born_s_sc_mapped_labels(mb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(i,k,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
+         call phase_space_CS_inv(i,k,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
          if(ierr.eq.1)goto 999
          sbjr = xsb(jb,rb)
@@ -223,7 +222,7 @@ c     underlying Born configuration is remapped
 c
          Ebj_kr_ikm = sbkr/sbjk/sbjr
 c
-         call phase_space_CS_inv(jb,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+         call phase_space_CS_inv(jb,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_mapped_labels)
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -258,12 +257,12 @@ c     eikonal sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_sc_mapped_labels(m)
-         kbb = Born_sc1_mapped_labels(kb)
-         mbb = Born_sc1_mapped_labels(mb)
+         mb = real_s_sc_mapped_labels(m)
+         kbb = Born_s_sc_mapped_labels(kb)
+         mbb = Born_s_sc_mapped_labels(mb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(i,m,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
+         call phase_space_CS_inv(i,m,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
          if(ierr.eq.1)goto 999
          sbjr = xsb(jb,rb)
@@ -276,7 +275,7 @@ c     underlying Born configuration is remapped
 c
          Ebj_kr_imk = sbkr/sbjk/sbjr
 c
-         call phase_space_CS_inv(jb,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+         call phase_space_CS_inv(jb,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_mapped_labels)
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle

@@ -72,11 +72,11 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
 c
-c     get mapped labels   ! TODO: fix mappings!!
-      ib = real_mapped_labels(i)
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     get mapped labels
+      ib = real_sc_mapped_labels(i)
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -97,7 +97,7 @@ c     safety check
         goto 999
       endif
 c
-c     soft double-soft hard-doublecollinear sector function, (C.76-77) of 2212.11190
+c     soft double-soft double-hardcollinear sector function, (C.76-77) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
 c
@@ -303,7 +303,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ikj_jkr = ans(0)
 c
-c     soft double-soft hard-doublecollinear kernel, eq. (C.31)
+c     soft double-soft double-hardcollinear kernel, eq. (C.31)
       M2tmp = CA*Ei_jr*(Ebj_kr_ijr*(BLO_irj_jkr-BLO_ijr_krj)+Ebj_kr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)*Ei_kr*(Ebj_kr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Ebj_kr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp + CA*Ei_jk*(Ebj_kr_ijk*BLO_ijk_jkr + Ebj_kr_ikj*BLO_ikj_jkr)

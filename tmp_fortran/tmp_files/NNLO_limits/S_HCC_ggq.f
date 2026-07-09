@@ -72,11 +72,11 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
 c
-c     get mapped labels   ! TODO: fix mappings!!
-      ib = real_mapped_labels(i)
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     get mapped labels
+      ib = real_sc_mapped_labels(i)
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -97,11 +97,11 @@ c     safety check
         goto 999
       endif
 c
-c     compute soft hard-doublecollinear sector function, (C.75) of 2212.11190
+c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
+      map1=real_mapped_labels(csec)!TODO: check map1 and map2 and position of wcbar_nlo because of xsb
       map2=real_mapped_labels(dsec)
       call get_wcbar_nlo(map1,map2,r)
 c
@@ -313,7 +313,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ikj_jkr = ans(0)
 c
-c     soft hard-doublecollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
+c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
       M2tmp = CA/CF*Ei_jr*(Pb_jkr_ijr*(BLO_ijr_jkr-BLO_ijr_krj)+Pb_jkr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)/CF*Ei_kr*(Pb_jkr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Pb_jkr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp - (-CA/CF)*Ei_jk*(Pb_jkr_ijk*BLO_ijk_jkr + Pb_jkr_ikj*BLO_ikj_jkr)

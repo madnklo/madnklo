@@ -261,7 +261,7 @@ c     fill mapped labels for soft-collinear mapping
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc2_mapped_labels)
 c
 c     fill mapped labels for soft soft-collinear mapping
-      call get_mapped_labels(nexternal,csec,dsec,leg_pdgs,real_leg_pdgs,real_sc_mapped_labels)
+      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_s_sc_mapped_labels)
       map1=real_s_sc_mapped_labels(jsec)
       map2=real_s_sc_mapped_labels(ksec)
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_mapped_labels)

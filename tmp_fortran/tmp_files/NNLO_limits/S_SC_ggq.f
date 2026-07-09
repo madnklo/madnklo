@@ -130,7 +130,7 @@ c     call wcbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
          map1=real_mapped_labels(csec)
          map2=real_mapped_labels(dsec)
-         call get_wcbar_nlo(map1,map2,r)
+         call get_wcbar_nlo(map1,map2,rb)
 c
 c     call colour-connected Born matrix element
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
@@ -190,7 +190,7 @@ c     call wcbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
          map1=real_mapped_labels(csec)
          map2=real_mapped_labels(dsec)
-         call get_wcbar_nlo(map1,map2,r)
+         call get_wcbar_nlo(map1,map2,rb)
 c
 c     call colour-connected Born matrix element
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
@@ -250,7 +250,7 @@ c     call wcbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
          map1=real_mapped_labels(csec)
          map2=real_mapped_labels(dsec)
-         call get_wcbar_nlo(map1,map2,r)
+         call get_wcbar_nlo(map1,map2,rb)
 c
 c     call colour-connected Born matrix element
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
@@ -310,7 +310,7 @@ c     call wcbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
          map1=real_mapped_labels(csec)
          map2=real_mapped_labels(dsec)
-         call get_wcbar_nlo(map1,map2,r)
+         call get_wcbar_nlo(map1,map2,rb)
 c
 c     call colour-connected Born matrix element
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)

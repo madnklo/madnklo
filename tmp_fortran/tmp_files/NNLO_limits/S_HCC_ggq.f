@@ -103,7 +103,7 @@ c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)!TODO: check map1 and map2 and position of wcbar_nlo because of xsb
       map2=real_mapped_labels(dsec)
-      call get_wcbar_nlo(map1,map2,r)
+      call get_wcbar_nlo(map1,map2,rb)
 c
 c     mapping 1: [ijr,kjr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)

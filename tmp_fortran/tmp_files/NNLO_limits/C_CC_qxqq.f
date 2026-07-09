@@ -25,7 +25,7 @@ c     while k is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk,zbki
-      double precision Pij,Qij,Pbjk,Ebjkr
+      double precision Pij,Qij,Pb_jk,Eb_jkr
       double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
       logical flavourmatch

@@ -9,7 +9,7 @@ c     i, j are a g-g while k is a q (or qb) with any flavour
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
-      include 'leg_pdgs.inc'
+      include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit

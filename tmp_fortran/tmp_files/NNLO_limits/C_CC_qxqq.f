@@ -8,7 +8,7 @@ c     while k is a q (or qb) with any flavour
       include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
-      include 'leg_pdgs.inc'
+      include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit

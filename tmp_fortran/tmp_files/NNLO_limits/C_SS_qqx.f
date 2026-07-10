@@ -8,7 +8,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_pdgs.inc'
+      include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'

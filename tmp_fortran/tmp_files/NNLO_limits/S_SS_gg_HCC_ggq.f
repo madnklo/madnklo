@@ -71,7 +71,7 @@ c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
-c
+c     TODO: fix mappings
 c     get mapped labels
       ib = real_sc_mapped_labels(i)
       jb = real_sc_mapped_labels(j)
@@ -92,8 +92,8 @@ c     Global Eikonals
       Ei_jk = sjk/sij/sik
 c
 c     safety check
-      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_S_SS_ggq_HCC_ggq',sij,sik,sjk,zj,zk
+      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in M2_S_SS_ggq_HCC_ggq',sij,sik,sjk
         goto 999
       endif
 c
@@ -124,7 +124,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ijr_kjr = ans(0)
+      BLO_ijr_jkr = ans(0)
 c
 c     mapping 2: [ijr,krj]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)

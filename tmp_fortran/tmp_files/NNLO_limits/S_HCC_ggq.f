@@ -11,7 +11,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,ierr,nit,parent_leg
+      integer i,j,k,r,ierr,nit,parent_leg,map1,map2
       integer ib,jb,kb,rb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -45,6 +45,8 @@ c     set logical doplot
       common/csecindices/asec,bsec,csec,dsec
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
       common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       logical test_sector_function
@@ -92,8 +94,8 @@ c     Global Eikonals
       Ei_jk = sjk/sij/sik
 c
 c     safety check
-      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_S_HCC_ggq',sij,sik,sjk,zj,zk
+      if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0)then
+        write(77,*)'Inaccuracy 1 in M2_S_HCC_ggq',sij,sik,sjk
         goto 999
       endif
 c
@@ -105,7 +107,7 @@ c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       map2=real_mapped_labels(dsec)
       call get_wcbar_nlo(map1,map2,rb)
 c
-c     mapping 1: [ijr,kjr]
+c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -129,7 +131,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ijr_kjr = ans(0)
+      BLO_ijr_jkr = ans(0)
 c
 c     mapping 2: [ijr,krj]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)

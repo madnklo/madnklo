@@ -60,7 +60,6 @@ c     initialise
       M2_SC_SS_gg_CC_ggq=0d0
       M2tmp=0d0
       ierr=0
-      damp=0d0
 c
 c     check sector topology
       if(bsec.ne.csec.and.bsec.ne.dsec) then

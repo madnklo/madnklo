@@ -14,18 +14,18 @@ c     where  i, j are a g-g pair
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r
-      integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2
+      integer ia,ib,ik,ir,l,m,ierr,nit,map1,map2,damp
       integer jb,lb,mb
       integer jbb,lbb,mbb
       double precision pref,M2_C_SS_GG,M2_SC_SS_GG,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2
       double precision xs(nexternal,nexternal)
       double precision xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO,ccBLO,extra,damp
+      double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2),kt(0:3),kt2
       double precision sab,sar,sbr,wa,wb,wr,x
-      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm,kmkl,kmkm,klkl
+      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm,kmkl,kmkm,klkl,Ei_jr
       double precision dot
       logical flavourmatch
       logical isNLOmappedQCDparton(nexternal-1)
@@ -225,7 +225,7 @@ c
 c
 c     apply flavour factor
       M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbarnlo
+      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then

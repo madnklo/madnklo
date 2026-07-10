@@ -8,7 +8,7 @@ c     S(i) S(i,j) kernel times sector function
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_pdgs.inc'
+      include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'

@@ -1,3 +1,4 @@
+
       double precision function M2_SS_qqx(i,j,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     S(i,j) kernel times WSS
       use sectors4_module

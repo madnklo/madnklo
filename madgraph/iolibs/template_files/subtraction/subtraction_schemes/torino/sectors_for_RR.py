@@ -557,8 +557,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_3p_ct1_list = [0] * (2)
                 necessary_3p_ct1 = [0] * (2)
                 ordered_legs_3p_K1_ct = [0] * (2)
-                necessary_3p_ct12_list = [0] * (13) # same number of CTs in K12 for ijjk&ijkj
-                ordered_legs_3p_K12_ct = [0] * (13)
+                necessary_3p_ct12_list = [0] * (8) # same number of CTs in K12 for ijjk&ijkj
+                ordered_legs_3p_K12_ct = [0] * (8)
                 if (leg_numbers[1] == leg_numbers[2]):  #ijjk
                     label = 'ijjk'
                     ileg = leg_numbers[0]
@@ -855,11 +855,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
                     if (label == 'ijjk'):
                         # K12
-                        # L12_ijjk : 13 -> [Si Sij, Si SCijk, Si SijSCijk,
-                        #                   Si Cijk, Si SijCijk, Si SCijkCijk, Si SijSCijkCijk,
-                        #                   Cij Sij, Cij Cijk, Cij SijCijk,
-                        #                   SiCij Sij, SiCij Cijk, SiCij SijCijk]
-                        # Ref. eq. 3.15, 5th line
+                        # L12_ijjk : 8 -> [Si Sij, Si SCijk, Si SijSCijk,
+                        #                  Si HCijk, Si SijHCijk,
+                        #                  HCij Sij, HCij Cijk, HCij SijCijk]
+                        # Ref. eq. 3.15, 5th line; C-S_C and CC-SC have been paired together
 
                         # Si Sij
                         necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
@@ -873,57 +872,33 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
                         ordered_legs_3p_K12_ct[2] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[2] != 0) else 0
-                        # Si Cijk
-                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[3])) \
+                        # Si HCijk
+                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[3].replace('CC', 'HCC'))) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
                         ordered_legs_3p_K12_ct[3] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0
-                        # Si SijCijk
-                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[4])) \
+                        # Si SijHCijk
+                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[4].replace('CC', 'HCC'))) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
                         ordered_legs_3p_K12_ct[4] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[4] != 0) else 0
-                        # Si SCijkCijk
-                        necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[5])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
-                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0
-                        # Si SijSCijkCijk
-                        necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[6])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
-                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[6] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0
-                        # Cij Sij
-                        necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[0])) \
+                        # HCij Sij
+                        necessary_3p_ct12_list[5] = (''.join(('HC_',necessary_3p_ct2_list[0])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
-                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K1_ct[1] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0
-                        # Cij Cijk
-                        necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[3])) \
+                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K1_ct[1] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0
+                        # HCij Cijk
+                        necessary_3p_ct12_list[6] = (''.join(('HC_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
-                        ordered_legs_3p_K12_ct[8] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0
-                        # Cij SijCijk
-                        necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[4])) \
+                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0
+                        # HCij SijCijk
+                        necessary_3p_ct12_list[7] = (''.join(('HC_',necessary_3p_ct2_list[4])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
-                        ordered_legs_3p_K12_ct[9] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0
-                        # SiCij Sij
-                        necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[0])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[0] != 0) else 0)
-                        ordered_legs_3p_K12_ct[10] = ordered_legs_3p_K1_ct[1] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                  and necessary_3p_ct2_list[0] != 0) else 0
-                        # SiCij Cijk
-                        necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[3])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
-                        ordered_legs_3p_K12_ct[11] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                  and necessary_3p_ct2_list[3] != 0) else 0
-                        # SiCij SijCijk
-                        necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[4])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0)
-                        ordered_legs_3p_K12_ct[12] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                  and necessary_3p_ct2_list[4] != 0) else 0
+                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K2_ct[4] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[4] != 0) else 0
 
                     elif (label == 'ijkj'):
                         # K12
-                        # L12_ijkj : 13 -> [Si Sik, Si SCijk, Si SikSCijk,
-                        #                   Si Cijk, Si SikCijk, Si SCijkCijk, Si SikSCijkCijk,
-                        #                   Cij SCkij, Cij Cijk, Cij SCkijCijk,
-                        #                   SiCij SCkij, SiCij Cijk, SiCij SCkijCijk]
-                        # Ref. eq. 3.15, 6th line
+                        # L12_ijkj : 8 -> [Si Sik, Si SCijk, Si SikSCijk,
+                        #                  Si HCijk, Si SikHCijk,
+                        #                  HCij SCkij, HCij Cijk, HCij SCkijCijk]
+                        # Ref. eq. 3.15, 6th line; C-S_C and CC-SC have been paired together
 
                         # Si Sik
                         necessary_3p_ct12_list[0] = (''.join(('S_',necessary_3p_ct2_list[0])) \
@@ -937,50 +912,26 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         necessary_3p_ct12_list[2] = (''.join(('S_',necessary_3p_ct2_list[3])) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0)
                         ordered_legs_3p_K12_ct[2] = ordered_legs_3p_K2_ct[3] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[3] != 0) else 0
-                        # Si Cijk
-                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[5])) \
+                        # Si HCijk
+                        necessary_3p_ct12_list[3] = (''.join(('S_',necessary_3p_ct2_list[5].replace('CC', 'HCC'))) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
                         ordered_legs_3p_K12_ct[3] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[5] != 0) else 0
-                        # Si SikCijk
-                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[6])) \
+                        # Si SikHCijk
+                        necessary_3p_ct12_list[4] = (''.join(('S_',necessary_3p_ct2_list[6].replace('CC', 'HCC'))) \
                                                  if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0)
                         ordered_legs_3p_K12_ct[4] = ordered_legs_3p_K2_ct[6] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[6] != 0) else 0
-                        # Si SCijkCijk
-                        necessary_3p_ct12_list[5] = (''.join(('S_',necessary_3p_ct2_list[7])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[7] != 0) else 0)
-                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K2_ct[7] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[7] != 0) else 0
-                        # Si SikSCijkCijk
-                        necessary_3p_ct12_list[6] = (''.join(('S_',necessary_3p_ct2_list[8])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[8] != 0) else 0)
-                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[8] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct2_list[8] != 0) else 0
-                        # Cij SCkij
-                        necessary_3p_ct12_list[7] = (''.join(('C_',necessary_3p_ct2_list[2])) \
+                        # HCij SCkij
+                        necessary_3p_ct12_list[5] = (''.join(('HC_',necessary_3p_ct2_list[2])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
-                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0
-                        # Cij Cijk
-                        necessary_3p_ct12_list[8] = (''.join(('C_',necessary_3p_ct2_list[5])) \
+                        ordered_legs_3p_K12_ct[5] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0
+                        # HCij Cijk
+                        necessary_3p_ct12_list[6] = (''.join(('HC_',necessary_3p_ct2_list[5])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
-                        ordered_legs_3p_K12_ct[8] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0
-                        # Cij SCkijCijk
-                        necessary_3p_ct12_list[9] = (''.join(('C_',necessary_3p_ct2_list[9])) \
+                        ordered_legs_3p_K12_ct[6] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0
+                        # HCij SCkijCijk
+                        necessary_3p_ct12_list[7] = (''.join(('HC_',necessary_3p_ct2_list[9])) \
                                                  if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
-                        ordered_legs_3p_K12_ct[9] = ordered_legs_3p_K2_ct[9] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0
-                        # SiCij SCkij
-                        necessary_3p_ct12_list[10] = (''.join(('SC_',necessary_3p_ct2_list[2])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[2] != 0) else 0)
-                        ordered_legs_3p_K12_ct[10] = ordered_legs_3p_K2_ct[2] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                  and necessary_3p_ct2_list[2] != 0) else 0
-                        # SiCij Cijk
-                        necessary_3p_ct12_list[11] = (''.join(('SC_',necessary_3p_ct2_list[5])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[5] != 0) else 0)
-                        ordered_legs_3p_K12_ct[11] = ordered_legs_3p_K2_ct[5] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                 and necessary_3p_ct2_list[5] != 0) else 0
-                        # SiCij SCkijCijk
-                        necessary_3p_ct12_list[12] = (''.join(('SC_',necessary_3p_ct2_list[9])) \
-                                                 if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0)
-                        ordered_legs_3p_K12_ct[12] = ordered_legs_3p_K2_ct[9] if (necessary_3p_ct1_list[0] != 0 and necessary_3p_ct1_list[1] != 0 \
-                                                                                  and necessary_3p_ct2_list[9] != 0) else 0
-
+                        ordered_legs_3p_K12_ct[7] = ordered_legs_3p_K2_ct[9] if (necessary_3p_ct1_list[1] != 0 and necessary_3p_ct2_list[9] != 0) else 0
 
                 # skip sectors with no assigned cts
                 if (not any(necessary_3p_ct1_list)) and (not any(necessary_3p_ct2_list)):
@@ -1030,8 +981,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                 necessary_4p_ct2_list = [0] * (9)
                 necessary_4p_ct2 = [0] * (9)
                 ordered_legs_4p_K2_ct = [0] * (9)
-                necessary_4p_ct12_list = [0] * (9)
-                ordered_legs_4p_K12_ct = [0] * (9)
+                necessary_4p_ct12_list = [0] * (6)
+                ordered_legs_4p_K12_ct = [0] * (6)
 
                 print('****** NEW SECTOR ******')
                 print(str(s['sector'].leg_numbers[0]) + ' ' + str(s['sector'].leg_numbers[1]) + ' ' + str(s['sector'].leg_numbers[2]) \
@@ -1198,9 +1149,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     necessary_4p_ct2[8] = necessary_4p_ct2[5]
                     ordered_legs_4p_K2_ct[8] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct2_list[2] != 0 and necessary_4p_ct2_list[5] != 0) else 0
 
-                    # L12_ijkl : 9  ->  [Si Sik, Si SCikl, Si SikSCikl
-                    #                    Cij SCkij, Cij Cijkl, Cij SCkijCijkl,
-                    #                    SiCij SCkij, SiCij Cijkl, SiCij SCkijCijkl]
+                    # L12_ijkl : 6  ->  [Si Sik, Si SCikl, Si SikSCikl
+                    #                    HCij SCkij, HCij Cijkl, HCij SCkijCijkl]
 
                     # Si Sik
                     necessary_4p_ct12_list[0] = (''.join(('S_',necessary_4p_ct2_list[0])) \
@@ -1214,33 +1164,18 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     necessary_4p_ct12_list[2] = (''.join(('S_',necessary_4p_ct2_list[3])) \
                                                  if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[3] != 0) else 0)
                     ordered_legs_4p_K12_ct[2] = ordered_legs_4p_K2_ct[3] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct2_list[3] != 0) else 0
-                    # Cij SCkij
-                    necessary_4p_ct12_list[3] = (''.join(('C_',necessary_4p_ct2_list[2])) \
+                    # HCij SCkij
+                    necessary_4p_ct12_list[3] = (''.join(('HC_',necessary_4p_ct2_list[2])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
                     ordered_legs_4p_K12_ct[3] = ordered_legs_4p_K2_ct[2] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0
-                    # Cij Cijkl
-                    necessary_4p_ct12_list[4] = (''.join(('C_',necessary_4p_ct2_list[5])) \
+                    # HCij Cijkl
+                    necessary_4p_ct12_list[4] = (''.join(('HC_',necessary_4p_ct2_list[5])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
                     ordered_legs_4p_K12_ct[4] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0
-                    # Cij SCkijCijkl
-                    necessary_4p_ct12_list[5] = (''.join(('C_',necessary_4p_ct2_list[8])) \
+                    # HCij SCkijCijkl
+                    necessary_4p_ct12_list[5] = (''.join(('HC_',necessary_4p_ct2_list[8])) \
                                                  if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
                     ordered_legs_4p_K12_ct[5] = ordered_legs_4p_K2_ct[8] if (necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0
-                    # SiCij SCkij
-                    necessary_4p_ct12_list[6] = (''.join(('SC_',necessary_4p_ct2_list[2])) \
-                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[2] != 0) else 0)
-                    ordered_legs_4p_K12_ct[6] = ordered_legs_4p_K2_ct[2] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
-                                                                             and necessary_4p_ct2_list[2] != 0) else 0
-                    # SiCij Cijkl
-                    necessary_4p_ct12_list[7] = (''.join(('SC_',necessary_4p_ct2_list[5])) \
-                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[5] != 0) else 0)
-                    ordered_legs_4p_K12_ct[7] = ordered_legs_4p_K2_ct[5] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
-                                                                             and necessary_4p_ct2_list[5] != 0) else 0
-                    # SiCij SCkijCijkl
-                    necessary_4p_ct12_list[8] = (''.join(('SC_',necessary_4p_ct2_list[8])) \
-                                                 if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 and necessary_4p_ct2_list[8] != 0) else 0)
-                    ordered_legs_4p_K12_ct[8] = ordered_legs_4p_K2_ct[8] if (necessary_4p_ct1_list[0] != 0 and necessary_4p_ct1_list[1] != 0 \
-                                                                             and necessary_4p_ct2_list[8] != 0) else 0
 
                 # skip sectors with no assigned cts
                 if (not any(necessary_4p_ct1_list)) and (not any(necessary_4p_ct2_list)):
@@ -1331,39 +1266,28 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                         'SS_gg_SC_ggg_C_ggg', 'SS_gg_SC_ggq_CC_ggq', \
                                         'S_SS_gg', 'S_SC_ggg', 'S_SC_ggq', 'S_SC_gqqx', \
                                         'S_SS_gg_SC_ggg', 'S_SS_gg_SC_ggq', \
-                                        'S_CC_ggg', 'S_CC_ggq', 'S_CC_gqqx', \
-                                        'S_SS_gg_CC_ggg', 'S_SS_gg_CC_ggq', \
-                                        'S_SC_ggg_C_ggg', 'S_SC_ggq_CC_ggq', 'S_SC_gqqx_CC_gqqx', \
-                                        'S_SS_gg_SC_ggg_C_ggg', 'S_SS_gg_SC_ggq_CC_ggq', \
-                                        'C_SS_gg', 'C_SS_qqx', \
-                                        'C_SC_ggg', 'C_SC_ggq', 'C_SC_gqqx', \
-                                        'C_CC_ggg', 'C_CC_ggq', 'C_CC_gqqx', 'C_CC_qxqq', 'C_CC_qxqqp', \
-                                        'C_SS_gg_CC_ggg', 'C_SS_gg_CC_ggq', 'C_SS_qqx_CC_qxqq', 'C_SS_qqx_CC_qxqqp', \
-                                        'C_SC_ggg_C_ggg', 'C_SC_ggq_CC_ggq', 'C_SC_gqqx_CC_gqqx', \
-                                        'SC_SS_gg', \
-                                        'SC_SC_ggg', 'SC_SC_ggq', 'SC_SC_gqqx', \
-                                        'SC_CC_ggg', 'SC_CC_ggq', 'SC_CC_gqqx', \
-                                        'SC_SS_gg_CC_ggg', 'SC_SS_gg_CC_ggq', \
-                                        'SC_SC_ggg_C_ggg', 'SC_SC_ggq_CC_ggq', 'SC_SC_gqqx_CC_gqqx']
+                                        'S_HCC_ggg', 'S_HCC_ggq', 'S_HCC_gqqx', \
+                                        'S_SS_gg_HCC_ggg', 'S_SS_gg_HCC_ggq', \
+                                        'HC_SS_gg', 'HC_SS_qqx', \
+                                        'HC_SC_ggg', 'HC_SC_ggq', 'HC_SC_gqqx', \
+                                        'HC_CC_ggg', 'HC_CC_ggq', 'HC_CC_gqqx', 'HC_CC_qxqq', 'HC_CC_qxqqp', \
+                                        'HC_SS_gg_CC_ggg', 'HC_SS_gg_CC_ggq', 'HC_SS_qqx_CC_qxqq', 'HC_SS_qqx_CC_qxqqp', \
+                                        'HC_SC_ggg_CC_ggg', 'HC_SC_ggq_CC_ggq', 'HC_SC_gqqx_CC_gqqx']
 
-        # K2_ijjk  : 7 -> [Sij, SCijk, SijSCijk, Cijk, SijCijk, SCijkCijk, SijSCijkCijk]
+        # K2_ijjk  : 7  -> [Sij, SCijk, SijSCijk, Cijk, SijCijk, SCijkCijk, SijSCijkCijk]
         # K2_ijkj  : 11 -> [Sik, SCijk, SCkij, SikSCijk, SikSCkij, Cijk, SikCijk, SCijkCijk, SikSCijkCijk, SCkijCijk, SikSCkijCijk]
-        # K12_ijjk : 13 -> [Si Sij, Si SCijk, Si SijSCijk, Si Cijk, Si SijCijk, Si SCijkCijk, Si SijSCijkCijk,
-        #                   Cij Sij, Cij Cijk, Cij SijCijk, SiCij Sij, SiCij Cijk, SiCij SijCijk]
-        # K12_ijkj : 13 -> [Si Sik, Si SCijk, Si SikSCijk, Si Cijk, Si SikCijk, Si SCijkCijk, Si SikSCijkCijk,
-        #                   Cij SCkij, Cij Cijk, Cij SCkijCijk, SiCij SCkij, SiCij Cijk, SiCij SCkijCijk]
+        # K12_ijjk : 8  -> [Si Sij, Si SCijk, Si SijSCijk, Si HCijk, Si SijHCijk, HCij Sij, HCij Cijk, HCij SijCijk]
+        # K12_ijkj : 8  -> [Si Sik, Si SCijk, Si SikSCijk, Si HCijk, Si SikHCijk, HCij SCkij, HCij Cijk, HCij SCkijCijk]
         K1_labels = ['S_i', 'HC_ij']
         K2_labels_ijjk = ['SS_ij', 'SC_ijk', 'SS_ij SC_ijk', 'CC_ijk', 'SS_ij CC_ijk', 'SC_ijk CC_ijk', 'SS_ij SC_ijk CC_ijk']
         K2_labels_ijkj = ['SS_ik', 'SC_ijk', 'SC_kij', 'SS_ik SC_ijk', 'SS_ik SCkij', \
                           'CC_ijk', 'SS_ik CC_ijk', 'SC_ijk CC_ijk', 'SS_ik SC_ijk CC_ijk', 'SC_kij CC_ijk', 'SS_ik SC_kij CC_ijk']
         K12_labels_ijjk = ['S_i SS_ij', 'S_i SC_ijk', 'S_i SS_ij SC_ijk', \
-                           'S_i CC_ijk', 'S_i SS_ij CC_ijk', 'S_i SC_ijk CC_ijk', 'S_i SS_ij SC_ijk CC_ijk', \
-                           'C_ij SS_ij', 'C_ij CC_ijk', 'C_ij SS_ij CC_ijk', \
-                           'S_i C_ij SS_ij', 'S_i C_ij CC_ijk', 'S_i C_ij SS_ij CC_ijk']
+                           'S_i HCC_ijk', 'S_i SS_ij HCC_ijk', \
+                           'HC_ij SS_ij', 'HC_ij CC_ijk', 'HC_ij SS_ij CC_ijk']
         K12_labels_ijkj = ['S_i SS_ik', 'S_i SC_ijk', 'S_i SS_ik SC_ijk', \
-                           'S_i CC_ijk', 'S_i SS_ik CC_ijk', 'S_i SC_ijk CC_ijk', 'S_i SS_ik SC_ijk CC_ijk', \
-                           'C_ij SC_kij', 'C_ij CC_ijk', 'C_ij SC_kij CC_ijk', \
-                           'S_i C_ij SC_kij', 'S_i C_ij CC_ijk', 'S_i C_ij SC_kij CC_ijk']
+                           'S_i HCC_ijk', 'S_i SS_ik HCC_ijk', \
+                           'HC_ij SC_kij', 'HC_ij CC_ijk', 'HC_ij SC_kij CC_ijk']
 
         # Rule: examples
         # Cijk      -> isec,jsec,ksec
@@ -1373,10 +1297,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         K2_3p_indices_ijjk = ['isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec']
         K2_3p_indices_ijkj = ['isec,ksec', 'isec,jsec,ksec', 'ksec,isec,jsec', 'isec,ksec,jsec', 'ksec,isec,jsec', \
                               'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'ksec,isec,jsec', 'ksec,isec,jsec']
-        K12_3p_indices_ijjk = ['isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', \
-                               'isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec']
-        K12_3p_indices_ijkj = ['isec,ksec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', \
-                               'ksec,isec,jsec', 'isec,jsec,ksec', 'ksec,isec,jsec', \
+        K12_3p_indices_ijjk = ['isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', 'isec,jsec,ksec', \
+                               'isec,jsec', 'isec,jsec,ksec', 'isec,jsec,ksec']
+        K12_3p_indices_ijkj = ['isec,ksec', 'isec,jsec,ksec', 'isec,ksec,jsec', 'isec,jsec,ksec', 'isec,ksec,jsec', \
                                'ksec,isec,jsec', 'isec,jsec,ksec', 'ksec,isec,jsec']
 
         label = ''
@@ -1734,8 +1657,8 @@ c       %s
 
             # loop on K12 cts
 
-            # L12_ijjk : 13 -> [Si Sij, Si SCijk, Si SijSCijk, Si Cijk, Si SijCijk, Si SCijkCijk, Si SijSCijkCijk,
-            #                   Cij Sij, Cij Cijk, Cij SijCijk, SiCij Sij, SiCij Cijk, SiCij SijCijk]
+            # L12_ijjk : 8 -> [Si Sij, Si SCijk, Si SijSCijk, Si HCijk, Si SijHCijk,
+            #                  HCij Sij, HCij Cijk, HCij SijCijk]
 
             ct_list = []
             if label == 'ijjk':
@@ -1765,53 +1688,28 @@ c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SS_ij)"""
                                        % ('S_SC', 'S_SC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 3:  # + S_i CC_ijk
+                    elif j == 3:  # + S_i HCC_ijk
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 4:  # - S_i SS_ij CC_ijk
+                    elif j == 4:  # - S_i SS_ij HCC_ijk
                         list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 5:  # - S_i SC_ijk CC_ijk
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 6:  # + S_i SS_ij SC_ijk CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 7:  # + C_ij SS_ij
+                    elif j == 5:  # + HC_ij SS_ij
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_SS', 'HC_SS', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 8:  # + C_ij CC_ijk
+                    elif j == 6:  # + HC_ij CC_ijk
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 9: # - C_ij SS_ij CC_ijk
+                    elif j == 7: # - HC_ij SS_ij CC_ijk
                         list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 10: # - S_i C_ij SS_ij
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_SS', 'HC_SS', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 11: # - S_i C_ij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 12: # + S_i C_ij SS_ij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -1824,8 +1722,8 @@ c       %s
                         list_str_defK12.append(tmp_str)
 
             elif label == 'ijkj':
-                # L12_ijkj : 13 -> [Si Sik, Si SCijk, Si SikSCijk, Si Cijk, Si SikCijk, Si SCijkCijk, Si SikSCijkCijk,
-                #                   Cij SCkij, Cij Cijk, Cij SCkijCijk, SiCij SCkij, SiCij Cijk, SiCij SCkijCijk]
+                # L12_ijkj : 8 -> [Si Sik, Si SCijk, Si SikSCijk, Si HCijk, Si SikHCijk,
+                #                  HCij SCkij, HCij Cijk, HCij SCkijCijk]
                 tmp_str = """
 c       KS_SS  = S_i SS_ik
 c       KS_SC  = S_i SC_ijk (1 - SS_ik)
@@ -1852,53 +1750,28 @@ c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SC_kij)"""
                                        % ('S_SC', 'S_SC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 3:  # + S_i CC_ijk
+                    elif j == 3:  # + S_i HCC_ijk
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 4:  # - S_i SS_ik CC_ijk
+                    elif j == 4:  # - S_i SS_ik HCC_ijk
                         list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 5:  # - S_i SC_ijk CC_ijk
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 6:  # + S_i SS_ik SC_ijk CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('S_CC', 'S_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 7:  # + C_ij SC_kij
+                    elif j == 5:  # + HC_ij SC_kij
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_SC', 'HC_SC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 8:  # + C_ij CC_ijk
+                    elif j == 6:  # + HC_ij CC_ijk
                         list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 9: # - C_ij SC_kij CC_ijk
+                    elif j == 7: # - HC_ij SC_kij CC_ijk
                         list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 10: # - S_i C_ij SC_kij
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_SC', 'HC_SC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 11: # - S_i C_ij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
-                        list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                        os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                    elif j == 12: # + S_i C_ij SC_kij CC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -2024,24 +1897,19 @@ c       %s
                                         'SC_ggq_CC_gqgg', 'SC_gqqx_CC_qqxgg', 'SC_gqqx_CC_qxqgq', \
                                         'S_SS_gg', 'S_SC_ggg', 'S_SC_ggq', 'S_SC_gqqx', \
                                         'S_SS_gg_SC_ggg', 'S_SS_gg_SC_ggq', \
-                                        'C_SC_ggg', 'C_SC_ggq', 'C_SC_gqqx', \
-                                        'C_CC_gggg', 'C_CC_gggq', 'C_CC_ggqqx', 'C_CC_qxqqxq', 'C_CC_gqgq', 'C_CC_gqqxq', \
-                                        'C_CC_gqgg', 'C_CC_qqxgg', 'C_CC_qxqgq', \
-                                        'C_SC_ggg_CC_gggg', 'C_SC_ggq_CC_gggq', 'C_SC_gqqx_CC_ggqqx', 'C_SC_ggq_CC_gqgq', 'C_SC_gqqx_CC_gqqxq', \
-                                        'C_SC_ggq_CC_gqgg', 'C_SC_gqqx_CC_qqxgg', 'C_SC_gqqx_CC_qxqgq', \
-                                        'SC_SC_ggg', 'SC_SC_ggq', 'SC_SC_gqqx', \
-                                        'SC_CC_gggg', 'SC_CC_gggq', 'SC_CC_ggqqx', 'SC_CC_gqgq', 'SC_CC_gqqxq', 'SC_CC_gqgg', \
-                                        'SC_SC_ggg_CC_gggg', 'SC_SC_ggq_CC_gggq', 'SC_SC_gqqx_CC_ggqqx', 'SC_SC_ggq_CC_gqgq', 'SC_SC_gqqx_CC_gqqxq', \
-                                        'SC_SC_ggq_CC_gqgg']
+                                        'HC_SC_ggg', 'HC_SC_ggq', 'HC_SC_gqqx', \
+                                        'HC_CC_gggg', 'HC_CC_gggq', 'HC_CC_ggqqx', 'HC_CC_qxqqxq', 'HC_CC_gqgq', 'HC_CC_gqqxq', \
+                                        'HC_CC_gqgg', 'HC_CC_qqxgg', 'HC_CC_qxqgq', \
+                                        'HC_SC_ggg_CC_gggg', 'HC_SC_ggq_CC_gggq', 'HC_SC_gqqx_CC_ggqqx', 'HC_SC_ggq_CC_gqgq', 'HC_SC_gqqx_CC_gqqxq', \
+                                        'HC_SC_ggq_CC_gqgg', 'HC_SC_gqqx_CC_qqxgg', 'HC_SC_gqqx_CC_qxqgq']
 
         # K2_ijkl  : 9  ->  [Sik, SCikl, SCkij, SikSCikl, SikSCkij, Cijkl, SikCijkl, SCiklCijkl, SCkijCijkl]
-        # K12_ijkl : 9  ->  [Si Sik, Si SCikl, Si SikSCikl, Cij SCkij, Cij Cijkl, Cij SCkijCijkl, SiCij SCkij, SiCij Cijkl, SiCij SCkijCijkl]
+        # K12_ijkl : 6  ->  [Si Sik, Si SCikl, Si SikSCikl, HCij SCkij, HCij Cijkl, HCij SCkijCijkl]
         K1_labels = ['S_i', 'HC_ij']
         K2_labels = ['SS_ik', 'SC_ikl', 'SC_kij', 'SS_ik SC_ikl', 'SS_ik SC_kij', \
                      'CC_ijkl', 'SS_ik CC_ijkl', 'SC_ikl CC_ijkl', 'SC_kij CC_ijkl']
         K12_labels = ['S_i SS_ik', 'S_i SC_ikl', 'S_i SS_ik SC_ikl', \
-                      'C_ij SC_kij', 'C_ij CC_ijkl', 'C_ij SC_kij CC_ijkl', \
-                      'S_i C_ij SC_kij', 'S_i C_ij CC_ijkl', 'S_i C_ij SC_kij CC_ijkl']
+                      'HC_ij SC_kij', 'HC_ij CC_ijkl', 'HC_ij SC_kij CC_ijkl']
 
         # Rule
         # CC_ijkl        -> isec,jsec,ksec,lsec
@@ -2052,8 +1920,7 @@ c       %s
         K2_4p_indices = ['isec,ksec', 'isec,ksec,lsec', 'ksec,isec,jsec', 'isec,ksec,lsec', 'ksec,isec,jsec', \
                          'isec,jsec,ksec,lsec', 'isec,jsec,ksec,lsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec']
         K12_4p_indices = ['isec,ksec', 'isec,ksec,lsec', 'isec,ksec,lsec', \
-                          'ksec,isec,jsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec', \
-                          'ksec,isec,jsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec' ]
+                          'ksec,isec,jsec', 'isec,jsec,ksec,lsec', 'ksec,lsec,isec,jsec']
 
         for i in range(0,len(all_4p_sector_list)):
             list_str_defK1 = []
@@ -2290,7 +2157,7 @@ c       %s
                     list_str_defK2.append(tmp_str)
 
             # Loop on K12 cts
-            # K12_ijkl : 9  ->  [Si Sik, Si SCikl, Si SikSCikl, Cij SCkij, Cij Cijkl, Cij SCkijCijkl, SiCij SCkij, SiCij Cijkl, SiCij SCkijCijkl]
+            # K12_ijkl : 6  ->  [Si Sik, Si SCikl, Si SikSCikl, HCij SCkij, HCij Cijkl, HCij SCkijCijkl]
             ct_list = []
             tmp_str = """
 c       KS_SS  = S_i SS_ik
@@ -2318,33 +2185,18 @@ c       KHC_CC = C_ij (1-S_i) CC_ijkl (1 - SC_kij)"""
                                        % ('S_SC', 'S_SC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 3:  # + C_ij SC_kij
+                elif j == 3:  # + HC_ij SC_kij
                     list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_SC', 'HC_SC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 4:  # + C_ij CC_ijkl
+                elif j == 4:  # + HC_ij CC_ijkl
                     list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 5:  # - C_ij SC_kij CC_ijkl
+                elif j == 5:  # - HC_ij SC_kij CC_ijkl
                     list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 6:  # - S_i C_ij SC_kij
-                    list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_SC', 'HC_SC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 7:  # - S_i C_ij CC_ijkl
-                    list_str_M2_K12.append('K%s=K%s-M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
-                                       % ('HC_CC', 'HC_CC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
-                    list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
-                    os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-                elif j == 8:  # + S_i C_ij SC_kij CC_ijkl
-                    list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('HC_CC', 'HC_CC', all_4p_K12_ct[i][j], K12_4p_indices[j]))
                     list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                     os.system('cat ' + NNLO_IR_limits_tmp_path + all_4p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')

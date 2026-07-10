@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SS_GGQ_HCC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SS_GG_HCC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) S(i,j) C(i,j,k) * (1 - SC(i,j,k)) * WS_SS_HCC
 c     where  i, j is a g-g pair while k is a q (or qb)
       use sectors4_module
@@ -51,20 +51,20 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
-      M2_S_SS_ggq_HCC_ggq=0d0
+      M2_S_SS_gg_HCC_ggq=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology
       if(bsec.ne.csec.and.bsec.ne.dsec) then
-        write (*,*) 'Wrong topology in M2_S_SS_ggq_HCC_ggq',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_S_SS_gg_HCC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
       if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_S_SS_ggq_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_S_SS_gg_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -93,7 +93,7 @@ c     Global Eikonals
 c
 c     safety check
       if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_S_SS_ggq_HCC_ggq',sij,sik,sjk
+        write(77,*)'Inaccuracy 1 in M2_S_SS_gg_HCC_ggq',sij,sik,sjk
         goto 999
       endif
 c
@@ -109,7 +109,7 @@ c     mapping 1: [ijr,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -147,7 +147,7 @@ c     mapping 3: [irj,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -185,7 +185,7 @@ c     mapping 5: [ikr,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -223,7 +223,7 @@ c     mapping 7: [irk,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -261,7 +261,7 @@ c     mapping 9: [ijk,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -286,7 +286,7 @@ c     mapping 10: [ikj,jkr]
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-        write(77,*)'Inaccuracy 2 in M2_S_SS_ggq_HCC_ggq',sbjk,sbjr,sbkr
+        write(77,*)'Inaccuracy 2 in M2_S_SS_gg_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
 c
@@ -309,19 +309,19 @@ c     soft double-soft double-hardcollinear kernel, eq. (C.31)
       M2tmp = M2tmp + CA*Ei_jk*(Ebj_kr_ijk*BLO_ijk_jkr + Ebj_kr_ikj*BLO_ikj_jkr)
       M2tmp = CF*M2tmp*pref*ws_ss_hcc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2_S_SS_ggq_HCC_ggq = M2tmp
+      M2_S_SS_gg_HCC_ggq = M2tmp
 c
-      if(test_sector_function) M2_S_SS_ggq_HCC_ggq = ws_ss_hcc_nnlo
+      if(test_sector_function) M2_S_SS_gg_HCC_ggq = ws_ss_hcc_nnlo
 c
 c     plot
-      wgtpl=+M2_S_SS_ggq_HCC_ggq*wgt/nit*wgt_chan
+      wgtpl=+M2_S_SS_gg_HCC_ggq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_S_SS_ggq_HCC_ggq).ge.huge(1d0).or.isnan(M2_S_SS_ggq_HCC_ggq))then
-         write(77,*)'Exception caught in M2_S_SS_ggq_HCC_ggq',M2_S_SS_ggq_HCC_ggq
+      if(abs(M2_S_SS_gg_HCC_ggq).ge.huge(1d0).or.isnan(M2_S_SS_gg_HCC_ggq))then
+         write(77,*)'Exception caught in M2_S_SS_gg_HCC_ggq',M2_S_SS_gg_HCC_ggq
          goto 999
       endif
 c

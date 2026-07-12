@@ -105,6 +105,9 @@ c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -143,6 +146,9 @@ c     mapping 3: [irj,jkr]
       call phase_space_CS_inv(i,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -181,6 +187,9 @@ c     mapping 5: [ikr,jkr]
       call phase_space_CS_inv(i,k,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -219,6 +228,9 @@ c     mapping 7: [irk,jkr]
       call phase_space_CS_inv(i,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -257,6 +269,9 @@ c     mapping 9: [ijk,jkr]
       call phase_space_CS_inv(i,j,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -282,6 +297,9 @@ c     mapping 10: [ikj,jkr]
       call phase_space_CS_inv(i,k,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -304,7 +322,7 @@ c     call Born matrix element
       BLO_ikj_jkr = ans(0)
 c
 c     soft double-soft double-hardcollinear kernel, eq. (C.31)
-      M2tmp = CA*Ei_jr*(Ebj_kr_ijr*(BLO_irj_jkr-BLO_ijr_krj)+Ebj_kr_irj*(BLO_irj_jkr-BLO_irj_krj))
+      M2tmp = CA*Ei_jr*(Ebj_kr_ijr*(BLO_ijr_jkr-BLO_ijr_krj)+Ebj_kr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)*Ei_kr*(Ebj_kr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Ebj_kr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp + CA*Ei_jk*(Ebj_kr_ijk*BLO_ijk_jkr + Ebj_kr_ikj*BLO_ikj_jkr)
       M2tmp = CF*M2tmp*pref*ws_ss_hcc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj

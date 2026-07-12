@@ -102,15 +102,14 @@ c
 c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
-      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)!TODO: check map1 and map2 and position of wcbar_nlo because of xsb
-      map2=real_mapped_labels(dsec)
-      call get_wcbar_nlo(map1,map2,rb)
 c
 c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -121,6 +120,11 @@ c     mapping 1: [ijr,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_ijr = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(kb,jb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -150,6 +154,9 @@ c     mapping 3: [irj,jkr]
       call phase_space_CS_inv(i,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -160,6 +167,11 @@ c     mapping 3: [irj,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_irj = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -189,6 +201,9 @@ c     mapping 5: [ikr,jkr]
       call phase_space_CS_inv(i,k,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -199,6 +214,11 @@ c     mapping 5: [ikr,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_ikr = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -228,6 +248,9 @@ c     mapping 7: [irk,jkr]
       call phase_space_CS_inv(i,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -238,6 +261,11 @@ c     mapping 7: [irk,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_irk = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -267,6 +295,9 @@ c     mapping 9: [ijk,jkr]
       call phase_space_CS_inv(i,j,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -277,6 +308,11 @@ c     mapping 9: [ijk,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_ijk = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -293,6 +329,9 @@ c     mapping 10: [ikj,jkr]
       call phase_space_CS_inv(i,k,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+      jb = real_sc_mapped_labels(j)
+      kb = real_sc_mapped_labels(k)
+      rb = real_sc_mapped_labels(r)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -303,6 +342,11 @@ c     mapping 10: [ikj,jkr]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
       Pb_jkr_ikj = CF*(2d0*zbk/zbj+zbj)/sbjk
+c
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_mapped_labels(csec)
+      map2=real_mapped_labels(dsec)
+      call get_wcbar_nlo(map1,map2,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999

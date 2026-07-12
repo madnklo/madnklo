@@ -105,7 +105,7 @@ c     invariant quantities
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_C_SS_GG',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_SS_GG',sab,sar+sbr,x
          goto 999
       endif
 c
@@ -122,6 +122,10 @@ c     overall kernel prefix
       pref = -64d0*pi**2*alphas**2
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
+c
+c     compute wc_nlo
+      call get_sig2(xs,alpha_mod,nexternal)
+      call get_wc_nlo(ia,ib,ksec,ir)
 c
 c     Eikonal double sum starts here
 c
@@ -166,7 +170,7 @@ c     (c,d) in the paper --> (m,l)
 c
 c     safety check
             if(sab.le.0d0.or.sbjl.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0)then
-               write(77,*)'Inaccuracy 2 in M2_HC_SS_gg',sab, sbjl, sbjm, kt2
+               write(77,*)'Inaccuracy 2 in M2_C_SS_gg',sab, sbjl, sbjm, kt2
                goto 999
             endif
 c
@@ -182,20 +186,18 @@ c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Qij = -2d0*CA*zi*zj
             Ebjlm = sblm/sbjl/sbjm
             M2tmp = Pij*Ebjlm + Qij*(2d0*(ktkm/sbjm-ktkl/sbjl)**2/kt2-(kmkm/sbjm**2-2d0*kmkl/sbjm/sbjl+klkl/sbjl**2))
-            M2tmp = M2tmp/sab*ccBLO
+            M2tmp = M2tmp + M2tmp/sab*ccBLO
 c
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
-            call get_sig2(xs,alpha_mod,nexternal)
-            call get_wc_nlo(ia,ib,ksec,ir)
             call get_sig2(xsb,alpha_mod_bar,nexternal-1)
             map1=real_mapped_labels(csec)
             map2=real_mapped_labels(dsec)
             call get_wsbar_nlo(map1,map2)
-            M2tmp=M2tmp*wc_nlo*wsbar_nlo
+            M2_C_SS_gg=M2tmp*wc_nlo*wsbar_nlo
 c
 c     soft-collinear double-soft kernel, eq. (C.37) of 2212.11190v2
             Ei_jr = sbr/sab/sbr
-            M2_SC_SS_gg = -2d0*CA*Ei_jr*Ebjlm*ccBLO
+            M2tmp = -2d0*CA*Ei_jr*Ebjlm*ccBLO
 c
 c     Include soft-collinear double-soft sector functions, eq. (C.81) of 2212.11190v2
             call get_sig2(xsb,alpha_mod_bar,nexternal-1)

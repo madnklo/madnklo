@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SS_gg(i,j,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SS_gg(i,j,r,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     S(i) S(i,j) kernel times sector function
       use sectors4_module
       implicit none

@@ -130,9 +130,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     continue
 # gl
                 # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                if i['id'] == 21 and j['id'] == 21 and j['state']:
-                    if j.get('number') < i.get('number') :
-                        continue
+                #if i['id'] == 21 and j['id'] == 21 and j['state']:
+                #    if j.get('number') < i.get('number') :
+                #        continue
 
                 # if j and i are quarks and antiquark in the final state, let j be the quark
                 #   this is needed in order to comply with the fct combine_ij inside fks_common
@@ -352,9 +352,9 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                     continue
 # gl
                 # if both i and j are gluons, then keep just the case in which i (number) < j (number)
-                if i['id'] == 21 and j['id'] == 21 and j['state']:
-                    if j.get('number') < i.get('number') :
-                        continue
+                #if i['id'] == 21 and j['id'] == 21 and j['state']:
+                #    if j.get('number') < i.get('number') :
+                #        continue
 
                 # if j and i are quarks and antiquark in the final state, let j be the quark
                 #   this is needed in order to comply with the fct combine_ij inside fks_common
@@ -478,7 +478,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                                 a_sector['recoiler'] = None
                                 # GB: TO BE IMPLEMENTED recoielr choice
                                 #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
-                                all_4p_sector_recoilers.append(0)
+                                #all_4p_sector_recoilers.append(0)
 
                                 all_sector_legs.append(k.get('number'))
                                 all_sector_legs.append(l.get('number'))
@@ -504,6 +504,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                             'recoiler' : None
                             }
                             a_4p_sector['sector'] = sectors.Sector(leg_numbers=(i.get('number'),j.get('number'),k.get('number'),l.get('number')))
+                            all_4p_sector_recoilers.append(0)
                             #a_sector['recoiler'] = recoiler_function.get_recoiler(defining_process,(i.get('number'),j.get('number')))
                             #all_3p_sector_recoilers.append(a_sector['recoiler'].get('number'))
                             # keep track of the masses
@@ -527,6 +528,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         print('4p sectors    : ' + str(fourp_sectors))
         print('4p sectors id : ' + str(fourp_sectors_id))
+        #print('4p recoilers  : ' + str(all_4p_sector_recoilers))
 
 
         # Now for each sector we need to find the corresponding counterterms
@@ -1202,7 +1204,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         all_4p_sector_list = reduced_all_4p_sectors
 
-        ### SECTOR FILTERING PROCEDURE
+       ################ SECTOR FILTERING PROCEDURE ################################
 	    # Return filtered lists of 3p & 4p sectors
         filtered_3p, filtered_4p = self.get_sector_filtering( \
             all_3p_sector_list, all_3p_sector_id_list, all_3p_sector_recoilers, \
@@ -1220,7 +1222,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         all_4p_K1_ct, all_4p_K2_ct, all_4p_K12_ct,\
         uB_all_4p_K1_ct, uB_all_4p_K2_ct, _, _, _ = self.unpack_dict(filtered_4p)
 
-	### SECTOR FILTERING PROCEDURE
+	################ SECTOR FILTERING PROCEDURE ################################
 
 ######### Set writer
         writer = writers.FortranWriter
@@ -2339,9 +2341,10 @@ c       %s
         #     3. Build CT identifier tuples ('K*, particles, label')
         #     4. Filter: keep sectors with at least one new CT tuple
         #     5. Ensure soft-limit factorisation -> adjust sector list
-        #     6. Return (filtered_3p, filtered_4p)
+        #     6. Check that g1g2xy & g2g1xy are always both included
+        #     7. Return (filtered_3p, filtered_4p)
 
-        # Step 1: build sector dictionaries
+        ### Step 1: build sector dictionaries
         sectors_3p = self.build_dict('3p', sector_list_3p, sector_id_list_3p, sector_recoilers_list_3p,
             K1_ct_list_3p, K2_ct_list_3p, K12_ct_list_3p,
             uB_K1_3p, uB_K2_3p, order_leg_K1_3p, order_leg_K2_3p, order_leg_K12_3p)
@@ -2349,14 +2352,14 @@ c       %s
             K1_ct_list_4p, K2_ct_list_4p, K12_ct_list_4p,
             uB_K1_4p, uB_K2_4p, order_leg_K1_4p, order_leg_K2_4p, order_leg_K12_4p)
 
-        # Step 2: sort by the # of cts
+        ### Step 2: sort by the # of cts
         def count_ct(s):
             return sum(1 for label in s['K1'] + s['K2'] + s['K12'] if label != 0)
 
         sorted_sectors = sectors_3p + sectors_4p
         sorted_sectors.sort(key=count_ct, reverse=True)
 
-        # Step 3: build ct-identifier tuples
+        ### Step 3: build ct-identifier tuples
         cts = []
         seen_cts = set()
         filtered_all = []
@@ -2383,7 +2386,7 @@ c       %s
                         print('Empty leg list for K12 ct:' + str(label))
                         return
 
-        # Step 4: filter keeping sectors with at least one nee ct tuple
+        ### Step 4: filter keeping sectors with at least one new ct tuple
             is_redundant = all(item in seen_cts for item in cts)
 
             if not is_redundant:
@@ -2395,7 +2398,7 @@ c       %s
                 removed_all.append(s)
                 print('Removed sector  : ' + str(s['original_pos']))
 
-        # Step 5: implement single-soft limit factorisation
+        ### Step 5: implement single-soft limit factorisation
         if any(s['original_pdg'][0] == 21 for s in filtered_all):
 
             # Build lookup: pos tuple -> sector dict, for fast recovery from removed
@@ -2431,7 +2434,31 @@ c       %s
 
             filtered_all = filtered_all + recovered
 
-        # Step 6: return final filtered sector list
+        ### Step 6: check the presence of g1g2xy & g2g1xy to tame spurious singularities
+        #           Specifically, g1g2g2x - g2g1g1x
+        #           Specifically, g1g2xg2 - g2g1xg1
+        #           Specifically, g1g2xy - g2g1xy
+
+        final_pos_set = {tuple(s['original_pos']) for s in filtered_all}
+        swap_ok = True
+
+        for s in filtered_all:
+            pos = s['original_pos']
+            pdg = s['original_pdg']
+    
+            # Check if two particles are both gluons
+            if len(pdg) >= 2 and pdg[0] == 21 and pdg[1] == 21:
+                g1, g2 = pos[0], pos[1]
+
+                swapped_pos = tuple(self.swap_idx(idx,g1,g2) for idx in pos)
+
+                if swapped_pos not in final_pos_set:
+                    print('SYMMETRY VIOLATION: sector ' + str(tuple(pos)) +
+                        ' present but swapped counterpart ' + str(swapped_pos) + ' missing')
+                    raise RuntimeError('[sectors_for_RR]: Gluon swap symmetry violated in filtered sector list')
+
+
+        ### Step 7: return final filtered sector list
         filtered_3p = [s for s in filtered_all if s['type'] == '3p']
         filtered_4p = [s for s in filtered_all if s['type'] == '4p']
 
@@ -2476,6 +2503,14 @@ c       %s
             [s['order_leg_K2']     for s in sectors],
             [s['order_leg_K12']    for s in sectors]
         )
+    
+    def swap_idx(self,idx,g1,g2):
+        if idx == g1:
+            return g2
+        elif idx == g2:
+            return g1
+        else:
+            return idx
 
 
     #===========================================================================

@@ -24,8 +24,8 @@ c     where  i, j are a g-g pair
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2),kt(0:3),kt2
-      double precision sab,sar,sbr,wa,wb,wr,x
-      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm,kmkl,kmkm,klkl,Ei_jr
+      double precision sab,sar,sbr,zi,zj,wa,wb,wr,x
+      double precision sblm,sbjl,sbjm,Ebjlm,ktkl,ktkm,kmkl,kmkm,klkl,Ei_jr,pij,qij
       double precision dot
       logical flavourmatch
       logical isNLOmappedQCDparton(nexternal-1)
@@ -42,7 +42,6 @@ c     external
       integer get_color_dipole_index
       external get_color_dipole_index
       double precision alphas,ans(0:NSQSO_BORN)
-      double precision pij,qij,sij,zi,zj
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
       double precision   %(proc_prefix_Born)s_GET_CCBLO
@@ -102,6 +101,8 @@ c     invariant quantities
       sar=xs(ia,ir)
       sbr=xs(ib,ir)
       x=sar/(sar+sbr)
+      zi=sar/(sar+sbr)
+      zj=1d0-zi
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then

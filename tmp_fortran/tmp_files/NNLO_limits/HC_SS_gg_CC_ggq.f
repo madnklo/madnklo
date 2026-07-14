@@ -139,7 +139,8 @@ c     Including correct multiplicity factor
       M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*%(proc_prefix_rr)s_fl_factor
       M2_HC_SS_gg_CC_ggq=M2_HC_SS_gg_CC_ggq*pref*xj*extra
-      if(test_sector_function) M2_HC_SS_gg_CC_ggq = wc_nlo
+c
+      if(test_sector_function) M2_HC_SS_gg_CC_ggq = wc_nlo-1d0
 c
 c     plot
       wgtpl=-M2_HC_SS_gg_CC_ggq*wgt/nit*wgt_chan

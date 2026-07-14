@@ -157,6 +157,7 @@ c     include correct multiplicity and flavour factors
       M2_HC_CC_ggq = M2_HC_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_HC_CC_ggq = M2_HC_CC_ggq*%(proc_prefix_rr)s_fl_factor
       M2_HC_CC_ggq = M2_HC_CC_ggq*pref*xj*extra
+c
       if(test_sector_function) M2_HC_CC_ggq = wc_nlo*wcbar_nlo - wcbar_nlo
 c
 c     plot

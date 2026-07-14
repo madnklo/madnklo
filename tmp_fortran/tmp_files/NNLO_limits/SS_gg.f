@@ -175,6 +175,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_SS_gg = M2_SS_gg * %(proc_prefix_rr)s_fl_factor
+c
       if(test_sector_function) M2_SS_gg = wss_nnlo
 c
 c     sanity check

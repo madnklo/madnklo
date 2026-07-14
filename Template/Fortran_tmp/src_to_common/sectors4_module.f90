@@ -3,7 +3,7 @@ module sectors4_module
   integer, public :: n_ext
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
-  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLOO
+  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO, WS12_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: w,sig2,hatsig2

@@ -228,6 +228,7 @@ c
 c
 c     apply flavour factor
       M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
+c
       if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
 c
 c     sanity check

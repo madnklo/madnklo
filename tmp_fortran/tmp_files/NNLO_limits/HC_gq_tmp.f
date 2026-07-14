@@ -1,5 +1,5 @@
 
-      double precision function M2_HC_gg(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_gq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       use sectors4_module
       implicit none
@@ -12,7 +12,7 @@ c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2_SC_gg,M2_C_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
+      double precision pref,M2_SC_gq,M2_C_gq,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision RNLO,KKRNLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -49,19 +49,19 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
-      M2_HC_gg=0d0
-      M2_SC_gg=0d0
-      M2_C_gg=0d0
+      M2_HC_gq=0d0
+      M2_SC_gq=0d0
+      M2_C_gq=0d0
       ierr=0
       damp=0d0
 c
 c     checks
-      if(.not.(leg_pdgs(ia).eq.21.and.leg_pdgs(ib).eq.21))then
-         write(*,*)'Wrong pdgs in M2_HC_gg',leg_pdgs(ia),leg_pdgs(ib)
+      if(.not.(leg_pdgs(ia).eq.21.and.leg_pdgs(ib).ne.21))then
+         write(*,*)'Wrong pdgs in M2_HC_gq',leg_pdgs(ia),leg_pdgs(ib)
          stop
       endif
       if(.not.(ia.eq.isec.and.ib.eq.jsec))then
-         write(*,*)'Wrong indices in M2_HC_gg',ia,ib,isec,jsec
+         write(*,*)'Wrong indices in M2_HC_gq',ia,ib,isec,jsec
          stop
       endif
 c
@@ -89,7 +89,7 @@ c     kt = wa pa + wb pb + wr pr
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_HC_gg',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_gq',sab,sar+sbr,x
          goto 999
       endif
 c
@@ -100,15 +100,15 @@ c
       parent_leg = real_mapped_labels(ib)
       KKRNLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
-      M2_C_gg=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
-      M2_SC_gg=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
+      M2_C_gq=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
+      M2_SC_gq=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
 c
 c     compute soft-collinear limit of sector function
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)
-      M2_SC_gg=M2_SC_gg*wbar_nlo
+      M2_SC_gq=M2_SC_gq*wbar_nlo
 c
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
@@ -117,7 +117,7 @@ c     compute collinear limit of sector function
       map1=real_mapped_labels(csec)
       map2=real_mapped_labels(dsec)
       call get_wbar_nlo(map1,map2)
-      M2_C_gg=M2_C_gg*wc_nlo*wbar_nlo
+      M2_C_gq=M2_C_gq*wc_nlo*wbar_nlo
 c
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then
@@ -126,21 +126,20 @@ c     account for different damping factors according to recoiler position (ir)
          damp=xinit**beta_FI
       endif
 c
-      M2_HC_gg = M2_C_gg-M2_SC_gg
+      M2_HC_gq = M2_C_gq-M2_SC_gq
 c     include prefactors
-      M2_HC_gg = M2_HC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
-c
-      if(test_sector_function) M2_HC_gg = (wc_nlo-1d0)*wbar_nlo
+      M2_HC_gq = M2_HC_gq*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+      if(test_sector_function) M2_HC_gq = (wc_nlo-1d0)*wbar_nlo
 c
 c     plot
-      wgtpl=-M2_HC_gg*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_gq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpb,xsb,nexternal-1,real_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpb,xsb,nexternal-1,real_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_HC_gg).ge.huge(1d0).or.isnan(M2_HC_gg))then
-         write(77,*)'Exception caught in M2_HC_gg',M2_HC_gg
+      if(abs(M2_HC_gq).ge.huge(1d0).or.isnan(M2_HC_gq))then
+         write(77,*)'Exception caught in M2_HC_gq',M2_HC_gq
          goto 999
       endif
 c

@@ -162,6 +162,7 @@ c
 c
 c     apply flavour factor
       M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
+c
       if(test_sector_function) M2_S_g = ws_nlo*wbar_nlo
 c
 c     sanity check

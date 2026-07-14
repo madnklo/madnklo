@@ -101,7 +101,7 @@ c     safety check
 c
 c     soft double-soft double-hardcollinear sector function, (C.76-77) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
+      call get_ws12_nlo(asec,bsec,csec,dsec)
 c
 c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -327,11 +327,11 @@ c     soft double-soft double-hardcollinear kernel, eq. (C.31)
       M2tmp = CA*Ei_jr*(Ebj_kr_ijr*(BLO_ijr_jkr-BLO_ijr_krj)+Ebj_kr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)*Ei_kr*(Ebj_kr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Ebj_kr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp + CA*Ei_jk*(Ebj_kr_ijk*BLO_ijk_jkr + Ebj_kr_ikj*BLO_ikj_jkr)
-      M2tmp = CF*M2tmp*pref*ws_ss_hcc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj
+      M2tmp = CF*M2tmp*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_SS_gg_HCC_ggq = M2tmp
 c
-      if(test_sector_function) M2_S_SS_gg_HCC_ggq = ws_ss_hcc_nnlo
+      if(test_sector_function) M2_S_SS_gg_HCC_ggq = ws12_nlo
 c
 c     plot
       wgtpl=+M2_S_SS_gg_HCC_ggq*wgt/nit*wgt_chan

@@ -103,7 +103,7 @@ c     safety check
 c
 c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_ws_ss_hcc_nnlo(asec,bsec,csec,dsec)
+      call get_ws12_nlo(asec,bsec,csec,dsec)
 c
 c     mapping 1: [ijr,jkr]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -137,7 +137,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ijr_jkr = ans(0)
+      BLO_ijr_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 2: [ijr,krj]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -150,7 +150,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ijr_krj = ans(0)
+      BLO_ijr_krj = ans(0)*wcbar_nlo
 c
 c     mapping 3: [irj,jkr]
       call phase_space_CS_inv(i,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -184,7 +184,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_irj_jkr = ans(0)
+      BLO_irj_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 4: [irj,krj]
       call phase_space_CS_inv(i,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -197,7 +197,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_irj_krj = ans(0)
+      BLO_irj_krj = ans(0)*wcbar_nlo
 c
 c     mapping 5: [ikr,jkr]
       call phase_space_CS_inv(i,k,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -231,7 +231,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ikr_jkr = ans(0)
+      BLO_ikr_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 6: [ikr,jrk]
       call phase_space_CS_inv(i,k,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -244,7 +244,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ikr_jrk = ans(0)
+      BLO_ikr_jrk = ans(0)*wcbar_nlo
 c
 c     mapping 7: [irk,jkr]
       call phase_space_CS_inv(i,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -278,7 +278,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_irk_jkr = ans(0)
+      BLO_irk_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 8: [irk,jrk]
       call phase_space_CS_inv(i,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -291,7 +291,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_irk_jrk = ans(0)
+      BLO_irk_jrk = ans(0)*wcbar_nlo
 c
 c     mapping 9: [ijk,jkr]
       call phase_space_CS_inv(i,j,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -325,7 +325,7 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ijk_jkr = ans(0)
+      BLO_ijk_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 10: [ikj,jkr]
       call phase_space_CS_inv(i,k,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_mapped_labels)
@@ -359,17 +359,17 @@ c     possible cuts
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO_ikj_jkr = ans(0)
+      BLO_ikj_jkr = ans(0)*wcbar_nlo
 c
 c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
       M2tmp = CA/CF*Ei_jr*(Pb_jkr_ijr*(BLO_ijr_jkr-BLO_ijr_krj)+Pb_jkr_irj*(BLO_irj_jkr-BLO_irj_krj))
       M2tmp = M2tmp + (2d0*CF-CA)/CF*Ei_kr*(Pb_jkr_ikr*(BLO_ikr_jkr-BLO_ikr_jrk)+Pb_jkr_irk*(BLO_irk_jkr-BLO_irk_jrk))
       M2tmp = M2tmp - (-CA/CF)*Ei_jk*(Pb_jkr_ijk*BLO_ijk_jkr + Pb_jkr_ikj*BLO_ikj_jkr)
-      M2tmp = CF/2d0*M2tmp*pref*ws_ss_hcc_nnlo*wcbar_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
+      M2tmp = CF/2d0*M2tmp*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_HCC_ggq = M2tmp
 c
-      if(test_sector_function) M2_S_HCC_ggq = ws_ss_hcc_nnlo*wcbar_nlo
+      if(test_sector_function) M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
 c
 c     plot
       wgtpl=+M2_S_HCC_ggq*wgt/nit*wgt_chan

@@ -1,5 +1,5 @@
 
-      double precision function M2_C_SS_qqx_CC_qxqqp(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SS_qqx_CC_qxqq(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C_(i,j) S(i,j) C(i,j,k) kernel times WSS_C_CC: i, j are a q-qb pair with same flavour
 c     while k is a q (or qb) with any flavour
       use sectors4_module
@@ -14,7 +14,7 @@ c     while k is a q (or qb) with any flavour
       include 'run.inc'
       integer i,j,k,r,ierr,nit
       integer jb,kb,rb
-      double precision pref,m2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO
@@ -29,8 +29,8 @@ c     while k is a q (or qb) with any flavour
       double precision Pij,Qij,Eb_jkr
       integer, parameter :: hel = - 1
       logical flavourmatch
-      double precision alphas,alpha_qcd
 c     set logical doplot
+      double precision alphas,alpha_qcd
       logical doplot
       common/cdoplot/doplot
       double precision sCM
@@ -55,25 +55,25 @@ c     set logical doplot
       common/ctestsecfun/test_sector_function
 c
 c     initialise
-      M2_C_SS_qqx_CC_qxqqp=0d0
+      M2_HC_SS_qqx_CC_qxqq=0d0
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology (only appears in ijjk)
+c     check sector topology(only appears in ijjk)
       if(bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_C_SS_qqx_CC_qxqqp',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_SS_qqx_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = leg_PDGs(i).eq.-leg_PDGs(j).and.abs(leg_PDGs(i)).le.5.and.abs(leg_PDGs(k)).le.5
       if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_C_SS_qqx_CC_qxqqp', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_HC_SS_qqx_CC_qxqq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
 c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,2))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -86,7 +86,7 @@ c     invariant quantities
 c
 c     safety checks
       if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in M2_C_SS_qqx_CC_qxqqp',sij,sir,sjr
+        write(77,*)'Inaccuracy 1 in m2_hc_ss_qqx_cc_qxqq',sij,sir,sjr
         goto 999
       endif
       zi = sir/(sir+sjr)
@@ -98,7 +98,7 @@ c     safety checks
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-         write(77,*)'Inaccuracy 2 in M2_C_SS_qqx_CC_qxqqp',sbjk,sbjr,sbkr
+         write(77,*)'Inaccuracy 2 in m2_hc_ss_qqx_cc_qxqq',sbjk,sbjr,sbkr
          goto 999
       endif
       zbj = sbjr/(sbjr+sbkr)
@@ -125,23 +125,23 @@ c
 c     compute soft-collinear double-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
-      M2TMP=M2TMP*wc_nlo
+      M2tmp=M2tmp*wc_nlo
 c
 c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_C_SS_qqx_CC_qxqqp=M2tmp*pref*xj*extra
-      if(test_sector_function) M2_C_SS_qqx_CC_qxqqp = wc_nlo
+      M2_HC_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra
+      if(test_sector_function) M2_HC_SS_qqx_CC_qxqq = wc_nlo
 c
 c     plot
-      wgtpl=-M2_C_SS_qqx_CC_qxqqp*wgt/nit*wgt_chan
+      wgtpl=-M2_HC_SS_qqx_CC_qxqq*wgt/nit*wgt_chan
       wgts=wgtpl
 c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
 c
 c     sanity check
-      if(abs(M2_C_SS_qqx_CC_qxqqp).ge.huge(1d0).or.isnan(M2_C_SS_qqx_CC_qxqqp)) then
-         write(77,*)'Exception caught in M2_C_SS_qqx_CC_qxqqp', M2_C_SS_qqx_CC_qxqqp
+      if(abs(M2_HC_SS_qqx_CC_qxqq).ge.huge(1d0).or.isnan(M2_HC_SS_qqx_CC_qxqq))then
+         write(77,*)'Exception caught in M2_HC_SS_qqx_CC_qxqq', M2_HC_SS_qqx_CC_qxqq
          goto 999
       endif
 c

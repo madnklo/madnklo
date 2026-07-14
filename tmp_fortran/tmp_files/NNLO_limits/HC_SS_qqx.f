@@ -1,5 +1,5 @@
 
-      double precision function M2_C_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SS_QQX(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       use sectors4_module
       implicit none
@@ -66,20 +66,20 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       include 'pmass.inc'
 c
 c     initialise
-      M2_C_SS_QQX=0d0
+      M2_HC_SS_QQX=0d0
       M2tmp=0d0
       ierr=0
 c
 c     check sector topology (only appears in ijjk)
       if(bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_C_SS_qqx',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_SS_qqx',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = (leg_PDGs(ia).eq.-leg_PDGs(ib)).and.(abs(leg_PDGs(ia)).le.5)
       if(.not.(flavourmatch))then
-       write(*,*) 'Flavour mismatch in M2_C_SS_qqx', leg_PDGs(ia),leg_PDGs(ib)
+       write(*,*) 'Flavour mismatch in M2_HC_SS_qqx', leg_PDGs(ia),leg_PDGs(ib)
        stop 1
       endif
 c
@@ -102,7 +102,7 @@ c     invariant quantities
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_C_SS_QQX',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',sab,sar+sbr,x
          goto 999
       endif
 c
@@ -133,11 +133,11 @@ c
 c
 c        check labels and pdgs
             if(.not.(isLOmappedQCDparton(lbb).and.isLOmappedQCDparton(mbb)))then
-               write(*,*)'Wrong indices 1 in M2_C_SS_qqx',lbb,mbb
+               write(*,*)'Wrong indices 1 in M2_HC_SS_qqx',lbb,mbb
                stop
             endif
             if(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb)) then
-               write(*,*)'Wrong indices 2 in M2_C_SS_qqx',lb,mb,lbb,mbb
+               write(*,*)'Wrong indices 2 in M2_HC_SS_qqx',lb,mb,lbb,mbb
                stop
             endif
 c
@@ -163,7 +163,7 @@ c     (c,d) in the paper --> (m,l)
 c
 c     safety check
             if(sab.le.0d0.or.sbjl.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0)then
-               write(77,*)'Inaccuracy 2 in M2_C_SS_qqx',sab, sbjl, sbjm, kt2
+               write(77,*)'Inaccuracy 2 in M2_HC_SS_qqx',sab, sbjl, sbjm, kt2
                goto 999
             endif
 c
@@ -188,7 +188,7 @@ c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             damp=1d0
             M2tmp=M2tmp*damp*xj
-            M2_C_SS_qqx=M2_C_SS_qqx+pref*M2tmp*extra
+            M2_HC_SS_qqx=M2_HC_SS_qqx+pref*M2tmp*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*extra*wgt/nit*wgt_chan
@@ -202,12 +202,12 @@ c
 c     Double sum ends here
 c
 c     apply flavour factor
-      M2_C_SS_qqx = M2_C_SS_qqx * %(proc_prefix_rr)s_fl_factor
-      if(test_sector_function) M2_C_SS_qqx = wc_nlo*wsbar_nlo
+      M2_HC_SS_qqx = M2_HC_SS_qqx * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function) M2_HC_SS_qqx = wc_nlo*wsbar_nlo
 c
 c     sanity check
-      if(abs(M2_C_SS_qqx).ge.huge(1d0).or.isnan(M2_C_SS_qqx))then
-         write(77,*)'Exception caught in M2_C_SS_qqx',M2_C_SS_qqx
+      if(abs(M2_HC_SS_qqx).ge.huge(1d0).or.isnan(M2_HC_SS_qqx))then
+         write(77,*)'Exception caught in M2_HC_SS_qqx',M2_HC_SS_qqx
          goto 999
       endif
 c

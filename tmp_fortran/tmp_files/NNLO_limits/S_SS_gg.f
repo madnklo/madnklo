@@ -147,7 +147,7 @@ c     call colour-connected Born matrix element
          ccBLO_imj_jml = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
 c
 c     eikonal (c,d) -> (m,l) eq. (C.26)
-            M2tmp = M2tmp - 2*CA*Ei_jm*Eb_jlm*ccBLO_imj_jml
+            M2tmp = M2tmp - 2d0*CA*Ei_jm*Eb_jlm*ccBLO_imj_jml
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -220,7 +220,7 @@ c     call colour-connected Born matrix element
          ccBLO_ijl_jml = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
 c
 c     eikonal (c,d) -> (m,l) eq. (C.26)
-            M2tmp = M2tmp - 2*CA*Ei_jl*Eb_ijl*ccBLO_ijl_jml
+            M2tmp = M2tmp - 2d0*CA*Ei_jl*Eb_ijl*ccBLO_ijl_jml
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

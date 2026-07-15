@@ -73,7 +73,7 @@ c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
-c     TODO: fix mappings
+c
 c     get mapped labels
       ib = real_s_sc_mapped_labels(i)
       jb = real_s_sc_mapped_labels(j)

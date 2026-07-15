@@ -76,7 +76,7 @@ c     check flavour match
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
-      pref=64d0*pi**2*alphas**2
+      pref=(8d0*pi*alphas)**2
 c
 c     invariant quantities
       sij  = xs(i,j)

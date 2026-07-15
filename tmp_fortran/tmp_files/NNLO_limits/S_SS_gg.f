@@ -77,7 +77,7 @@ c     check flavour match
 c
 c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
-      pref=16d0*pi**2*alphas**2
+      pref=(8d0*pi*alphas)**2/2d0
 c
 c     get PDGs
       ib = real_mapped_labels(i)

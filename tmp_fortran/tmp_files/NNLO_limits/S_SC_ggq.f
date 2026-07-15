@@ -144,8 +144,6 @@ c
 c     soft soft-collinear kernel, (C.27)
 c     TODO: some contributions are 0 for ee->jj
          M2tmp = CA/CF*Ei_km*Pb_jkr_ijm/2d0*ccBLO_ijm_krj
-         M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
-         M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_S_SC_ggq = M2_S_SC_ggq + M2tmp*wcbar_nlo*ws_nlo
 c
 c     plot
@@ -204,8 +202,6 @@ c
 c     soft soft-collinear kernel, (C.27)
 c     TODO: some contributions are 0 for ee->jj
          M2tmp = (2d0*CF-CA)/CA*Ei_km*Pb_kjr_ikm/2d0*ccBLO_ikm_jrk
-         M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
-         M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_S_SC_ggq = M2_S_SC_ggq + M2tmp*wcbar_nlo*ws_nlo
 c
 c     plot
@@ -264,8 +260,6 @@ c
 c     soft soft-collinear kernel, (C.27)
 c     TODO: some contributions are 0 for ee->jj
          M2tmp = CA/CF*Ei_km*Pb_jkr_imj/2d0*ccBLO_imj_krj
-         M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
-         M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_S_SC_ggq = M2_S_SC_ggq + M2tmp*wcbar_nlo*ws_nlo
 c
 c     plot
@@ -324,9 +318,9 @@ c
 c     soft soft-collinear kernel, (C.27)
 c     TODO: some contributions are 0 for ee->jj
          M2tmp = (2d0*CF-CA)/CA*Ei_km*Pb_jkr_imk/2d0*ccBLO_imk_jrk
+         M2tmp = M2tmp + M2tmp*wcbar_nlo*ws_nlo
          M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
-         M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-         M2_S_SC_ggq = M2_S_SC_ggq + M2tmp*wcbar_nlo*ws_nlo
+         M2_S_SC_ggq = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
 c     plot
          wgtpl=-M2tmp*wgt/nit*wgt_chan

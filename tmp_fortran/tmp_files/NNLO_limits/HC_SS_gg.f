@@ -120,7 +120,7 @@ c     kt = wa pa + wb pb + wr pr
 c
 c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
-      pref = -64d0*pi**2*alphas**2
+      pref = -(8d0*pi*alphas)**2
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
@@ -196,9 +196,13 @@ c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_wsbar_nlo(map1,map2)
             M2_C_SS_gg=M2tmp*wc_nlo*wsbar_nlo
 c
+            M2_C_SS_gg=M2_C_SS_gg*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+            damp=1d0
+            M2_C_SS_gg=M2_C_SS_gg*damp*xj
+c
 c     soft-collinear double-soft kernel, eq. (C.37) of 2212.11190v2
             Ei_jr = sbr/sab/sbr
-            M2tmp = -2d0*CA*Ei_jr*Ebjlm*ccBLO
+            M2tmp = 2d0*CA*Ei_jr*Ebjlm*ccBLO
 c
 c     Include soft-collinear double-soft sector functions, eq. (C.81) of 2212.11190v2
             call get_sig2(xsb,alpha_mod_bar,nexternal-1)

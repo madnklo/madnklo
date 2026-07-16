@@ -1,17 +1,16 @@
 
-                  
       double precision function M2_HC_gq(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       use sectors2_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      include 'input.inc'
+      include 'run.inc'
       integer ia,ib,ir,ierr,nit
       double precision pref,M2_C_gq,M2_SC_gq,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -46,7 +45,7 @@ c     initialise
       M2_HC_gq=0d0
       ierr=0
       damp=0d0
-c     
+c
 c     checks
       if(.not.(abs(leg_pdgs(ib)).le.6.and.leg_pdgs(ia).eq.21))then
          write(*,*)'Wrong pdgs in M2_HC_gq',leg_pdgs(ia),leg_pdgs(ib)
@@ -58,7 +57,7 @@ c     checks
       endif
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return      
+      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)

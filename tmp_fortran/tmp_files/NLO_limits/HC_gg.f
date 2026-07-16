@@ -5,13 +5,13 @@ c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       use sectors2_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      include 'input.inc'
+      include 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_C_gg,M2_SC_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -41,14 +41,14 @@ c     set logical doplot
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
-c     
+c
 c     initialise
       M2_C_gg=0d0
       M2_SC_gg=0d0
       M2_HC_gg=0d0
       ierr=0
       damp=0d0
-c     
+c
 c     checks
       if(leg_pdgs(ia).ne.21.or.leg_pdgs(ib).ne.21.or.underlying_leg_pdgs(mapped_labels(ib)).ne.21)then
          write(*,*)'Wrong pdgs in M2_HC_gg',leg_pdgs(ia),leg_pdgs(ib),mapped_labels(ib)
@@ -60,7 +60,7 @@ c     checks
       endif
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return      
+      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -79,7 +79,7 @@ c     kt = wa pa + wb pb + wr pr
       wa= 1d0 - x
       wb= - x
       wr= - (1d0-2d0*x)*sab/(sar+sbr)
-      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir) 
+      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir)
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -99,7 +99,7 @@ c     TODO: improve ktmuktnuBmunu / kt^2
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gg  = M2_C_gg*wc_nlo
-c     account for different damping factors according to recoiler position (ir) 
+c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then
          damp=(1d0-y)**beta_FF
       else

@@ -102,7 +102,7 @@ c     double-soft double-collinear kernel, (C.16)
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_SS_gg_CC_ggq = M2tmp
 c
-      if(test_sector_function) M2_SS_gg_CC_ggq = WSS_CC_NNLO
+      if(test_sector_function) M2_SS_gg_CC_ggq = wss_cc_nnlo
 c
 c     plot
       wgtpl=+M2_SS_gg_CC_ggq*wgt/nit*wgt_chan

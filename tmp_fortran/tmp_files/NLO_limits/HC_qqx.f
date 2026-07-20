@@ -1,17 +1,16 @@
 
-
       double precision function M2_HC_qqx(ia,ib,ir,xs,xp,xsb,xpb,wgt,xj,nit,extra,wgt_chan,ierr)
 c     collinear limit C_(ia,ib) * Wcollinear
       use sectors2_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      include 'input.inc'
+      include 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_C_qqx,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -47,7 +46,7 @@ c     initialise
       M2_HC_qqx=0d0
       ierr=0
       damp=0d0
-c     
+c
 c     checks
       if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia)+leg_pdgs(ib).eq.0.and.underlying_leg_pdgs(mapped_labels(ib)).eq.21))then
          write(*,*)'Wrong pdgs in M2_HC_qqx',leg_pdgs(ia),leg_pdgs(ib),mapped_labels(ib)
@@ -59,7 +58,7 @@ c     checks
       endif
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return      
+      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
@@ -78,7 +77,7 @@ c     kt = wa pa + wb pb + wr pr
       wa= 1d0 - x
       wb= - x
       wr= - (1d0-2d0*x)*sab/(sar+sbr)
-      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir) 
+      kt(:) = wa*xp(:,ia) + wb*xp(:,ib) + wr*xp(:,ir)
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
@@ -123,4 +122,3 @@ c
  999  ierr=1
       return
       end
-

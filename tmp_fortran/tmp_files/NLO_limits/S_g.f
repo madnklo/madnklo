@@ -1,19 +1,18 @@
 
-      
       double precision function M2_S_g(i,xs,xp,wgt,xj,xjB,nit,extra,wgt_chan,ierr)
 c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       use sectors2_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGs.inc'
+      include 'leg_PDGS.inc'
       include 'nsqso_born.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'      
+      include 'input.inc'
+      include 'run.inc'
       integer i,l,m,lb,mb,ierr,nit
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -48,14 +47,14 @@ c     external
       logical sig2_called
       common/c_sig2_called/sig2_called
       double precision pmass(nexternal)
-      INCLUDE 'pmass.inc'      
+      include 'pmass.inc'
 c
 c     initialise
       M2_S_g=0d0
       M2tmp=0d0
       ierr=0
       damp=0d0
-c     
+c
 c     checks
       if(leg_pdgs(i).ne.21)then
          write(*,*)'Wrong pdgs in M2_S_g',leg_pdgs(i)
@@ -66,12 +65,12 @@ c     checks
          stop
       endif
 c
-c     call W soft
-      if(.not.sig2_called)call GET_SIG2(xs,nexternal)
-      CALL GET_WS_NLO(ISEC,JSEC)
+c     call w soft
+      if(.not.sig2_called)call get_sig2(xs,nexternal)
+      call get_ws_nlo(isec,jsec)
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -88,7 +87,7 @@ c            if(l.eq.m)cycle
          do l=m+1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
-c            
+c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
@@ -121,8 +120,8 @@ c     call colour-connected Born
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
 c
 c     eikonal
-            M2TMP = SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
-            M2TMP = CCBLO*M2TMP * 2d0
+            M2tmp = slm/(sil*sim) - ml2/sil**2 - mm2/sim**2
+            M2tmp = ccblo*M2tmp * 2d0
 c
 c     damping factors
             if(m.gt.2.and.l.gt.2)then
@@ -138,7 +137,7 @@ c     damping factors
                damp=x**alpha
             endif
             M2tmp=M2tmp*damp*xj
-            M2_S_g=M2_S_g+pref*M2tmp*WS_NLO*extra
+            M2_S_g=M2_S_g+pref*M2tmp*ws_nlo*extra
 c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt*wgt_chan
@@ -147,7 +146,7 @@ c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
             wgts=wgtpl
             if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
-         enddo 
+         enddo
       enddo
 c
 c     apply flavour factor

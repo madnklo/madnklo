@@ -199,6 +199,8 @@ c
       common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       integer real_s_sc_mapped_labels(nexternal),Born_s_sc_mapped_labels(nexternal-1)
       common/c_NNLO_s_sc_mapped_labels/real_s_sc_mapped_labels,Born_s_sc_mapped_labels
+      integer Born_2_mapped_labels(nexternal-1)
+      common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
       include 'all_sector_list.inc'
 C
 c     cpartindices:
@@ -240,6 +242,13 @@ c     if lsec!=0 the unresolved pair is ksec, lsec.
       map2=real_mapped_labels(jsec)
       if(lsec.ne.0)map2=real_mapped_labels(lsec)
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_mapped_labels)
+c
+c     ad-hoc Born mapped labels (first appeared in S_SS)
+c     TODO: checked for IJJK only
+c     TODO: generalise construction of mapped labels
+      map1=real_mapped_labels(iref)
+      map2=real_mapped_labels(jsec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,born_2_mapped_labels)
 c
 c     fill mapped labels for double-soft mapping
 c     for ijkj and ijkl if pdg(i)+pdg(k)=0

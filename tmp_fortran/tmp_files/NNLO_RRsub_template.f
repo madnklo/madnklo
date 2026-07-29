@@ -197,8 +197,8 @@ c
       common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
       integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
       common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
-      integer real_s_sc_mapped_labels(nexternal),Born_s_sc_mapped_labels(nexternal-1)
-      common/c_NNLO_s_sc_mapped_labels/real_s_sc_mapped_labels,Born_s_sc_mapped_labels
+      integer real_s_sc_1_mapped_labels(nexternal),real_s_sc_2_mapped_labels(nexternal),Born_s_sc_1_mapped_labels(nexternal-1),Born_s_sc_2_mapped_labels(nexternal-1)
+      common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
       integer Born_2_mapped_labels(nexternal-1)
       common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
       include 'all_sector_list.inc'
@@ -270,10 +270,15 @@ c     fill mapped labels for soft-collinear mapping
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc2_mapped_labels)
 c
 c     fill mapped labels for soft soft-collinear mapping
-      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_s_sc_mapped_labels)
-      map1=real_s_sc_mapped_labels(jsec)
-      map2=real_s_sc_mapped_labels(ksec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_mapped_labels)
+      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_s_sc_1_mapped_labels)
+      map1=real_s_sc_1_mapped_labels(dsec)
+      map2=real_s_sc_1_mapped_labels(csec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_1_mapped_labels)
+
+      call get_mapped_labels(nexternal,asec,dsec,leg_pdgs,real_leg_pdgs,real_s_sc_2_mapped_labels)
+      map1=real_s_sc_2_mapped_labels(csec)
+      map2=real_s_sc_2_mapped_labels(dsec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_2_mapped_labels)
 c
 c     fill bar_indices for barred sector functions
       j=1

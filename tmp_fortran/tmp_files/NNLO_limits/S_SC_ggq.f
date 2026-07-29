@@ -135,7 +135,7 @@ c       invariant quantities
         sam = xs(a,m)
         Ei_am = sam/sia/sim
 c
-c       soft soft-collinear kernel, (c.27)
+c       soft soft-collinear kernel, (126) on Dropbox
 c       todo: some contributions are 0 for ee->jj
         m2tmp = m2tmp+ca/cf*Ei_am*Pb_abr_ima*ccblo_ima_bra*wcbar_nlo
 c
@@ -201,7 +201,7 @@ c       invariant quantities
         sbm = xs(b,m)
         Ei_bm = sbm/sib/sim
 c
-c       soft soft-collinear kernel, (c.27)
+c       soft soft-collinear kernel, (126) on Dropbox
 c       todo: some contributions are 0 for ee->jj
         m2tmp = m2tmp+(2d0*cf-ca)/cf*Ei_bm*Pb_abr_imb*ccblo_imb_arb*wcbar_nlo
 c
@@ -211,13 +211,13 @@ c       plot
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
         wgts=wgtpl
-c       if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,w
+c       if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,w
 c       gtpl)
         if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
       m2_s_sc_ggq = m2tmp*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      m2_s_sc_ggq = m2_s_sc_ggq *%(proc_prefix_rr)s_fl_factor
+      m2_s_sc_ggq = m2_s_sc_ggq * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SC_ggq = wcbar_nlo*ws_nlo
 c

@@ -5,11 +5,11 @@ c     (n+2)-body NNLO integrand for vegas
       include 'coupl.inc'
       include 'math.inc'
       include 'nexternal.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
-      INCLUDE 'cuts.inc'
-      INCLUDE 'leg_PDGs.inc'
-      INCLUDE 'ngraphs_%(UBgraphs)s.inc'
+      include 'input.inc'
+      include 'run.inc'
+      include 'cuts.inc'
+      include 'leg_PDGS.inc'
+      include 'ngraphs_%(UBgraphs)s.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -201,6 +201,11 @@ c
       common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
       integer Born_2_mapped_labels(nexternal-1)
       common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
+      integer real_hcc_ia_mapped_labels(nexternal),Born_hcc_ia_mapped_labels(nexternal-1)
+      common/c_NNLO_hcc_mapped_labels/real_hcc_ia_mapped_labels,Born_hcc_ia_mapped_labels
+      integer real_hcc_ib_mapped_labels(nexternal),Born_hcc_ib_mapped_labels(nexternal-1)
+      common/c_NNLO_hcc_mapped_labels/real_hcc_ib_mapped_labels,Born_hcc_ib_mapped_labels
+
       include 'all_sector_list.inc'
 C
 c     cpartindices:
@@ -279,6 +284,17 @@ c     fill mapped labels for soft soft-collinear mapping
       map1=real_s_sc_2_mapped_labels(csec)
       map2=real_s_sc_2_mapped_labels(dsec)
       call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_2_mapped_labels)
+c
+c     fill mapped labels for soft/double-soft hard double-collinear mapping
+      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_hcc_ia_mapped_labels)
+      map1=real_hcc_ia_mapped_labels(dsec)
+      map2=real_hcc_ia_mapped_labels(csec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_hcc_ia_mapped_labels)
+
+      call get_mapped_labels(nexternal,asec,dsec,leg_pdgs,real_leg_pdgs,real_hcc_ib_mapped_labels)
+      map1=real_hcc_ib_mapped_labels(csec)
+      map2=real_hcc_ib_mapped_labels(dsec)
+      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_hcc_ib_mapped_labels)
 c
 c     fill bar_indices for barred sector functions
       j=1

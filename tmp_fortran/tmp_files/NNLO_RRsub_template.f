@@ -8,7 +8,7 @@ c     (n+2)-body NNLO integrand for vegas
       include 'input.inc'
       include 'run.inc'
       include 'cuts.inc'
-      include 'leg_PDGS.inc'
+      include 'leg_PDGs.inc'
       include 'ngraphs_%(UBgraphs)s.inc'
       integer i
       integer ierr

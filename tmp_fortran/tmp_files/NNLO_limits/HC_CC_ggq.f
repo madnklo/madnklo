@@ -79,7 +79,7 @@ c     possible cuts
 c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
-      pref=64d0*pi**2*alphas**2
+      pref=(8d0*pi*alphas)**2
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -116,11 +116,12 @@ c     TODO: check if labels are fine after reshufflings
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO = ANS(0)
+      BLO = ans(0)
 c
       KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,ktb)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
+c     (same as dropbox eq. 23)
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
       Pb_jk = CF*(2d0*zbk/zbj+zbj)
@@ -141,6 +142,7 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       M2_C_CC_ggq=M2_C_CC_ggq*wc_nlo*wcbar_nlo
 c
 c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
+c     (same as dropbox eq. 31)
       Ei_jr = sjr/sij/sir
       M2_SC_CC_ggq = 2d0*CA*Ei_jr*(Pb_jk*BLO+2d0*KKBLO)/sbjk
 c

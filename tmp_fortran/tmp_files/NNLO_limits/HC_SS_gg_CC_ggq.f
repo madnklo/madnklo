@@ -110,12 +110,12 @@ c     TODO: check if labels are fine after reshufflings
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-      BLO = ANS(0)
+      BLO = ans(0)
 c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
-c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2
+c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2 (same as dropbox eq. 25)
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
       Eb_jkr = sbkr/sbjk/sbjr
@@ -127,7 +127,7 @@ c     compute collinear double-soft double-collinear sector function eq. (C.84) 
       call get_wc_nlo(i,j,ksec,r)
       M2_C_SS_gg_CC_ggq=M2_C_SS_gg_CC_ggq*wc_nlo
 c
-c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.11190v2
+c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.11190v2 (same as dropbox eq. 33)
       Ei_jr = sjr/sij/sir
       M2_SC_SS_gg_CC_ggq = 4d0*CA*CF*Ei_jr*Eb_jkr*BLO
 c

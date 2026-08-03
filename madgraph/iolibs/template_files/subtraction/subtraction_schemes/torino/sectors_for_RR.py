@@ -1468,6 +1468,8 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         write_HC = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
+                    if (all_3p_K1_ct[i][1] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
+                        K1_sector_lists['C'][(isec,jsec,ksec)].append((jsec,iref))
 
                 # Extract underlying real string
                 self.get_uproc_str('Real', uB_all_3p_K1_ct[i][j], all_3p_K1_ct[i][j], dirpathR_head, replace_dict_limits,

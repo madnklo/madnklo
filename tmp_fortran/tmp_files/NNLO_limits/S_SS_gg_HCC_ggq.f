@@ -104,7 +104,7 @@ c     safety check
 c
 c     compute soft double-soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_ws12_nlo(asec,bsec,csec,dsec)
+      call get_ws12_nlo(isec,jsec,ksec)
 c
 c     building S(i)S(i,j)C(i,j,k) according to eq.(17) on dropbox
 c     mapping 1: [ira,jkr]
@@ -236,7 +236,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)
 c
-      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*CF-CA)*Eba_br_irb*BLO_irb_arb)
+      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*CF-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
 c
 c     soft double-soft double-hardcollinear kernel, TODO: Q_ij contribution is zero for ee->jj
       M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_CC_ggq - M2_S_SS_gg_CC_ggq_SC_ggq

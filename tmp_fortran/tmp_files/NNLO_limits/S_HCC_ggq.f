@@ -103,7 +103,7 @@ c     safety check
 c
 c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_ws12_nlo(asec,bsec,csec,dsec)
+      call get_ws12_nlo(isec,jsec,ksec)
 c
 c     building S(i)C(i,j,k) according to eq.(15) on dropbox
 c     mapping 1: [ira,jkr]

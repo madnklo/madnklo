@@ -439,19 +439,14 @@ contains
     WSS_SC_CC_NNLO = num/sigma
   end subroutine get_WSS_SC_CC_NNLO
 
-  subroutine get_WS12_NLO(a,b,c,d)
+  subroutine get_WS12_NLO(a,b,c)
     !     for K12 soft (double-soft) double-hardcollinear sector functions
     implicit none
-    integer :: i,a,b,c,d,ic
+    integer :: i,a,b,c
     double precision :: num,sigma
     num = sig2(a,b)**alpha_mod
-    if(b.eq.c) then
-        ic=b
-    elseif(b.eq.d)then
-        ic=c
-    endif
     sigma=0d0
-    sigma = sig2(a,b)**alpha_mod+sig2(a,ic)**alpha_mod
+    sigma = sig2(a,b)**alpha_mod+sig2(a,c)**alpha_mod
     WS12_NLO = num/sigma
   end subroutine get_WS12_NLO
 

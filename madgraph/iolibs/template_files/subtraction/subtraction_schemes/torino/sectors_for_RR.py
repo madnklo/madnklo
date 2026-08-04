@@ -1468,7 +1468,7 @@ class SectorGeneratorRR(sectors.SectorGenerator):
                         write_HC = False
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K1_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     K1_sector_lists['C'][(isec,jsec,ksec)].append((isec,iref))
-                    if (all_3p_K1_ct[i][1] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
+                    if (all_3p_K1_ct[i][0] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
                         K1_sector_lists['C'][(isec,jsec,ksec)].append((jsec,iref))
 
                 # Extract underlying real string
@@ -1881,7 +1881,6 @@ c       %s
             writer(filename).writelines(file)
             # TODO: maybe safer to not remove this command
             os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
-
 
 ######### Write NNLO_K_isec_jsec_ksec_lsec.f and NNLO_R_isec_jsec_ksec_lsec (4-particle sector)
 

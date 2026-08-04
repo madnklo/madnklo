@@ -93,7 +93,7 @@ c
       Ei_jr = sjr/sij/sir
       Pij = 2d0*ca*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*ca*zi*zj
-      kt = zi*xp(:,j) - zj*xp(:,i) - (1d0-2d0*zi)*sij*xp(:,r)/(sir+sjr)
+      kt = zj*xp(:,i) - zi*xp(:,j) - (1d0-2d0*zi)*sij*xp(:,r)/(sir+sjr)
       kt2 = dot(kt,kt)
 c
 c     safety check
@@ -130,6 +130,8 @@ c
 
           lb = real_mapped_labels(l)
           mb = real_mapped_labels(m)
+          lbb = Born_mapped_labels(lb)
+          mbb = Born_mapped_labels(mb)
 c
           sbml = xsb(mb,lb)
           sbjm = xsb(jb,mb)

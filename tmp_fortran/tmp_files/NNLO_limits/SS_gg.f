@@ -143,7 +143,7 @@ c
 c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
+            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
 c
 c     call Born matrix element
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)

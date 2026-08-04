@@ -88,8 +88,6 @@ c     invariant quantities
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       jb = real_mapped_labels(j)
       kb = real_mapped_labels(k)
       rb = real_mapped_labels(r)
@@ -102,23 +100,18 @@ c
       endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
-      parent_leg = real_mapped_labels(jb)
+      parent_leg = born_mapped_labels(kb)
 c
-      call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
-      if(ierr.eq.1)goto 999
-c
-c     calculate kt between i and j, as well as ktb between jb and kb
-c     TODO: check if labels are fine after reshufflings
       kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
-      kt2 = -zi*zj*sij
+      kt2 = dot(kt,kt)
       ktb(:) = zbk*xpb(:,jb) - zbj*xpb(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpb(:,rb)
-      ktb2 = -zbj*zbk*sbjk
+      ktb2 = dot(ktb,ktb)
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ans(0)
 c
-      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,ktb)
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
 c     (same as dropbox eq. 23)
@@ -127,9 +120,7 @@ c     (same as dropbox eq. 23)
       Pb_jk = CF*(2d0*zbk/zbj+zbj)
       Eb_jkr = sbkr/sbjk/sbjr
       Eb_kjr = sbjr/sbjk/sbkr
-      M2tmp = Pij/sbjk*(Pb_jk*BLO+2d0*KKBLO)
-      M2tmp = M2tmp + 2d0*CA*Eb_kjr*(-BLO+2d0*KKBLO)
-      M2tmp = M2tmp - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)
+      M2tmp = Pij*Pb_jk/sbjk*BLO + 2d0*CA*Eb_kjr*Qij*(BLO+2d0*KKBLO/kt2) - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
       M2_C_CC_ggq = M2tmp/sij
 c
 c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
@@ -144,7 +135,7 @@ c
 c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
 c     (same as dropbox eq. 31)
       Ei_jr = sjr/sij/sir
-      M2_SC_CC_ggq = 2d0*CA*Ei_jr*(Pb_jk*BLO+2d0*KKBLO)/sbjk
+      M2_SC_CC_ggq = 2d0*CA*Ei_jr*Pb_jk/sbjk*BLO
 c
 c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)

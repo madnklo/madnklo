@@ -54,6 +54,8 @@ c     set logical doplot
       common/c_NNLO_hcc_mapped_labels/real_hcc_ib_mapped_labels,Born_hcc_ib_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_S_HCC_ggq=0d0
@@ -291,6 +293,11 @@ c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is ze
       M2_S_HCC_ggq = M2_S_HCC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
       if(test_sector_function) M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
+c
+      call ct_log('KS_CC                ',M2_S_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_fac
+     $ tor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_SC_CC                ',M2_S_SC_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_fac
+     $ tor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
 c
 c     plot
       wgtpl=+M2_S_HCC_ggq*wgt/nit*wgt_chan

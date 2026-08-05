@@ -57,6 +57,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       integer mapped_sec(2,nexternal)
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -182,6 +184,9 @@ c     apply flavour factor
       m2_hc_ss_gg = m2_hc_ss_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
+c
+      call ct_log('KC_SS                ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KS_C_SS                ',M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then

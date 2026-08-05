@@ -56,6 +56,8 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_S_SS_gg=0d0
@@ -349,6 +351,8 @@ c
       m2_s_ss_gg = m2_s_ss_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SS_gg = wsbar_nlo*ws_nlo
+c
+      call ct_log('KS_SS                ',M2_S_SS_gg)
 c
 c     sanity check
       if(abs(M2_S_SS_gg).ge.huge(1d0).or.isnan(M2_S_SS_gg))then

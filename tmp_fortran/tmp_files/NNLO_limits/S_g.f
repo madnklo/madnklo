@@ -50,6 +50,8 @@ c     external
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -207,6 +209,8 @@ c     Include correct pre-factors
       M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_g = ws_nlo*wbar_nlo
+c
+      call ct_log('KS                   ',M2_S_g)
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

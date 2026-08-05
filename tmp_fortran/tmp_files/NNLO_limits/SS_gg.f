@@ -180,7 +180,7 @@ c     apply flavour factor
 c
       if(test_sector_function) M2_SS_gg = wss_nnlo
 c
-      call ct_log('SS_gg', M2_SS_gg)
+      call ct_log('KSS                   ', M2_SS_gg)
 c
 c     sanity check
       if(abs(M2_SS_gg).ge.huge(1d0).or.isnan(M2_SS_gg))then

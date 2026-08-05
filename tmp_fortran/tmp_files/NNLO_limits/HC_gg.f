@@ -47,6 +47,9 @@ c     set logical doplot
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
+
 c
 c     initialise
       M2_HC_gg=0d0
@@ -131,6 +134,9 @@ c     include prefactors
       M2_HC_gg = M2_HC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
 c
       if(test_sector_function) M2_HC_gg = (wc_nlo-1d0)*wbar_nlo
+c
+      call ct_log('KC                 ',M2_C_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
+      call ct_log('KSC                 ',M2_SC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

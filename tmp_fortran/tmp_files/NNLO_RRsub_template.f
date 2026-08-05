@@ -64,6 +64,8 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 C     call initialisation function
       if(firsttime)then
@@ -128,6 +130,9 @@ c     test phase-space singularities of matrix elements
          ntested=ntested+1
          call test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x)
       endif
+c
+c     test consistencies within limits
+      consistency_check = .false.
 c
 c     double real
       call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

@@ -114,13 +114,13 @@ c
       KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
-c     (same as dropbox eq. 23)
+c     (same as dropbox eq. 23) (term 2 is zero for k=q)
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
       Pb_jk = CF*(2d0*zbk/zbj+zbj)
       Eb_jkr = sbkr/sbjk/sbjr
       Eb_kjr = sbjr/sbjk/sbkr
-      M2tmp = Pij*Pb_jk/sbjk*BLO + 2d0*CA*Eb_kjr*Qij*(BLO+2d0*KKBLO/kt2) - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
+      M2tmp = Pij*Pb_jk/sbjk*BLO - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
       M2_C_CC_ggq = M2tmp/sij
 c
 c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2

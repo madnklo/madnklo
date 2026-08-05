@@ -144,8 +144,7 @@ c
 c           call colour-connected Born matrix element
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_mjl = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
-            M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_mjl*wsbar_nlo
-            M2_s_ss_gg = M2_s_ss_gg + M2tmp
+            M2tmp = M2tmp - 2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_mjl*wsbar_nlo
 c
 c           plot
             wgtpl = -m2tmp*ws_nlo
@@ -215,8 +214,7 @@ c
 c           call colour-connected Born matrix element
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_ljm = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
-            M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_ljm*wsbar_nlo
-            M2_s_ss_gg = M2_s_ss_gg + M2tmp
+            M2tmp = M2tmp - 2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_ljm*wsbar_nlo
 c
 c           plot
             wgtpl = -m2tmp*ws_nlo
@@ -274,9 +272,8 @@ c         possible cuts
 c
 c         call colour-connected born
           call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-          ccblo = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
-          m2tmp = 2d0*ei_ml*ebj_ml*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
-          M2_s_ss_gg = M2_s_ss_gg + M2tmp
+          ccblo = epem_ccx_get_ccblo(mbb,lbb)
+          m2tmp = m2tmp + 2d0*ei_ml*ebj_ml*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
 c
 c         plot
           wgtpl = -m2tmp*ws_nlo
@@ -331,9 +328,8 @@ c       possible cuts
 c
 c       call colour-connected born
         call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccblo = %(proc_prefix_Born)s_GET_CCBLO(bbb,mbb)
-        m2tmp = 2d0*ei_bm*ebj_bm*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
-        M2_s_ss_gg = M2_s_ss_gg + M2tmp
+        ccblo = epem_ccx_get_ccblo(bbb,mbb)
+        m2tmp = m2tmp + 2d0*ei_bm*ebj_bm*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
 c
 c       plot
         wgtpl = -m2tmp*ws_nlo
@@ -345,7 +341,7 @@ c        if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
         if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
-      m2_s_ss_gg = m2_s_ss_gg*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      m2_s_ss_gg = m2tmp*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       m2_s_ss_gg = m2_s_ss_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SS_gg = wsbar_nlo*ws_nlo

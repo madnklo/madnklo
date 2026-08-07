@@ -294,10 +294,8 @@ c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is ze
 c
       if(test_sector_function) M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
 c
-      call ct_log('KS_CC                ',M2_S_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_fac
-     $ tor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
-      call ct_log('KS_SC_CC                ',M2_S_SC_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_fac
-     $ tor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_CC                ',M2_S_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_SC_CC                ',M2_S_SC_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
 c
 c     plot
       wgtpl=+M2_S_HCC_ggq*wgt/nit*wgt_chan

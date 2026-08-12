@@ -135,6 +135,8 @@ c     soft-collinear double-collinear kernel, (C.18)
 c
       if(test_sector_function) M2_SC_ggq_CC_ggq = wsc_cc_nnlo
 c
+      call ct_log('KSC_CC                 ',M2_SC_ggq_CC_ggq)
+c
 c     plot
       wgtpl=+M2_SC_ggq_CC_ggq*wgt/nit*wgt_chan
       wgts=wgtpl

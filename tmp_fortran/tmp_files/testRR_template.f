@@ -90,6 +90,8 @@ c      DOUBLE PRECISION W_NNLO
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       SCM = (2D0*EBEAM(1))**2
@@ -167,6 +169,7 @@ c     double real
          call get_W_NNLO(asec,bsec,csec,dsec)
 c
 c     counterterm
+         consistency_check = .false.
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
          if(ierr.eq.1)cycle
 

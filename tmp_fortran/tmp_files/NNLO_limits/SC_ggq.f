@@ -54,6 +54,8 @@ c     external
       common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_SC_ggq=0d0
@@ -182,6 +184,8 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       enddo
 c
       if(test_sector_function) M2_SC_ggq = wsc_nnlo
+c
+      call ct_log('KSC                    ',M2_SC_ggq)
 c
 c     sanity check
       if(abs(M2_SC_ggq).ge.huge(1d0).or.isnan(M2_SC_ggq))then

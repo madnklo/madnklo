@@ -54,6 +54,8 @@ c     external
       common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_S_SC_ggq=0d0
@@ -220,6 +222,8 @@ c
       m2_s_sc_ggq = m2_s_sc_ggq * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SC_ggq = wcbar_nlo*ws_nlo
+c
+      call ct_log('KS_SC                  ',M2_S_SC_ggq)
 c
 c     sanity check
       if(abs(M2_S_SC_ggq).ge.huge(1d0).or.isnan(M2_S_SC_ggq))then

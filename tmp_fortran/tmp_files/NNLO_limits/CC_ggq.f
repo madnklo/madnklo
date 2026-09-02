@@ -46,6 +46,8 @@ c     set logical doplot
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_CC_ggq=0d0
@@ -118,6 +120,8 @@ c     include correct multiplicity and flavour factors
       M2_CC_ggq = M2tmp*pref/sijk**2*xj*extra ! eq.(C.15)
 c
       if(test_sector_function) M2_CC_ggq = wcc_nnlo
+c
+      call ct_log('KCC                    ', M2_CC_ggq)
 c
 c     plot
       wgtpl=-M2_CC_ggq*wgt/nit*wgt_chan

@@ -187,7 +187,7 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
       if(test_sector_function) M2_SS_gg_SC_ggq = wss_sc_nnlo
 c
-      call ct_log('KSS_SC                ',M2_SS_gg_SC_ggq)
+      call ct_log('KSS_SC                 ',M2_SS_gg_SC_ggq)
 c
 c     sanity check
       if(abs(M2_SS_gg_SC_ggq).ge.huge(1d0).or.isnan(M2_SS_gg_SC_ggq))then

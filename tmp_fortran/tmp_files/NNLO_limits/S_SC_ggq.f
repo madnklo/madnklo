@@ -223,7 +223,7 @@ c
 c
       if(test_sector_function) M2_S_SC_ggq = wcbar_nlo*ws_nlo
 c
-      call ct_log('KS_SC                ',M2_S_SC_ggq)
+      call ct_log('KS_SC                  ',M2_S_SC_ggq)
 c
 c     sanity check
       if(abs(M2_S_SC_ggq).ge.huge(1d0).or.isnan(M2_S_SC_ggq))then

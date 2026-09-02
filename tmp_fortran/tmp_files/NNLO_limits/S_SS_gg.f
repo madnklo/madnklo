@@ -352,7 +352,7 @@ c
 c
       if(test_sector_function) M2_S_SS_gg = wsbar_nlo*ws_nlo
 c
-      call ct_log('KS_SS                ',M2_S_SS_gg)
+      call ct_log('KS_SS                  ',M2_S_SS_gg)
 c
 c     sanity check
       if(abs(M2_S_SS_gg).ge.huge(1d0).or.isnan(M2_S_SS_gg))then

@@ -171,7 +171,6 @@ c
 c     counterterm
          consistency_check = .false.
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
-         consistency_check = .false.
          if(ierr.eq.1)cycle
 
          lim=KNNLO

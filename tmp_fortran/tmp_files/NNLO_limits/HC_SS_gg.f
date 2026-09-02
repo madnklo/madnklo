@@ -185,7 +185,7 @@ c     apply flavour factor
 c
       if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
 c
-      call ct_log('KC_SS                ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KC_SS                  ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
       call ct_log('KS_C_SS                ',M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
 c
 c     sanity check

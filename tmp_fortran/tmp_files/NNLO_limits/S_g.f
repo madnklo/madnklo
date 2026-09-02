@@ -210,7 +210,7 @@ c     Include correct pre-factors
 c
       if(test_sector_function) M2_S_g = ws_nlo*wbar_nlo
 c
-      call ct_log('KS                   ',M2_S_g)
+      call ct_log('KS                     ',M2_S_g)
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

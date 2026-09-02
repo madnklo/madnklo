@@ -144,7 +144,7 @@ c     Including correct multiplicity factor
 c
       if(test_sector_function) M2_HC_SS_gg_CC_ggq = wc_nlo-1d0
 c
-      call ct_log('KC_SS_CC             ', M2_C_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      call ct_log('KC_SS_CC               ', M2_C_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
       call ct_log('KS_C_SS_CC             ', M2_SC_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
 c
 c     plot

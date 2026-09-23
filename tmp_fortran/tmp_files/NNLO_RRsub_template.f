@@ -179,11 +179,14 @@ c
  999  return
       end
 
+      
 
       subroutine initialise_sector()
       implicit none
       include 'nexternal.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
+      !include 'all_sector_list.inc'
       integer iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
       integer i,j,i1,i2,ib3,ib4
       common/cNNLOmaplabels/iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2
@@ -191,25 +194,10 @@ c
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
-      integer map1,map2
-      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
-      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
-      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-      integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
-      common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
-      integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
-      common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
-      integer real_s_sc_1_mapped_labels(nexternal),real_s_sc_2_mapped_labels(nexternal),Born_s_sc_1_mapped_labels(nexternal-1),Born_s_sc_2_mapped_labels(nexternal-1)
-      common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
-      integer Born_2_mapped_labels(nexternal-1)
-      common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
-      integer real_hcc_ia_mapped_labels(nexternal),Born_hcc_ia_mapped_labels(nexternal-1)
-      common/c_NNLO_hcc_mapped_labels/real_hcc_ia_mapped_labels,Born_hcc_ia_mapped_labels
-      integer real_hcc_ib_mapped_labels(nexternal),Born_hcc_ib_mapped_labels(nexternal-1)
-      common/c_NNLO_hcc_mapped_labels/real_hcc_ib_mapped_labels,Born_hcc_ib_mapped_labels
-
+      integer real_leg_pdgs(nexternal-1),born_leg_pdgs(nexternal-2)
+      common/C_NNLO_U_PDGS/real_leg_pdgs,born_leg_pdgs
       include 'all_sector_list.inc'
+
 C
 c     cpartindices:
 c     each sector-relevant particle -> one index
@@ -241,63 +229,13 @@ c     configuration files
 c
 c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
-      call get_mapped_labels(nexternal,asec,bsec,leg_pdgs,real_leg_pdgs,real_mapped_labels)
-c     for mapped n+1 -> n mapped labels:
-c     if lsec =0 the unresolved pair is jsec, ksec,
-c     if lsec!=0 the unresolved pair is ksec, lsec.
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-      map1=real_mapped_labels(ksec)
-      map2=real_mapped_labels(jsec)
-      if(lsec.ne.0)map2=real_mapped_labels(lsec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_mapped_labels)
-c
-c     ad-hoc Born mapped labels (first appeared in S_SS)
-c     TODO: checked for IJJK only
-c     TODO: generalise construction of mapped labels
-      map1=real_mapped_labels(iref)
-      map2=real_mapped_labels(jsec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,born_2_mapped_labels)
-c
-c     fill mapped labels for double-soft mapping
-c     for ijkj and ijkl if pdg(i)+pdg(k)=0
-      if((bsec.ne.csec).and.(leg_pdgs(asec)+leg_pdgs(ksec).eq.0)) then
-         call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_ss_mapped_labels)
-         map1=real_ss_mapped_labels(ksec)
-         map2=real_ss_mapped_labels(jsec)
-         if(lsec.ne.0)map2=real_ss_mapped_labels(lsec)
-         call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_ss_mapped_labels)
-      endif
-c
-c     fill mapped labels for soft-collinear mapping
-      call get_mapped_labels(nexternal,csec,dsec,leg_pdgs,real_leg_pdgs,real_sc_mapped_labels)
-      map1=real_sc_mapped_labels(isec)
-      map2=real_sc_mapped_labels(ksec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc1_mapped_labels)
-      map1=real_sc_mapped_labels(isec)
-      map2=real_sc_mapped_labels(jsec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_sc2_mapped_labels)
-c
-c     fill mapped labels for soft soft-collinear mapping
-      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_s_sc_1_mapped_labels)
-      map1=real_s_sc_1_mapped_labels(dsec)
-      map2=real_s_sc_1_mapped_labels(csec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_1_mapped_labels)
 
-      call get_mapped_labels(nexternal,asec,dsec,leg_pdgs,real_leg_pdgs,real_s_sc_2_mapped_labels)
-      map1=real_s_sc_2_mapped_labels(csec)
-      map2=real_s_sc_2_mapped_labels(dsec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_s_sc_2_mapped_labels)
-c
-c     fill mapped labels for soft/double-soft hard double-collinear mapping
-      call get_mapped_labels(nexternal,asec,csec,leg_pdgs,real_leg_pdgs,real_hcc_ia_mapped_labels)
-      map1=real_hcc_ia_mapped_labels(dsec)
-      map2=real_hcc_ia_mapped_labels(csec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_hcc_ia_mapped_labels)
+c     initialisation for mapping-label common block
+      real_pair_done=.false.
+      born_pair_done=.false.
+      call fill_real_mapped_labels(asec,bsec,leg_pdgs,real_leg_pdgs)
 
-      call get_mapped_labels(nexternal,asec,dsec,leg_pdgs,real_leg_pdgs,real_hcc_ib_mapped_labels)
-      map1=real_hcc_ib_mapped_labels(csec)
-      map2=real_hcc_ib_mapped_labels(dsec)
-      call get_mapped_labels(nexternal-1,map1,map2,real_leg_pdgs,Born_leg_pdgs,Born_hcc_ib_mapped_labels)
 c
 c     fill bar_indices for barred sector functions
       j=1
@@ -305,8 +243,8 @@ c     fill bar_indices for barred sector functions
          i1=all_sector_list(1,i)
          i2=all_sector_list(2,i)
          if(i1.eq.asec.and.i2.eq.bsec) then
-            ib3=real_mapped_labels(all_sector_list(3,i))
-            ib4=real_mapped_labels(all_sector_list(4,i))
+            ib3=real_labels(asec,bsec,all_sector_list(3,i))
+            ib4=real_labels(asec,bsec,all_sector_list(4,i))
             bar_indices(j) = ib3
             bar_indices(j+1) = ib4
          endif

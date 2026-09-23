@@ -101,26 +101,8 @@ c     Colour-linked-Born contribution
                VV=DSQRT(SS**2-4D0*ML2*MK2)/SS
                Q2=SS+ML2+MK2
                YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
-c     EQ. (39) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*1D0/VV*(DLOG((1D0+VV)/(1D0-VV))*(-YPL+1D0/2D0*DLOG(SS*YPL**2/MK2)+1D0/2D0*DLOG(SS/MU_R**2))+1D0/4D0*DLOG((1D0+VV)/(1D0-VV))**2+DDILOG(-2D0*VV/(1D0-VV)) )
-c               INLO(1) = INLO(1) - CCBLO*1D0/VV*DLOG((1D0+VV)/(1D0-VV))*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL)*(1D0-FF1)
-c     EQ. (40) (MADE FF-DEPENDENT)
-c               INLO(1) = INLO(1) - CCBLO*(-(SS+MK2)/SS*DLOG((SS*YPL+MK2)/MK2)+YPL) * FF2
-c     EQ. (43)
-c               INLO(1) = INLO(1) - CCBLO*(-1D0/2D0*DLOG(SS/MU_R**2) -1D0/2D0/SS*((2D0*MK2+SS)*DLOG(MK2)-2D0*SS+SS*DLOG(SS)+2D0*SS*DLOG(YPL)-2D0*(MK2+SS)*DLOG(MK2+SS*YPL)) )
-c     EQ. (44) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*(YPL-SS*YPL/MK2+SS*YPL**2/2D0/MK2+1D0/2D0*DLOG(MK2)-1D0/2D0*DLOG(SS)-DLOG(YPL)+1D0/2D0/VV*DLOG((1D0+VV)/(1D0-VV))-1D0/2D0*DLOG(SS/MU_R**2))
-c
-c     EQ. (44) (+ FF-DEPENDENT PIECE)
-c               INLO(1) = INLO(1) - CCBLO*((((8d0*ml2**2*dsqrt(ss**2)*VV-2d0*ml2*ss**2*(-1d0+VV**2)-(ss**3-(ss**2)**1.5d0*VV)*(-1d0+VV**2))*dlog(1d0-(ss*(2d0*ml2+ss-dsqrt(ss**2)*VV)*ypl)/(2d0*ml2*dsqrt(ss**2)*VV)))/((2d0*ml2+ss-dsqrt(ss**2)*VV)*(ss+dsqrt(ss**2)*VV))+((8d0*ml2**2*dsqrt(ss**2)*VV+2d0*ml2*ss**2*(-1d0+VV**2)+(ss**3+(ss**2)**1.5d0*VV)*(-1d0+VV**2))*dlog(1d0+(ss*(2d0*ml2+ss+dsqrt(ss**2)*VV)*ypl)/(2d0*ml2*dsqrt(ss**2)*VV)))/((-ss+dsqrt(ss**2)*VV)*(2d0*ml2+ss+dsqrt(ss**2)*VV)))/(2d0*ss)+(2d0*mk2*ml2*(-(ss*dlog(1d0+(2d0*ss*VV)/(dsqrt(ss**2)-ss*VV)))+2d0*dsqrt(ss**2)*VV*dlog((ss*ypl)/(dsqrt(mk2)*mu_r))))/((ss**2)**1.5d0*VV*(-1d0+VV**2)))
-c               
-c               INLO(1) = INLO(1) - CCBLO*(FF3-1D0)/2D0/SS/MK2*(SS*YPL*(2D0*(1D0-FF3)*MK2-(FF3+1D0)*SS*(2D0-YPL))+2D0*(FF3-1D0)*MK2*(MK2+SS)*DLOG((SS*YPL+MK2)/MK2))
-C     
-               
-            call nlo_v_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
-
-            INLO(1) = INLO(1) + res
-               
+               CALL NLO_I_MASS(ss,vv,mk2,ml2,mu_r,ccBLO,res)
+               INLO(1) = INLO(1) + res
                INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif
          enddo
@@ -202,3 +184,33 @@ C
       RETURN
       END
 
+
+
+      subroutine NLO_I_MASS(s,v,mk2,ml2,mu,ccBLO,INLO_MASS)
+      implicit none
+      include 'coupl.inc'
+      include 'math.inc'
+      double precision s,v,yp
+      double precision mk2,ml2,mu
+      double precision INLO_MASS,ddilog,ccBLO,Q2
+      double precision lam, eta, alpha, beta
+      double precision Q, mk, ml
+c
+      Q2=s+ml2+mk2
+      lam=(s*v)**2d0
+      Q = dsqrt(Q2)
+      mk = dsqrt(mk2)
+      ml = dsqrt(ml2)
+      eta = (1d0-v)/(1d0+v)
+      alpha = (Q-ml)/(Q+ml)
+      beta = dsqrt( ((Q-ml)**2-mk2)/((Q+ml)**2-mk2) )
+c
+      if(alpha.lt.beta.or.alpha.gt.1d0.or.beta.lt.0d0)then
+         write(*,*)'Wrong alpha, beta, values in NLO_I_MASS'
+         write(*,*)alpha,beta
+         stop
+      endif
+c
+      INLO_MASS =-0.5d0*CCBLO*(8d0+(4d0*mk2*dlog((1d0-beta)/(1d0+beta)))/dsqrt(lam)-(4d0*ml2*dlog((1d0-beta)/(1d0+beta)))/dsqrt(lam) - (2d0*s*dlog((1d0-beta)/(1d0+beta))*dlog((1d0-beta**2)/(2d0*(1d0+alpha))))/dsqrt(lam)+(2d0*ml2*dlog(eta))/dsqrt(lam) - (2d0*Q2*dlog(eta))/dsqrt(lam)+(s*dlog(eta))/dsqrt(lam)-(s*dlog(eta)**2)/(2d0*dsqrt(lam)) - 2d0*dlog(lam**2/(mk2*ml2*Q2*s))-(s*dlog(eta)*dlog(lam**2/(mk2*ml2*Q2*s)))/dsqrt(lam) - 2d0*dlog(s/mu**2)-(s*dlog(eta)*dlog(s/mu**2))/dsqrt(lam)-(2d0*s*ddilog((1d0-alpha)/(1d0-beta)))/dsqrt(lam) - (2d0*s*ddilog((1d0-beta)/2d0))/dsqrt(lam) -(2d0*s*ddilog((1d0-beta)/(1d0+alpha)))/dsqrt(lam) + (2d0*s*ddilog((-2d0*beta)/(1d0-beta)))/dsqrt(lam) +(2d0*s*ddilog((-2d0*beta)/(alpha-beta)))/dsqrt(lam) + (2d0*s*ddilog((1d0-alpha)/(1d0+beta)))/dsqrt(lam) -(2d0*s*ddilog((2d0*beta)/(1d0+beta)))/dsqrt(lam) + (2d0*s*ddilog((1d0+beta)/2d0))/dsqrt(lam) +(2d0*s*ddilog((1d0+beta)/(1d0+alpha)))/dsqrt(lam) - (2d0*s*ddilog((2d0*beta)/(alpha+beta)))/dsqrt(lam) -(2d0*s*ddilog(1d0-eta))/dsqrt(lam))
+c
+      end

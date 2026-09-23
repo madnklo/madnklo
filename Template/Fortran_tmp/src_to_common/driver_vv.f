@@ -23,6 +23,8 @@
       character*100 line
       integer nitVVth,nclVVth,nitVV,nclVV
       integer nitVVth0,nclVVth0,nclVV0,nclVVth1,nclVV1
+      integer iseed
+      common /to_seed/iseed
       common/iterations/nitVV
 c
 c     vegas declarations
@@ -51,16 +53,17 @@ c
 c     read inputs
       region=0d0
       order=0
+      idum = iseed
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITVVTH =  NITERS_FO_GRID
       NCLVVTH = NPOINTS_FO_GRID
       NITVV = NITERS_FO
       NCLVV = NPOINTS_FO
-
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
       iu1=44
+      iu2=50
       iu=55
       iu7=77
       iu8=88
@@ -76,12 +79,11 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-c      call histo_init
-c     call analysis_begin(1,'central value')
       nwgt=1
-      weights_info(1)='central'
+      weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_VV.log')
+      open(unit=iu2,file='test_poles_VV.log')
       open(unit=iu7,file='failures_VV.log')
       open(unit=iu8 ,file='VV_chan.log')
       open(unit=iu ,file='results_VV.log')
@@ -94,8 +96,7 @@ c     number of points thrown per channel in the main loop
       nclVVth0=max(10000,int(nclVVth/5d0))
       nitVVth0=max(5,int(nitVVth/2d0))
       sum_err_VV_a=0d0
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          init=0
          doplot=.false.
          call vegas(region,ndim,int_VV,init,nclVVth0,nitVVth0,nprn,
@@ -105,8 +106,7 @@ c     number of points thrown per channel in the main loop
       enddo
 c
 c     main loop over channels
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          write(*,*)'VV warmup for channel',ich
          write(iu7,*)'Failures for VV warmup, channel',ich
          write(iu1,*)
@@ -137,24 +137,17 @@ c
          sum_err_vv = sum_err_vv + err_vv**2
          write(iu8,*)' sigma VV [pb], channel',ich,' = ',
      &   res_vv,' +-',err_vv
-         write(iu8,*)
-c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
-      call analysis_end(1d0)
+      call analysis_end(1d0,'plot_VV.dat')
       sum_err_vv = dsqrt(sum_err_vv)
-c      call histo_final('plot_VV.dat',rescale_plot_VV)
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       write(iu,*)' sigma VV [pb]  = ',sum_vv,' +-',sum_err_vv
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       close(iu)
       close(iu1)
+      close(iu2)
       close(iu7)
+      close(iu8)
 c
       end

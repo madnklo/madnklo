@@ -1,9 +1,9 @@
-      function int_double_virtual(x,wgt)
-c     n-body NLO integrand for vegas
-      implicit none
-      include 'nexternal.inc'
+      FUNCTION INT_DOUBLE_VIRTUAL(X,WGT)
+C     n-body NNLO integrand for vegas
+      IMPLICIT NONE
+      INCLUDE 'nexternal.inc'
       INCLUDE 'coupl.inc'
-      include 'math.inc'
+      INCLUDE 'math.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
@@ -11,26 +11,27 @@ c     n-body NLO integrand for vegas
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
       INCLUDE 'leg_PDGs.inc'
-      integer ndim,ierr,ievt,nthres,i
-      save ievt,nthres
-      integer nitV
-      common/niterationsv/nitV
-      double precision int_virtual,VNLO(3),INLO(3)
-      double precision sLO(nexternal,nexternal)
-c     TODO: understand x(mxdim) definition by Vegas
-      integer, parameter :: mxdim = 30
-      double precision x(mxdim)
-      double precision wgt,wgtpl
-      logical doplot, docut
-      common/cdoplot/doplot
-      double precision p(0:3,nexternal)
-      double precision xjac
-      double precision sCM
-      integer fl_factor 
-      common/flavour_factor/fl_factor
-      double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
-      double precision alphas, alpha_qcd
-      integer, parameter :: hel=-1
+      INTEGER NDIM,IERR,IEVT,NTHRES,I
+      SAVE IEVT,NTHRES
+      INTEGER NITVV
+      COMMON/NITERATIONSV/NITVV
+      DOUBLE PRECISION INT_VV,VVNNLO(-4:0)
+      DOUBLE PRECISION I2NNLO(-4:0),IRVNNLO(-4:0)
+      DOUBLE PRECISION SLO(NEXTERNAL,NEXTERNAL)
+C     TODO: understand x(mxdim) definition by Vegas
+      INTEGER, PARAMETER :: MXDIM = 30
+      DOUBLE PRECISION X(MXDIM)
+      DOUBLE PRECISION WGT,WGTS(1),WGTPL
+      LOGICAL DOPLOT, DOCUT
+      COMMON/CDOPLOT/DOPLOT
+      DOUBLE PRECISION P(0:3,NEXTERNAL)
+      DOUBLE PRECISION XJAC
+      DOUBLE PRECISION SCM
+      INTEGER FL_FACTOR
+      COMMON/FLAVOUR_FACTOR/FL_FACTOR
+      DOUBLE PRECISION ANS(0:1)  !TODO SET CORRECTLY RANGE OF ANS 
+      DOUBLE PRECISION ALPHAS, ALPHA_QCD
+      INTEGER, PARAMETER :: HEL=-1
       LOGICAL INIT
       DATA INIT/.TRUE./
       COMMON/INITCHECKSA/INIT
@@ -67,44 +68,52 @@ C
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)
       COMMON/TO_AMP2/AMP2,NGRAPHS2
-      integer ich
-      common/comich/ich
-      double precision pmass(nexternal)
+      INTEGER ICH
+      COMMON/COMICH/ICH
+      DOUBLE PRECISION PMASS(NEXTERNAL)
+      INTEGER NCOLORCORRELATORS
+      PARAMETER (NCOLORCORRELATORS=4)
+C     
+C     Index 0 is the number of correlators to consider and the next
+C     indices are which one to consider
+      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3
+     $ ,0:NSQUAREDSO)
+      COMMON/%(long_proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER
+     $ ,COLOR_CORRELATED_EVALS
+
       INCLUDE 'pmass.inc'
-
-
-      
-C
+C     
 C     EXTERNAL
 C
 c     TODO: convert to partonic sCM 
       sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
-c     initialise
-      xjac = Gevtopb
-      int_virtual = 0d0
-      sLO = 0d0
-      VNLO = 0d0
-      INLO = 0d0
-C
+C     
+C     initialise
+      XJAC = GEVTOPB
+      INT_VV = 0D0
+      SLO = 0D0
+      VVNNLO = 0D0
+      I2NNLO = 0D0
+      IRVNNLO = 0D0
+C     
 C     BEGIN CODE
-C
+C     
       IF (INIT) THEN
         INIT=.FALSE.
-        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
-        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
-!        INCLUDE 'pmass.inc'
+c$$$        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+c$$$        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
+c$$$        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+c$$$        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
       ENDIF
-c
-c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
+C     
+C     phase space and invariants
+      IF(SCM.LE.0D0)THEN
+        WRITE(*,*) 'Wrong sCM', SCM
+        STOP
+      ENDIF
 C     Hard coded settings for gen_mom
       iconfig = ich
       mincfig = 1
@@ -115,66 +124,75 @@ C     Hard coded settings for gen_mom
       call decaybw_born
       call getleshouche_born
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
+      IF(XJAC.EQ.0D0) THEN
+        WRITE(77,*)'Wrong jacobian in NNLO_VV'
+        GOTO 999
+      ENDIF
 
-!      call phase_space_n(x,sCM,p,nexternal,xjac)
-      if(xjac.eq.0d0) then
-         write(77,*)'Wrong jacobian in NLO_V'
-         goto 999
-      endif
-
-      call invariants_from_p(p,nexternal,sLO,ierr)
-      if(ierr.eq.1) then
-         write(77,*)'Wrong invariants in NLO_V', sLO
-         goto 999
-      endif
-c
-c     possible cuts
-      if(docut(p,nexternal,leg_pdgs,0))goto 999
-c
-c     call virtual
-      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      VNLO(1:3) = MATELEM(1:3,0)
-c
-c     call Born
-      CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-c
-c     call counterterm
-      call int_counter_NLO(p,sLO,INLO,ierr)
-      if(ierr.eq.1)goto 999
-c
-c     test coefficients of epsilon poles
-      if(ntested.lt.ntest)then
-         ntested=ntested+1
-         write(50,*)
-         write(50,*)'Testing point # ', ntested
-         write(50,*)'Double pole V, I, sum', VNLO(3), INLO(3), VNLO(3)+INLO(3)
-         write(50,*)'Single pole V, I, sum', VNLO(2), INLO(2), VNLO(2)+INLO(2)
-         write(50,*)
-      endif
-c
-c     subtracted vrtual
-      int_virtual=(VNLO(1)+INLO(1))*xjac
-c
-c     apply flavour multiplicity factor
-      int_virtual=int_virtual*fl_factor
-
-
-c     Multi channeling
-
-      int_virtual = int_virtual * amp2(ich)
-      
-c
-c     plot
-      wgtpl=int_virtual*wgt/nitV
-      if(doplot)call histo_fill(p,sLO,nexternal,wgtpl)
-c
-c     print out current run progress
-c     999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodV*1d0)),' done'
-c         nthres=nthres+int(nprodV/rfactV)
-c      endif
-c 111  format(a1,i3,a6,$)
-c
- 999  return
-      end
+      CALL INVARIANTS_FROM_P(P,NEXTERNAL,SLO,IERR)
+      IF(IERR.EQ.1) THEN
+        WRITE(77,*)'Wrong invariants in NNLO_VV', SLO
+        GOTO 999
+      ENDIF
+C     
+C     possible cuts
+      IF(DOCUT(P,NEXTERNAL,LEG_PDGS,0))GOTO 999
+C     
+C     call virtual
+c$$$      COLOR_CORRELATED_EVALS = 0D0
+c$$$      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND
+c$$$     $ ,RETURNCODE)
+c$$$      VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
+      DO I=-4,0
+         IF(ABS(VVNNLO(I)).GE.HUGE(1D0).OR.ISNAN(VVNNLO(I)))THEN
+            WRITE(77,*) 'int_VV: '
+            WRITE(77,*) 'Wrong VVNNLO at eps^',I,' : ', VVNNLO(I)
+            GOTO 999
+         ENDIF
+      ENDDO
+C     
+C     call counterterm
+      CALL INT_COUNTER_I2_NNLO(P,SLO,I2NNLO,IERR)
+      IF(IERR.EQ.1)GOTO 999
+      CALL INT_COUNTER_IRV_NNLO(P,SLO,IRVNNLO,IERR)
+      IF(IERR.EQ.1)GOTO 999
+C     
+C     test coefficients of epsilon poles
+      IF(NTESTED.LT.NTEST)THEN
+        NTESTED=NTESTED+1
+        WRITE(50,*)
+        WRITE(50,*)'Testing point # ', NTESTED
+        WRITE(50,*)'Quadruple pole VV, I2, IRV, sum', VVNLO(-4),
+     $    I2NNLO(-4), IRVNNLO(-4), VVNLO(-4) + I2NNLO(-4) + IRVNNLO(-4)
+        WRITE(50,*)'Triple    pole VV, I2, IRV, sum', VVNLO(-3),
+     $    I2NNLO(-3), IRVNNLO(-3), VVNLO(-3) + I2NNLO(-3) + IRVNNLO(-3)
+        WRITE(50,*)'Double    pole VV, I2, IRV, sum', VVNLO(-2),
+     $    I2NNLO(-2), IRVNNLO(-2), VVNLO(-2) + I2NNLO(-2) + IRVNNLO(-2)
+        WRITE(50,*)'Single    pole VV, I2, IRV, sum', VVNLO(-1),
+     $    I2NNLO(-1), IRVNNLO(-1), VVNLO(-1) + I2NNLO(-1) + IRVNNLO(-1)
+        WRITE(50,*)
+      ENDIF
+C     
+C     subtracted VV
+      INT_VV=(VVNNLO(0)+I2NNLO(0)+IRVNNLO(0))*XJAC
+C     
+C     apply flavour multiplicity factor
+      INT_VV=INT_VV*FL_FACTOR
+C     Multi channeling
+      INT_VV = INT_VV * AMP2(ICH)
+C     
+C     plot
+      WGTPL=INT_VV*WGT
+      WGTS=WGTPL
+      IF(DOPLOT)CALL ANALYSIS_FILL(P,SLO,NEXTERNAL,LEG_PDGS,WGTS)
+C     
+C     print out current run progress
+C     999  ievt=ievt+1
+C     if(ievt.gt.nthres)then
+C     write(*,111)char(13),int(1d2*nthres/(nprodVV*1d0)),' done'
+C     nthres=nthres+int(nprodVV/rfactVV)
+C     endif
+C     111  format(a1,i3,a6,$)
+C     
+ 999  RETURN
+      END

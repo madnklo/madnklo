@@ -14,7 +14,7 @@ C     REAL_LABELS; if already done, do nothing (cache already filled)
         CALL GET_MAPPED_LABELS(NEXTERNAL,P1,P2,LEG_PDGS
      $   ,REAL_LEG_PDGS,OUT_DUMMY)
         DO K=1,NEXTERNAL
-          REAL_LABELS(P1,P2,K)=OUT_DUMMY(K)
+          REAL_LABELS(K,P1,P2)=OUT_DUMMY(K)
         ENDDO
         REAL_PAIR_DONE(P1,P2)=.TRUE.
       ENDIF
@@ -22,7 +22,7 @@ C     REAL_LABELS; if already done, do nothing (cache already filled)
       RETURN
       END
 
-      
+
       SUBROUTINE FILL_BORN_MAPPED_LABELS(P1,P2,REAL_LEG_PDGS,
      $  BORN_LEG_PDGS)
       IMPLICIT NONE
@@ -38,7 +38,7 @@ C     BORN_LABELS; if already done, do nothing (cache already filled)
         CALL GET_MAPPED_LABELS(NEXTERNAL-1,P1,P2,REAL_LEG_PDGS
      $   ,BORN_LEG_PDGS,OUT_DUMMY)
         DO K=1,NEXTERNAL-1
-          BORN_LABELS(P1,P2,K)=OUT_DUMMY(K)
+          BORN_LABELS(K,P1,P2)=OUT_DUMMY(K)
         ENDDO
         BORN_PAIR_DONE(P1,P2)=.TRUE.
       ENDIF
@@ -70,11 +70,11 @@ c$$$        DO K=1,NEXTERNAL-1
 c$$$          OUT(K)=BORN_LABELS(P1,P2,K)
 c$$$        ENDDO
 c$$$      ENDIF
-c$$$      
+c$$$
 c$$$      RETURN
 c$$$      END
 
-    
+
 c$$$      SUBROUTINE GET_REAL_MAPPED_LABELS(P1,P2,LEG_PDGS,
 c$$$     $  REAL_LEG_PDGS,OUT)
 c$$$      IMPLICIT NONE
@@ -99,6 +99,6 @@ c$$$        DO K=1,NEXTERNAL
 c$$$          OUT(K)=REAL_LABELS(P1,P2,K)
 c$$$        ENDDO
 c$$$      ENDIF
-c$$$      
+c$$$
 c$$$      RETURN
 c$$$      END

@@ -179,7 +179,7 @@ c
  999  return
       end
 
-      
+
 
       subroutine initialise_sector()
       implicit none
@@ -232,10 +232,11 @@ c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
 
 c     initialisation for mapping-label common block
+c     initialise labels for RR mapping (iU1,iS1,iB1; iU2,iS2,iB2)
       real_pair_done=.false.
       born_pair_done=.false.
-      call fill_real_mapped_labels(asec,bsec,leg_pdgs,real_leg_pdgs)
-
+      call fill_real_mapped_labels(iU1,iS1,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(iU2,iU1,iS1),real_labels(iS2,iU1,iS1),real_leg_pdgs,born_leg_pdgs)
 c
 c     fill bar_indices for barred sector functions
       j=1

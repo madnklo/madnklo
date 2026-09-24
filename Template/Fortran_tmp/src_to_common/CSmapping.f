@@ -1,5 +1,5 @@
       subroutine phase_space_CS(xx,iU,iS,iB,iA,p,pbar,npart,leg_PDGs,xjac,mapped_labels)
-c     Build n+1 momenta p from n momenta pbar 
+c     Build n+1 momenta p from n momenta pbar
 c     iU is the unresolved parton associated
 c     with the soft singularity
 c     npart = n+1
@@ -45,8 +45,6 @@ c     input check
 c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
-c      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
-c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
       pbB(:)=pbar(:,mapped_labels(iB))
       pbS(:)=pbar(:,mapped_labels(iS))
       pA(:) =pbar(:,mapped_labels(iA))
@@ -71,7 +69,7 @@ c
       mb2 = pmass(iS)**2
       mc2 = pmass(iB)**2
       if(mb2 .ne. 0d0 .or. mc2 .ne. 0d0) then
-c     Catani-Seymour parametrisation 
+c     Catani-Seymour parametrisation
 c     for massive emitter and massive recoiler
          Q2 = dot(pboost(:),pboost(:))
          sdip = Q2-mb2-mc2
@@ -93,10 +91,10 @@ c     for massive emitter and massive recoiler
          lam2=lambda(Q2,mb2+sdip*yCS,mc2)
 c        Eu is the energy of p(iU)
          Eu=sdip*(1d0-(1d0-zCS)*(1d0-yCS))/2d0/dsqrt(Q2)
-         costhUB=(dsqrt(mc2 + pmod**2) - 
-     -        ((Eu*(sdip*(2*mc2 + sdip)*vel*(-1d0 + yCS) + 
+         costhUB=(dsqrt(mc2 + pmod**2) -
+     -        ((Eu*(sdip*(2*mc2 + sdip)*vel*(-1d0 + yCS) +
      -        dsqrt(lam1)*(2*mc2 + sdip - sdip*yCS)))
-     -        /(dsqrt(Q2)*sdip*(-1d0 + yCS)) + 
+     -        /(dsqrt(Q2)*sdip*(-1d0 + yCS)) +
      -        dsqrt(lam1)*zCS)/(2d0*Eu*vel))/pmod
          sinthUB= dsqrt(abs(1d0-costhUB**2))
       else
@@ -164,19 +162,19 @@ c     construct p from pbar
 c     CS massive mapping
          p(:,iB)=dsqrt(lam2/lam1)*
      $        (pbBsave(:)-(Q2+mc2-mb2)/2d0/Q2*pboost(:))+
-     $        (sdip*(1d0-yCS)+2d0*mc2)/2d0/Q2*pboost(:)      
+     $        (sdip*(1d0-yCS)+2d0*mc2)/2d0/Q2*pboost(:)
          p(:,iS)=pboost(:)-p(:,iU)-p(:,iB)
 c     construct xjac
          xjac = xjac * (sdip**2*(1d0-yCS))/(4d0*dsqrt(lam1)*(2d0*Pi)**3)
       else
-c     CS massless mapping         
+c     CS massless mapping
          p(:,iB)=(1d0-yCS)*pbBsave(:)
          p(:,iS)=yCS*pbBsave(:)+pbS(:)-p(:,iU)
 c     construct xjac
          GG=1d0/16d0/pi**3
          xjac=xjac*GG*(4d0*pmod**2)*pi*(1-yCS)
       endif
-      
+
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
          p(:,j)=pbar(:,mapped_labels(j))
@@ -220,7 +218,7 @@ c
 c
 c     initialise
       xjac=0d0
-c     
+c
 c     auxiliary quantities
       mS2=pmass(iS)**2
       mB2=pmass(iB)**2
@@ -231,9 +229,7 @@ c
 c     construct pbar from p
 c     since this routine is to be called with iU = isec = gluon, then
 c     mapped labels should be the ones assigned at the beginning of the
-c     run for this sector, and stored in c_mapped_labels
-c      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
-c      call get_collinear_mapped_labels(npart,iU,iS,leg_pdgs,idum1,mapped_labels,idum2,idum3)
+c     run for this sector
 c
       if(mB2.ne.0d0 .or. mS2.ne.0d0) then
 c     CS massive case
@@ -243,7 +239,7 @@ c     CS massive case
          vel = dsqrt((2d0*mB2+sdip*(1d0-yCS))**2-4d0*mB2*Qsq)/sdip/(1d0-yCS)
          z_minus = sdip*yCS/2d0/(sdip*yCS+mS2)*(1d0-vel)
          z_plus  = sdip*yCS/2d0/(sdip*yCS+mS2)*(1d0+vel)
-         if(zCS.gt.z_plus .or. zCS.lt.z_minus)return         
+         if(zCS.gt.z_plus .or. zCS.lt.z_minus)return
 c     miUiS2 is the invariant mass squared of (p(:,iU)+p(:,iS))
          miUiS2 = mS2+2d0*dot(p(0,iU),p(0,iS))
          lam1 = lambda(Qsq,mS2,mB2)
@@ -269,7 +265,7 @@ c     construct xjac
          GG=1d0/16d0/pi**3
          xjac=GG*Qsq*pi*(1-yCS)
       endif
-         
+
       do j=1,npart
          if(j.eq.iU.or.j.eq.iB.or.j.eq.iS)cycle
          pbar(:,mapped_labels(j))=p(:,j)
@@ -288,7 +284,7 @@ c
       end
 
 
-      
+
       logical function dotechcut(s,ndim,tiny)
       implicit none
       integer ndim,i,j

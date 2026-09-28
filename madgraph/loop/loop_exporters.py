@@ -938,7 +938,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                        matrix_element.get('processes')[0],group_number,proc_id))
 
         #gl
-        # self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+        if matrix_element.get('processes')[0].get('has_born'):
+            self.link_files_from_Born_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
         self.write_makefile_vv_template(writers.FileWriter, matrix_element)
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
@@ -960,11 +961,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         """ To link required files from the Subprocesses directory to the
         different P* ones"""
         
-        # linkfiles = ['coupl.inc',
-        #              'cts_mprec.h', 'cts_mpc.h', 'mp_coupl.inc', 
-        #              'mp_coupl_same_name.inc',
-        #              'MadLoopParamReader.f','MadLoopCommons.f',
-        #              'MadLoopParams.inc','global_specs.inc']
         
         #DEBUG GIOVANNIII
         linkfiles = ['coupl.inc',
@@ -1004,6 +1000,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         owd = os.getcwd()
         os.chdir(dirpathBorn)
+
+       
+       
         tmp_leg_PDGs = glob.glob("leg_PDGs*.inc")
         tmp_ngraphs = "ngraphs.inc"
         tmp_configs = "configs.f"
@@ -1012,17 +1011,26 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         tmp_decayBW = "decayBW.f"
         tmp_leshouche = "leshouche.f"
         tmp_channels = "channels.txt"
+
+        tmp_link_files=["ngraphs.inc", "configs.f", "props.f", "genps.inc",
+                         "decayBW.f", "leshouche.f", "channels.txt"]
+        
+
         os.chdir(owd)
         for i in range(0,len(tmp_leg_PDGs)):
             os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
 
-        os.symlink(dirpathBorn + '/%s' % tmp_ngraphs, os.getcwd() + '/%s' % tmp_ngraphs)
-        os.symlink(dirpathBorn + '/%s' % tmp_configs, os.getcwd() + '/%s' % tmp_configs)
-        os.symlink(dirpathBorn + '/%s' % tmp_props, os.getcwd() + '/%s' % tmp_props)
-        os.symlink(dirpathBorn + '/%s' % tmp_genps, os.getcwd() + '/%s' % tmp_genps)
-        os.symlink(dirpathBorn + '/%s' % tmp_decayBW, os.getcwd() + '/%s' % tmp_decayBW)
-        os.symlink(dirpathBorn + '/%s' % tmp_leshouche, os.getcwd() + '/%s' % tmp_leshouche)
-        os.symlink(dirpathBorn + '/%s' % tmp_channels, os.getcwd() + '/%s' % tmp_channels)
+        for files in tmp_link_files:
+
+            src=dirpathBorn + '/%s' % files
+            dst=os.getcwd() + '/%s' % files
+
+            if os.path.islink(dst):
+                    os.unlink(dst)
+            if not os.path.lexists(dst):
+                    os.symlink(src, dst)
+
+        
 
         # Copy ajob_template_v into the proc_dir
         cp(pjoin(os.getcwd(),'../../../../Template/Fortran_tmp/src_to_common/ajob_template_virtual'),pjoin(os.getcwd(),'ajob1'))

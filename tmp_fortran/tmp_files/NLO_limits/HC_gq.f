@@ -81,13 +81,13 @@ c     call Born
       call %(proc_prefix_HC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     In the following equation the x variable is related to the quark energy
-      M2_C_gq  = CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
-      if(ia.eq.isec)M2_SC_gq = CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*BLO
+      M2_C_gq  = CF*((1d0-x)+2d0*x/(1d0-x))*BLO
+      if(ia.eq.isec)M2_SC_gq = CF*(2d0*x/(1d0-x)*x**alpha)*BLO
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gq =  M2_C_gq*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
-      if(ir.ge.2)then
+      if(ir.gt.2)then
          damp=(1d0-y)**beta_FF
       else
          damp=xinit**beta_FI

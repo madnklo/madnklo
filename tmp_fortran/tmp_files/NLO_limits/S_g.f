@@ -128,7 +128,7 @@ c     damping factors
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
                damp=((1d0-y)*(1d0-z))**alpha
-            elseif(m.gt.2.and.l.le.2)then
+            elseif(m.le.2.and.l.gt.2)then
                z=sim/(sim+slm)
                x=1d0 - sil/(sim+slm)
                damp=((1d0-z)*x)**alpha

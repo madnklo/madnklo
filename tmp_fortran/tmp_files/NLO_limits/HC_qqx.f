@@ -97,7 +97,7 @@ c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_qqx = M2_C_qqx*wc_nlo
 c     account for different damping factors according to recoiler position (ir)
-      if(ir.ge.2)then
+      if(ir.gt.2)then
          damp=(1d0-y)**beta_FF
       else
          damp=xinit**beta_FI

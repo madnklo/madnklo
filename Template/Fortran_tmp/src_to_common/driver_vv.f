@@ -53,7 +53,7 @@ c
 c     read inputs
       region=0d0
       order=0
-      idum = iseed
+      idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITVVTH =  NITERS_FO_GRID
       NCLVVTH = NPOINTS_FO_GRID

@@ -56,7 +56,7 @@ c
 c     read inputs
       region=0d0
       order=1
-      idum = iseed
+      idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
       NITRTH = NITERS_FO_GRID
 c      NCLRTH = NPOINTS_FO_GRID/dble(lensectors)

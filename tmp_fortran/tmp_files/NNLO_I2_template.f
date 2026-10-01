@@ -22,7 +22,7 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
       include 'coupl.inc'
       include 'math.inc'
       include 'input.inc'
-      include 'virtual_recoilers.inc'
+      include 'double_virtual_recoilers.inc'
       include 'leg_PDGs_%(proc_prefix)s.inc'
       include 'colored_partons.inc'
       integer ierr,i,j,k,l,n,a,b,c,d,ip,refs(nexternal)

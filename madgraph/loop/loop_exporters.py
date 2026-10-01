@@ -937,9 +937,14 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
                        matrix_element.get('processes')[0],group_number,proc_id))
 
-        #gl
+        
+        #GIOVANNI
+        # Currently excluding subprocesses entering at NLO, which do not have a Born diagram
         if matrix_element.get('processes')[0].get('has_born'):
             self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+            self.write_NNLO_VV_template(writers.FortranWriter, matrix_element)
+            self.write_NNLO_I2_template(writers.FortranWriter, matrix_element)
+            #self.write_NNLO_IRV_template(writers.FortranWriter, matrix_element)
         self.link_files_common_directory()
         self.write_makefile_vv_template(writers.FileWriter, matrix_element)
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
@@ -1153,9 +1158,9 @@ virtual: $(FILES)
                        group_number = group_number, group_elem_number = proc_id)
 
         # write driver
-        filename = pjoin(tmp_proc_dir, 'NNLO_VV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_VV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_VV_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_VV_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -1166,16 +1171,16 @@ virtual: $(FILES)
     # write NNLO_I2 : integrated counterterms
     #===========================================================================
     #gl
-    def write_NNLO_I2_template(self, tmp_proc_dir, writer, matrix_element):
+    def write_NNLO_I2_template(self, writer, matrix_element):
         
         replace_dict = {}
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         # write driver
-        filename = pjoin(tmp_proc_dir, 'NNLO_I2_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_I2_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -1187,17 +1192,16 @@ virtual: $(FILES)
     # write NNLO_IRV : integrated counterterms
     #===========================================================================
     #gl
-    def write_NNLO_IRV_template(self, tmp_proc_dir, writer, matrix_element):
+    def write_NNLO_IRV_template(self, writer, matrix_element):
         
         replace_dict = {}
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         # write driver
-        print(tmp_proc_dir)
-        filename = pjoin(tmp_proc_dir, 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 

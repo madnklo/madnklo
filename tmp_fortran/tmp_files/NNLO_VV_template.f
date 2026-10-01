@@ -103,10 +103,10 @@ C     BEGIN CODE
 C     
       IF (INIT) THEN
         INIT=.FALSE.
-c$$$        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-c$$$        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
-c$$$        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-c$$$        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+c        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+c        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
+c        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+c        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
       ENDIF
 C     
 C     phase space and invariants
@@ -139,10 +139,10 @@ C     possible cuts
       IF(DOCUT(P,NEXTERNAL,LEG_PDGS,0))GOTO 999
 C     
 C     call virtual
-c$$$      COLOR_CORRELATED_EVALS = 0D0
-c$$$      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND
-c$$$     $ ,RETURNCODE)
-c$$$      VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
+c      COLOR_CORRELATED_EVALS = 0D0
+c      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND
+c     $ ,RETURNCODE)
+c      VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
       DO I=-4,0
          IF(ABS(VVNNLO(I)).GE.HUGE(1D0).OR.ISNAN(VVNNLO(I)))THEN
             WRITE(77,*) 'int_VV: '

@@ -2320,6 +2320,42 @@ c       %s
         self.link_files_to_RR_dir(dirpath, overall_sector_info)
 
 
+
+        # GIOVANNI
+        for i in range(0,len(overall_sector_info)):
+            
+            vv_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str']))
+            data_vv_rec = str(vv_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+            pattern = pjoin(dirmadnklo, interface.user_dir_name[0], "NNLO_VV*")
+            paths = [path for path in glob.glob(pattern) if os.path.isdir(path)]
+            UBpath = overall_sector_info[i]['path_to_Born']
+            
+
+            if not paths:
+                continue
+            
+            subprocess_pattern = pjoin(paths[0], "SubProcesses", "*%s" % sector_info['Born_str'])
+            subprocess_paths = [path for path in glob.glob(subprocess_pattern) if os.path.isdir(path)]
+            if not subprocess_paths:
+                continue
+            dirpath_double_virtual = subprocess_paths[0]
+            if not glob.glob("%s/matrix.f" % dirpath_double_virtual):
+                            # symlink to Born ME
+                            os.symlink( "%s/matrix.f" % UBpath, "%s/matrix.f" % dirpath_double_virtual )
+                            if len(glob.glob(dirpath_double_virtual + '/spin_correlations.inc')) == 0 :
+                                os.symlink(UBpath + '/spin_correlations.inc', dirpath_double_virtual + '/spin_correlations.inc' )
+            
+                
+            file = """ \
+                integer, parameter :: len_iref = %d
+                integer iref(2,len_iref)
+                data iref/%s/
+                """ % (len(vv_rec), data_vv_rec)
+            filename = pjoin(dirpath_double_virtual, 'double_virtual_recoilers.inc')
+            writer(filename).writelines(file)
+            if not glob.glob('%s/double_virtual_recoilers.inc' % dirpath):
+                os.symlink( '%s/double_virtual_recoilers.inc' % dirpath_double_virtual, '%s/double_virtual_recoilers.inc' % dirpath)      
+
         return #all_sectors
 
 

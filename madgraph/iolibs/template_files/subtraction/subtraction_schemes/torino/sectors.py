@@ -993,18 +993,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 # Links to virtual dir
 
         for i in range(0,len(Born_processes)):
-
-            dirpath_double_virtual = pjoin(dirmadnklo,glob.glob("%s/NNLO_VV*" % interface.user_dir_name[0])[0])
-            dirpath_double_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_double_virtual,str(Born_processes[i])))[0]
-            if not glob.glob("%s/matrix.f" % dirpath_double_virtual):
-                            # symlink to Born ME
-                os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_double_virtual )
-                if len(glob.glob(dirpath_double_virtual + '/spin_correlations.inc')) == 0 :
-                    os.symlink( path_Born_processes[i] + '/spin_correlations.inc', dirpath_double_virtual + '/spin_correlations.inc' )
-
             dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
             dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
-
+            
             if not glob.glob("%s/matrix.f" % dirpath_virtual):
                 # symlink to Born ME
                 os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_virtual )

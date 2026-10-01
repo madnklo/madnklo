@@ -2809,15 +2809,18 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
-                                     # These links need to exist for
-                                     # - LO_XXXX directories
-                                     # - NLO_R_XXXX directories (for dummy links at NNLO_RV)
-                                     # For the NLO_XXXX we have a makefile for each Subprocess
-            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
+                                     # The process information below is needed in
+                                     # LO_XXXX directories and in NLO_R_XXXX
+                                     # directories reused by NNLO_RV.
             filename = pjoin(dirpath, 'ngraphs.inc')
             self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
-            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
+            # Born integration files are only valid in LO directories. Real
+            # directories receive their sector drivers, makefile and job
+            # script later from the subtraction-scheme exporter.
+            if strdirpath[-1][0] == 'L':
+                cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
+                user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
             cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             for i in range(0,len(matrix_element.get('processes'))):

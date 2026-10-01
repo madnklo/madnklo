@@ -1160,24 +1160,47 @@ class ME7ExporterTorino(ME7Exporter):
             cp(pjoin(_file_path,cp_file),
                 pjoin(self.export_dir,'bin','internal',os.path.basename(cp_file)))
 
-    def create_NLO_run_card(self):
-        """ Create the run card."""
-        
-        NLO_run_card = banner_mod.RunCardNLO()
+    def create_run_card(self):
+        """Create the canonical NLO run card used by the Torino runtime."""
+
+        run_card = banner_mod.RunCardNLO()
 
         history = ''
         processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
         proc_characteristic = {
-            'ninitial':processes[0][0].get_ninitial(), 
-            'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
+            'ninitial':processes[0][0].get_ninitial(),
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()),
             'colored_pdgs': range(1,7)+[21]}
 
-        NLO_run_card.create_default_for_process(proc_characteristic, history, processes[0])
-        
-        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
-        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card_default.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
+        run_card.create_default_for_process(proc_characteristic, history, processes[0])
+
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+    def create_ME7_run_card(self):
+        """Build the export-time ME7 configuration without writing a second card."""
+
+        run_card = banner_mod.RunCardME7()
+
+        history = ''
+        processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
+        proc_characteristic = {
+            'ninitial':processes[0][0].get_ninitial(),
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()),
+            'colored_pdgs': range(1,7)+[21]}
+
+        run_card.create_default_for_process(proc_characteristic, history, processes)
+
+        # Run-card values normally pass through the text parser, which strips
+        # quoting used by string defaults (for example, flavor_cuts).  Since
+        # this ME7-only card is kept in memory, perform the same normalization
+        # before constructing the integrands.
+        for name, value in run_card.items():
+            if isinstance(value, str):
+                run_card[name] = value
+        return run_card
 
     def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
@@ -1217,9 +1240,7 @@ class ME7ExporterTorino(ME7Exporter):
             contrib.remove_superfluous_content()
             contrib.link_global_ME7_resources(self.export_dir)
 
-        # Create the run_card
-        # TODO: choice which run_card to use
-        self.create_NLO_run_card()
+        # Create the single canonical NLO run card.
         self.create_run_card()
 
         # Add the cards generated in MODEL to the Cards directory
@@ -1267,7 +1288,7 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Now generate all the integrands from the contributions exported
         all_integrands = []
-        run_card = banner_mod.RunCardME7(pjoin(self.export_dir,'Cards','run_card.dat'))
+        run_card = self.create_ME7_run_card()
 
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.

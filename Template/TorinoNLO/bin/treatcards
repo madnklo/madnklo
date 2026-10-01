@@ -141,7 +141,7 @@ if args[0] in ['param', 'all']:
     param_card.write_inc_file(outfile, ident_card, default, need_mp=need_mp)
 
 if args[0] in ['run', 'all']:
-    run_card = banner_mod.RunCardNLO(pjoin(export_dir,'Cards','NLO_run_card.dat'))
+    run_card = banner_mod.RunCardNLO(pjoin(export_dir,'Cards','run_card.dat'))
     n_initial = run_card['lpp1']+run_card['lpp2']
     if n_initial == 1:
         run_card['lpp1'] =  0

@@ -3999,9 +3999,7 @@ class AskforEditCard(cmd.OneLinePathCompletion):
         #define paths
         self.paths['param'] = pjoin(self.me_dir,'Cards','param_card.dat')
         self.paths['param_default'] = pjoin(self.me_dir,'Cards','param_card_default.dat')
-        #self.paths['run'] = pjoin(self.me_dir,'Cards','run_card.dat')
-        #GIOVANNI
-        self.paths['run'] = pjoin(self.me_dir,'Cards','NLO_run_card.dat')
+        self.paths['run'] = pjoin(self.me_dir,'Cards','run_card.dat')
         self.paths['run_default'] = pjoin(self.me_dir,'Cards','run_card_default.dat')
         self.paths['transfer'] =pjoin(self.me_dir,'Cards','transfer_card.dat')
         self.paths['MadWeight'] =pjoin(self.me_dir,'Cards','MadWeight_card.dat')

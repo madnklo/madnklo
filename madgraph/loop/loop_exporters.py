@@ -3427,8 +3427,7 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
 
         #### GIOVANNI
         replace_dict['loopstr'] = loop_str
-
-
+        replace_dict['hel_double_checked_after_filter'] = ('.TRUE.' if loop_str == 'V_' else '.FALSE.')
 
         file = file % replace_dict
         number_of_calls = len(filter(lambda call: call.find('CALL LOOP') != 0, \

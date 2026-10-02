@@ -770,8 +770,7 @@ C Or, because this is very slow, we keep the orignal value. The accuracy returne
 ENDIF
 
 IF(DONEHELDOUBLECHECK.AND.(.NOT.HELDOUBLECHECKED)) THEN
-c  HELDOUBLECHECKED=.TRUE. GIOVANNI
-  HELDOUBLECHECKED=.FALSE. 
+  HELDOUBLECHECKED=%(hel_double_checked_after_filter)s
   DONEHELDOUBLECHECK=.FALSE.
 ENDIF
 

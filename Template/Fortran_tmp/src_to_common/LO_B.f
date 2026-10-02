@@ -9,8 +9,6 @@ c     n-body LO integrand for vegas
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
       INCLUDE 'ngraphs.inc'
-      
-      integer ich
       integer ierr
       integer ievt,nthres
       save ievt,nthres
@@ -32,15 +30,23 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
+      integer ich
+      common/comich/ich
       integer iconfig,mincfig,maxcfig,invar
+      common/cfig/iconfig,mincfig,maxcfig,invar
       double precision dot
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)
       COMMON/TO_AMP2/AMP2,NGRAPHS2
-      common/comich/ich
-      double precision mass2
-      double precision pmass(nexternal)
-      include 'pmass.inc'
+      integer last_ich
+      data last_ich /-1/
+      save last_ich
+c
+c     call initialisation function, once per channel
+      if (ich.ne.last_ich) then
+         call initialise_born_channel()
+         last_ich=ich
+      endif
 c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
@@ -49,22 +55,8 @@ c     initialise
       xjac=Gevtopb
       int_Born=0d0
 c
-C     Hard coded settings for gen_mom
-c     TODO: At the moment the variables mincfig,maxcfig,invar seem no to be used
-c      Check if we actually need them!
-      iconfig = ich
-c      iconfig = 1
-      mincfig = 1
-      maxcfig = 1
-      invar = 1
-      call configs_born
-      call props_born
-      call decaybw_born
-      call getleshouche_born
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
       if(xjac.eq.0d0)goto 999
-      call invariants_from_p(p,nexternal,sLO,ierr)
-      if(ierr.eq.1)goto 999
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
@@ -77,18 +69,32 @@ c     Born
 c
 c     plot Born
       wgtpl=int_Born*wgt
-c      if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
-      if(doplot) call analysis_fill(p,slo,nexternal,leg_pdgs,wgts)
-c
-c     print out current run progress
-c 999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodB*1d0)),' done'
-c         nthres=nthres+int(nprodB/rfactB)
-c      endif
-c 111  format(a1,i3,a6,$)
-c
+      if(doplot) then
+         call invariants_from_p(p,nexternal,sLO,ierr)
+         if(ierr.eq.1)goto 999
+         call analysis_fill(p,slo,nexternal,leg_pdgs,wgts)
+      endif
 c
  999  return
+      end
+
+
+      subroutine initialise_born_channel()
+      implicit none
+      integer ich
+      common/comich/ich
+      integer iconfig,mincfig,maxcfig,invar
+      common/cfig/iconfig,mincfig,maxcfig,invar
+c
+      iconfig = ich
+      mincfig = 1
+      maxcfig = 1
+      invar = 1
+      call configs_born
+      call props_born
+      call decaybw_born
+      call getleshouche_born
+c
+      return
       end

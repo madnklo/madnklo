@@ -92,11 +92,7 @@ c     phase space and invariants
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
-      if(ierr.eq.1) then
-         write(77,*) 'int_real: '
-         write(77,*) 'Wrong LO invariants ', sLO
-         goto 999
-      endif
+      if(ierr.eq.1) goto 999
 c
 c     tiny technical phase-space cut to avoid fluctuations
       if(dotechcut(snlo,nexternal,tiny1)) goto 999
@@ -123,7 +119,6 @@ c     full real in sector Wij
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt*wgt_chan
-c      if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
       wgts=wgtpl
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
  555  continue
@@ -139,15 +134,6 @@ c
 c     subtraction (phase-space jacobian included in counterterm definition)
       int_real_%(isec)d_%(jsec)d=int_real_no_cnt-KNLO
       int_real_%(isec)d_%(jsec)d = int_real_%(isec)d_%(jsec)d*wgt_chan
-c
-c     print out current run progress
-c     TODO: adapt progress bar
-c 999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodR*1d0)),' done'
-c         nthres=nthres+int(nprodR/rfactR)
-c      endif
-c 111  format(a1,i3,a6,$)
 c
  999  return
       end

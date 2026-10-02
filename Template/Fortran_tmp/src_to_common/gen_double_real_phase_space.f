@@ -1,11 +1,11 @@
-      subroutine phase_space_npt(x,shat,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pbar,ptilde,xjac,xjacB,xjacCS1)
+      subroutine phase_space_npt(x,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pbar,ptilde,xjac,xjacB,xjacCS1)
 c     iU1 and iU2 are the unresolved partons associated with the soft singularity
       implicit none
       include 'coupl.inc'
       include 'math.inc'
       include 'nexternal.inc'
       include 'leg_PDGs.inc'
-      double precision x(3*nexternal-10),shat
+      double precision x(3*nexternal-10)
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1),ptilde(0:3,nexternal-2)
       double precision xjac,xjacB,xjacCS1,xjacCS2
       integer i,j,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2

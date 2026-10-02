@@ -57,7 +57,6 @@ c
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
-      DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NLO_proc_str)sfl_factor
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
@@ -70,7 +69,6 @@ c
       common /cCSpow/CSpow
 c
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-      SCM = (2D0*EBEAM(1))**2
 c
 c     initialise
       str5 ='     '
@@ -100,7 +98,7 @@ c     TODO: this rescaling is specific for (ijr) mapping; generalise
          xr(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(xr,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         call phase_space_npo(xr,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle

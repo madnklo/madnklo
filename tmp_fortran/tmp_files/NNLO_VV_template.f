@@ -26,7 +26,6 @@ C     TODO: understand x(mxdim) definition by Vegas
       COMMON/CDOPLOT/DOPLOT
       DOUBLE PRECISION P(0:3,NEXTERNAL)
       DOUBLE PRECISION XJAC
-      DOUBLE PRECISION SCM
       INTEGER FL_FACTOR
       COMMON/FLAVOUR_FACTOR/FL_FACTOR
       DOUBLE PRECISION ANS(0:1)  !TODO SET CORRECTLY RANGE OF ANS 
@@ -86,8 +85,6 @@ C     indices are which one to consider
 C     
 C     EXTERNAL
 C
-c     TODO: convert to partonic sCM 
-      sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 C     
@@ -109,11 +106,6 @@ c        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
 c        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
       ENDIF
 C     
-C     phase space and invariants
-      IF(SCM.LE.0D0)THEN
-        WRITE(*,*) 'Wrong sCM', SCM
-        STOP
-      ENDIF
 C     Hard coded settings for gen_mom
       iconfig = ich
       mincfig = 1

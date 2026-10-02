@@ -29,7 +29,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/flavour_factor/fl_factor
       double precision p(0:3,nexternal)
       double precision xjac
-      double precision sCM
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
@@ -43,9 +42,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
-c     TODO: convert to partonic sCM 
-      sCM = (2d0*EBEAM(1))**2
-c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -53,11 +49,6 @@ c     initialise
       xjac=Gevtopb
       int_Born=0d0
 c
-c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
 C     Hard coded settings for gen_mom
 c     TODO: At the moment the variables mincfig,maxcfig,invar seem no to be used
 c      Check if we actually need them!

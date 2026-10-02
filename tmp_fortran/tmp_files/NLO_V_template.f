@@ -25,7 +25,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/cdoplot/doplot
       double precision p(0:3,nexternal)
       double precision xjac
-      double precision sCM
       integer fl_factor 
       common/flavour_factor/fl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
@@ -85,9 +84,6 @@ C      indices are which one to consider
       
 C
 C     EXTERNAL
-C
-c     TODO: convert to partonic sCM 
-      sCM = (2d0*EBEAM(1))**2
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -109,11 +105,6 @@ C
 !        INCLUDE 'pmass.inc'
       ENDIF
 c
-c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
 C     Hard coded settings for gen_mom
       iconfig = ich
       mincfig = 1
@@ -125,7 +116,6 @@ C     Hard coded settings for gen_mom
       call getleshouche_born
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
 
-!      call phase_space_n(x,sCM,p,nexternal,xjac)
       if(xjac.eq.0d0) then
          write(77,*)'Wrong jacobian in NLO_V'
          goto 999

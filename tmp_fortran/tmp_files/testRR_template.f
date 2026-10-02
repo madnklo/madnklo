@@ -77,7 +77,6 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
 c      DOUBLE PRECISION W_NNLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
-      DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NNLO_proc_str)sfl_factor
       common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
@@ -94,7 +93,6 @@ c      DOUBLE PRECISION W_NNLO
       common/cconscheck/consistency_check
 
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-      SCM = (2D0*EBEAM(1))**2
 c
 c     initialise
       x=x0
@@ -151,7 +149,7 @@ c     more and more singular kinematics
          enddo
 c
 c     recompute momenta after rescaling
-         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
+         call phase_space_npt(x,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
          if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) cycle
          call invariants_from_p(p,nexternal,sNNLO,ierr)
          if(ierr.eq.1)cycle

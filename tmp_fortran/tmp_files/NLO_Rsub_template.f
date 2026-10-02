@@ -35,8 +35,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
-      double precision sCM
-      common/cscm/sCM
       integer nitr
       common/iterations/nitr
       integer %(NLO_proc_str)sfl_factor 
@@ -62,13 +60,6 @@ c     call initialisation function
          firsttime=.false.
       endif
 c
-c     TODO: convert to partonic sCM 
-      sCM = (2d0*EBEAM(1))**2
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
-c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c     
@@ -88,7 +79,7 @@ c     test phase-space singularities of matrix elements
       endif
 c
 c     phase space and invariants
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+      call phase_space_npo(x,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac*xjacB.eq.0d0) then
          write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB

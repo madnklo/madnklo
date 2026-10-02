@@ -70,13 +70,6 @@ c     call initialisation function
          firsttime=.false.
       endif
 c
-c     TODO: convert to partonic sCM
-      sCM = (2d0*EBEAM(1))**2
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
-c
 c     TODO: muR from card
       ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 c
@@ -91,7 +84,7 @@ c     phase-space tests (for double pole, single pole, finite part)
       endif
 c
 c     phase space and invariants
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
+      call phase_space_npo(x,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
@@ -107,6 +100,12 @@ c     phase space and invariants
       if(ierr.eq.1) then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong n-body invariants ', sLO
+         goto 999
+      endif
+      sCM=sNLO(1,2)
+      if(sCM.le.0d0.or.abs(sCM-sLO(1,2))/sCM.gt.1d-8)then
+         write(77,*) 'int_real_virtual: '
+         write(77,*) 'Wrong sCM ', sLO(1,2),sCM
          goto 999
       endif
 c
@@ -213,7 +212,7 @@ c
 c
 c     check we are not in the ISR case
       if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
+         write(*,*)'ISR indices in RV initialise sectot',isec,jsec
          stop
       endif
 c

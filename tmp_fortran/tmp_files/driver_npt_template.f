@@ -24,6 +24,8 @@
       character*100 line
       integer nitRRth,nclRRth,nitRR,nclRR
       integer nitRRth0,nclRRth0,nclRR0,nclRRth1,nclRR1
+      integer iseed
+      common /to_seed/iseed
       COMMON/iterations/NITRR
 c
 c     vegas declarations
@@ -40,6 +42,7 @@ c
 c      double precision sum_err_rr_a,err_rr_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
+      INCLUDE 'all_sector_list.inc'
 c
       sum_rr=0d0
       sum_err_rr=0d0
@@ -54,10 +57,10 @@ c     read inputs
       order=1
       idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITRRTH = NITERS_FO_GRID
-      NCLRRTH = NPOINTS_FO_GRID
-      NITRR = NITERS_FO
-      NCLRR = NPOINTS_FO
+      NITRRTH = NITERS_RR_GRID
+      NCLRRTH = max(1,int(NPOINTS_RR_GRID/dble(lensectors)))
+      NITRR = NITERS_RR
+      NCLRR = max(1,int(NPOINTS_RR/dble(lensectors)))
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters and set sector parametrisation
@@ -120,7 +123,7 @@ c     do i=1,N_MAX_CG
 c         nclRRth1=max(1000,int(nclRRth*err_rr_a(ich)/sum_err_rr_a))
 c         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRRth1,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
          call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRRth,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu9,*)'RR%(isec)d%(jsec)d%(c3p)d%(d3p)d warmup:channel, itns, calls = ',ich,nitRRth,nclRRth1
+         write(iu9,*)'RR%(isec)d%(jsec)d%(c3p)d%(d3p)d warmup:channel, itns, calls = ',ich,nitRRth,nclRRth
 c
          write(*,*)'Double-real %(isec)d%(jsec)d%(c3p)d%(d3p)d for channel',ich
          write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(c3p)d%(d3p)d, channel',ich

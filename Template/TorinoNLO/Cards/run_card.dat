@@ -47,6 +47,37 @@
  %(niters_fo_grid)s      = niters_FO_grid   ! number of iter. to setup grids
  %(npoints_fo)s  = npoints_FO       ! number of points to compute Xsec
  %(niters_fo)s      = niters_FO        ! number of iter. to compute Xsec
+# Contribution-specific settings used by the Torino drivers
+# Born
+ %(npoints_b_grid)s = npoints_B_grid ! calls to setup the B grid
+ %(niters_b_grid)s  = niters_B_grid  ! iterations to setup the B grid
+ %(npoints_b)s      = npoints_B      ! calls for the B cross section
+ %(niters_b)s       = niters_B       ! iterations for the B cross section
+# Virtual
+ %(npoints_v_grid)s = npoints_V_grid ! calls to setup the V grid
+ %(niters_v_grid)s  = niters_V_grid  ! iterations to setup the V grid
+ %(npoints_v)s      = npoints_V      ! calls for the V cross section
+ %(niters_v)s       = niters_V       ! iterations for the V cross section
+# Real: point budgets are shared among the generated sectors
+ %(npoints_r_grid)s = npoints_R_grid ! total calls to setup the R grids
+ %(niters_r_grid)s  = niters_R_grid  ! iterations to setup each R grid
+ %(npoints_r)s      = npoints_R      ! total calls for the R cross section
+ %(niters_r)s       = niters_R       ! iterations for each R sector
+# Double virtual
+ %(npoints_vv_grid)s = npoints_VV_grid ! calls to setup the VV grid
+ %(niters_vv_grid)s  = niters_VV_grid  ! iterations to setup the VV grid
+ %(npoints_vv)s      = npoints_VV      ! calls for the VV cross section
+ %(niters_vv)s       = niters_VV       ! iterations for the VV cross section
+# Real virtual: point budgets are shared among the generated sectors
+ %(npoints_rv_grid)s = npoints_RV_grid ! total calls to setup the RV grids
+ %(niters_rv_grid)s  = niters_RV_grid  ! iterations to setup each RV grid
+ %(npoints_rv)s      = npoints_RV      ! total calls for the RV cross section
+ %(niters_rv)s       = niters_RV       ! iterations for each RV sector
+# Double real: point budgets are shared among the generated sectors
+ %(npoints_rr_grid)s = npoints_RR_grid ! total calls to setup the RR grids
+ %(niters_rr_grid)s  = niters_RR_grid  ! iterations to setup each RR grid
+ %(npoints_rr)s      = npoints_RR      ! total calls for the RR cross section
+ %(niters_rr)s       = niters_RR       ! iterations for each RR sector
 #***********************************************************************
 # Random number seed                                                   *
 #***********************************************************************

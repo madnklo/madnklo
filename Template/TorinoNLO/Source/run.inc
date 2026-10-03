@@ -16,6 +16,24 @@ c    Integrators parameters
       integer npoints_fo_grid,npoints_fo,niters_fo_grid,niters_fo
       common/integ_param/req_acc_fo,npoints_fo_grid,npoints_fo,
      $			niters_fo_grid,niters_fo
+      integer npoints_b_grid,niters_b_grid,npoints_b,niters_b
+      integer npoints_v_grid,niters_v_grid,npoints_v,niters_v
+      integer npoints_r_grid,niters_r_grid,npoints_r,niters_r
+      integer npoints_vv_grid,niters_vv_grid,npoints_vv,niters_vv
+      integer npoints_rv_grid,niters_rv_grid,npoints_rv,niters_rv
+      integer npoints_rr_grid,niters_rr_grid,npoints_rr,niters_rr
+      common/torino_integ_b/npoints_b_grid,niters_b_grid,
+     $                       npoints_b,niters_b
+      common/torino_integ_v/npoints_v_grid,niters_v_grid,
+     $                       npoints_v,niters_v
+      common/torino_integ_r/npoints_r_grid,niters_r_grid,
+     $                       npoints_r,niters_r
+      common/torino_integ_vv/npoints_vv_grid,niters_vv_grid,
+     $                        npoints_vv,niters_vv
+      common/torino_integ_rv/npoints_rv_grid,niters_rv_grid,
+     $                        npoints_rv,niters_rv
+      common/torino_integ_rr/npoints_rr_grid,niters_rr_grid,
+     $                        npoints_rr,niters_rr
 c
 c New stuff for scales (NLO)
 c

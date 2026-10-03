@@ -55,10 +55,10 @@ c     read inputs
       order=0
       idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITVTH =  NITERS_FO_GRID
-      NCLVTH = NPOINTS_FO_GRID
-      NITV = NITERS_FO
-      NCLV = NPOINTS_FO
+      NITVTH = NITERS_V_GRID
+      NCLVTH = NPOINTS_V_GRID
+      NITV = NITERS_V
+      NCLV = NPOINTS_V
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters

@@ -7,7 +7,6 @@
       INCLUDE 'cuts.inc'
       include 'colored_partons.inc'
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
-      INCLUDE 'all_sector_list.inc'
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -44,6 +43,7 @@ c
 c     double precision sum_err_r_a,err_r_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
+      INCLUDE 'all_sector_list.inc'
 c
       sum_r=0d0
       sum_err_r=0d0
@@ -58,12 +58,10 @@ c     read inputs
       order=1
       idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITRTH = NITERS_FO_GRID
-c      NCLRTH = NPOINTS_FO_GRID/dble(lensectors)
-      NCLRTH = NPOINTS_FO_GRID
-      NITR = NITERS_FO
-c      NCLR = NPOINTS_FO/dble(lensectors)
-      NCLR = NPOINTS_FO
+      NITRTH = NITERS_R_GRID
+      NCLRTH = max(1,int(NPOINTS_R_GRID/dble(lensectors)))
+      NITR = NITERS_R
+      NCLR = max(1,int(NPOINTS_R/dble(lensectors)))
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters and set sector parametrisation
@@ -127,7 +125,7 @@ c      do i=1,N_MAX_CG
 c         nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
 c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth1
+         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth
 c
          write(*,*)'Real %(isec)d%(jsec)d for channel',ich
          write(iu7,*)'Failures for R%(isec)d%(jsec)d, channel',ich
@@ -143,7 +141,7 @@ c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
-         write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ich,nitR,nclR1
+         write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ich,nitR,nclR
          write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
          write(iu9,*)
 c

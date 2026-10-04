@@ -13,6 +13,11 @@ c     number of colors
       integer Nc
       integer nloop
 c
+c     alpha_s settings, initialized by setrun.f. For runs without
+c     PDFs, asMZ is obtained from SMINPUTS 3 in param_card.dat;
+c     otherwise asMZ and nloop are matched to the selected PDF.
+      common/a_block/asMZ,nloop
+c
 c     mathematical constants
       parameter (pi   =3.141592653589793238462643383279502884197d0)
       parameter (twopi=2d0*pi)
@@ -21,11 +26,6 @@ c     mathematical constants
       parameter (zeta3=1.202056903159594285399738161511449990765d0)
       parameter (eulergamma=0.5772156649015328606065120900824024d0)
       parameter (CF=4d0/3d0, CA=3d0, TR=1d0/2d0, Nc=3)
-c
-c     TODO: From parameters.f in local code
-c     couplings (read muR from input file in driver)
-      parameter (asMZ=0.118d0)
-      parameter (nloop=2)
 c
       parameter (beta0=(11d0*CA-4d0*TR*Nf)/3d0)
       parameter (gamma_g=beta0/2d0)

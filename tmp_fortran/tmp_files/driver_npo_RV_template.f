@@ -10,7 +10,6 @@
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
-      integer isec,jsec
       double precision s_had
       integer iu,iu1,iu7,iu8,iu9,iu0
       common/cdim/ndim
@@ -83,8 +82,6 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      isec=%(isec)d
-      jsec=%(jsec)d
 c     call histo_init
       nwgt=1
       weights_info(1)='central value'

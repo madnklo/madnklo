@@ -44,6 +44,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
       logical firsttime
@@ -86,13 +90,19 @@ c     phase space and invariants
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: R',ierr,ich,failure_stage
          write(77,*) 'int_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)  
-      if(ierr.eq.1) goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: R',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     tiny technical phase-space cut to avoid fluctuations
       if(dotechcut(snlo,nexternal,tiny1)) goto 999
@@ -125,7 +135,9 @@ c     plot real
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
-      if(ierr.eq.1)then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: R',ierr,ich,failure_stage
          write(77,*) 'int_real: '
          write(77,*) 'Something wrong in the counterterm', KNLO
          goto 999

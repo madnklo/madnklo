@@ -115,9 +115,9 @@ c     recompute momenta after rescaling
          call phase_space_npo(xr,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(pb,nexternal-1,sLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          sCM=sNLO(1,2)
          if(sCM.le.0d0.or.abs(sCM-sLO(1,2))/sCM.gt.1d-8)cycle
 c
@@ -140,7 +140,7 @@ c
 c
 c     counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,xr,KRVNNLO,wgt_chan,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 
          lim=KRVNNLO
          single_real=RVNNLO*W_NLO*xjac

@@ -38,12 +38,17 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_rr,sum_err_rr
 c      double precision sum_err_rr_a,err_rr_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
       INCLUDE 'all_sector_list.inc'
 c
+      nfail=0
       sum_rr=0d0
       sum_err_rr=0d0
       res_rr=0d0
@@ -86,7 +91,7 @@ c      call histo_init
       weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
-      open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
+      open(unit=iu7,file='failures_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log',status='replace',action='write')
       open(unit=iu8,file='testRR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu9,file='chan_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
       open(unit=iu,file='results_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log')
@@ -113,7 +118,6 @@ c     do i=1,N_MAX_CG
       do i=1,1
          ich=i
          write(*,*)'Double-real %(isec)d%(jsec)d%(c3p)d%(d3p)d warmup for channel',ich
-         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(c3p)d%(d3p)d  warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d WARMUP, CHANNEL',ich
@@ -122,11 +126,11 @@ c     do i=1,N_MAX_CG
          doplot=.false.
 c         nclRRth1=max(1000,int(nclRRth*err_rr_a(ich)/sum_err_rr_a))
 c         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRRth1,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         failure_stage='warmup'
          call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRRth,nitRRth,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu9,*)'RR%(isec)d%(jsec)d%(c3p)d%(d3p)d warmup:channel, itns, calls = ',ich,nitRRth,nclRRth
 c
          write(*,*)'Double-real %(isec)d%(jsec)d%(c3p)d%(d3p)d for channel',ich
-         write(iu7,*)'Failures for RR%(isec)d%(jsec)d%(c3p)d%(d3p)d, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' DOUBLE-REAL_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d, CHANNEL',ich
@@ -135,6 +139,7 @@ c
          doplot=.true.
 c         nclRR1=max(1000,int(nclRR*err_rr_a(ich)/sum_err_rr_a))
 c         call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRR1,nitRR,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         failure_stage='main'
          call vegas(region,ndim,int_double_real_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d,init,nclRR,nitRR,nprn,res_rr,err_rr,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_RR=dble(nitRR)/min(dble(nitRR),dble(it))
          sum_rr = sum_rr + res_rr
@@ -158,6 +163,7 @@ c      write(iu,*)' '//line
 c      write(iu,*)
       close(iu)
       close(iu1)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
       close(iu8)
       close(iu9)

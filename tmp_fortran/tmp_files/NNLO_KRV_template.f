@@ -18,6 +18,7 @@ c     local real-virtual counterterm for sector (isec,jsec)
       %(str_def_M2)s
 c
 c     initialise
+      ierr=0
       isec = %(isec)d
       jsec = %(jsec)d
       iref = %(iref)d

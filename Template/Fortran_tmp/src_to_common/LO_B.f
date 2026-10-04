@@ -32,6 +32,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       integer iconfig,mincfig,maxcfig,invar
       common/cfig/iconfig,mincfig,maxcfig,invar
       double precision dot
@@ -72,7 +76,11 @@ c     plot Born
       wgts=wgtpl
       if(doplot) then
          call invariants_from_p(p,nexternal,sLO,ierr)
-         if(ierr.eq.1)goto 999
+         if(ierr.ne.0)then
+            nfail=nfail+1
+            write(77,*)'ierr failure: B',ierr,ich,failure_stage
+            goto 999
+         endif
          call analysis_fill(p,slo,nexternal,leg_pdgs,wgts)
       endif
 c

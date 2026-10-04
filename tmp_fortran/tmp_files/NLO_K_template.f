@@ -19,6 +19,7 @@ c     local NLO counterterm for sector (isec,jsec)
       %(str_def_M2)s
 c
 c     initialise
+      ierr=0
       KS=0d0
       KHC=0d0
       KNLO=0d0

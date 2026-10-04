@@ -37,11 +37,16 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_vv,sum_err_vv
       double precision sum_err_vv_a,err_vv_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
 c
+      nfail=0
       sum_vv=0d0
       sum_err_vv=0d0
       res_vv=0d0
@@ -84,7 +89,7 @@ c     initialise histograms and open output files
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_VV.log')
       open(unit=iu2,file='test_poles_VV.log')
-      open(unit=iu7,file='failures_VV.log')
+      open(unit=iu7,file='failures_VV.log',status='replace',action='write')
       open(unit=iu8 ,file='VV_chan.log')
       open(unit=iu ,file='results_VV.log')
       line='=================================================='
@@ -99,6 +104,7 @@ c     number of points thrown per channel in the main loop
       do ich=1,N_MAX_CG
          init=0
          doplot=.false.
+         failure_stage='probe'
          call vegas(region,ndim,int_VV,init,nclVVth0,nitVVth0,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_vv_a(ich) = err_vv
@@ -108,7 +114,6 @@ c
 c     main loop over channels
       do ich=1,N_MAX_CG
          write(*,*)'VV warmup for channel',ich
-         write(iu7,*)'Failures for VV warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' VV WARMUP, CHANNEL',ich
@@ -116,12 +121,12 @@ c     main loop over channels
          init=0
          doplot=.false.
          nclVVth1=max(1000,int(nclVVth*err_vv_a(ich)/sum_err_vv_a))
+         failure_stage='warmup'
          call vegas(region,ndim,int_VV,init,nclVVth1,nitVVth,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV warmup: channel, itns, calls = ',ich,nitVVth,nclVVth1
 c
          write(*,*)'VV for channel',ich
-         write(iu7,*)'Failures for VV, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' VV, CHANNEL',ich
@@ -129,6 +134,7 @@ c
          init=1
          doplot=.true.
          nclVV1=max(1000,int(nclVV*err_vv_a(ich)/sum_err_vv_a))
+         failure_stage='main'
          call vegas(region,ndim,int_VV,init,nclVV1,nitVV,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV: channel, itns, calls = ',ich,nitVV,nclVV1
@@ -147,6 +153,7 @@ c     finalise histograms and output files
       close(iu)
       close(iu1)
       close(iu2)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
       close(iu8)
 c

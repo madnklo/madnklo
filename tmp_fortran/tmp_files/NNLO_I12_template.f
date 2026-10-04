@@ -36,6 +36,7 @@ c     DOUBLE_POLE = I12NNLO(-2)
       include 'pmass.inc'
 c
 c     initialise
+      ierr=0
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       isec = %(isec)d
       jsec = %(jsec)d

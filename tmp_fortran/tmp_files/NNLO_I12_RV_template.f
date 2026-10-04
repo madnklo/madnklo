@@ -45,6 +45,7 @@ c      common/csecindices/isec,jsec,ksec,lsec,iref
       include 'pmass.inc'
 c
 c     initialise
+      ierr=0
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       pref=alphas/(2d0*pi)
       I12NNLO = 0d0

@@ -37,11 +37,16 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_b,sum_err_b
       double precision sum_err_b_a,err_b_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
 c
+      nfail=0
       sum_b=0d0
       sum_err_b=0d0
       res_b=0d0
@@ -82,7 +87,7 @@ c     initialise histograms and open output files
       weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_B.log')
-      open(unit=iu7,file='failures_B.log')
+      open(unit=iu7,file='failures_B.log',status='replace',action='write')
       open(unit=iu8 ,file='B_chan.log')
       open(unit=iu ,file='results_B.log')
       line='=================================================='
@@ -96,6 +101,7 @@ c     number of points thrown per channel in the main loop
       do ich=1,N_MAX_CG
          init=0
          doplot=.false.
+         failure_stage='probe'
          call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_b_a(ich) = err_b
@@ -105,7 +111,6 @@ c
 c     main loop over channels
       do ich=1,N_MAX_CG
          write(*,*)'Born warmup for channel',ich
-         write(iu7,*)'Failures for Born warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' BORN WARMUP, CHANNEL',ich
@@ -113,12 +118,12 @@ c     main loop over channels
          init=0
          doplot=.false.
          nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
+         failure_stage='warmup'
          call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
 c
          write(*,*)'Born for channel',ich
-         write(iu7,*)'Failures for Born, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' BORN, CHANNEL',ich
@@ -126,6 +131,7 @@ c
          init=1
          doplot=.true.
          nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
+         failure_stage='main'
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
      &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
@@ -144,6 +150,7 @@ c     finalise histograms and output files
       write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_err_b
       close(iu)
       close(iu1)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
 c
       end

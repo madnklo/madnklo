@@ -152,11 +152,11 @@ c     recompute momenta after rescaling
          call phase_space_npt(x,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
          if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) cycle
          call invariants_from_p(p,nexternal,sNNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(pb,nexternal-1,sNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 c
 c     double real
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
@@ -169,7 +169,7 @@ c
 c     counterterm
          consistency_check = .false.
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 
          lim=KNNLO
          if(test_sector_function) then

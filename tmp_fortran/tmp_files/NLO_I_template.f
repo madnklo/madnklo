@@ -34,6 +34,7 @@ c     DOUBLE_POLE = INLO(3)
       include 'pmass.inc'
 c
 c     initialise
+      ierr = 0
       ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
       pref=alphas/(2d0*pi)
       INLO = 0d0

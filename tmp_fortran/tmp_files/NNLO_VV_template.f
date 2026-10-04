@@ -69,6 +69,10 @@ C
       COMMON/TO_AMP2/AMP2,NGRAPHS2
       INTEGER ICH
       COMMON/COMICH/ICH
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       DOUBLE PRECISION PMASS(NEXTERNAL)
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=4)
@@ -122,7 +126,9 @@ C     Hard coded settings for gen_mom
       ENDIF
 
       CALL INVARIANTS_FROM_P(P,NEXTERNAL,SLO,IERR)
-      IF(IERR.EQ.1) THEN
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: VV',ierr,ich,failure_stage
         WRITE(77,*)'Wrong invariants in NNLO_VV', SLO
         GOTO 999
       ENDIF
@@ -145,9 +151,17 @@ c      VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
 C     
 C     call counterterm
       CALL INT_COUNTER_I2_NNLO(P,SLO,I2NNLO,IERR)
-      IF(IERR.EQ.1)GOTO 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: VV',ierr,ich,failure_stage
+         goto 999
+      endif
       CALL INT_COUNTER_IRV_NNLO(P,SLO,IRVNNLO,IERR)
-      IF(IERR.EQ.1)GOTO 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: VV',ierr,ich,failure_stage
+         goto 999
+      endif
 C     
 C     test coefficients of epsilon poles
       IF(NTESTED.LT.NTEST)THEN

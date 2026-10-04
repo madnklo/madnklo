@@ -59,6 +59,10 @@ C
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       integer iconfig,mincfig,maxcfig,invar
       common/cfig/iconfig,mincfig,maxcfig,invar
       integer NGRAPHS2
@@ -105,7 +109,11 @@ c
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
       if(xjac.eq.0d0)goto 999
       call invariants_from_p(p,nexternal,sLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: V',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
@@ -117,7 +125,11 @@ c     call virtual
 c
 c     call counterterm
       call int_counter_NLO(p,sLO,INLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: V',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     test coefficients of epsilon poles
       if(ntested.lt.ntest)then

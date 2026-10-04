@@ -31,6 +31,11 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical dotechcut
       logical doplot
       common/cdoplot/doplot
+      integer ich,nfail
+      character*8 failure_stage
+      common/comich/ich
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       logical docut
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
@@ -91,13 +96,17 @@ c     phase space and invariants
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong (n+1)-body invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong n-body invariants ', sLO
          goto 999
@@ -137,15 +146,14 @@ c
 c     real sector function
       call get_sig2(snlo,nexternal)
       call get_W_NLO(isec,jsec)
-      if(ierr.eq.1)then
-         write(77,*) 'int_real_virtual: '
-         write(77,*) 'Wrong W_NLO', W_NLO
-         goto 999
-      endif
 c
 c     1-unresolved integrated counterterm
       call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     pole-free combination RV+I1
       int_rv_i1 = (RVNNLO(0)+I1NNLO(0))*w_nlo*xjac
@@ -160,7 +168,9 @@ c     if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
 c
 c     real-virtual counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)
-      if(ierr.eq.1)then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Something wrong in the RV counterterm', KRVNNLO
          goto 999
@@ -168,7 +178,11 @@ c     real-virtual counterterm
 c
 c     12-unresolved integrated counterterm
       call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I12NNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     test coefficients of epsilon poles
       if(ntested.lt.ntest)then

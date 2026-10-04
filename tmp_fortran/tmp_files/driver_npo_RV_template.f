@@ -38,12 +38,17 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_rv,sum_err_rv
 c      double precision sum_err_rv_a,err_rv_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
       INCLUDE 'all_sector_list.inc'
 c
+      nfail=0
       sum_rv=0d0
       sum_err_rv=0d0
       res_rv=0d0
@@ -87,7 +92,7 @@ c     call histo_init
       weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_RV_%(isec)d_%(jsec)d.log')
-      open(unit=iu7,file='failures_RV_%(isec)d_%(jsec)d.log')
+      open(unit=iu7,file='failures_RV_%(isec)d_%(jsec)d.log',status='replace',action='write')
       open(unit=iu8,file='testRV_%(isec)d_%(jsec)d.log')
       open(unit=iu9,file='chan_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu,file='results_RV_%(isec)d_%(jsec)d.log')
@@ -115,7 +120,6 @@ c     do i=1,N_MAX_CG
       do i=1,1
          ich=i
          write(*,*)'Real Virtual %(isec)d%(jsec)d warmup for channel',ich
-         write(iu7,*)'Failures for RV%(isec)d%(jsec)d warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' REAL_VIRTUAL_%(isec)d_%(jsec)d WARMUP, CHANNEL',ich
@@ -124,11 +128,11 @@ c     do i=1,N_MAX_CG
          doplot=.false.
 c        nclRVth1=max(1000,int(nclRVth*err_rv_a(ich)/sum_err_rv_a))
 c         call vegas(region,ndim,int_real_virtual_%(isec)d_%(jsec)d,init,nclRVth1,nitRVth,nprn,res_rv,err_rv,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         failure_stage='warmup'
          call vegas(region,ndim,int_real_virtual_%(isec)d_%(jsec)d,init,nclRVth,nitRVth,nprn,res_rv,err_rv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu9,*)'RV%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRVth,nclRVth
 c
          write(*,*)'Real Virtual %(isec)d%(jsec)d for channel',ich
-         write(iu7,*)'Failures for RV%(isec)d%(jsec)d, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' REAL_VIRTUAL_%(isec)d_%(jsec)d, CHANNEL',ich
@@ -137,6 +141,7 @@ c
          doplot=.true.
 c         nclRV1=max(1000,int(nclRV*err_rv_a(ich)/sum_err_rv_a))
 c         call vegas(region,ndim,int_real_virtual_%(isec)d_%(jsec)d,init,nclRV1,nitRV,nprn,res_rv,err_rv,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         failure_stage='main'
          call vegas(region,ndim,int_real_virtual_%(isec)d_%(jsec)d,init,nclRV,nitRV,nprn,res_rv,err_rv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          rescale_plot_RV=dble(nitRV)/min(dble(nitRV),dble(it))
          sum_rv = sum_rv + res_rv
@@ -161,6 +166,7 @@ c      write(iu,*)' '//line
 c      write(iu,*)
       close(iu)
       close(iu1)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
       close(iu8)
       close(iu9)

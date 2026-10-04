@@ -53,6 +53,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
       logical firsttime
@@ -91,19 +95,25 @@ c     phase space and invariants
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NNLO invariants ', sNNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong LO invariants ', sLO
          goto 999
@@ -148,7 +158,9 @@ c      if(doplot)call histo_fill(p,sNNLO,nexternal,leg_pdgs,wgtpl)
 c
 c     counterterm
       call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
-      if(ierr.eq.1)then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Something wrong in the counterterm', KNNLO
          goto 999

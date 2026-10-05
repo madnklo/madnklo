@@ -94,7 +94,7 @@ c
       KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*BLO+(1d0-x)/x*BLO)
-      M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0-x)**alpha)*BLO)
+      M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0-x)**alpha)*BLO
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gg  = M2_C_gg*wc_nlo

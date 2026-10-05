@@ -976,7 +976,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Write all_K_sector_list
 
-        self.write_all_K_sector_list(writer,dirpath,len_sector_list,K_sector_lists)
+        max_sector_label = max(max(sector) for sector in all_sector_list)
+        self.write_all_K_sector_list(writer,dirpath,len_sector_list,
+                                     max_sector_label,K_sector_lists)
 
 ######### Write ajob_isec_jsec
 
@@ -1046,7 +1048,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write K_sector_list file
     #===========================================================================
 
-    def write_all_K_sector_list(self,writer,dirpath,len_sector_list,K_sector_lists):
+    def write_all_K_sector_list(self,writer,dirpath,len_sector_list,
+                                max_sector_label,K_sector_lists):
 
         file = """ \
           integer, parameter :: len  = %d
@@ -1073,7 +1076,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             """
         if 'C' not in K_sector_lists:
             file += """ \
-            integer c_sector_list(1:1,1:1,1:1,2)
+          logical, parameter :: has_c_sectors = .false.
+          integer c_sector_list(%d:%d,%d:%d,LEN,2)
+            """ % (minl,max_sector_label,minl,max_sector_label)
+        else:
+            file += """ \
+          logical, parameter :: has_c_sectors = .true.
             """
 
         file += """ \
@@ -1121,7 +1129,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         if 'C' not in K_sector_lists:
             file += """
 !         data C (dummy)
-            DATA (C_SECTOR_LIST(1,1,1,L),L=1,2) /0,0/ \n"""
+          DATA C_SECTOR_LIST /%d*0/ \n""" % ((max_sector_label-minl+1)**2*len_sector_list*2)
 
         filename = pjoin(dirpath, 'all_K_sector_list.inc')
         writer(filename).writelines(file)

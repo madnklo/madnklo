@@ -140,6 +140,13 @@ contains
     integer :: i,sec(2)
     include 'all_K_sector_list.inc'
 
+    ! Fully massive processes have no collinear sectors.  Their generated
+    ! include provides a zero-filled dummy array for compilation only.
+    if (.not.has_c_sectors) then
+       WC_NLO=0d0
+       return
+    endif
+
     if (.not.sigma_coll_valid(i1,i2)) then
        sigma_coll(i1,i2)=0d0
        do i=1,len

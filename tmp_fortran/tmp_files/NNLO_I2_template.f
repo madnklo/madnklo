@@ -105,8 +105,10 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
             endif
          enddo
       enddo
-      mu2=MU_R**2
-      alphas=alpha_qcd(AS,NLOOP,MU_R)
+c     renormalisation scale for the n-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix)s)
+      alphas=alphas_current
+      mu2=muR_current**2
       pref=(alphas/(2d0*pi))**2
       call ME_ACCESSOR_HOOK(p,hel,alphas,ans)
       born=ans(0)

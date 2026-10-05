@@ -105,8 +105,8 @@ c     safety check
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref = -(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -154,18 +154,22 @@ c
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c         call colour-connected born
+c     renormalisation scale for the remapped kinematics xpbb
+          call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+          alphas=alphas_current
+          pref = -(8d0*pi*alphas)**2
           call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
           ccblo = epem_ccx_get_ccblo(mbb,lbb)
 c
 c         collinear double-soft kernel, eq. (76) on dropbox
-          m2_c_ss_gg = m2_c_ss_gg + (Pij/sij*Ebj_ml + Qij/sij*(+2d0/kt2*(ktkm/sbjm-ktkl/sbjl)**2+2d0*kmkl/sbjm/sbjl))*ccblo * wc_nlo*wsbar_nlo
+          m2_c_ss_gg = m2_c_ss_gg + pref*(Pij/sij*Ebj_ml + Qij/sij*(+2d0/kt2*(ktkm/sbjm-ktkl/sbjl)**2+2d0*kmkl/sbjm/sbjl))*ccblo * wc_nlo*wsbar_nlo
 c
 c         soft-collinear double-soft kernel, eq. (77) on dropbox
-          m2_sc_ss_gg = m2_sc_ss_gg+2d0*ca*Ei_jr*Ebj_ml*ccblo * wsbar_nlo
+          m2_sc_ss_gg = m2_sc_ss_gg+pref*2d0*ca*Ei_jr*Ebj_ml*ccblo * wsbar_nlo
 c
 c         plot
           wgtpl = -(m2_c_ss_gg - m2_sc_ss_gg)
-          wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
+          wgtpl = wgtpl*extra*damp*xj*wgt/nit*wgt_chan
           wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
           wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
           wgts=wgtpl
@@ -180,13 +184,13 @@ c
       m2_hc_ss_gg = m2_c_ss_gg - m2_sc_ss_gg
 c
 c     apply flavour factor
-      m2_hc_ss_gg = m2_hc_ss_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      m2_hc_ss_gg = m2_hc_ss_gg*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       m2_hc_ss_gg = m2_hc_ss_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
 c
-      call ct_log('KC_SS                  ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
-      call ct_log('KS_C_SS                ',M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KC_SS                  ',M2_C_SS_gg*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KS_C_SS                ',M2_SC_SS_gg*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then

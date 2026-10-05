@@ -68,7 +68,9 @@ c     possible cuts
       if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+      alphas=alphas_current
       pref=8d0*pi*alphas
 c
 c     invariant quantities

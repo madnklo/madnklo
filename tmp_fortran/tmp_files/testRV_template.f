@@ -79,7 +79,6 @@ c
       integer nsquaredso_loop
       real*8 , allocatable :: prec_found(:)
 
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 c
 c     initialise
       str5 ='     '
@@ -130,6 +129,9 @@ c     real virtual
          allocate(prec_found(0:nsquaredso_loop))
       endif
 c
+c     renormalisation scale for the (n+1)-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
       call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
       RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       RVNNLO = RVNNLO* %(NNLO_RV_proc_str)sfl_factor

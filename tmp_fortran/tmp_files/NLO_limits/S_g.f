@@ -69,9 +69,8 @@ c     call w soft
       if(.not.sig2_called)call get_sig2(xs,nexternal)
       call get_ws_nlo(isec,jsec)
 c
-c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-8d0*pi*alphas
+c     overall kernel prefix: set inside the dipole loop, where the
+c     renormalisation scale is evaluated on each dipole's mapped kinematics
 c
 c     eikonal double sum
 c      do m=1,nexternal
@@ -112,6 +111,11 @@ c     safety check
                write(77,*)'Inaccuracy 1 in M2_S_g',sil,sim
                goto 999
             endif
+c
+c     renormalisation scale for this dipole's mapped n-body kinematics
+            call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
 c
 c     call colour-connected Born
             call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)

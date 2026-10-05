@@ -89,8 +89,6 @@ C     indices are which one to consider
 C     
 C     EXTERNAL
 C
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
 C     
 C     initialise
       XJAC = GEVTOPB
@@ -136,6 +134,10 @@ C
 C     possible cuts
       IF(DOCUT(P,NEXTERNAL,LEG_PDGS,0))GOTO 999
 C     
+C     renormalisation scale for the n-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
+C
 C     call virtual
 c      COLOR_CORRELATED_EVALS = 0D0
 c      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND

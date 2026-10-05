@@ -46,6 +46,7 @@ c
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
+      INCLUDE 'leg_PDGs.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
@@ -92,7 +93,6 @@ c      DOUBLE PRECISION W_NNLO
       logical consistency_check
       common/cconscheck/consistency_check
 
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 c
 c     initialise
       x=x0
@@ -159,6 +159,9 @@ c     recompute momenta after rescaling
          if(ierr.ne.0)cycle
 c
 c     double real
+c     renormalisation scale for the (n+2)-body kinematics
+         call set_mur_from_momenta(p,nexternal,leg_pdgs)
+         alphas=alphas_current
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle

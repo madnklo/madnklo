@@ -52,9 +52,6 @@ c     call initialisation function, once per channel
          last_ich=ich
       endif
 c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       xjac=Gevtopb
       int_Born=0d0
@@ -64,6 +61,10 @@ c
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
+c
+c     renormalisation scale for the n-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
 c
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

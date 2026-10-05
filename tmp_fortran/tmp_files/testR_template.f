@@ -36,6 +36,7 @@ c
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'leg_PDGs.inc'
       integer iitn,i,j,maxitn,ierr
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
@@ -67,8 +68,6 @@ c
       double precision ran2
       double precision CSpow(2)
       common /cCSpow/CSpow
-c
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
 c
 c     initialise
       str5 ='     '
@@ -104,6 +103,10 @@ c     recompute momenta after rescaling
          if(ierr.eq.1)cycle
          call invariants_from_p(pb,nexternal-1,sLO,ierr)
          if(ierr.eq.1)cycle
+c
+c     renormalisation scale for the (n+1)-body kinematics
+         call set_mur_from_momenta(p,nexternal,leg_pdgs)
+         alphas=alphas_current
 c
 c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

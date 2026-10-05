@@ -18,6 +18,12 @@ c     PDFs, asMZ is obtained from SMINPUTS 3 in param_card.dat;
 c     otherwise asMZ and nloop are matched to the selected PDF.
       common/a_block/asMZ,nloop
 c
+c     renormalisation scale and alpha_s currently in use, set by
+c     set_mur / set_mur_from_momenta (ren_scale.f). Always set the
+c     scale for the kinematics at hand before reading them.
+      real * 8 muR_current, alphas_current
+      common/c_ren_scale/muR_current, alphas_current
+c
 c     mathematical constants
       parameter (pi   =3.141592653589793238462643383279502884197d0)
       parameter (twopi=2d0*pi)

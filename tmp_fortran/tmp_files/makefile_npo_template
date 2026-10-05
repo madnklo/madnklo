@@ -64,7 +64,7 @@ COMMON_FILES+= genps.o invarients.o transpole.o myamp.o idenparts.o dsample.o ra
 
 
 #USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o hbook.o cuts.o
-USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o HwU.o cuts.o
+USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o HwU.o cuts.o ren_scale.o
 
 %(proc_str)s
 

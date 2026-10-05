@@ -97,9 +97,6 @@ c     Refresh channel-dependent phase-space data only on an ich change.
       endif
 C
 C     EXTERNAL
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       xjac = Gevtopb
       int_virtual = 0d0
@@ -117,6 +114,11 @@ c
 c
 c     possible cuts
       if(docut(p,nexternal,leg_pdgs,0))goto 999
+c
+c     renormalisation scale for the n-body kinematics
+c     (set_mur also updates MU_R and the couplings used by MadLoop)
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
 c
 c     call virtual
       COLOR_CORRELATED_EVALS = 0d0

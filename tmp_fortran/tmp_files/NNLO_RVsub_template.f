@@ -75,9 +75,6 @@ c     call initialisation function
          firsttime=.false.
       endif
 c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       int_real_virtual_%(isec)d_%(jsec)d=0d0
       WGT_CHAN=1d0
@@ -133,6 +130,10 @@ c     real virtual
          allocate(prec_found(0:nsquaredso_loop))
       endif
 c
+c     renormalisation scale for the (n+1)-body kinematics
+c     (set_mur also updates MU_R and the couplings used by MadLoop)
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
       RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       do i=-2,0

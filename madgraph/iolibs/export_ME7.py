@@ -1174,6 +1174,11 @@ class ME7ExporterTorino(ME7Exporter):
 
         run_card.create_default_for_process(proc_characteristic, history, processes[0])
 
+        # Torino runtime: fixed renormalisation and factorisation scales by
+        # default (dynamical choices are selected in ren_scale.f:get_mur)
+        run_card['fixed_ren_scale'] = True
+        run_card['fixed_fac_scale'] = True
+
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),

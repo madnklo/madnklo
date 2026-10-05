@@ -64,9 +64,6 @@ c     call initialisation function
          firsttime=.false.
       endif
 c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c     
 c     initialise
       xjac = 0d0
       xjacB = 0d0
@@ -109,6 +106,10 @@ c     tiny technical phase-space cut to avoid fluctuations
 c
 c     possible cuts
       IF(DOCUT(P,NEXTERNAL,leg_pdgs,1))GOTO 555
+c
+c     renormalisation scale for the (n+1)-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
 c
 c     real
       call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

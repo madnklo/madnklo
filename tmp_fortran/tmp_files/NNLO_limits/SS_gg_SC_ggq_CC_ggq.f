@@ -67,8 +67,8 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     get mapped labels
       ib = real_sc_mapped_labels(i)
@@ -109,6 +109,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_krj_irj = ans(0)
 c
@@ -122,6 +126,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_jrk_irk = ans(0)
 c

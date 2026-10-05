@@ -92,7 +92,9 @@ c     possible cuts
       if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,mu_r)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+      alphas=alphas_current
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -104,12 +106,12 @@ c     invariant quantities
       x=sbr/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
-      logab=dlog(sab/mu_r**2)
+      logab=dlog(sab/muR_current**2)
 c
       EIK0     =  SBR/(SAB*SAR) - MB2/SAB**2 - MR2/SAR**2
       EIK1(-2) =  CA*EIK0
-      EIK1(-1) = -CA*EIK0*log(sab*sar/sbr/mu_r**2)
-      EIK1( 0) =  CA*EIK0/2d0*(log(sab*sar/sbr/mu_r**2)**2-5d0*zeta2)
+      EIK1(-1) = -CA*EIK0*log(sab*sar/sbr/muR_current**2)
+      EIK1( 0) =  CA*EIK0/2d0*(log(sab*sar/sbr/muR_current**2)**2-5d0*zeta2)
 c     EIK1 (B.5) is calculated in a different convention than MadLoop
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[eps eulergamma])
       EIK1( 0) =  EIK1( 0)+CA*EIK0*zeta2/2d0
@@ -258,8 +260,8 @@ c     checks
          stop
       endif
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,mu_r)
-      pref=8d0*pi*alphas
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
@@ -298,6 +300,10 @@ c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
 c     (abr) mapped Born
       ANS = 0d0
+c     renormalisation scale for the remapped kinematics xpb
+      call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+      alphas=alphas_current
+      pref=8d0*pi*alphas
       call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
 c     Eikonal E^{(i)}_{jr}
@@ -405,6 +411,10 @@ c     Barred invariants (bra)
             sb_bra_ar = xsb_bra(mapped_labels_bra(ia),mapped_labels_bra(ir))
 c     Mapped (bra) Born matrix element
             ANS = 0d0
+c     renormalisation scale for the remapped kinematics xpb_bra
+            call set_mur_from_momenta(xpb_bra,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=8d0*pi*alphas
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_bra,hel,alphas,ANS)
 c     The mother particle for the splitting [ab] ---> a b is ib
             CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
@@ -423,6 +433,10 @@ c     Barred invariants (arb)
             sb_arb_br = xsb_arb(mapped_labels_arb(ib),mapped_labels_arb(ir))
 c     Mapped (arb) Born matrix element
             ANS = 0d0
+c     renormalisation scale for the remapped kinematics xpb_arb
+            call set_mur_from_momenta(xpb_arb,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=8d0*pi*alphas
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_arb,hel,alphas,ANS)
             BLO_arb = ANS(0)
 c     The mother particle for the splitting [ab] ---> a b is ib
@@ -454,11 +468,17 @@ c
 c     Term with rprime missing
       if(ia.eq.isec) then
          if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 998
+c     renormalisation scale for the kinematics of BLO
+         call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+         alphas=alphas_current
          M2tmp_SC(-1) = M2tmp_SC(-1) + alphas/2d0/pi*gamma_q*BLO
-         M2tmp_SC(0) = M2tmp_SC(0) + alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/mu_r**2))*BLO
+         M2tmp_SC(0) = M2tmp_SC(0) + alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/muR_current**2))*BLO
  998     if(docut(xpb_arb,nexternal-1,underlying_leg_pdgs,0)) return
+c     renormalisation scale for the kinematics of BLO_arb
+        call set_mur_from_momenta(xpb_arb,nexternal-1,underlying_leg_pdgs)
+        alphas=alphas_current
         M2tmp_SC(-1) = M2tmp_SC(-1) - alphas/2d0/pi*gamma_q*BLO_arb
-        M2tmp_SC(0) = M2tmp_SC(0) - alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/mu_r**2))*BLO_arb
+        M2tmp_SC(0) = M2tmp_SC(0) - alphas/2d0/pi*(phi_q-gamma_q*dlog(sCM/muR_current**2))*BLO_arb
         ret(-2:0)=ret(-2:0)-alphas/2d0/pi*2d0*CF*eik0*M2tmp_SC(-2:0)     
         ret = ret *dble(%(proc_prefix_HC_RV_gq)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref*xj*extra
 c     plot

@@ -34,7 +34,9 @@ c     DOUBLE_POLE = I1NNLO(-2)
 c
 c     initialise
       ierr=0
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+c     renormalisation scale for the kinematics of this integrated counterterm
+      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(NLO_process)s)
+      alphas=alphas_current
       isec = %(isec)d
       jsec = %(jsec)d
       pref=alphas/(2d0*pi)
@@ -55,7 +57,7 @@ c     Hard-collinear contribution
          if(pmass(k).ne.0d0)cycle
          if(iref1(k).eq.0)cycle
          if(iref1(k).eq.isec.or.iref1(k).eq.jsec.or.iref1(k).eq.k)cycle
-         Lkr = log(sNLO(k,iref1(k))/MU_R**2)
+         Lkr = log(sNLO(k,iref1(k))/muR_current**2)
          if(abs(leg_pdgs_%(NLO_process)s(k)).le.6) then
             I1NNLO(-2) = 0d0
             I1NNLO(-1) = I1NNLO(-1) + gamma_hc_q
@@ -99,7 +101,7 @@ c     Soft contribution
             if(.not.ISNLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
-               Lij = log(sNLO(i,j)/MU_R**2)
+               Lij = log(sNLO(i,j)/muR_current**2)
                I1S(-2) = 1d0
                I1S(-1) = 2d0 - Lij
                I1S( 0) = 6d0-7d0/2d0*zeta2 - 2d0*Lij + Lij**2d0/2d0
@@ -118,7 +120,7 @@ c     Soft contribution
                VV=DSQRT(SS**2-4D0*ML2*MK2)/SS
                Q2=SS+ML2+MK2
                YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
-               call nnlo_rv_sub(ss,vv,mk2,ml2,mu_r,ccRNLO,res)
+               call nnlo_rv_sub(ss,vv,mk2,ml2,muR_current,ccRNLO,res)
                I1NNLO(0) = res
                I1NNLO(-1) = I1NNLO(-1) + CCRNLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif

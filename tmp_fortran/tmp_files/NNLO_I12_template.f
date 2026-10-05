@@ -37,7 +37,9 @@ c     DOUBLE_POLE = I12NNLO(-2)
 c
 c     initialise
       ierr=0
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+c     renormalisation scale for the kinematics of this integrated counterterm
+      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix)s)
+      alphas=alphas_current
       isec = %(isec)d
       jsec = %(jsec)d
       pref=alphas/(2d0*pi)
@@ -64,13 +66,13 @@ c     Soft contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/muR_current**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
             I12NNLO(-1) = I12NNLO(-1) + gamma_g
             I12NNLO(-2) = I12NNLO(-2) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/muR_current**2))
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
             I12NNLO(-1) = I12NNLO(-1) + gamma_q
@@ -82,13 +84,13 @@ c     Collinear contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/muR_current**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
             I12NNLO(-1) = I12NNLO(-1) + gamma_g
             I12NNLO(-2) = I12NNLO(-2) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/muR_current**2))
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
             I12NNLO(-1) = I12NNLO(-1) + gamma_q
@@ -101,13 +103,13 @@ c     Soft-Collinear  contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+            I12NNLO(0) = I12NNLO(0) + (CA/6d0+2*TR*Nf/3d0)*(log(sNLO(i,iref1(i))/muR_current**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CA
             I12NNLO(-1) = I12NNLO(-1) + gamma_g
             I12NNLO(-2) = I12NNLO(-2) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/MU_R**2))
+            I12NLO(0) = I12NNLO(0) + (CF/2d0)*(10d0-7d0*zeta2+log(sNLO(i,iref1(i))/muR_current**2))
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
             I12NNLO(-1) = I12NNLO(-1) + gamma_q
@@ -136,8 +138,8 @@ c     Colour-linked-Born contribution
             if(j.eq.i)cycle
             CCBLO = GET_CCBLO(i,j)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
-               I12NNLO(0) = I12NNLO(0) +ccBLO*log(sNLO(i,j)/MU_R**2)*(2d0-log(sNLO(i,j)/MU_R**2)/2d0)
-               I12NNLO(-1) = I12NNLO(-1) + ccBLO*log(sNLO(i,j)/MU_R**2)
+               I12NNLO(0) = I12NNLO(0) +ccBLO*log(sNLO(i,j)/muR_current**2)*(2d0-log(sNLO(i,j)/muR_current**2)/2d0)
+               I12NNLO(-1) = I12NNLO(-1) + ccBLO*log(sNLO(i,j)/muR_current**2)
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
@@ -151,7 +153,7 @@ c     Colour-linked-Born contribution
                YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
 C
 c           this file was removed in the end - now there is I1 and I12; do we mean rvsub file here? (_y)
-            call nnlo_irv_sub(ss,vv,mk2,ml2,mu_r,ccBLO,res)
+            call nnlo_irv_sub(ss,vv,mk2,ml2,muR_current,ccBLO,res)
 
             I12NNLO(0) = I12NNLO(0) + res
 

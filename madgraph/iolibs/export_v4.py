@@ -2806,6 +2806,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         common_files+=['analysis_new.f', 'HwU.f']
         common_files += ['sectors.f', 'sectors2_module.f90', 'sectors4_module.f90']
+        # renormalisation-scale setting (muR_current, alphas_current in math.inc)
+        common_files += ['ren_scale.f']
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':

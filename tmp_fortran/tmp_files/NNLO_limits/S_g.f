@@ -76,8 +76,8 @@ c     call soft limit of sector function according to eq. (C.51)
       call get_ws_nlo(asec,bsec)
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -104,6 +104,10 @@ c        call Wbar
 c
 c        call colour-connected Born
          cb=real_mapped_labels(c)
+c     renormalisation scale for the remapped kinematics xpb
+         call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+         alphas=alphas_current
+         pref=-(8d0*pi*alphas)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,ab)
 c
@@ -146,6 +150,10 @@ c        call Wbar
 c
 c        call colour-connected Born
          cb=real_mapped_labels(c)
+c     renormalisation scale for the remapped kinematics xpb
+         call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+         alphas=alphas_current
+         pref=-(8d0*pi*alphas)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,bb)
 c
@@ -183,6 +191,10 @@ c     call Wbar
       call get_wbar_nlo(map1,map2)
 c
 c     call colour-connected Born
+c     renormalisation scale for the remapped kinematics xpb
+      call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+      alphas=alphas_current
+      pref=-(8d0*pi*alphas)
       call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(ab,bb)
 c     safety check

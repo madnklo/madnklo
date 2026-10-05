@@ -75,9 +75,6 @@ C     call initialisation function
         firsttime=.false.
       endif
 c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
@@ -132,6 +129,10 @@ c     test phase-space singularities of matrix elements
          ntested=ntested+1
          call test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x)
       endif
+c
+c     renormalisation scale for the (n+2)-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
 c
 c     double real
       call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

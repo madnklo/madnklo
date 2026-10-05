@@ -85,8 +85,8 @@ c     call W double-soft
       call get_wss_nnlo(asec,bsec,csec,dsec)
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=32d0*pi**2*alphas**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -144,6 +144,10 @@ c     safety check
 c
 c     call colour-connected Born
 c     TODO: fix strings for the associated underlying Born
+c     renormalisation scale for the remapped kinematics xpbb
+            call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+            alphas=alphas_current
+            pref=32d0*pi**2*alphas**2
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
 c

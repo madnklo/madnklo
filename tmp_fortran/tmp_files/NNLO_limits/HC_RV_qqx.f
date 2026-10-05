@@ -69,7 +69,9 @@ c     possible cuts
       if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+      alphas=alphas_current
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -79,7 +81,7 @@ c     invariant quantities
       x=sar/(sar+sbr)
       y=sab/(sab+sar+sbr)
       xinit = 1d0 - sab/(sar+sbr)
-      logab=log(sab/scale**2)
+      logab=log(sab/muR_current**2)
 c
 c     coefficients of kt
 c     kt = wa pa + wb pb + wr pr

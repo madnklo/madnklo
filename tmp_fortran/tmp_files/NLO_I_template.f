@@ -35,7 +35,9 @@ c     DOUBLE_POLE = INLO(3)
 c
 c     initialise
       ierr = 0
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
+c     renormalisation scale for the n-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix)s)
+      alphas=alphas_current
       pref=alphas/(2d0*pi)
       INLO = 0d0
       iref1 = 0
@@ -55,13 +57,13 @@ c     Born contribution
       do i=1,nexternal
          if(pmass(i).ne.0d0)cycle
          if(leg_pdgs_%(proc_prefix)s(i).eq.21) then
-            INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/MU_R**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
+            INLO(1) = INLO(1) + (CA/6d0+2*TR*Nf/3d0)*(log(sLO(i,iref1(i))/muR_current**2)-8d0/3d0)+CA*(6d0-7d0/2d0*zeta2)
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])      
             INLO(1) = INLO(1) + pi**2/12d0 * CA
             INLO(2) = INLO(2) + gamma_g
             INLO(3) = INLO(3) + CA
          elseif(leg_pdgs_%(proc_prefix)s(i).ne.0 .and.abs(leg_pdgs_%(proc_prefix)s(i)).le.6) then
-            INLO(1) = INLO(1) + (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/MU_R**2))
+            INLO(1) = INLO(1) + (CF/2d0)*(10d0-7d0*zeta2+log(sLO(i,iref1(i))/muR_current**2))
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
             INLO(1) = INLO(1) + pi**2/12d0 * CF
             INLO(2) = INLO(2) + gamma_q
@@ -89,8 +91,8 @@ c     Colour-linked-Born contribution
             if(j.eq.i)cycle
             CCBLO = GET_CCBLO(i,j)
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
-               INLO(1) = INLO(1) + ccBLO*log(sLO(i,j)/MU_R**2)*(2d0-log(sLO(i,j)/MU_R**2)/2d0)
-               INLO(2) = INLO(2) + ccBLO*log(sLO(i,j)/MU_R**2)
+               INLO(1) = INLO(1) + ccBLO*log(sLO(i,j)/muR_current**2)*(2d0-log(sLO(i,j)/muR_current**2)/2d0)
+               INLO(2) = INLO(2) + ccBLO*log(sLO(i,j)/muR_current**2)
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then
                continue
             elseif(pmass(i).ne.0d0.and.pmass(j).eq.0d0)then
@@ -102,7 +104,7 @@ c     Colour-linked-Born contribution
                VV=DSQRT(SS**2-4D0*ML2*MK2)/SS
                Q2=SS+ML2+MK2
                YPL=1D0+(DSQRT(ML2)-DSQRT(Q2))*2D0*DSQRT(ML2)/SS
-               CALL NLO_I_MASS(ss,vv,mk2,ml2,mu_r,ccBLO,res)
+               CALL NLO_I_MASS(ss,vv,mk2,ml2,muR_current,ccBLO,res)
                INLO(1) = INLO(1) + res
                INLO(2) = INLO(2) + CCBLO*(-1D0/2D0)*(2D0 - 1D0/VV*DLOG((1D0+VV)/(1D0-VV)) )
             endif

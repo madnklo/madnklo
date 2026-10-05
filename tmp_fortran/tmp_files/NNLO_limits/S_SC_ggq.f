@@ -76,8 +76,8 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -128,6 +128,10 @@ c       call wcbar
         call get_wcbar_nlo(map1,map2,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
         ccblo_ima_bra = epem_ccx_get_ccblo(bbb,mbb)
 c
@@ -139,11 +143,11 @@ c       invariant quantities
 c
 c       soft soft-collinear kernel, (126) on Dropbox
 c       todo: some contributions are 0 for ee->jj
-        m2tmp = m2tmp+ca/cf*Ei_am*Pb_abr_ima*ccblo_ima_bra*wcbar_nlo
+        m2tmp = m2tmp+pref*ca/cf*Ei_am*Pb_abr_ima*ccblo_ima_bra*wcbar_nlo
 c
 c       plot
         wgtpl = -m2tmp*ws_nlo
-        wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
+        wgtpl = wgtpl*extra*damp*xj*wgt/nit*wgt_chan
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
         wgts=wgtpl
@@ -194,6 +198,10 @@ c       call wcbar
         call get_wcbar_nlo(map1,map2,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
         ccblo_imb_arb = epem_ccx_get_ccblo(bbb,mbb)
 c
@@ -205,11 +213,11 @@ c       invariant quantities
 c
 c       soft soft-collinear kernel, (126) on Dropbox
 c       todo: some contributions are 0 for ee->jj
-        m2tmp = m2tmp+(2d0*cf-ca)/cf*Ei_bm*Pb_abr_imb*ccblo_imb_arb*wcbar_nlo
+        m2tmp = m2tmp+pref*(2d0*cf-ca)/cf*Ei_bm*Pb_abr_imb*ccblo_imb_arb*wcbar_nlo
 c
 c       plot
         wgtpl = -m2tmp*ws_nlo
-        wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
+        wgtpl = wgtpl*extra*damp*xj*wgt/nit*wgt_chan
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
         wgts=wgtpl
@@ -218,7 +226,7 @@ c       gtpl)
         if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
-      m2_s_sc_ggq = m2tmp*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      m2_s_sc_ggq = m2tmp*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       m2_s_sc_ggq = m2_s_sc_ggq * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SC_ggq = wcbar_nlo*ws_nlo

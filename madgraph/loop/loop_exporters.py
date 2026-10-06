@@ -1154,7 +1154,7 @@ virtual: $(FILES)
     def write_NNLO_VV_template(self, writer, matrix_element, group_number = None, proc_id = None):
         
         replace_dict = {}
-        replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
+        replace_dict['long_proc_prefix'] = 'VV_'+self.get_ME_identifier(matrix_element,
                        group_number = group_number, group_elem_number = proc_id)
 
         # write driver

@@ -13,9 +13,9 @@
       double precision s_had
       integer iu,iu1,iu2,iu7,iu8
       common/cdim/ndim
-      double precision int_VV
+      double precision int_double_virtual
       double precision res_VV,err_VV
-      external int_VV
+      external int_double_virtual
       integer order
       logical doplot
       common/cdoplot/doplot
@@ -105,7 +105,7 @@ c     number of points thrown per channel in the main loop
          init=0
          doplot=.false.
          failure_stage='probe'
-         call vegas(region,ndim,int_VV,init,nclVVth0,nitVVth0,nprn,
+         call vegas(region,ndim,int_double_virtual,init,nclVVth0,nitVVth0,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_vv_a(ich) = err_vv
          sum_err_vv_a = sum_err_vv_a + err_vv_a(ich)
@@ -122,7 +122,7 @@ c     main loop over channels
          doplot=.false.
          nclVVth1=max(1000,int(nclVVth*err_vv_a(ich)/sum_err_vv_a))
          failure_stage='warmup'
-         call vegas(region,ndim,int_VV,init,nclVVth1,nitVVth,nprn,
+         call vegas(region,ndim,int_double_virtual,init,nclVVth1,nitVVth,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV warmup: channel, itns, calls = ',ich,nitVVth,nclVVth1
 c

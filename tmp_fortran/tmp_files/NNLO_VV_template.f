@@ -1,4 +1,4 @@
-      FUNCTION INT_DOUBLE_VIRTUAL(X,WGT)
+      DOUBLE PRECISION FUNCTION INT_DOUBLE_VIRTUAL(X,WGT)
 C     n-body NNLO integrand for vegas
       IMPLICIT NONE
       INCLUDE 'nexternal.inc'
@@ -80,10 +80,8 @@ C
 C     Index 0 is the number of correlators to consider and the next
 C     indices are which one to consider
       INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
-      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3
-     $ ,0:NSQUAREDSO)
-      COMMON/%(long_proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER
-     $ ,COLOR_CORRELATED_EVALS
+      REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3,0:NSQUAREDSO)
+      COMMON/%(long_proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
 
       INCLUDE 'pmass.inc'
 C     
@@ -170,14 +168,10 @@ C     test coefficients of epsilon poles
         NTESTED=NTESTED+1
         WRITE(50,*)
         WRITE(50,*)'Testing point # ', NTESTED
-        WRITE(50,*)'Quadruple pole VV, I2, IRV, sum', VVNLO(-4),
-     $    I2NNLO(-4), IRVNNLO(-4), VVNLO(-4) + I2NNLO(-4) + IRVNNLO(-4)
-        WRITE(50,*)'Triple    pole VV, I2, IRV, sum', VVNLO(-3),
-     $    I2NNLO(-3), IRVNNLO(-3), VVNLO(-3) + I2NNLO(-3) + IRVNNLO(-3)
-        WRITE(50,*)'Double    pole VV, I2, IRV, sum', VVNLO(-2),
-     $    I2NNLO(-2), IRVNNLO(-2), VVNLO(-2) + I2NNLO(-2) + IRVNNLO(-2)
-        WRITE(50,*)'Single    pole VV, I2, IRV, sum', VVNLO(-1),
-     $    I2NNLO(-1), IRVNNLO(-1), VVNLO(-1) + I2NNLO(-1) + IRVNNLO(-1)
+        WRITE(50,*)'Quadruple pole VV, I2, IRV, sum', VVNNLO(-4), I2NNLO(-4), IRVNNLO(-4), VVNNLO(-4) + I2NNLO(-4) + IRVNNLO(-4)
+        WRITE(50,*)'Triple    pole VV, I2, IRV, sum', VVNNLO(-3), I2NNLO(-3), IRVNNLO(-3), VVNNLO(-3) + I2NNLO(-3) + IRVNNLO(-3)
+        WRITE(50,*)'Double    pole VV, I2, IRV, sum', VVNNLO(-2), I2NNLO(-2), IRVNNLO(-2), VVNNLO(-2) + I2NNLO(-2) + IRVNNLO(-2)
+        WRITE(50,*)'Single    pole VV, I2, IRV, sum', VVNNLO(-1), I2NNLO(-1), IRVNNLO(-1), VVNNLO(-1) + I2NNLO(-1) + IRVNNLO(-1)
         WRITE(50,*)
       ENDIF
 C     

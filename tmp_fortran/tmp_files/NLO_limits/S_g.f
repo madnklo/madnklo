@@ -128,6 +128,11 @@ c     eikonal
             M2tmp = ccblo*M2tmp * 2d0
 c
 c     damping factors
+            if(alpha.ne.0d0.and.(pmass(l).ne.0d0.or.pmass(m).ne.0d0))then
+               write(*,*)'M2_S_g: damping (alpha) not available for'
+               write(*,*)'dipoles with massive partons: set alpha=0'
+               stop
+            endif
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)

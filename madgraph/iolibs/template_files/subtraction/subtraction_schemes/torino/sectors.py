@@ -468,10 +468,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             necessary_ct[i+1] = ct
 
                     if singular_structure.name()=='C':
-                        if s['sector'].all_sector_mass_list[1][-1] != 'ZERO':
-                            print(str(s['sector'].all_sector_mass_list))
-                            print(s['sector'].all_sector_mass_list[1][-1])
-                            break
+                        # Collinear counterterms only for sectors made of massless
+                        # partons: collinear limits involving massive particles are
+                        # not singular. Check the masses of *this* sector (the old
+                        # check looked at all_sector_mass_list[1] and used 'break',
+                        # which also dropped later counterterms of the sector).
+                        if any(str(mass).upper() != 'ZERO' for mass in s['sector'].masses):
+                            continue
 
                         if not singular_structure.substructures:
                             # pure-collinear CT: include if the legs match those of the sector
@@ -930,8 +933,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             # write testR
 
+            iref_mass = model.get('particle_dict')[
+                [l.get('id') for l in leglist if l.get('number') == iref][0]]['mass']
             self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
-                                                    i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
+                                                    i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i],
+                                                    iref_mass)
 
         # check on overall_sector_info length
         if len(overall_sector_info) != len(all_sector_list):
@@ -1162,7 +1168,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     #===========================================================================
 
     def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process,
-                                        i, isec, jsec, necessary_ct_list, mapping_str,mass_list):
+                                        i, isec, jsec, necessary_ct_list, mapping_str,mass_list,
+                                        iref_mass='ZERO'):
 
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -1205,14 +1212,18 @@ c     collinear limit
         l=[0d0,0d0]
       call do_limit_R_%d_%d('Cij     ',e,l)
 """%(isec,jsec)
-            limit_str += """
+            # spurious collinear limits with the recoiler exist only if the
+            # partons involved are massless (otherwise they are not limits)
+            if str(iref_mass).upper() == 'ZERO':
+                limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]
         l=[0d0,0d0]
       call do_limit_R_%d_%d('Cir     ',e,l)
 """%(isec,jsec)
-            limit_str += """
+                if str(mass_list[-1]).upper() == 'ZERO':
+                    limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]

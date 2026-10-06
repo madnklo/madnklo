@@ -38,6 +38,8 @@ c     set logical doplot
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      double precision pmass(nexternal)
+      include 'pmass.inc'
 c
 c     initialise
       M2_C_gq=0d0
@@ -88,6 +90,13 @@ c     In the following equation the x variable is related to the quark energy
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gq =  M2_C_gq*wc_nlo
+c     damping with a massive recoiler is not available (the integrated
+c     massive-recoiler counterterm is computed without damping)
+      if(beta_FF.ne.0d0.and.pmass(ir).ne.0d0)then
+         write(*,*)'M2_HC_gq: damping (beta_FF) not available with a'
+         write(*,*)'massive recoiler: set beta_FF=0'
+         stop
+      endif
 c     account for different damping factors according to recoiler position (ir)
       if(ir.gt.2)then
          damp=(1d0-y)**beta_FF

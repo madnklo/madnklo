@@ -15,7 +15,7 @@ c     n-body NLO integrand for vegas
       save ievt,nthres
       integer nitV
       common/niterationsv/nitV
-      double precision int_virtual,VNLO(3),INLO(3)
+      double precision int_virtual,VNLO(-2:0),INLO(-2:0)
       double precision sLO(nexternal,nexternal)
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
@@ -123,7 +123,7 @@ c
 c     call virtual
       COLOR_CORRELATED_EVALS = 0d0
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      VNLO(1:3) = MATELEM(1:3,0)
+      VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
 c
 c     call counterterm
       call int_counter_NLO(p,sLO,INLO,ierr)
@@ -138,13 +138,13 @@ c     test coefficients of epsilon poles
          ntested=ntested+1
          write(50,*)
          write(50,*)'Testing point # ', ntested
-         write(50,*)'Double pole V, I, sum', VNLO(3), INLO(3), VNLO(3)+INLO(3)
-         write(50,*)'Single pole V, I, sum', VNLO(2), INLO(2), VNLO(2)+INLO(2)
+         write(50,*)'Double pole V, I, sum', VNLO(-2), INLO(-2), VNLO(-2)+INLO(-2)
+         write(50,*)'Single pole V, I, sum', VNLO(-1), INLO(-1), VNLO(-1)+INLO(-1)
          write(50,*)
       endif
 c
 c     subtracted virtual
-      int_virtual=(VNLO(1)+INLO(1))*xjac
+      int_virtual=(VNLO(0)+INLO(0))*xjac
 c
 c     apply flavour multiplicity factor
       int_virtual=int_virtual*fl_factor

@@ -198,8 +198,8 @@ c     subtraction (phase-space jacobian included in counterterm definition)
       include 'leg_PDGs.inc'
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
-      integer isec,jsec,ksec,lsec,iref
-      common/csecindices/isec,jsec,ksec,lsec,iref
+      integer isec,jsec,iref
+      common/csecindices/isec,jsec,iref
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
@@ -207,8 +207,6 @@ c     subtraction (phase-space jacobian included in counterterm definition)
 c
       isec = %(isec)d
       jsec = %(jsec)d
-      ksec = 0
-      lsec = 0
       iref = %(iref)d
 c
 c     check we are not in the ISR case

@@ -256,7 +256,7 @@ c     external
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
       integer, parameter :: HEL = - 1
-      double precision cl
+      double precision c_l,gamma_hc_l
       double precision  %(proc_prefix_S_RV_g)s_GET_CCBLO
       double precision  %(proc_prefix_S_RV_g)s_GET_TRIBLO
       double precision  %(proc_prefix_S_RV_g)s_GET_QUADBLO
@@ -285,7 +285,7 @@ c     with (c,d) ---> (l,m)
       double precision xsb_lm(nexternal-1,nexternal-1),xsb_ml(nexternal-1,nexternal-1)
       double precision xsb_kr(nexternal-1,nexternal-1),xsb_rk(nexternal-1,nexternal-1)
       double precision siq,smq,spm,spq,stm,sbpm,sbpq,sbtm,sik,sir,skr
-      double precision mk2,mr2,gamma_l
+      double precision mk2,mr2
       DOUBLE PRECISION PMASS(NEXTERNAL)
       double precision M2TMP_KR,EIK_KR
       integer mapped_labels_ilm(nexternal), mapped_labels_iml(nexternal)
@@ -307,18 +307,8 @@ c     initialise
       xpb_kr = 0d0
       xpb_rk = 0d0
 c
-c     checks
-      if(leg_pdgs(i).ne.21)then
-         write(*,*)'Wrong pdgs in M2_S_RV_g',leg_pdgs(i)
-         stop
-      endif
-      if(.not.(i.eq.isec))then
-         write(*,*)'Wrong indices in M2_S_RV_g',i,isec
-         stop
-      endif
-c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,MU_R)
+      alphas=alpha_qcd(asmz,nloop,mu_r)
       pref=-8d0*pi*alphas
 c
 c     eikonal double sum
@@ -334,49 +324,47 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
+c
 C     Build B_lm^{(ilm)} and B_lm^{(iml)}
 c     The structure is such that we have
 c     Eik(xs)*(B_lm^{(ilm)}*theta(ilm)-B_lm^{(iml)}*theta(iml))
 c     Take care of this in applying kinematical cuts over Born kinematics
-c     Build  B_lm^{(ilm)}
+c
+c           Build  B_lm^{(ilm)}
             call phase_space_CS_inv(i,l,m,xp,xpb_lm,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_lm,nexternal-1,xsb_lm,ierr)
             if(ierr.eq.1)goto 999
-c     Build  B_lm^{(iml)}
- 777        call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS,mapped_labels)
+c
+c           Build  B_lm^{(iml)}
+            call phase_space_CS_inv(i,m,l,xp,xpb_ml,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb_ml,nexternal-1,xsb_ml,ierr)
             if(ierr.eq.1)goto 999
-
-c     invariant quantities
+c
+c           invariant quantities
             sil=xs(i,l)
             sim=xs(i,m)
             slm=xs(l,m)
             ml2=pmass(l)**2
             mm2=pmass(m)**2
-c     eikonal
-            EIK0 =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
-c
-c     safety check
+c           eikonal
+            eik0 =  slm/(sil*sim) - ml2/sil**2 - mm2/sim**2
+c           safety check
             if(sil*sim.le.0d0)then
                write(77,*)'Inaccuracy 1 in M2_S_RV_g',sil,sim
                goto 999
             endif
+c
             lb=mapped_labels(l)
             mb=mapped_labels(m)
+c
             if(abs(leg_pdgs(l)).le.6) then
-               gamma_l = gamma_q
-               Cl = CF
+               gamma_hc_l = gamma_hc_q
+               C_l = CF
             elseif(leg_pdgs(l).eq.21) then
-               gamma_l = gamma_g
-               Cl = CA
-            else
-               write(*,*) 'delta_S_RV_g:'
-               write(*,*) 'Error in evaluating gamma_c,C_c'
-               write(*,*) 'c, leg_pdgs(c) = ', l, leg_pdgs(l)
-               write(*,*) 'Exit...'
-               stop
+               gamma_hc_l = gamma_hc_g
+               C_l = CA
             endif
 c
 c     call colour-connected B^{(ilm)} and B^{(iml)}
@@ -385,9 +373,10 @@ c     call colour-connected B^{(ilm)} and B^{(iml)}
             ccBLO_lm =%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) goto 778
 c
-            delta_s(-2) = delta_s(-2) + EIK0*2d0*Cl*ccBLO_lm
-            delta_s(-1) = delta_s(-1) + EIK0*ccBLO_lm*(4d0*Cl+gamma_l)
-c     Sum over e
+            delta_s(-2) = delta_s(-2) + EIK0*2d0*C_l*ccBLO_lm
+            delta_s(-1) = delta_s(-1) + EIK0*ccBLO_lm*(4d0*Cl+gamma_hc_l)
+c
+c     Sum over (e) ---> (t)
             do t=1,nexternal
                if(.not.(isNLOQCDparton(t))) cycle
                if(t.eq.i) cycle
@@ -395,13 +384,15 @@ c     Sum over e
                tb = mapped_labels(t)
                stm = xs(t,m)
                sbtm = xsb_lm(tb,mb)
+!     for 2jets, we can hard code B_{edcd} = B_{eded}
+!     since we have 3 different partons for RV in the final state,
+!     and e != i,d
                ANS = 0d0
                call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                QUADBLO_tmlm= 0d0 !%(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
                delta_s(-1) = delta_s(-1)-EIK0*dlog(stm/sbtm)*QUADBLO_tmlm
                delta_s(0) = delta_s(0) + eik0*1d0/2d0*dlog(stm/sbtm)**2*QUADBLO_tmlm
             enddo
-c
 c
 c     (c d e f) ---> (l m p q)
             do p=1,nexternal
@@ -427,29 +418,17 @@ c
                   delta_s(-1) = delta_s(-1)-eik0*1d0/2d0*dlog(spq/sbpq)*QUADBLO_pqlm
                   delta_s(0) = delta_s(0) + eik0*1d0/4d0*dlog(spq/sbpq)**2*QUADBLO_pqlm
 c
-c     damping factors; TODO: adapt
-            if(m.gt.2.and.l.gt.2)then
-               y=sil/(sil+sim+slm)
-               z=sim/(sim+slm)
-               damp=((1d0-y)*(1d0-z))**alpha
-            elseif(m.gt.2.and.l.le.2)then
-               z=sim/(sim+slm)
-               x=1d0 - sil/(sim+slm)
-               damp=((1d0-z)*x)**alpha
-            elseif(m.le.2.and.l.le.2)then
-               x=1d0 - (sil+sim)/slm
-               damp=x**alpha
-            endif
-            M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
-            M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
-            res_delta(-2:0)=res_delta(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
+c
+                  M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
+                  M2tmp(-2:0) = M2tmp(-2:0)*damp*xj
+                  res_delta(-2:0)=res_delta(-2:0)+pref*M2tmp(-2:0)*WS_NLO*extra
 c
 c     plot
-            wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
-            wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+                  wgtpl=-pref*M2tmp(0)*WS_NLO*extra*wgt/nit*wgt_chan
+                  wgtpl = wgtpl*dble(%(proc_prefix_S_RV_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c     if(doplot)call histo_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgtpl)
-            wgts=wgtpl
-            if(doplot)call analysis_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgts)
+                  wgts=wgtpl
+                  if(doplot)call analysis_fill(xpb_lm,xsb_lm,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     close q
                enddo
@@ -461,8 +440,8 @@ c     close p
             ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(mb,lb)
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) cycle
 c
-            delta_s(-2) = delta_s(-2) - EIK0*2d0*Cl*ccBLO_ml
-            delta_s(-1) = delta_s(-1) - EIK0*ccBLO_ml*(4d0*Cl+gamma_l)
+            delta_s(-2) = delta_s(-2) - EIK0*2d0*C_l*ccBLO_ml
+            delta_s(-1) = delta_s(-1) - EIK0*ccBLO_ml*(4d0*Cl+gamma_hc_l)
 c
             M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
             M2tmp(-2:0)=M2tmp(-2:0)*damp*xj

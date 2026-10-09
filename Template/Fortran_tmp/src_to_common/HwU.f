@@ -29,7 +29,7 @@ c variables (something not possible in old fortran version)
          use HwU_wgts_info_len
          implicit none
          integer :: max_plots,max_points,max_bins,nwgts,np
-         integer :: error_estimation=1!
+         integer :: error_estimation=3
          logical, allocatable :: booked(:)
          integer, allocatable :: nbin(:),histi(:,:),p_bin(:),p_label(:)
          character(len=50), allocatable :: title(:)
@@ -38,6 +38,17 @@ c variables (something not possible in old fortran version)
      $        ,histyich(:,:,:),histyich_err(:,:) ! GIOVANNI         
      $        ,histy2(:,:),histy_err(:,:),histxl(:,:),histxm(:,:)
      $        ,step(:),p_wgts(:,:)
+c     Per-supercell sums used for the stratified (vegas) variance
+c     estimate of each bin: histc1/histc2 = sum of w and w^2 of the
+c     phase-space points of the current supercell, histv = variance of
+c     the current iteration; ctouch/ct_lab/ct_bin = bins hit in the
+c     current supercell.
+         double precision, allocatable :: histc1(:,:),histc2(:,:)
+     $        ,histv(:,:)
+         logical, allocatable :: ctouch(:,:)
+         integer, allocatable :: ct_lab(:),ct_bin(:)
+         integer :: nct=0
+         logical :: use_cells=.false.
          save
       end module HwU_variables
 
@@ -193,8 +204,68 @@ c$$$      write(*,*)'beginning of HwU_add_points ',np,p_label(np),p_bin(np),nwgt
          histy2(p_label(i),p_bin(i))=
      $        histy2(p_label(i),p_bin(i))+p_wgts(1,i)**2
       enddo
+c     Supercell sums for the stratified variance (see HwU_end_cell)
+      call HwU_allocate_cells
+      do i=1,np
+         if (.not.ctouch(p_label(i),p_bin(i))) then
+            ctouch(p_label(i),p_bin(i))=.true.
+            nct=nct+1
+            ct_lab(nct)=p_label(i)
+            ct_bin(nct)=p_bin(i)
+         endif
+         histc1(p_label(i),p_bin(i))=histc1(p_label(i),p_bin(i))
+     $        +p_wgts(1,i)
+         histc2(p_label(i),p_bin(i))=histc2(p_label(i),p_bin(i))
+     $        +p_wgts(1,i)**2
+      enddo
 c$$$  write(*,*)'end of HwU_add_points',histy(1,1,2),histi(1,2),histy2(1,2)
       np=0
+      return
+      end
+
+
+c Call at the end of each vegas supercell, with npg = number of
+c phase-space points in the supercell (npg >= 2). Vegas uses
+c stratified sampling: the variance of the integral is the sum over
+c supercells of the variance of the supercell estimate,
+c     var_c = (npg*sum w^2 - (sum w)^2)/(npg-1),
+c with w the (already normalised) weights of the npg points of the
+c supercell. The same estimate is used here bin by bin, so that the
+c 'total' histogram reproduces the vegas uncertainty of the integral.
+      subroutine HwU_end_cell(npg)
+      use HwU_variables
+      implicit none
+      integer npg,i,l,b
+      use_cells=.true.
+      do i=1,nct
+         l=ct_lab(i)
+         b=ct_bin(i)
+         histv(l,b)=histv(l,b)+(dble(npg)*histc2(l,b)-histc1(l,b)**2)
+     $        /(dble(npg)-1d0)
+         histc1(l,b)=0d0
+         histc2(l,b)=0d0
+         ctouch(l,b)=.false.
+      enddo
+      nct=0
+      return
+      end
+
+      subroutine HwU_allocate_cells
+      use HwU_variables
+      implicit none
+      if (allocated(histc1)) then
+         if (size(histc1,1).eq.max_plots .and.
+     $        size(histc1,2).eq.max_bins) return
+         deallocate(histc1,histc2,histv,ctouch,ct_lab,ct_bin)
+      endif
+      allocate(histc1(max_plots,max_bins),histc2(max_plots,max_bins)
+     $     ,histv(max_plots,max_bins),ctouch(max_plots,max_bins)
+     $     ,ct_lab(max_plots*max_bins),ct_bin(max_plots*max_bins))
+      histc1=0d0
+      histc2=0d0
+      histv=0d0
+      ctouch=.false.
+      nct=0
       return
       end
 
@@ -245,6 +316,7 @@ c         endif
                histyich_err(label,i) = histyich_err(label,i)+histy_err(label,i)**2
             endif
             histy2(label,i)=0d0
+            if (allocated(histv)) histv(label,i)=0d0
             histi(label,i)=0
          enddo
       enddo
@@ -298,7 +370,7 @@ c weights are non-zero.
       implicit none
       integer label,i,j
       double precision nPSinv,etot,niter,y_squared
-     $     ,values(2),a1,a2
+     $     ,values(2),a1,a2,bw
       double precision,allocatable :: vtot(:)
       integer ich
       common/comich/ich
@@ -346,29 +418,57 @@ c     Add the results of the current iteration to the accumulated results
             endif
          enddo
       elseif (error_estimation.eq.3) then
+c     Same strategy as MG5_aMC (error_estimation=3 there):
+c     - HwU_add_points is called once per phase-space point (from
+c       vegas), so that events and counterevents of the same point are
+c       summed before squaring, i.e. their correlation is kept;
+c     - the uncertainty of each bin in the current iteration is the
+c       point-by-point variance estimate. With vegas (HwU_end_cell
+c       called) it is the stratified estimate, summed over supercells,
+c       i.e. the same estimator vegas uses for the integral; otherwise
+c       the unstratified one with Bessel's correction, as in MG5_aMC;
+c     - iterations are combined with the weights MG5_aMC/MINT uses for
+c       the total cross section: values(1) = uncertainty of the total
+c       in the current iteration, values(2) = accumulated uncertainty of
+c       the total before this iteration.
+c     MadNkLO conventions: the weights filled in the histograms already
+c     include the vegas weight (they sum to the integral, not to N times
+c     it), and the histograms store dsigma/dx (divided by bin width).
+c     At the first iteration of a channel, start the accumulation anew.
+         if (niter.eq.1d0) then
+            do i=1,nbin(label)
+               do j=1,nwgts
+                  histy_acc(j,label,i)=0d0
+               enddo
+               histy_err(label,i)=0d0
+            enddo
+         endif
          do i=1,nbin(label)
 c     Skip bin if no entries
             if (histi(label,i).eq.0) cycle
-c     Divide weights by the number of PS points. This means that this is
-c     now normalised to the total cross section in that bin
+            bw=histxm(label,i)-histxl(label,i)
             do j=1,nwgts
-               vtot(j)=histy(j,label,i)*nPSinv
+               vtot(j)=histy(j,label,i)/bw
             enddo
-c     Error estimation of the current bin
-            etot=sqrt(abs(histy2(label,i)*nPSinv-vtot(1)**2)*nPSinv)
+            if (use_cells) then
+c     Stratified estimate accumulated supercell by supercell (vegas)
+               etot=sqrt(max(histv(label,i),0d0))/bw
+            else
+c     Error estimation of the current bin: var = sum f^2 - (sum f)^2/N
+            etot=sqrt(abs(histy2(label,i)
+     &           -histy(1,label,i)**2*nPSinv))/bw
+            endif
 c     Include "Bessel's correction" to have a corrected (even though
 c     still biased) estimator of the standard deviation.
-            if (histi(label,i).gt.1) then
+            if (use_cells) then
+               continue
+            elseif (histi(label,i).gt.1) then
                etot=etot* sqrt(dble(histi(label,i))
      &                    /(dble(histi(label,i))-1.5d0))
             else
                etot=abs(vtot(1))*10d0 ! multiply by 10 to make it large
             endif
-c     If the error estimation of the accumulated results is still zero
-c     (i.e. no points were added yet, e.g. because it is the first
-c     iteration) simply copy the results of this iteration over the
-c     accumulated results.
-            if (histy_err(label,i).eq.0d0) then
+            if (histy_err(label,i).eq.0d0 .or. values(2).le.0d0) then
                do j=1,nwgts
                   histy_acc(j,label,i)=vtot(j)
                enddo
@@ -380,8 +480,6 @@ c     Add the results of the current iteration to the accumulated results
      &                 /values(2)+vtot(j)/values(1))/(1d0
      &                 /values(2) + 1d0/values(1))
                enddo
-c$$$histy_acc_(j,n+1) = (histy_acc(j,n)/v2+vtot(j)/v1)/(1/v1+1/v2)
-
                a1=((1d0/values(1))/((1d0/values(1))+1d0/values(2)))**2
                a2=((1d0/values(2))/((1d0/values(1))+1d0/values(2)))**2
                histy_err(label,i)=sqrt(a2*histy_err(label,i)**2 +
@@ -522,6 +620,10 @@ c Clean all the allocatable variables:
       if (allocated(p_wgts)) deallocate(p_wgts)
       if (allocated(histyich)) deallocate(histyich)
       if(allocated(histyich_err)) deallocate(histyich_err)
+      if (allocated(histc1)) deallocate(histc1,histc2,histv,ctouch
+     $     ,ct_lab,ct_bin)
+      nct=0
+      use_cells=.false.
       return
       end
 

@@ -46,7 +46,8 @@ c      COMMON/abresl/resl(10),standdevl(10)
       DOUBLE PRECISION sigma_sq_inv
       DOUBLE PRECISION ran_numb(mxdim)
 
-      double precision HwU_values(2)
+      double precision HwU_values(2),sd_prev
+      integer itlast
       logical doplot
       common/cdoplot/doplot
       integer ich
@@ -249,6 +250,14 @@ c
               write(*,*)'ia:',ia
             endif
             f=wgt*fxn(x,wgt)
+c     As in MG5_aMC: all (correlated) histogram fills made for this
+c     phase-space point (event and counterevents) are added to the
+c     histograms as a single point.
+            if(doplot) then
+!$OMP CRITICAL(hwu_points)
+               call HwU_add_points
+!$OMP END CRITICAL(hwu_points)
+            endif
 c     PT against infinities
             if(abs(f).ge.huge(1d0).or.isnan(f))then
                write(*,*)'Something very bad in vegas 2'
@@ -267,6 +276,14 @@ c     end of PT against infinities
    18       CONTINUE
 !$OMP END CRITICAL(point_downloading)
    19     CONTINUE             ! end do on k=1,npg
+c     Stratified variance of the histogram bins for this supercell.
+c     NB: like HwU_add_points, this assumes the points of a supercell are
+c     processed by a single thread (true when OpenMP is not enabled).
+          if(doplot) then
+!$OMP CRITICAL(hwu_points)
+             call HwU_end_cell(npg)
+!$OMP END CRITICAL(hwu_points)
+          endif
           f2b=sqrt(f2b*npg)
           f2b=(f2b-fb)*(f2b+fb)
           IF (f2b.LE.0.d0) f2b=tiny
@@ -292,6 +309,12 @@ c     end of PT against infinities
 ! Compute final result for this iteration: ti already contains the 
 !    average value of f*wgt
         tsi=tsi*dv2g        
+c     accumulated sd before this iteration (0 at the first one), for HwU
+        if(swgt.gt.0d0) then
+           sd_prev=sqrt(1.d0/swgt)
+        else
+           sd_prev=0d0
+        endif
         sigma_sq_inv=1.d0/tsi  ! 1/sigma(itmx)**2
         si=si+sigma_sq_inv*ti  ! Accumulates  ti(itmx)/sigma(itmx)**2
         schi=schi+sigma_sq_inv*ti**2    
@@ -351,16 +374,23 @@ c          standdevl(it)=tsi
           CALL rebin(rc/xnd,nd,r,xin,xi(1,j))
    27   CONTINUE
 *6
+c     Histograms: same strategy as MG5_aMC. values(1) = uncertainty of
+c     the total in this iteration, values(2) = accumulated uncertainty
+c     before this iteration. The number of points is the actual one.
+c     If vegas stops early (accuracy reached), this iteration is the
+c     last one, so the channel histograms must be stored now.
+        if(doplot) then
+           HwU_values(1) = tsi
+           HwU_values(2) = sd_prev
+           itlast=itmx
+           IF(it.GE.2.AND.acc*abs(tgral).ge.sd) itlast=it
+           call HwU_accum_iter(doplot,nint(rcalls),HwU_values,it,itlast)
+        endif
         IF(it.GE.2.AND.acc*abs(tgral).ge.sd) THEN
           ivegasstop=1
           RETURN
         ENDIF
 *     6end
-        if(doplot) then
-           HwU_values(1) = tgral
-           HwU_values(2) = tsi
-           call HwU_accum_iter(doplot,ncall,HwU_values,it,itmx)
-        endif
    28 CONTINUE
 
       RETURN

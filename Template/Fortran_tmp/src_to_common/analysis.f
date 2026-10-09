@@ -127,7 +127,8 @@ c      call HwU_fill(3,pt,wgts)
          call HwU_fill(14,abs(yjet(4)),wgts)
       endif
       call HwU_fill(15,dble(njet),wgts)
-      call HwU_add_points
+c     HwU_add_points is called by vegas once per phase-space point
+c      call HwU_add_points
  999  return      
       end
 

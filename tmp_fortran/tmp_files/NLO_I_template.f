@@ -77,6 +77,7 @@ c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
 c     hard-collinear counterterm with a massive recoiler r=iref1(i):
 c     extra finite term -sum_n gamma^hc_(i,n) I^(ng)_hc,M(s_ir,m_r)
 c     (2503.14629, Sec. 2.5 and eq. IhcM)
+         if(iref1(i).ne.0)then
          if(pmass(iref1(i)).ne.0d0)then
             rhom=pmass(iref1(i))**2/sLO(i,iref1(i))
             if(leg_pdgs_%(proc_prefix)s(i).eq.21)then
@@ -84,6 +85,7 @@ c     (2503.14629, Sec. 2.5 and eq. IhcM)
             elseif(abs(leg_pdgs_%(proc_prefix)s(i)).le.6)then
                INLO(0) = INLO(0) + CF/2d0*IHC_1G(rhom)
             endif
+         endif
          endif
       enddo
 c

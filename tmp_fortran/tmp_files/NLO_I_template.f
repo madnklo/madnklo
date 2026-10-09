@@ -234,31 +234,53 @@ C
 
 
       subroutine NLO_I_MASS(s,v,mk2,ml2,mu,ccBLO,INLO_MASS)
+c     Fully massive integrated soft counterterm (paper eq. IsMM).
+c     New compact form using eta, eta_k, eta_l (SciPost 2503.14629).
+c
+c     Convention: INLO_MASS = -ccBLO * (mc_I_s^MM - pole_coeff*ln(s/mu^2))
+c       pole_coeff = 1 + s/(2*sqrt(lam)) * ln(eta)  [= -(1/eps) coefficient]
+c       mc_I_s^MM  = eq. (IsMM) in appendix, mu-independent finite part
+c
+c     The 1/eps pole itself is assembled outside this routine in the main
+c     int_counter_NLO loop:
+c       INLO(-1) += ccBLO*(-1/2)*(2 - (1/v)*ln((1+v)/(1-v)))
+c                 = -ccBLO*(1 + s/(2*sqrtlam)*ln(eta))
       implicit none
       include 'coupl.inc'
       include 'math.inc'
-      double precision s,v,yp
-      double precision mk2,ml2,mu
-      double precision INLO_MASS,ddilog,ccBLO,Q2
-      double precision lam, eta, alpha, beta
-      double precision Q, mk, ml
+      double precision s,v,mk2,ml2,mu,ccBLO,INLO_MASS
+      double precision ddilog
+      external ddilog
+      double precision lam,sqrtlam,Q2
+      double precision eta,eta_k,eta_l
+      double precision ln_eta,ln_etak,ln_etal
+      double precision pole_coeff,mc_finite,ln_mu2
 c
-      Q2=s+ml2+mk2
-      lam=(s*v)**2d0
-      Q = dsqrt(Q2)
-      mk = dsqrt(mk2)
-      ml = dsqrt(ml2)
-      eta = (1d0-v)/(1d0+v)
-      alpha = (Q-ml)/(Q+ml)
-      beta = dsqrt( ((Q-ml)**2-mk2)/((Q+ml)**2-mk2) )
+c     -- kinematic variables -------------------------------------------------
+      lam     = (s*v)**2d0            ! lambda = s^2 - 4 mk^2 ml^2
+      sqrtlam = s*v                   ! sqrt(lambda)
+      Q2      = s + mk2 + ml2
 c
-      if(alpha.lt.beta.or.alpha.gt.1d0.or.beta.lt.0d0)then
-         write(*,*)'Wrong alpha, beta, values in NLO_I_MASS'
-         write(*,*)alpha,beta
-         stop
-      endif
+      eta   = (1d0-v)/(1d0+v)
+      eta_k = (s+2d0*mk2-sqrtlam)/(s+2d0*mk2+sqrtlam)
+      eta_l = (s+2d0*ml2-sqrtlam)/(s+2d0*ml2+sqrtlam)
 c
-      INLO_MASS =-0.5d0*CCBLO*(8d0+(4d0*mk2*dlog((1d0-beta)/(1d0+beta)))/dsqrt(lam)-(4d0*ml2*dlog((1d0-beta)/(1d0+beta)))/dsqrt(lam) - (2d0*s*dlog((1d0-beta)/(1d0+beta))*dlog((1d0-beta**2)/(2d0*(1d0+alpha))))/dsqrt(lam)+(2d0*ml2*dlog(eta))/dsqrt(lam) - (2d0*Q2*dlog(eta))/dsqrt(lam)+(s*dlog(eta))/dsqrt(lam)-(s*dlog(eta)**2)/(2d0*dsqrt(lam)) - 2d0*dlog(lam**2/(mk2*ml2*Q2*s))-(s*dlog(eta)*dlog(lam**2/(mk2*ml2*Q2*s)))/dsqrt(lam) - 2d0*dlog(s/mu**2)-(s*dlog(eta)*dlog(s/mu**2))/dsqrt(lam)-(2d0*s*ddilog((1d0-alpha)/(1d0-beta)))/dsqrt(lam) - (2d0*s*ddilog((1d0-beta)/2d0))/dsqrt(lam) -(2d0*s*ddilog((1d0-beta)/(1d0+alpha)))/dsqrt(lam) + (2d0*s*ddilog((-2d0*beta)/(1d0-beta)))/dsqrt(lam) +(2d0*s*ddilog((-2d0*beta)/(alpha-beta)))/dsqrt(lam) + (2d0*s*ddilog((1d0-alpha)/(1d0+beta)))/dsqrt(lam) -(2d0*s*ddilog((2d0*beta)/(1d0+beta)))/dsqrt(lam) + (2d0*s*ddilog((1d0+beta)/2d0))/dsqrt(lam) +(2d0*s*ddilog((1d0+beta)/(1d0+alpha)))/dsqrt(lam) - (2d0*s*ddilog((2d0*beta)/(alpha+beta)))/dsqrt(lam) -(2d0*s*ddilog(1d0-eta))/dsqrt(lam))
+      ln_eta  = dlog(eta)
+      ln_etak = dlog(eta_k)
+      ln_etal = dlog(eta_l)
+      ln_mu2  = dlog(s/mu**2)
+c
+c     -- mu-independent finite part  mc_I_s^MM  (eq. IsMM) ------------------
+c     (no continuation lines here: the template goes through MG5's
+c     FortranWriter, which re-indents every line and splits long ones)
+      mc_finite = 2d0*ddilog(eta) + (3d0/8d0)*ln_eta**2 + 0.5d0*dlog(Q2*s/(mk2*ml2))*ln_eta - 2d0*zeta2 - ddilog(1d0-eta_k) - ddilog(1d0-eta_l) - (1d0/8d0)*(ln_etak-ln_etal)**2
+      mc_finite = (s/sqrtlam)*mc_finite - (mk2-ml2)/(2d0*sqrtlam)*(ln_etak-ln_etal) - Q2/(2d0*sqrtlam)*ln_eta + dlog(Q2*s/lam) + dlog(mk2*ml2/lam) + 4d0
+c
+c     -- coefficient of the 1/eps pole (used for the mu term) ----------------
+      pole_coeff = 1d0 + s/(2d0*sqrtlam)*ln_eta
+c
+c     -- assemble ------------------------------------------------------------
+      INLO_MASS = -ccBLO * (mc_finite - pole_coeff*ln_mu2)
 c
       end
 

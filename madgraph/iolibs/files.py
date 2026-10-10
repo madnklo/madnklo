@@ -201,9 +201,11 @@ def ln(file_pos, starting_dir='.', name='', log=True, cwd=None, abspath=False):
         if not os.path.isabs(starting_dir):
             starting_dir = os.path.join(cwd, starting_dir)        
 
-    # Remove existing link if necessary
-    if os.path.exists(os.path.join(starting_dir, name)):
-        os.remove(os.path.join(starting_dir, name))
+    # Remove existing link if necessary (also handles broken symlinks,
+    # for which os.path.exists() returns False but os.path.islink() returns True)
+    target_path = os.path.join(starting_dir, name)
+    if os.path.exists(target_path) or os.path.islink(target_path):
+        os.remove(target_path)
     
     if not abspath:
         target = os.path.join('.',os.path.relpath(file_pos, starting_dir))

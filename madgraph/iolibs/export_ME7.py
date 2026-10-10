@@ -659,6 +659,66 @@ class ME7Exporter(object):
         # Compile all contributions
         self.contributions.apply_method_to_all_contribs('compile', log='Compiling')
 
+    def set_onshell_particle_widths_to_zero(self):
+        """If a top quark (PDG 6) appears as a stable on-shell final-state
+        particle (no decay chain), set WT = 0 in param_card.dat.
+        Example: e- ve~ > t b~.
+        """
+        from models import check_param_card as cpc
+
+        # Check whether the top quark appears as a stable final-state particle
+        TOP_PDG = 6
+        top_is_onshell = False
+        for contrib in self.contributions:
+            for defining_process, mapped_processes in contrib.get_processes_map().values():
+                for proc in [defining_process] + mapped_processes:
+                    if proc.get('decay_chains'):
+                        continue
+                    for leg in proc.get('legs'):
+                        if leg.get('state') and abs(leg.get('id')) == TOP_PDG:
+                            top_is_onshell = True
+        onshell_pdgs = set([TOP_PDG]) if top_is_onshell else set()
+
+        if not onshell_pdgs:
+            return
+
+        param_card_path = pjoin(self.export_dir, 'Cards', 'param_card.dat')
+        if not os.path.isfile(param_card_path):
+            return
+
+        param_card = cpc.ParamCard(param_card_path)
+        if not param_card.has_block('decay'):
+            return
+
+        modified = []
+        for pdg in onshell_pdgs:
+            try:
+                param = param_card['decay'].get((pdg,))
+            except Exception:
+                param = None
+            if param is not None and param.value != 0:
+                logger.info(
+                    "Setting width of particle PDG=%d to 0 in param_card "
+                    "(on-shell final-state particle, no decay chain)." % pdg)
+                param.value = 0.0
+                modified.append(pdg)
+
+        if modified:
+            param_card.write(param_card_path)
+            # Also update the default card
+            default_path = pjoin(self.export_dir, 'Cards', 'param_card_default.dat')
+            if os.path.isfile(default_path):
+                param_card_default = cpc.ParamCard(default_path)
+                if param_card_default.has_block('decay'):
+                    for pdg in modified:
+                        try:
+                            p = param_card_default['decay'].get((pdg,))
+                        except Exception:
+                            p = None
+                        if p is not None:
+                            p.value = 0.0
+                    param_card_default.write(default_path)
+
     def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
         
@@ -702,6 +762,10 @@ class ME7Exporter(object):
 
         # Add the cards generated in MODEL to the Cards directory
         self.copy_model_resources()
+        # Zero the width of any on-shell (stable) heavy quarks appearing in the
+        # final state (e.g. top quark in e- ve~ > t b~).  An on-shell final-state
+        # particle has no decay chain and its width must be 0 for IR-safety.
+        self.set_onshell_particle_widths_to_zero()
         # Now link the Sources files within each contribution
         for contrib in self.contributions:
             contrib.make_model_symbolic_link()
@@ -1250,6 +1314,10 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Add the cards generated in MODEL to the Cards directory
         self.copy_model_resources()
+        # Zero the width of any on-shell (stable) heavy quarks appearing in the
+        # final state (e.g. top quark in e- ve~ > t b~).  An on-shell final-state
+        # particle has no decay chain and its width must be 0 for IR-safety.
+        self.set_onshell_particle_widths_to_zero()
         # Now link the Sources files within each contribution
         for contrib in self.contributions:
             contrib.make_model_symbolic_link()

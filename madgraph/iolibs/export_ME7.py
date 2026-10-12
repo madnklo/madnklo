@@ -705,6 +705,15 @@ class ME7Exporter(object):
 
         if modified:
             param_card.write(param_card_path)
+            # Write a sentinel file so the interface can warn at run time if the
+            # user manually restores a non-zero width.
+            sentinel_path = pjoin(self.export_dir, 'Cards', 'onshell_zero_widths.dat')
+            try:
+                with open(sentinel_path, 'w') as _sf:
+                    for _pdg in modified:
+                        _sf.write('%d\n' % _pdg)
+            except Exception:
+                pass
             # Also update the default card
             default_path = pjoin(self.export_dir, 'Cards', 'param_card_default.dat')
             if os.path.isfile(default_path):

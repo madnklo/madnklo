@@ -5,6 +5,63 @@ import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
+
+def check_onshell_widths():
+    """Warn if the user has set a non-zero width for a particle that must be
+    stable and on-shell in this process (e.g. WT for the top quark).
+    The list of affected PDGs is recorded in Cards/onshell_zero_widths.dat
+    at generation time.  If the file is absent the check is silently skipped.
+    """
+    import sys
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sentinel = os.path.join(base, 'Cards', 'onshell_zero_widths.dat')
+    if not os.path.isfile(sentinel):
+        return
+    with open(sentinel) as f:
+        pdgs = [int(l.strip()) for l in f if l.strip()]
+    if not pdgs:
+        return
+
+    param_card = os.path.join(base, 'Cards', 'param_card.dat')
+    if not os.path.isfile(param_card):
+        return
+
+    widths = {}
+    in_decay = False
+    with open(param_card) as f:
+        for line in f:
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#'):
+                continue
+            upper = stripped.upper()
+            if upper.startswith('BLOCK') or upper.startswith('DECAY'):
+                in_decay = upper.startswith('DECAY')
+            if in_decay:
+                parts = stripped.split()
+                if len(parts) >= 3 and parts[0].upper() == 'DECAY':
+                    try:
+                        widths[int(parts[1])] = float(parts[2])
+                    except ValueError:
+                        pass
+
+    bad = [(pdg, widths[pdg]) for pdg in pdgs if pdg in widths and widths[pdg] != 0.0]
+    if bad:
+        use_color = hasattr(sys.stderr, 'isatty') and sys.stderr.isatty()
+        RED  = '\033[1;31m' if use_color else ''
+        BOLD = '\033[1m'    if use_color else ''
+        RST  = '\033[0m'    if use_color else ''
+        sep = RED + '=' * 70 + RST
+        sys.stderr.write('\n' + sep + '\n')
+        for pdg, val in bad:
+            sys.stderr.write(
+                RED + BOLD +
+                'WARNING: Width of particle PDG=%d (WT) = %.6g in param_card.dat' % (pdg, val) +
+                RST + '\n')
+        sys.stderr.write(BOLD + 'This particle is a stable on-shell final state in this process.' + RST + '\n')
+        sys.stderr.write(BOLD + 'The Fortran matrix elements assume WT=0; a non-zero value gives wrong results.' + RST + '\n')
+        sys.stderr.write(BOLD + 'Please set WT=0 in Cards/param_card.dat before rerunning.' + RST + '\n')
+        sys.stderr.write(sep + '\n\n')
+
 def run(cmd, cwd):
     subprocess.run(cmd, shell=True, check=True, cwd=cwd)
 
@@ -129,6 +186,7 @@ if __name__ == "__main__":
         help="Number of parallel workers for P1_* and sector_*",
     )
 
+    check_onshell_widths()
     args = parser.parse_args()
 
     if args.mode == "B":

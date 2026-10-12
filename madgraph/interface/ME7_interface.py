@@ -944,6 +944,52 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
                 max_order = max_integrand_order
         return max_integrand_order
 
+    def _warn_nonzero_onshell_widths(self):
+        """Emit a WARNING if the param_card has a non-zero width for a particle
+        whose width was set to zero at generation time because it appears as a
+        stable on-shell final-state particle (e.g. the top quark in e+ ve > t b~).
+        A non-zero width would corrupt the Fortran matrix elements.
+        This check runs every time synchronize() is called (launch, testpoles, ...)
+        so it catches hand-edits made to the param_card after generation.
+        The list of affected PDGs is read from Cards/onshell_zero_widths.dat,
+        written by the exporter at generation time; if the file is absent the
+        check is silently skipped (process has no on-shell stable particles).
+        """
+        sentinel_path = pjoin(self.me_dir, 'Cards', 'onshell_zero_widths.dat')
+        if not os.path.isfile(sentinel_path):
+            return  # no on-shell stable particles in this process
+        try:
+            with open(sentinel_path, 'r') as _sf:
+                onshell_pdgs = [int(l.strip()) for l in _sf if l.strip()]
+        except Exception:
+            return
+        if not onshell_pdgs:
+            return
+
+        param_card_path = pjoin(self.me_dir, 'Cards', 'param_card.dat')
+        if not os.path.isfile(param_card_path):
+            return
+        try:
+            param_card = check_param_card.ParamCard(param_card_path)
+        except Exception:
+            return
+        if not param_card.has_block('decay'):
+            return
+        for pdg in onshell_pdgs:
+            try:
+                param = param_card['decay'].get((pdg,))
+            except Exception:
+                param = None
+            if param is not None and param.value != 0.0:
+                logger.warning(
+                    "\n" + "="*70 + "\n"
+                    "WARNING: The width of particle PDG=%d (WT) is set to %.6g\n"
+                    "in your param_card.dat, but this particle appears as a stable\n"
+                    "on-shell final state in the current process.  The Fortran matrix\n"
+                    "elements assume WT=0 in that case; a non-zero value will corrupt\n"
+                    "the result.  Please set WT=0 in Cards/param_card.dat before\n"
+                    "relaunching." % (pdg, param.value) + "\n" + "="*70)
+
     def synchronize(self, **opts):
         """ Re-compile all necessary resources and sync integrands with the cards and model"""
         
@@ -957,6 +1003,12 @@ class MadEvent7Cmd(CompleteForCmd, CmdExtended, ParseCmdArguments, HelpToCmd, co
             param_card = pjoin(self.me_dir,'Cards','param_card.dat'), 
             scale=self.run_card['scale'], 
             complex_mass_scheme=self.complex_mass_scheme)
+
+        # Warn if an on-shell particle width has been manually set to a non-zero
+        # value in the param_card.  The Fortran matrix elements assume WT=0 for
+        # stable on-shell final-state particles (e.g. the top quark in e+ ve > t b~);
+        # a non-zero width would enter propagator denominators and give wrong results.
+        self._warn_nonzero_onshell_widths()
 
         for integrand in self.all_integrands:
             integrand.synchronize(self.model, self.run_card, self.options)

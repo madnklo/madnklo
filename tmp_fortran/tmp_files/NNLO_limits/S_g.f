@@ -9,6 +9,7 @@ c     it returns 0 if i is not a gluon
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
@@ -46,8 +47,6 @@ c     external
       integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
-      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
       logical consistency_check
@@ -76,20 +75,28 @@ c     call soft limit of sector function according to eq. (C.51)
       call get_ws_nlo(asec,bsec)
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
+c
+c     fill mapped labels
+      do c=1,nexternal
+         if(.not.isNNLOQCDparton(c)) cycle
+         if(c.eq.i) cycle
+         call fill_real_mapped_labels(i,c,leg_pdgs,real_leg_pdgs)
+      enddo
+      call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
 c
       a = csec
       b = dsec
-      ab = real_mapped_labels(a)
-      bb = real_mapped_labels(b)
+      ab = real_labels(a,i,c)
+      bb = real_labels(b,i,c)
 c
 c     mapping 1: [ica]
       do c=1,nexternal
          if(.not.isnnloQCDparton(c))cycle
          if(c.eq.i.or.c.eq.a.or.c.eq.b)cycle
 c
-         call phase_space_CS_inv(i,c,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+         call phase_space_CS_inv(i,c,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,c))
          if(xjCS1.eq.0d0)goto 999
 c        possible cuts
          if(docut(xpb,nexternal-1,real_leg_pdgs,1))cycle
@@ -98,12 +105,12 @@ c        possible cuts
 c
 c        call Wbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-         map1=real_mapped_labels(csec)
-         map2=real_mapped_labels(dsec)
+         map1=real_labels(csec,i,c)
+         map2=real_labels(dsec,i,c)
          call get_wbar_nlo(map1,map2)
 c
 c        call colour-connected Born
-         cb=real_mapped_labels(c)
+         cb=real_labels(c,i,c)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,ab)
 c
@@ -114,10 +121,10 @@ c        safety check
          endif
          Ei_ca = xs(c,a)/xs(i,c)/xs(i,a)
          M2tmp = 2d0*Ei_ca*ccRNLO*wbar_nlo*ws_nlo
-         M2_s_g = M2_s_g + M2tmp
+         M2_S_g = M2_S_g + M2tmp
 c
 c     plot
-         wgtpl = -m2tmp
+         wgtpl = -M2tmp
          wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
          wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
          wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -131,7 +138,7 @@ c     mapping 2: [icb]
          if(.not.isnnloQCDparton(c))cycle
          if(c.eq.i.or.c.eq.a.or.c.eq.b)cycle
 c
-         call phase_space_CS_inv(i,c,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+         call phase_space_CS_inv(i,c,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,c))
          if(xjCS1.eq.0d0)goto 999
 c        possible cuts
          if(docut(xpb,nexternal-1,real_leg_pdgs,1))cycle
@@ -140,12 +147,17 @@ c        possible cuts
 c
 c        call Wbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-         map1=real_mapped_labels(csec)
-         map2=real_mapped_labels(dsec)
+         map1=real_labels(csec,i,c)
+         map2=real_labels(dsec,i,c)
          call get_wbar_nlo(map1,map2)
 c
 c        call colour-connected Born
          cb=real_mapped_labels(c)
+c        renormalisation scale for the remapped kinematics xpb
+         call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+         alphas=alphas_current
+         pref=-(8d0*pi*alphas)
+         cb=real_labels(c,i,c)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,bb)
 c
@@ -156,10 +168,10 @@ c        safety check
          endif
          Ei_cb = xs(c,b)/xs(i,c)/xs(i,b)
          M2tmp = 2d0*Ei_cb*ccRNLO*wbar_nlo*ws_nlo
-         M2_s_g = M2_s_g + M2tmp
+         M2_S_g = M2_S_g + M2tmp
 c
 c     plot
-         wgtpl = -m2tmp
+         wgtpl = -M2tmp
          wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
          wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
          wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -169,20 +181,26 @@ c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
       enddo
 c
 c     mapping 3: [iba]
-      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
       if(xjCS1.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
+      ab = real_labels(a,i,b)
+      bb = real_labels(b,i,b)
 c     call Wbar
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,b)
+      map2=real_labels(dsec,i,b)
       call get_wbar_nlo(map1,map2)
 c
 c     call colour-connected Born
+c     renormalisation scale for the remapped kinematics xpb
+      call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+      alphas=alphas_current
+      pref=-(8d0*pi*alphas)
       call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(ab,bb)
 c     safety check
@@ -192,10 +210,10 @@ c     safety check
       endif
       Ei_ab = xs(a,b)/xs(i,a)/xs(i,b)
       M2tmp = 2d0*Ei_ab*ccRNLO*wbar_nlo*ws_nlo
-      M2_s_g = M2_s_g + M2tmp
+      M2_S_g = M2_S_g + M2tmp
 c
 c     plot
-      wgtpl = -m2tmp
+      wgtpl = -M2tmp
       wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
       wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
       wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -204,8 +222,8 @@ c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,wgtpl)
       if(doplot)call analysis_fill(xpb,xsb,nexternal-1,real_leg_pdgs,wgts)
 c
 c     Include correct pre-factors
-      M2_s_g = M2_s_g*pref*extra*damp*xj
-      M2_s_g = M2_s_g*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_g = M2_S_g*pref*extra*damp*xj
+      M2_S_g = M2_S_g*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_g = M2_S_g * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_g = ws_nlo*wbar_nlo
@@ -222,3 +240,5 @@ c
  999  ierr=1
       return
       end
+
+

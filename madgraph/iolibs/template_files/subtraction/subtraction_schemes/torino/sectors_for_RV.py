@@ -250,17 +250,19 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         writer = writers.FortranWriter
 
         dirmadnklo=os.getcwd()
-        dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RV_x_R_*" % interface.user_dir_name[0])[0])
+        dirpath = pjoin(dirmadnklo, sectors.glob_one("%s/NNLO_RV_x_R_*" % sectors.get_user_dir(),
+                                                     'real-virtual (NNLO_RV_x_R_*) directory'))
         # defining_process.shell_string() is not enough for loop processes "P1_#_xxxx"
         # solution: use dirpath to determine the loop index #
         # TODO: generalise if P1_1_xxxx and P1_2_xxxx exist (different loop index, same final state)
         subproc_base = pjoin(dirpath, 'SubProcesses')
         proc_string = defining_process.shell_string().split("_", 1)[1]
-        dirpath = glob.glob(pjoin(subproc_base, "P1_*_%s" % proc_string))[0]
+        dirpath = sectors.glob_one(pjoin(subproc_base, "P1_*_%s" % proc_string),
+                                   'real-virtual subprocess directory for %s' % proc_string)
 
 ######### Import Born-level PDGs from proc/SupProcesses directory
 
-        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
+        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % sectors.get_user_dir()))
         import Born_PDGs as PDGs_from_Born
         import Real_PDGs as PDGs_from_Real
 
@@ -311,8 +313,12 @@ class SectorGeneratorRV(sectors.SectorGenerator):
         # List of dirpathLO of the necessary underlying Born
         path_Born_processes = []
         # Link LO files to each real process directory
-        dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        dirpathNLO_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_*" % interface.user_dir_name[0])[0])
+        dirpathLO_head = pjoin(dirmadnklo, sectors.glob_one("%s/LO_*" % sectors.get_user_dir(),
+                                                    'Born (LO_*) directory'))
+        dirpathNLO_head = pjoin(dirmadnklo, sectors.glob_one("%s/NLO_R_*" % sectors.get_user_dir(),
+                                                     'real-emission (NLO_R_*) directory'))
+        dirpathNLOV_head = pjoin(dirmadnklo, sectors.glob_one("%s/NLO_V_x_B_*" % sectors.get_user_dir(),
+                                                      'virtual (NLO_V_x_B_*) directory'))
         necessary_default_ct_list = ['S_RV_g', 'HC_RV_gg', 'HC_RV_gq', 'HC_RV_qqx']
 
         for i in range(0,len(all_sector_list)):
@@ -435,11 +441,11 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
                     dirpathNLOR = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
-                    dirpathNLOV = pjoin(dirmadnklo,glob.glob("%s/NLO_V_x_B_*" % interface.user_dir_name[0])[0])
-                    Vsubproc_base = pjoin(dirpathNLOV, 'SubProcesses')
                     V_proc = uB_proc[j]
-                    dirpathNLOV = glob.glob(pjoin(Vsubproc_base, "P1_*_%s" % V_proc))[0]
                     if os.path.exists(dirpathLO):
+                        # virtual subprocess directory of the same underlying Born
+                        dirpathNLOV = sectors.glob_one(pjoin(dirpathNLOV_head, 'SubProcesses', "P1_*_%s" % V_proc),
+                                                       'virtual subprocess directory for %s' % V_proc)
                         replace_dict_int_real['strUB'] = uB_proc[j]
                         replace_dict_limits['proc_prefix_S_RV_g'] = uB_proc[j]
                         overall_sector_info[i]['Born_str'] = uB_proc[j]
@@ -471,11 +477,11 @@ class SectorGeneratorRV(sectors.SectorGenerator):
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P1_%s" % uB_proc[j])
                         dirpathNLOR = pjoin(dirpathNLO_head, 'SubProcesses', "P1_%s" % R_proc)
-                        dirpathNLOV = pjoin(dirmadnklo,glob.glob("%s/NLO_V_x_B_*" % interface.user_dir_name[0])[0])
-                        Vsubproc_base = pjoin(dirpathNLOV, 'SubProcesses')
                         V_proc = uB_proc[j]
-                        dirpathNLOV = glob.glob(pjoin(Vsubproc_base, "P1_*_%s" % V_proc))[0]
                         if os.path.exists(dirpathLO):
+                            # virtual subprocess directory of the same underlying Born
+                            dirpathNLOV = sectors.glob_one(pjoin(dirpathNLOV_head, 'SubProcesses', "P1_*_%s" % V_proc),
+                                                           'virtual subprocess directory for %s' % V_proc)
                             replace_dict_int_real['strUB'] = uB_proc[j]
                             replace_dict_limits[tmp_proc] = uB_proc[j]
                             overall_sector_info[i]['Born_str'] = uB_proc[j]
@@ -689,8 +695,10 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 # Links to virtual dir
 
         for i in range(0,len(Born_processes)):
-            dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
-            dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
+            dirpath_virtual = pjoin(dirmadnklo, sectors.glob_one("%s/NLO_V*" % sectors.get_user_dir(),
+                                                                 'virtual (NLO_V*) directory'))
+            dirpath_virtual = sectors.glob_one("%s/SubProcesses/*%s" % (dirpath_virtual, str(Born_processes[i])),
+                                               'virtual subprocess directory for %s' % str(Born_processes[i]))
 
             if not glob.glob("%s/matrix.f" % dirpath_virtual):
                 # symlink to Born ME

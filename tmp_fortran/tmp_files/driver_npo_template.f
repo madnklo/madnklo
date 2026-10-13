@@ -112,10 +112,11 @@ c         err_r_a(ich) = err_r
 c         sum_err_r_a = sum_err_r_a + err_r_a(ich)
 c      enddo
 c
-c     main loop over channels
-c      do i=1,N_MAX_CG
-      do i=1,1
-         ich=i
+c     single channel: multichannelling was removed (commit d6a8be228);
+c     the integrand is not multiplied by channel weights (wgt_chan=1),
+c     so a sum over channels i=1,N_MAX_CG would multiply the result
+c     by the number of channels. Restore both together if needed.
+         ich=1
          write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
@@ -148,7 +149,6 @@ c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn
          write(iu9,*)
 c
          write(*,*)'...done'
-      enddo
 c
 c     finalise histograms and output files
       call analysis_end(1d0,'plot_R_%(isec)d_%(jsec)d.dat')

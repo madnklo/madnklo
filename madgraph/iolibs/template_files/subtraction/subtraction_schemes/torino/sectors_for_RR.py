@@ -1229,9 +1229,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         # Point to the right process directory
         dirmadnklo=os.getcwd()
-        dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
+        dirpath = pjoin(dirmadnklo, sectors.glob_one("%s/NNLO_RR_x_RR_*" % sectors.get_user_dir(),
+                                                     'double-real (NNLO_RR_x_RR_*) directory'))
         dirpath = pjoin(dirpath, 'SubProcesses', "P%s" % defining_process.shell_string())
-        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
+        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % sectors.get_user_dir()))
         import Born_PDGs as PDGs_from_Born
         import Real_PDGs as PDGs_from_Real
 
@@ -1246,8 +1247,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         path_UBorn_procs = []
         UReal_procs = []
         path_UReal_procs = []
-        dirpathB_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        dirpathR_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
+        dirpathB_head = pjoin(dirmadnklo, sectors.glob_one("%s/LO_*" % sectors.get_user_dir(),
+                                                           'Born (LO_*) directory'))
+        dirpathR_head = pjoin(dirmadnklo, sectors.glob_one("%s/NLO_R_x_R_*" % sectors.get_user_dir(),
+                                                           'real-emission (NLO_R_x_R_*) directory'))
 
         K1_sector_lists = defaultdict(lambda: defaultdict(list))
         K2_sector_lists = defaultdict(lambda: defaultdict(list))
@@ -2326,7 +2329,7 @@ c       %s
             
             vv_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str']))
             data_vv_rec = str(vv_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-            pattern = pjoin(dirmadnklo, interface.user_dir_name[0], "NNLO_VV*")
+            pattern = pjoin(dirmadnklo, sectors.get_user_dir(), "NNLO_VV*")
             paths = [path for path in glob.glob(pattern) if os.path.isdir(path)]
             UBpath = overall_sector_info[i]['path_to_Born']
             

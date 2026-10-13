@@ -4,13 +4,12 @@ c     iU is the unresolved parton associated with the soft singularity
       include 'coupl.inc'
       include 'math.inc'
       include 'nexternal.inc'
+      include 'rv_mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       double precision x(3*nexternal-10),shat
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
       integer iconfig,mincfig,maxcfig,invar
       integer ich
       common/comich/ich
@@ -28,7 +27,7 @@ C     Hard coded settings for gen_mom
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjacB,x(4),pbar,nexternal-1)
 c
 c     call radiation phase space
-      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS,mapped_labels)
+      call phase_space_CS(x(1),iU,iS,iB,iA,p,pbar,nexternal,leg_PDGs,xjacCS,mapped_labels(:,iU,iS))
 c
 c     total jacobian
       xjac=xjacB*xjacCS

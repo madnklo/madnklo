@@ -12,6 +12,7 @@ c     (n+1)-body NNLO integrand for vegas
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
+      INCLUDE 'rv_mapped_labels_common.inc'
       integer i,ierr
       integer ntest
       parameter(ntest=20)
@@ -51,8 +52,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical firsttime
       data firsttime/.true./
       save firsttime
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
       logical init
       data init/.true./
       integer matelem_array_dim
@@ -195,18 +194,19 @@ c     subtraction (phase-space jacobian included in counterterm definition)
       subroutine initialise_sector()
       implicit none
       include 'nexternal.inc'
+      include 'rv_mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
-      integer isec,jsec,iref
-      common/csecindices/isec,jsec,iref
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
 c
       isec = %(isec)d
       jsec = %(jsec)d
+      ksec = 0
+      lsec = 0
       iref = %(iref)d
 c
 c     check we are not in the ISR case
@@ -226,6 +226,10 @@ c     configuration files
 c
 c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(isec,jsec,ksec,lsec,nexternal-1,underlying_leg_pdgs)
-      call get_mapped_labels(nexternal,isec,jsec,leg_pdgs,underlying_leg_pdgs,mapped_labels)
+c     initialisation for mapping-label common block
+c     initialise labels for R mapping (iU,iS,iB)
+      mapped_pair_done=.false.
+      call fill_mapped_labels(iU,iS,leg_pdgs,underlying_leg_pdgs)
+
       return
       end

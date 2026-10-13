@@ -151,7 +151,7 @@ c        underlying Born configuration is remapped
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpbb,nexternal-2,born_leg_pdgs,2))cycle
+            if(docut(xpbb,nexternal-2,born_leg_pdgs,0))cycle
 c
 c     invariant quantities
 c     (c,d) in the paper --> (m,l)

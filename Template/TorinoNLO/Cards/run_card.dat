@@ -165,6 +165,7 @@
   %(jetradius)s  = jetradius ! The radius parameter for the jet algorithm
  %(ptj)s  = ptj       ! Min jet transverse momentum
  %(etaj)s  = etaj      ! Max jet abs(pseudo-rap) (a value .lt.0 means no cut)
+ %(maxjetflavor)s  = maxjetflavor ! Max quark flavour clustered into jets (default: massless quarks in the model)
 #***********************************************************************
 # Cuts on the charged leptons (e+, e-, mu+, mu-, tau+ and tau-)        *
 # More specific cuts can be specified in SubProcesses/cuts.f           *

@@ -73,7 +73,7 @@ c     check flavour match
       endif
 c
 c     possible cuts
-      if(docut(xpbb,nexternal-2,Born_leg_pdgs,2))return
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
 c     renormalisation scale for the (mapped) kinematics of the matrix element

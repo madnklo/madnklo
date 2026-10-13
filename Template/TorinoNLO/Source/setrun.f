@@ -77,6 +77,16 @@ c----------
 c     start
 c----------
       include 'run_card.inc'
+c
+c-check consistency of maxjetflavor in the run_card and with Nf
+c specified in coupl.inc (as in aMC@NLO, SubProcesses/setcuts.f)
+      if (maxjetflavor.lt.int(Nf)) then
+         write(*,'(a,i3,a,i3)') "WARNING: the value of maxjetflavor"/
+     $        /" specified in the run_card (",maxjetflavor,") is"/
+     $        /" inconsistent with the number of light flavours in"/
+     $        /" the model. Hence it will be set to:", int(Nf)
+         maxjetflavor = int(Nf)
+      endif
       
 c MZ add the possibility to have shower_MC input lowercase
       ! call to_upper(shower_MC)

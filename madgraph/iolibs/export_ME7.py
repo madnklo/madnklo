@@ -1252,10 +1252,20 @@ class ME7ExporterTorino(ME7Exporter):
         run_card['fixed_ren_scale'] = True
         run_card['fixed_fac_scale'] = True
 
+        # Quark flavours counted as jet partons (cuts.f): at least all the
+        # massless quarks of the model (NF in coupl.inc), as in aMC@NLO
+        run_card['maxjetflavor'] = self.get_model_maxjetflavor(run_card)
+
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+    def get_model_maxjetflavor(self, run_card):
+        """maxjetflavor raised (never lowered) to the number of massless
+        quarks of the model (NF in coupl.inc), as aMC@NLO does at run time
+        in setcuts.f. At most 5."""
+        return max(int(run_card['maxjetflavor']), min(5, self.model.get_nflav()))
 
     def create_ME7_run_card(self):
         """Build the export-time ME7 configuration without writing a second card."""
@@ -1270,6 +1280,7 @@ class ME7ExporterTorino(ME7Exporter):
             'colored_pdgs': range(1,7)+[21]}
 
         run_card.create_default_for_process(proc_characteristic, history, processes)
+        run_card['maxjetflavor'] = self.get_model_maxjetflavor(run_card)
 
         # Run-card values normally pass through the text parser, which strips
         # quoting used by string defaults (for example, flavor_cuts).  Since

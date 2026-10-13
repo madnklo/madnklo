@@ -78,14 +78,6 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
       pref=-(8d0*pi*alphas)
 c
-c     fill mapped labels
-      do c=1,nexternal
-         if(.not.isNNLOQCDparton(c)) cycle
-         if(c.eq.i) cycle
-         call fill_real_mapped_labels(i,c,leg_pdgs,real_leg_pdgs)
-      enddo
-      call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
-c
       a = csec
       b = dsec
 c

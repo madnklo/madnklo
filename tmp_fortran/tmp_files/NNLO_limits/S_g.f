@@ -88,8 +88,14 @@ c     fill mapped labels
 c
       a = csec
       b = dsec
-      ab = real_labels(a,i,c)
-      bb = real_labels(b,i,c)
+c
+c     fill mapped labels
+      do c=1,nexternal
+         if(.not.isNNLOQCDparton(c)) cycle
+         if(c.eq.i) cycle
+         call fill_real_mapped_labels(i,c,leg_pdgs,real_leg_pdgs)
+      enddo
+      call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
 c
 c     mapping 1: [ica]
       do c=1,nexternal
@@ -102,6 +108,9 @@ c        possible cuts
          if(docut(xpb,nexternal-1,real_leg_pdgs,1))cycle
          call invariants_from_p(xpb,nexternal-1,xsb,ierr)
          if(ierr.eq.1)goto 999
+c
+         ab = real_labels(a,i,c)
+         bb = real_labels(b,i,c)
 c
 c        call Wbar
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)

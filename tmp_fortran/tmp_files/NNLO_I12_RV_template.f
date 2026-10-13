@@ -76,13 +76,8 @@ c     SOFT PART OF I^(12), eq. (4.47)
 c
       do c=1,nexternal
         if(.not.isnloqcdparton(c)) cycle
-        if(c.eq.i.or.c.eq.j) cycle
-        do d=1,nexternal
-          if(.not.isnloqcdparton(d)) cycle
-          if(d.eq.i.or.d.eq.c) cycle
-          call fill_mapped_labels(i,c,leg_pdgs,underlying_leg_pdgs)
-          call fill_mapped_labels(i,d,leg_pdgs,underlying_leg_pdgs)
-        enddo
+        if(c.eq.i) cycle
+        call fill_mapped_labels(i,c,leg_pdgs,underlying_leg_pdgs)
       enddo
 c
       do c=1,nexternal
@@ -241,16 +236,6 @@ c     TODO: needs rpp in initial state for 2jets
 c
       Is = pref * Is
 c
-c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
-      I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
-      I12NNLO(-1) = I12NNLO(-1) + gamma_q
-      I12NNLO(-2) = I12NNLO(-2) + CF
-c
-      if(abs(I12NNLO(0)).ge.huge(1d0).or.isnan(I12NNLO(0)))then
-         write(77,*)'Exception caught in int_counter_I12_NNLO',I12NNLO(0)
-         goto 999
-      endif
-c
 c     COLLINEAR + SOFT-COLLINEAR PART OF I^(12), eq. (4.48-49), with i=g, j=q
 c
       r = iref1(isec)
@@ -262,7 +247,6 @@ c
           C_l(c) = Ca
         endif
       enddo
-      call fill_mapped_labels(i,j,leg_pdgs,underlying_leg_pdgs)
 c
       jb = mapped_labels(j,i,j)
       if(abs(underlying_leg_pdgs(jb)).le.6)then
@@ -394,11 +378,23 @@ c     FINAL RESULT: eq. (4.46)
 c
       call get_ws_nlo(isec,jsec)
       I12NNLO = Is*Ws_nlo + Ic - Isc
+c
+c     TODO: check normalisation
+c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
+      I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
+      I12NNLO(-1) = I12NNLO(-1) + gamma_q
+      I12NNLO(-2) = I12NNLO(-2) + CF
+c
+      if(abs(I12NNLO(0)).ge.huge(1d0).or.isnan(I12NNLO(0)))then
+         write(77,*)'Exception caught in int_counter_I12_NNLO',I12NNLO(0)
+         goto 999
+      endif
 
       return
  999  ierr=1
       return
       end
+
 
       SUBROUTINE GET_Js(s, Js)
 C     eq. (E.2) of 2212.11190v2

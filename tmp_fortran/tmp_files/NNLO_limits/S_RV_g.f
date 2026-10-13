@@ -374,7 +374,7 @@ c     call colour-connected B^{(ilm)} and B^{(iml)}
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) goto 778
 c
             delta_s(-2) = delta_s(-2) + EIK0*2d0*C_l*ccBLO_lm
-            delta_s(-1) = delta_s(-1) + EIK0*ccBLO_lm*(4d0*Cl+gamma_hc_l)
+            delta_s(-1) = delta_s(-1) + EIK0*ccBLO_lm*(4d0*C_l+gamma_hc_l)
 c
 c     Sum over (e) ---> (t)
             do t=1,nexternal
@@ -441,7 +441,7 @@ c     close p
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) cycle
 c
             delta_s(-2) = delta_s(-2) - EIK0*2d0*C_l*ccBLO_ml
-            delta_s(-1) = delta_s(-1) - EIK0*ccBLO_ml*(4d0*Cl+gamma_hc_l)
+            delta_s(-1) = delta_s(-1) - EIK0*ccBLO_ml*(4d0*C_l+gamma_hc_l)
 c
             M2TMP(-2:0) = M2TMP(-2:0) + alphas/2d0/pi*delta_s(-2:0)
             M2tmp(-2:0)=M2tmp(-2:0)*damp*xj
@@ -496,9 +496,9 @@ c
 c     eikonals
             EIK_KR =  SKR/(SIK*SIR) - MK2/SIK**2 - MR2/SIR**2
             if(docut(xpb_kr,nexternal-1,underlying_leg_pdgs,0)) goto 779
-            M2TMP_KR = M2TMP_KR+ EIK_KR*gamma_l*ccBLO_kr
+            M2TMP_KR = M2TMP_KR+ EIK_KR*gamma_hc_l*ccBLO_kr
  779        if(docut(xpb_rK,nexternal-1,underlying_leg_pdgs,0)) cycle
-            M2TMP_KR = M2TMP_KR - EIK_KR*gamma_l*ccBLO_rk
+            M2TMP_KR = M2TMP_KR - EIK_KR*gamma_hc_l*ccBLO_rk
 
             M2tmp(-1) = M2tmp(-1) + alphas/2d0/pi*pref*WS_NLO*extra*M2TMP_kr
             M2TMP_KR = M2TMP_KR*damp*xj

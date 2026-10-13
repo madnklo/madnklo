@@ -15,6 +15,7 @@ c     it returns 0 if i is not a gluon
       include 'V_nsquaredSO.inc'
       include 'input.inc'
       include 'run.inc'
+      include 'rv_mapped_labels_common.inc'
       double precision ret(-2:0)
       integer i,l,m,q,lb,mb,qb,ierr,nit
       double precision pref,M2tmp(-2:0),wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
@@ -47,9 +48,7 @@ c     external
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
-      common/c_U_PDGs/UNDERLYING_LEG_PDGS
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
+      common/c_U_PDGs/underlying_leg_pdgs
       logical v_init
       data v_init/.true./
       integer v_matelem_array_dim
@@ -97,6 +96,13 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,mu_r)
       pref=-8d0*pi*alphas
 c
+c     fill mapped labels with mapping (iml)
+      do m=1,nexternal
+        if(.not.isnloqcdparton(m)) cycle
+        if(m.eq.i) cycle
+        call fill_mapped_labels(i,m,leg_pdgs,underlying_leg_pdgs)
+      enddo
+c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isNLOQCDparton(m))cycle
@@ -110,7 +116,7 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels)
+            call phase_space_CS_inv(i,m,l,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels(:,i,m))
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
@@ -132,13 +138,13 @@ c     safety check
             endif
 c
 c     call colour-connected Born and Virtual
-            lb=mapped_labels(l)
-            mb=mapped_labels(m)
+            lb=mapped_labels(l,i,m)
+            mb=mapped_labels(m,i,m)
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(mb,lb)
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = [(V_MATELEM(i,0), i=3,1,-1)]
-            call %(V_long_proc_prefix)sget_ccvnlo(lb,mb,ccvnlo)
+            call %(V_long_proc_prefix)sget_ccvnlo(mb,lb,ccvnlo)
             color_correlated_evals = 0d0
 c
 c     eikonals
@@ -163,7 +169,7 @@ c     invariant quantities
                smq=xs(m,q)
 c
 c     call triple-colour-connected Born
-               qb=mapped_labels(q)
+               qb=mapped_labels(q,i,m)
 c               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
                TRIBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
 c

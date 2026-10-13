@@ -7,14 +7,15 @@ c     for sector (ia,ib)
       use sectors2_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'V_nsquaredSO.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
+      include 'rv_mapped_labels_common.inc'
       double precision ret(-2:0)
       double precision M2_C_gq(-2:0),M2_C_gq_0,M2_SC_gq(-2:0)
       integer i,ia,ib,ir,ierr,nit,parent_leg
@@ -43,9 +44,7 @@ c     set logical doplot
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       integer underlying_leg_pdgs(nexternal-1)
-      common/c_U_PDGs/UNDERLYING_LEG_PDGS
-      integer mapped_labels(nexternal)
-      common/c_mapped_labels/mapped_labels
+      common/c_U_PDGs/underlying_leg_pdgs
       logical v_init
       data v_init/.true./
       integer v_matelem_array_dim

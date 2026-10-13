@@ -25,7 +25,8 @@ c     DOUBLE_POLE = I12NNLO(-2)
       double precision Is(-2:0),Ic(-2:0),Isc(-2:0)
       double precision blo,ccblo,quadblo
       double precision Pgq,Pgq_sc,Ei_cd,Ei_ck,Ei_cr
-      double precision C_l(nexternal),Cb_l,rho_l,rhob_l
+      double precision C_l(nexternal),Cb_l
+      double precision rho_ij_l,rhob_ij_l,rho_ji_l,rhob_ji_l
       double precision scd,scr,sck,sic,sid,sir,sik,sjr,sij,x
       double precision alphas,alpha_qcd,ans(0:nsqso_born)
       integer, parameter :: hel = - 1
@@ -55,7 +56,10 @@ c     TODO: check
       do i=1,len_iref
          iref1(iref(1,i)) = iref(2,i)
       enddo
-      r = iref1(isec)
+c     TODO: generalise r,rp,rpp
+      r = jsec
+      rp = iref1(isec)
+      rpp = 0
 c
       i = isec
       j = jsec
@@ -165,58 +169,73 @@ c
         enddo
       enddo
 c
+      sir = snlo(i,r)
       do k=1,nexternal
         if(.not.isnloqcdparton(k)) cycle
         if(k.eq.i) cycle
+c
+        sik = snlo(i,k)
+c
           do c=1,nexternal
             if(.not.isnloqcdparton(c)) cycle
-            if(c.eq.i.or.c.eq.k.or.c.eq.r) cycle
+            if(c.eq.i.or.c.eq.k) cycle
+c
+            cb = mapped_labels(c,i,c)
+            rb = mapped_labels(r,i,c)
+            kb = mapped_labels(k,i,c)
+c
+            sck = snlo(c,k)
+            scr = snlo(c,r)
+            sic = snlo(i,c)
+            if(sic*sir*sik.le.0d0)then
+              write(77,*)'Inaccuracy 1 in I12_RV', sic,sir,sik
+              goto 999
+            endif
+            Ei_cr = scr / sic / sir
+            Ei_ck = sck / sic / sik
+c
             do d=1,nexternal
+              if(c.eq.r) cycle
               if(.not.isnloqcdparton(d)) cycle
               if(d.eq.i.or.d.eq.c.or.d.eq.k.or.d.eq.r) cycle
 c
+              db = mapped_labels(d,i,c)
+c
               scd = snlo(c,d)
-              scr = snlo(c,r)
-              sck = snlo(c,k)
-              sic = snlo(i,c)
               sid = snlo(i,d)
-              sir = snlo(i,r)
-              sik = snlo(i,k)
-              if(sic*sid*sir*sik.le.0d0)then
-                 write(77,*)'Inaccuracy 1 in I12_RV', sic,sid,sir,sik
+              if(sic*sid.le.0d0)then
+                 write(77,*)'Inaccuracy 1 in I12_RV', sic,sid
                  goto 999
               endif
               Ei_cd = scd / sic / sid
-              Ei_cr = scr / sic / sir
-              Ei_ck = sck / sic / sik
-c
-              cb = mapped_labels(c,i,c)
-              db = mapped_labels(d,i,c)
-              rb = mapped_labels(r,i,c)
-              kb = mapped_labels(k,i,c)
 c
               call phase_space_CS_inv(i,c,d,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
-              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 11
+              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
               call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
               ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
               call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
               Is = Is - JhcKKRpp * Ei_cd * ccblo
-c
- 11           call phase_space_CS_inv(i,c,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
-              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 12
-              call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
-              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,rb)
-              call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
-              Is = Is - JhcKKRpp * 2d0 * Ei_cr * ccblo
-c
- 12           call phase_space_CS_inv(i,c,k,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
-              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
-              call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
-              blo = ans(0)
-              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,kb)
-              call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
-              Is = Is - JhcKKRpp * 2d0 * Ei_ck * ccblo
             enddo
+c
+c     TODO: needs rpp in initial state for 2jets
+            if(size(leg_pdgs).le.5)cycle
+            if(c.eq.r)goto 11
+            call phase_space_CS_inv(i,c,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
+            if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 11
+            call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
+            ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,rb)
+            call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
+            Is = Is - JhcKKRpp * 2d0 * Ei_cr * ccblo
+c
+c     TODO: needs rpp in initial state for 2jets
+ 11         if(size(leg_pdgs).le.5)cycle
+            call phase_space_CS_inv(i,c,k,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
+            if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
+            call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
+            blo = ans(0)
+            ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,kb)
+            call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
+            Is = Is - JhcKKRpp * 2d0 * Ei_ck * ccblo
          enddo
       enddo
 c
@@ -234,6 +253,7 @@ c
 c
 c     COLLINEAR + SOFT-COLLINEAR PART OF I^(12), eq. (4.48-49), with i=g, j=q
 c
+      r = iref1(isec)
       C_l = 0d0
       do c=1,nexternal
         if(abs(leg_pdgs(c)).le.6)then
@@ -243,9 +263,21 @@ c
         endif
       enddo
       call fill_mapped_labels(i,j,leg_pdgs,underlying_leg_pdgs)
-      call fill_mapped_labels(i,r,leg_pdgs,underlying_leg_pdgs)
-      call fill_mapped_labels(j,r,leg_pdgs,underlying_leg_pdgs)
-      call fill_mapped_labels(j,i,leg_pdgs,underlying_leg_pdgs)
+c
+      jb = mapped_labels(j,i,j)
+      if(abs(underlying_leg_pdgs(jb)).le.6)then
+        Cb_l = Cf
+        rho_ij_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
+        rhob_ij_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
+        rho_ji_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
+        rhob_ji_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
+      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
+        Cb_l = Ca
+        rho_ij_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
+        rhob_ij_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
+        rho_ji_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
+        rhob_ji_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
+      endif
 c
       do c=1,nexternal
         if(.not.isnloqcdparton(c)) cycle
@@ -257,25 +289,15 @@ c
           goto 999
         enddo
 c
-        cb = mapped_labels(c,j,r)
-        jb = mapped_labels(j,j,r)
-        if(abs(underlying_leg_pdgs(jb)).le.6)then
-          Cb_l = Cf
-          rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-          rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-       elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-          Cb_l = Ca
-          rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-          rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-        endif
+        cb = mapped_labels(c,i,j)
 c
-        call phase_space_CS_inv(j,r,i,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,j,r))
+        call phase_space_CS_inv(j,r,i,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
         if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 20
         call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
         blo = ans(0)
         ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(jb,cb)
         call get_Js(snlo(i,c),JsIC)
-        Ic = Ic + rho_l * JsIC * ccblo
+        Ic = Ic + rho_ij_l * JsIC * ccblo
         Isc = Isc + Ca * JsIC * ccblo
         if(size(leg_pdgs).le.5) then
           write(77,*)'ee -> >2j is not implemented yet'
@@ -283,25 +305,13 @@ c
           goto 999
         endif
 c
- 20     cb = mapped_labels(c,i,r)
-        jb = mapped_labels(j,i,r)
-        if(abs(underlying_leg_pdgs(jb)).le.6)then
-          Cb_l = Cf
-          rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-          rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-       elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-          Cb_l = Ca
-          rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-          rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-        endif
-c
-        call phase_space_CS_inv(i,r,j,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,r))
+ 20     call phase_space_CS_inv(i,r,j,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
         if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
         call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
         blo = ans(0)
         ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(jb,cb)
         call get_Js(snlo(j,c), JsJC)
-        Ic = Ic + rho_l * JsJC * ccblo
+        Ic = Ic + rho_ji_l * JsJC * ccblo
         Isc = Isc + (2d0*C_l(j)-Ca) * JsJC * ccblo
         if(size(leg_pdgs).le.5) then
           write(77,*)'ee -> >2j is not implemented yet'
@@ -310,103 +320,49 @@ c
         endif
       enddo
 c
-      if(abs(underlying_leg_pdgs(jb)).le.6)then
-        Cb_l = Cf
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-        Cb_l = Ca
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      endif
-c
       call phase_space_CS_inv(i,j,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 21
       call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
       blo = ans(0)
       call get_Js(snlo(i,j), JsIJ)
-      Ic = Ic + Cb_l * rhob_l * JsIJ * blo
+      Ic = Ic + Cb_l * rhob_ij_l * JsIJ * blo
       Isc = Isc - C_l(j) * Ca * JsIJ * blo
       call get_Js(snlo(i,r), JsIR)
       Isc = Isc - Ca * C_l(j) * JsIR * blo
       call get_Js(snlo(j,r), JsJR)
       Isc = Isc - (2d0*C_l(j)-Ca) * C_l(j) * JsJR * blo
 c
- 21   jb = mapped_labels(j,j,r)
-      if(abs(underlying_leg_pdgs(jb)).le.6)then
-        Cb_l = Cf
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-        Cb_l = Ca
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      endif
-c
-      call phase_space_CS_inv(j,r,i,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,j,r))
+ 21   call phase_space_CS_inv(j,r,i,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 22
       call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
       blo = ans(0)
       call get_Js(snlo(i,r), JsIR)
-      Ic = Ic + Cb_l * rho_l * JsIR * blo
+      Ic = Ic + Cb_l * rho_ij_l * JsIR * blo
       Isc = Isc + Ca * C_l(j) * JsIR * blo
 c
- 22   jb = mapped_labels(j,i,r)
-      if(abs(underlying_leg_pdgs(jb)).le.6)then
-        Cb_l = Cf
-        rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-        Cb_l = Ca
-        rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-      endif
-c
-      call phase_space_CS_inv(i,r,j,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,r))
+ 22   call phase_space_CS_inv(i,r,j,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 23
       call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
       blo = ans(0)
       call get_Js(snlo(j,r), JsJR)
-      Ic = Ic + Cb_l * rho_l * JsJR * blo
+      Ic = Ic + Cb_l * rho_ji_l * JsJR * blo
       Isc = Isc + (2d0*C_l(j)-Ca) * C_l(j) * JsJR * blo
       call get_Jhc(j, snlo(j,r), JhcJJR)
       Isc = Isc - JhcJJR * blo
 c
- 23   jb = mapped_labels(j,i,j)
-      if(abs(underlying_leg_pdgs(jb)).le.6)then
-        Cb_l = Cf
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-        Cb_l = Ca
-        rho_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-      endif
-c
-      call phase_space_CS_inv(i,j,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
+ 23   call phase_space_CS_inv(i,j,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 24
       call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
       blo = ans(0)
       call get_Js(snlo(i,r), JsIR)
-      Ic = Ic - Cb_l * rho_l * JsIR * blo
+      Ic = Ic - Cb_l * rho_ij_l * JsIR * blo
 c
- 24   jb = mapped_labels(j,j,i)
-      if(abs(underlying_leg_pdgs(jb)).le.6)then
-        Cb_l = Cf
-        rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-      elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
-        Cb_l = Ca
-        rho_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
-      endif
-c
-      call phase_space_CS_inv(j,i,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,j,i))
+ 24   call phase_space_CS_inv(j,i,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 25
       call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
       blo = ans(0)
       call get_Js(snlo(j,r), JsJR)
-      Ic = Ic - Cb_l * rho_l * JsJR * blo
+      Ic = Ic - Cb_l * rho_ji_l * JsJR * blo
 c
  25   call phase_space_CS_inv(i,j,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 999

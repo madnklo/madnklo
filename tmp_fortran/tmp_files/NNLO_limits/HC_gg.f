@@ -4,13 +4,14 @@ c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_SC_gg,M2_C_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -75,6 +76,9 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
+c     fill mapped labels (ijr)
+      call fill_real_mapped_labels(ia,ib,leg_pdgs,real_leg_pdgs)
+c
 c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
@@ -100,7 +104,7 @@ c     call Real as per eq. (C.9)
       call %(proc_prefix_HC_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       RNLO = ANS(0)
 c
-      parent_leg = real_mapped_labels(ib)
+      parent_leg = real_labels(ib,ia,ib)
       KKRNLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
       M2_C_gg=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
@@ -108,8 +112,8 @@ c     TODO: improve ktmuktnuRmunu / kt^2
 c
 c     compute soft-collinear limit of sector function
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
       call get_wbar_nlo(map1,map2)
       M2_SC_gg=M2_SC_gg*wbar_nlo
 c
@@ -117,8 +121,8 @@ c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
       call get_wbar_nlo(map1,map2)
       M2_C_gg=M2_C_gg*wc_nlo*wbar_nlo
 c

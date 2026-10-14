@@ -135,7 +135,7 @@ c
          doplot=.true.
          nclVV1=max(1000,int(nclVV*err_vv_a(ich)/sum_err_vv_a))
          failure_stage='main'
-         call vegas(region,ndim,int_VV,init,nclVV1,nitVV,nprn,
+         call vegas(region,ndim,int_double_virtual,init,nclVV1,nitVV,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV: channel, itns, calls = ',ich,nitVV,nclVV1
          rescale_plot_VV=dble(nitVV)/min(dble(nitVV),dble(it))

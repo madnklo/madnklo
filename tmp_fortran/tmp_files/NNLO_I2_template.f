@@ -15,7 +15,7 @@ c     realization.
 c     Error codes: 1 invalid/NaN input or output; 2 unsupported coloured
 c     masses/initial state/flavour or fewer than three QCD legs;
 c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
-      subroutine INT_COUNTER_I2_NNLO(p,sLO,INLO,ierr)
+      subroutine INT_COUNTER_I2_NNLO(p,sLO,I2NNLO,ierr)
       implicit none
       include 'nexternal.inc'
       include 'nsqso_born.inc'
@@ -29,7 +29,7 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
       integer legs(nexternal),flav(nexternal),pos(nexternal)
       integer,parameter :: hel=-1
       double precision p(0:3,nexternal),sLO(nexternal,nexternal)
-      double precision INLO(5),alphas,alpha_qcd,pref,born
+      double precision I2NNLO(5),alphas,alpha_qcd,pref,born
       double precision ans(0:nsqso_born),pmass(nexternal)
       double precision ss(nexternal,nexternal)
       double precision bc(nexternal,nexternal)
@@ -62,7 +62,10 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
          pos(i)=n
          flav(n)=ip
       enddo
-      if (n.lt.3) then
+c     It was assuming QCD particles in the initial state and
+c     at least one QCD particle in the final state at LO
+c     IF (N.LT.3) THEN
+      if (n.lt.2) then
          ierr=2
          return
       endif
@@ -98,8 +101,7 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
          do b=1,n
             if (a.eq.b) cycle
             ss(a,b)=sLO(legs(a),legs(b))
-            if (.not.(ss(a,b).gt.0d0.and.
-     &           ss(a,b).lt.huge(1d0))) then
+            if (.not.(ss(a,b).gt.0d0.and.ss(a,b).lt.huge(1d0))) then
                ierr=1
                return
             endif
@@ -123,13 +125,12 @@ c     renormalisation scale for the n-body kinematics
                do d=1,n
                   if (d.eq.c) cycle
                   l=legs(d)
-                  b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
+c                  b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
                enddo
             enddo
          enddo
       enddo
-      call I2NNLO_CORE(nexternal,n,flav,refs,ss,mu2,
-     &     CA,CF,TR,dble(Nf),born,bc,b4,coeff,ierr)
+      call I2NNLO_CORE(nexternal,n,flav,refs,ss,mu2,born,bc,b4,coeff,ierr)
       if (ierr.ne.0) return
       do ip=-4,0
          if (.not.(abs(pref*coeff(ip)).le.huge(1d0))) then
@@ -144,19 +145,21 @@ c     renormalisation scale for the n-body kinematics
 c     Core returns epsilon-indexed coefficients without alpha_s prefactor.
 c     All arrays use leading dimension ND; only the first N legs are used.
 c     FLAV=21 for gluons; 1..6 for quarks or antiquarks (same integrals).
-      subroutine I2NNLO_CORE(nd,n,flav,refs,s,mu2,
-     &     ca,cf,tr,nf,born,bc,b4,res,ierr)
+      subroutine I2NNLO_CORE(nd,n,flav,refs,s,mu2,born,bc,b4,res,ierr)
       implicit none
+      include 'coupl.inc'
+      include 'math.inc'
       integer nd,n,flav(nd),refs(nd),ierr
       integer c,d,e,f,k,r,j,l,ip,id
-      double precision s(nd,nd),mu2,ca,cf,tr,nf,born
+      double precision s(nd,nd),mu2,born
       double precision bc(nd,nd),b4(nd,nd,nd,nd),res(-4:0)
       double precision logs(nd,nd),tab(-4:2,30)
       double precision hc(-4:2),w(-4:2),a(-4:2),b(-4:2)
       double precision v(-4:2),sc
       ierr=0
       res=0d0
-      if (n.lt.3.or.n.gt.nd) then
+c      if (n.lt.3.or.n.gt.nd) then
+      if (n.lt.2.or.n.gt.nd) then
          ierr=2
          return
       endif
@@ -164,15 +167,13 @@ c     FLAV=21 for gluons; 1..6 for quarks or antiquarks (same integrals).
          ierr=1
          return
       endif
-      if (.not.(ca.gt.0d0.and.cf.gt.0d0.and.tr.gt.0d0
-     &     .and.nf.ge.0d0)) then
+      if (.not.(ca.gt.0d0.and.cf.gt.0d0.and.tr.gt.0d0.and.nf.ge.0d0)) then
          ierr=1
          return
       endif
       logs=0d0
       do c=1,n
-         if (flav(c).ne.21.and.
-     &        (abs(flav(c)).lt.1.or.abs(flav(c)).gt.6)) then
+         if (flav(c).ne.21.and.(abs(flav(c)).lt.1.or.abs(flav(c)).gt.6)) then
             ierr=2
             return
          endif
@@ -223,8 +224,7 @@ c     Soft x hard collinear: Eqs. (4.43),(4.44).
          else
             hc=tab(:,3)
             w=2d0*cf*tab(:,28)+ca*(tab(:,29)-tab(:,28))
-            a=2d0*tab(:,28)+ca/cf*(tab(:,29)-tab(:,28))
-     &           -2d0*tab(:,22)
+            a=2d0*tab(:,28)+ca/cf*(tab(:,29)-tab(:,28))-2d0*tab(:,22)
             b=2d0*(tab(:,25)-tab(:,22))
          endif
          call I2NNLO_PRODUCT(hc,tab(-4,1),v)
@@ -330,15 +330,13 @@ c     E.2: J_s
          c(-1) = 2d0
          c(0) = 6d0 - 7d0 * p2 / 12d0
          c(1) = 18d0 - 7d0 * p2 / 6d0 - 25d0 * z3 / 3d0
-         c(2) = 54d0 - 7d0 * p2 / 2d0 - 50d0 * z3 / 3d0 - 71d0 * p4 /
-     &        1440d0
+         c(2) = 54d0 - 7d0 * p2 / 2d0 - 50d0 * z3 / 3d0 - 71d0 * p4 /1440d0
 c     E.8: J_hc^(0g)
       case(2)
          c(-1) =  - 2d0 * tr / 3d0
          c(0) =  - 16d0 * tr / 9d0
          c(1) =  - tr *  ( 140d0 / 27d0 - 7d0 * p2 / 18d0 )
-         c(2) =  - tr *  ( 1252d0 / 81d0 - 28d0 * p2 / 27d0 - 50d0 * z3 /
-     &        9d0 )
+         c(2) =  - tr *  ( 1252d0 / 81d0 - 28d0 * p2 / 27d0 - 50d0 * z3 /9d0 )
 c     E.8: J_hc^(1g)
       case(3)
          c(-1) =  - cf / 2d0
@@ -350,24 +348,21 @@ c     E.8: J_hc^(2g)
          c(-1) =  - ca / 3d0
          c(0) =  - 8d0 * ca / 9d0
          c(1) =  - ca *  ( 70d0 / 27d0 - 7d0 * p2 / 36d0 )
-         c(2) =  - ca *  ( 626d0 / 81d0 - 14d0 * p2 / 27d0 - 25d0 * z3 /
-     &        9d0 )
+         c(2) =  - ca *  ( 626d0 / 81d0 - 14d0 * p2 / 27d0 - 25d0 * z3 /9d0 )
 c     E.4: J_sxs^(4)
       case(5)
          c(-4) = 1d0
          c(-3) = 4d0
          c(-2) = 16d0 - 7d0 * p2 / 6d0
          c(-1) = 60d0 - 14d0 * p2 / 3d0 - 50d0 * z3 / 3d0
-         c(0) = 216d0 - 56d0 * p2 / 3d0 - 200d0 * z3 / 3d0 + 29d0 * p4 /
-     &        120d0
+         c(0) = 216d0 - 56d0 * p2 / 3d0 - 200d0 * z3 / 3d0 + 29d0 * p4 /120d0
 c     E.4: J_sxs^(3)
       case(6)
          c(-4) = 1d0
          c(-3) = 4d0
          c(-2) = 17d0 - 4d0 * p2 / 3d0
          c(-1) = 70d0 - 16d0 * p2 / 3d0 - 68d0 * z3 / 3d0
-         c(0) = 284d0 - 68d0 * p2 / 3d0 - 272d0 * z3 / 3d0 + 13d0 * p4 /
-     &        90d0
+         c(0) = 284d0 - 68d0 * p2 / 3d0 - 272d0 * z3 / 3d0 + 13d0 * p4 /90d0
 c     E.4: J_sxs^(2)
       case(7)
          c(-4) = 1d0
@@ -387,44 +382,34 @@ c     E.4: J_ss^(gg)
          c(-3) = 35d0 / 12d0
          c(-2) = 487d0 / 36d0 - 2d0 * p2 / 3d0
          c(-1) = 1562d0 / 27d0 - 269d0 * p2 / 72d0 - 77d0 * z3 / 6d0
-         c(0) = 19351d0 / 81d0 - 3829d0 * p2 / 216d0 - 1025d0 * z3 / 18d0 -
-     &        23d0 * p4 / 240d0
+         c(0) = 19351d0 / 81d0 - 3829d0 * p2 / 216d0 - 1025d0 * z3 / 18d0 -23d0 * p4 / 240d0
 c     E.11: J_hcc^(0g)
       case(10)
          c(-2) = cf * tr / 6d0
          c(-1) = cf * tr *  ( 13d0 / 36d0 + p2 / 9d0 )
-         c(0) = cf * tr *  (  - 55d0 / 216d0 + 17d0 * p2 / 18d0 + 14d0 * z3
-     &        / 3d0 )
+         c(0) = cf * tr *  (  - 55d0 / 216d0 + 17d0 * p2 / 18d0 + 14d0 * z3/ 3d0 )
 c     E.11: J_hcc^(0g,id)
       case(11)
          c(-1) = cf *  ( 2d0 * cf - ca )  *  ( 13d0 / 8d0 - p2 / 4d0 + z3 )
-         c(0) = cf *  ( 2d0 * cf - ca )  *  (  - 227d0 / 16d0 + p2 + 17d0 *
-     &        z3 / 2d0 - 11d0 * p4 / 120d0 )
+         c(0) = cf *  ( 2d0 * cf - ca )  *  (  - 227d0 / 16d0 + p2 + 17d0 *z3 / 2d0 - 11d0 * p4 / 120d0 )
 c     E.11: J_hcc^(1g)
       case(12)
          c(-3) =  - 2d0 * cf * tr / 3d0 - ca * tr
          c(-2) =  - 31d0 * cf * tr / 9d0 - 89d0 * ca * tr / 18d0
-         c(-1) =  - cf * tr *  ( 899d0 / 54d0 - p2 )  - ca * tr *  ( 1211d0
-     &        / 54d0 - 3d0 * p2 / 2d0 )
-         c(0) = cf * tr *  (  - 23833d0 / 324d0 + 31d0 * p2 / 6d0 + 160d0 *
-     &        z3 / 9d0 )  + ca * tr *  (  - 2620d0 / 27d0 + 89d0 * p2 / 12d0 +
-     &        80d0 * z3 / 9d0 )
+         c(-1) =  - cf * tr *  ( 899d0 / 54d0 - p2 )  - ca * tr *  ( 1211d0/ 54d0 - 3d0 * p2 / 2d0 )
+         c(0) = cf * tr *  (  - 23833d0 / 324d0 + 31d0 * p2 / 6d0 + 160d0 *z3 / 9d0 )  + ca * tr *  (  - 2620d0 / 27d0 + 89d0 * p2 / 12d0 +80d0 * z3 / 9d0 )
 c     E.11: J_hcc^(2g)
       case(13)
          c(-3) =  - 2d0 * cf ** 2 - cf * ca / 2d0
          c(-2) =  - 37d0 * cf ** 2 / 4d0 + 23d0 * cf * ca / 12d0
-         c(-1) =  - cf ** 2 *  ( 307d0 / 8d0 - 3d0 * p2 + 4d0 * z3 )  - cf
-     &        * ca *  ( 241d0 / 36d0 - p2 / 18d0 - 4d0 * z3 )
-         c(0) = cf ** 2 *  (  - 2361d0 / 16d0 + 111d0 * p2 / 8d0 + 136d0 *
-     &        z3 / 3d0 - 7d0 * p4 / 3d0 )  + cf * ca *  (  - 4609d0 / 216d0 +
-     &        53d0 * p2 / 216d0 - 47d0 * z3 / 6d0 + 7d0 * p4 / 20d0 )
+         c(-1) =  - cf ** 2 *  ( 307d0 / 8d0 - 3d0 * p2 + 4d0 * z3 )  - cf* ca *  ( 241d0 / 36d0 - p2 / 18d0 - 4d0 * z3 )
+         c(0) = cf ** 2 *  (  - 2361d0 / 16d0 + 111d0 * p2 / 8d0 + 136d0 *z3 / 3d0 - 7d0 * p4 / 3d0 )  + cf * ca *  (  - 4609d0 / 216d0 +53d0 * p2 / 216d0 - 47d0 * z3 / 6d0 + 7d0 * p4 / 20d0 )
 c     E.11: J_hcc^(3g)
       case(14)
          c(-3) =  - 5d0 * ca ** 2 / 2d0
          c(-2) =  - 77d0 * ca ** 2 / 6d0
          c(-1) =  - ca ** 2 *  ( 48d0 - 11d0 * p2 / 4d0 + 3d0 * z3 )
-         c(0) = ca ** 2 *  (  - 16943d0 / 108d0 + 61d0 * p2 / 4d0 + 56d0 *
-     &        z3 / 3d0 - 9d0 * p4 / 40d0 )
+         c(0) = ca ** 2 *  (  - 16943d0 / 108d0 + 61d0 * p2 / 4d0 + 56d0 *z3 / 3d0 - 9d0 * p4 / 40d0 )
 c     E.13: J_hcxhc^(qqqq)
       case(15)
          c(-2) = 4d0 * tr ** 2 / 9d0
@@ -460,8 +445,7 @@ c     E.15: J_sxhc^4(1g)
          c(-3) =  - 2d0 * tr / 3d0
          c(-2) =  - 28d0 * tr / 9d0
          c(-1) =  - tr *  ( 344d0 / 27d0 - 7d0 * p2 / 9d0 )
-         c(0) = tr *  (  - 3928d0 / 81d0 + 98d0 * p2 / 27d0 + 100d0 * z3 /
-     &        9d0 )
+         c(0) = tr *  (  - 3928d0 / 81d0 + 98d0 * p2 / 27d0 + 100d0 * z3 /9d0 )
 c     E.15: J_sxhc^4(2g)
       case(22)
          c(-3) =  - cf / 2d0
@@ -473,15 +457,13 @@ c     E.15: J_sxhc^4(3g)
          c(-3) =  - ca / 3d0
          c(-2) =  - 14d0 * ca / 9d0
          c(-1) =  - ca *  ( 172d0 / 27d0 - 7d0 * p2 / 18d0 )
-         c(0) = ca *  (  - 1964d0 / 81d0 + 49d0 * p2 / 27d0 + 50d0 * z3 /
-     &        9d0 )
+         c(0) = ca *  (  - 1964d0 / 81d0 + 49d0 * p2 / 27d0 + 50d0 * z3 /9d0 )
 c     E.15: J_sxhc^3(1g)
       case(24)
          c(-3) =  - 2d0 * tr / 3d0
          c(-2) =  - 28d0 * tr / 9d0
          c(-1) =  - tr *  ( 362d0 / 27d0 - 8d0 * p2 / 9d0 )
-         c(0) = tr *  (  - 4504d0 / 81d0 + 112d0 * p2 / 27d0 + 136d0 * z3 /
-     &        9d0 )
+         c(0) = tr *  (  - 4504d0 / 81d0 + 112d0 * p2 / 27d0 + 136d0 * z3 /9d0 )
 c     E.15: J_sxhc^3(2g)
       case(25)
          c(-3) =  - cf / 2d0
@@ -493,15 +475,13 @@ c     E.15: J_sxhc^3(3g)
          c(-3) =  - ca / 3d0
          c(-2) =  - 14d0 * ca / 9d0
          c(-1) =  - ca *  ( 181d0 / 27d0 - 4d0 * p2 / 9d0 )
-         c(0) = ca *  (  - 2252d0 / 81d0 + 56d0 * p2 / 27d0 + 68d0 * z3 /
-     &        9d0 )
+         c(0) = ca *  (  - 2252d0 / 81d0 + 56d0 * p2 / 27d0 + 68d0 * z3 /9d0 )
 c     E.15: J_sxhc^(gqq)
       case(27)
          c(-3) =  - 2d0 * tr / 3d0
          c(-2) =  - 28d0 * tr / 9d0
          c(-1) =  - tr *  ( 344d0 / 27d0 - 17d0 * p2 / 18d0 )
-         c(0) = tr *  (  - 4225d0 / 81d0 + 128d0 * p2 / 27d0 + 139d0 * z3 /
-     &        9d0 )
+         c(0) = tr *  (  - 4225d0 / 81d0 + 128d0 * p2 / 27d0 + 139d0 * z3 /9d0 )
 c     E.15: J_sxhc^(gqg)
       case(28)
          c(-3) =  - cf / 2d0
@@ -519,7 +499,6 @@ c     E.15: J_sxhc^(ggg)
          c(-3) =  - ca / 3d0
          c(-2) =  - 14d0 * ca / 9d0
          c(-1) =  - ca *  ( 199d0 / 27d0 - 5d0 * p2 / 9d0 )
-         c(0) = ca *  (  - 2477d0 / 81d0 + 119d0 * p2 / 54d0 + 101d0 * z3 /
-     &        9d0 )
+         c(0) = ca *  (  - 2477d0 / 81d0 + 119d0 * p2 / 54d0 + 101d0 * z3 /9d0 )
       end select
       end

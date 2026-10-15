@@ -29,7 +29,7 @@ c     3 absent/invalid recoiler. Failure leaves all five outputs zero.
       integer legs(nexternal),flav(nexternal),pos(nexternal)
       integer,parameter :: hel=-1
       double precision p(0:3,nexternal),sLO(nexternal,nexternal)
-      double precision I2NNLO(5),alphas,alpha_qcd,pref,born
+      double precision I2NNLO(-4:0),alphas,alpha_qcd,pref,born
       double precision ans(0:nsqso_born),pmass(nexternal)
       double precision ss(nexternal,nexternal)
       double precision bc(nexternal,nexternal)
@@ -138,7 +138,7 @@ c                  b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
             I2NNLO=0d0
             return
          endif
-         I2NNLO(1-ip)=pref*coeff(ip)
+         I2NNLO(ip)=pref*coeff(ip)
       enddo
       end
 

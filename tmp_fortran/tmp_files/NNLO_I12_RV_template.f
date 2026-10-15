@@ -99,19 +99,6 @@ c
           cb = mapped_labels(c,i,c)
           db = mapped_labels(d,i,c)
 c
-          call phase_space_CS_inv(i,c,d,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
-          if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 10
-          call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
-          blo = ans(0)
-          ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
-c
-          call get_Js(snlo(i,c), JsIC)
-          call get_Js(snlo(i,d), JsID)
-          call get_Js(snlo(c,d), JsCD)
-          call get_Jhc(i, snlo(i,rp), JhcIIRp)
-          Is = Is - Ei_cd * Ca * (JsIC+JsID-JsCD) * ccblo
-          Is = Is - Ei_cd * JhcIIRp * ccblo
-c
           do e=1,nexternal
             if(.not.isnloqcdparton(e)) cycle
             if(e.eq.i) cycle
@@ -142,7 +129,7 @@ c
              call get_Js(snlo(d,e), JsDE)
              Is = Is + Ei_cd * JsDE * quadblo
 c
- 10          cb = mapped_labels(c,i,d)
+             cb = mapped_labels(c,i,d)
              db = mapped_labels(d,i,d)
 c
              call phase_space_CS_inv(i,d,c,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,d))
@@ -161,6 +148,19 @@ c
              call get_Js(snlo(d,e), JsDE)
              Is = Is - Ei_cd * JsDE * quadblo
           enddo
+c
+          call phase_space_CS_inv(i,c,d,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
+          if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
+          call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
+          blo = ans(0)
+          ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
+c
+          call get_Js(snlo(i,c), JsIC)
+          call get_Js(snlo(i,d), JsID)
+          call get_Js(snlo(c,d), JsCD)
+          call get_Jhc(i, snlo(i,rp), JhcIIRp)
+          Is = Is - Ei_cd * Ca * (JsIC+JsID-JsCD) * ccblo
+          Is = Is - Ei_cd * JhcIIRp * ccblo
         enddo
       enddo
 c
@@ -270,7 +270,6 @@ c
           if(.not.isnloqcdparton(d)) cycle
           if(d.eq.i.or.d.eq.j.or.d.eq.c) cycle
           write(77,*)'ee -> >2j is not implemented yet'
-          goto 999
         enddo
 c
         cb = mapped_labels(c,i,j)
@@ -286,7 +285,6 @@ c
         if(size(leg_pdgs).le.5) then
           write(77,*)'ee -> >2j is not implemented yet'
           write(77,*)'cal B contribution for i=q, j=qx missing'
-          goto 999
         endif
 c
  20     call phase_space_CS_inv(i,r,j,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,j))
@@ -300,7 +298,6 @@ c
         if(size(leg_pdgs).le.5) then
           write(77,*)'ee -> >2j is not implemented yet'
           write(77,*)'cal B contribution for i=q, j=qx missing'
-          goto 999
         endif
       enddo
 c
@@ -360,7 +357,6 @@ c
       if(size(leg_pdgs).le.5) then
         write(77,*)'ee -> >2j is not implemented yet'
         write(77,*)'r prime contribution missing'
-        goto 999
       endif
 c
       sij=snlo(i,j)

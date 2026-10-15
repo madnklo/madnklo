@@ -244,8 +244,8 @@ c     fill bar_indices for barred sector functions
          i1=all_sector_list(1,i)
          i2=all_sector_list(2,i)
          if(i1.eq.asec.and.i2.eq.bsec) then
-            ib3=real_labels(asec,bsec,all_sector_list(3,i))
-            ib4=real_labels(asec,bsec,all_sector_list(4,i))
+            ib3=real_labels(all_sector_list(3,i),asec,bsec)
+            ib4=real_labels(all_sector_list(4,i),asec,bsec)
             bar_indices(j) = ib3
             bar_indices(j+1) = ib4
          endif

@@ -12,8 +12,8 @@ c     while k is a q (or qb)
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,ierr,nit,parent_leg
-      integer ib,jb,kb,rb
+      integer i,j,k,r,a,b,ierr,nit,parent_leg
+      integer ib,jb,kb,rb,ab,bb
       integer jbb,kbb,rbb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -91,6 +91,9 @@ c     double-soft soft-collinear double-collinear sector function, (C.65-C.67) o
       call get_w(xs,nexternal)
       call get_sig2(xs,1d0,nexternal)
       call get_wss_sc_cc_nnlo(asec,bsec,csec,dsec,iref)
+c
+      a = csec
+      b = dsec
 c
 c     mapping 1: [krj,irj]
       call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)

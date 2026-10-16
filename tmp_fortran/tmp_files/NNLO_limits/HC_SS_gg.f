@@ -159,7 +159,7 @@ c         safety check
             goto 999
           endif
 c
-          call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_mapped_labels)
+          call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,jb,mb))
           if(xjcs2.eq.0d0)goto 999
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c

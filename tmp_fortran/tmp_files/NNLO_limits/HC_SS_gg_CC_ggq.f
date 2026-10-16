@@ -8,6 +8,7 @@ c     i, j are a g-g while k is a q (or qb) with any flavour
       include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
@@ -93,10 +94,12 @@ c     safety checks
         goto 999
       endif
 c
-c     getting PDG's
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     fill mapped labels
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+c
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)

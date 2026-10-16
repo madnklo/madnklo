@@ -154,8 +154,8 @@ c
       call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      ab = real_labels(a,i,a)
-      bb = real_labels(b,i,a)
+      ab = real_labels(a,i,b)
+      bb = real_labels(b,i,b)
       jb = real_labels(j,i,b)
       kb = real_labels(k,i,b)
       rb = real_labels(r,i,b)

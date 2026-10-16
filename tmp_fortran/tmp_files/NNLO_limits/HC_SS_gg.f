@@ -1,5 +1,5 @@
 
-      double precision function M2_HC_SS_GG(i,j,r,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SS_gg(i,j,r,xs,xp,xsb,xpb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,j) S(i,j) *  WC_SS - S(i) C(i,j) S(i,j) * WS_C_SS
 c     where  i, j are a g-g pair
       use sectors4_module
@@ -9,6 +9,7 @@ c     where  i, j are a g-g pair
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
@@ -16,7 +17,7 @@ c     where  i, j are a g-g pair
       integer i,j,k,r
       integer l,m,ierr,nit,map1,map2
       integer jb,lb,mb,jbb,lbb,mbb
-      double precision pref,M2_C_SS_GG,M2_SC_SS_GG,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2,extra,damp
+      double precision pref,M2_C_SS_gg,M2_SC_SS_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS2,extra,damp
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1),xsbb(nexternal-2,nexternal-2)
       double precision BLO,ccBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),xpbb(0:3,nexternal-2)
@@ -63,27 +64,36 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       include 'pmass.inc'
 c
 c     initialise
-      M2_HC_SS_GG=0d0
-      M2_C_SS_GG=0d0
-      M2_SC_SS_GG=0d0
+      M2_HC_SS_gg=0d0
+      M2_C_SS_gg=0d0
+      M2_SC_SS_gg=0d0
       damp=1d0
       ierr=0
 c
 c     check sector topology (only appears in ijjk)
       if(bsec.ne.csec) then
-        write (*,*) 'Wrong topology in M2_HC_SS_GG',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_SS_gg',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
       flavourmatch = (leg_PDGs(i).eq.leg_PDGs(j)).and.(leg_PDGs(i).eq.21)
       if(.not.(flavourmatch))then
-       write(*,*) 'Flavour mismatch in M2_HC_SS_GG', leg_PDGs(i),leg_PDGs(j)
+       write(*,*) 'Flavour mismatch in M2_HC_SS_gg', leg_PDGs(i),leg_PDGs(j)
        stop 1
       endif
 c
+c     fill mapped labels
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+c     m=c & l=d in (76) of dropbox
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m)) cycle
+         if(m.eq.i.or.m.eq.j) cycle
+         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+      enddo
+c
 c     parent leg
-      jb = real_mapped_labels(j)
+      jb = real_labels(j,i,j)
 c
 c     invariant quantities
       sij=xs(i,j)
@@ -93,14 +103,14 @@ c     invariant quantities
       zj=1d0-zi
 c
       Ei_jr = sjr/sij/sir
-      Pij = 2d0*ca*(zi/zj+zj/zi+zi*zj)
-      Qij = -2d0*ca*zi*zj
+      Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
+      Qij = -2d0*CA*zi*zj
       kt = zj*xp(:,i) - zi*xp(:,j) - (1d0-2d0*zi)*sij*xp(:,r)/(sir+sjr)
       kt2 = dot(kt,kt)
 c
 c     safety check
       if(sij.le.0d0.or.sir+sjr.le.0d0.or.zi.le.0d0.or.zi.ge.1d0)then
-        write(77,*)'inaccuracy 1 in m2_hc_ss_gg',sij,sir+sjr
+        write(77,*)'Inaccuracy 1 in M2_HC_SS_gg',sij,sir+sjr
         goto 999
       endif
 c
@@ -117,8 +127,8 @@ c     compute wc_nlo
 c
 c     call wsbar
       call get_sig2(xsb,1d0,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
       call get_wsbar_nlo(map1,map2)
 c
 c     Eikonal double sum starts here
@@ -130,22 +140,22 @@ c
           if(.not.isnnloqcdparton(l))cycle
           if(l.eq.i.or.l.eq.j.or.l.eq.m)cycle
 
-          lb = real_mapped_labels(l)
-          mb = real_mapped_labels(m)
-          lbb = Born_mapped_labels(lb)
-          mbb = Born_mapped_labels(mb)
+          lb = real_labels(l,i,j)
+          mb = real_labels(m,i,j)
+          lbb = born_labels(lb,jb,mb)
+          mbb = born_labels(mb,jb,mb)
 c
           sbml = xsb(mb,lb)
           sbjm = xsb(jb,mb)
           sbjl = xsb(jb,lb)
-          ebj_ml = sbml/sbjm/sbjl
+          Ebj_ml = sbml/sbjm/sbjl
           ktkm = dot(kt(:),xpb(:,mb))
           ktkl = dot(kt(:),xpb(:,lb))
           kmkl = dot(xpb(:,mb),xpb(:,lb))
 c
 c         safety check
           if(sbjm.le.0d0.or.sbjm.le.0d0.or.kt2.eq.0d0) then
-            write(77,*)'inaccuracy 2 in m2_c_ss_gg',sbjm,sbjl,kt2
+            write(77,*)'Inaccuracy 2 in M2_C_SS_gg',sbjm,sbjl,kt2
             goto 999
           endif
 c
@@ -155,16 +165,16 @@ c
 c
 c         call colour-connected born
           call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-          ccblo = epem_ccx_get_ccblo(mbb,lbb)
+          ccBLO = epem_ccx_get_ccBLO(mbb,lbb)
 c
 c         collinear double-soft kernel, eq. (76) on dropbox
-          m2_c_ss_gg = m2_c_ss_gg + (Pij/sij*Ebj_ml + Qij/sij*(+2d0/kt2*(ktkm/sbjm-ktkl/sbjl)**2+2d0*kmkl/sbjm/sbjl))*ccblo * wc_nlo*wsbar_nlo
+          M2_C_SS_gg = M2_C_SS_gg + (Pij/sij*Ebj_ml + Qij/sij*(+2d0/kt2*(ktkm/sbjm-ktkl/sbjl)**2+2d0*kmkl/sbjm/sbjl))*ccBLO * wc_nlo*wsbar_nlo
 c
-c         soft-collinear double-soft kernel, eq. (77) on dropbox
-          m2_sc_ss_gg = m2_sc_ss_gg+2d0*ca*Ei_jr*Ebj_ml*ccblo * wsbar_nlo
+c         soft-collinear double-soft kernel, eq. (78) on dropbox
+          M2_SC_SS_gg = M2_SC_SS_gg+2d0*CA*Ei_jr*Ebj_ml*ccBLO * wsbar_nlo
 c
 c         plot
-          wgtpl = -(m2_c_ss_gg - m2_sc_ss_gg)
+          wgtpl = -(M2_C_SS_gg - M2_SC_SS_gg)
           wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
           wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
           wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -177,11 +187,11 @@ c         ,wgtpl)
 c
 c     Double sum ends here
 c
-      m2_hc_ss_gg = m2_c_ss_gg - m2_sc_ss_gg
+      M2_HC_SS_gg = M2_C_SS_gg - M2_SC_SS_gg
 c
 c     apply flavour factor
-      m2_hc_ss_gg = m2_hc_ss_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      m2_hc_ss_gg = m2_hc_ss_gg * %(proc_prefix_rr)s_fl_factor
+      M2_HC_SS_gg = M2_HC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
 c

@@ -93,7 +93,7 @@ c     invariant quantities
 c
 c     fill mapped labels
       call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
-      call born_real_mapped_labels((real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
       jb = real_labels(j,i,j)
       kb = real_labels(k,i,j)
       rb = real_labels(r,i,j)

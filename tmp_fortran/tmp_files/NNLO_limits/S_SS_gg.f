@@ -7,6 +7,7 @@ c     S(i) S(i,j) kernel times sector function
       include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
@@ -20,7 +21,7 @@ c     S(i) S(i,j) kernel times sector function
       double precision sjm,sij,sim,sml,sil,sbm,sib
       double precision sbml,sbjm,sbjl,sbbm,sbjb
       double precision Ei_jm,Ei_ml,Ei_bm,Ebj_ml,Ebj_bm
-      double precision blo,ccblo,ccblo_imj_mjl,ccblo_imj_ljm
+      double precision BLO,ccBLO,ccBLO_imj_mjl,ccBLO_imj_ljm
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),xpbb(0:3,nexternal-2)
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
@@ -82,8 +83,8 @@ c     overall kernel prefix
       pref=(8d0*pi*alphas)**2/2d0
 c
 c     get PDGs
-      ib = real_mapped_labels(i)
-      jb = real_mapped_labels(j)
+      ib = real_labels(i)
+      jb = real_labels(j)
 c
 c     compute soft double-soft sector function eq. (C.72)
       call get_sig2(xs,alpha_mod,nexternal)
@@ -105,12 +106,12 @@ c           invariant quantities: (c,d) in the paper --> (m,l)
             Ei_jm = sjm/sij/sim
 c           safety check
             if(sij.le.0d0.or.sim.le.0d0)then
-               write(77,*)'inaccuracy 1 in m2_s_ss_gg',sij,sim
+               write(77,*)'Inaccuracy 1 in M2_S_SS_gg',sij,sim
                goto 999
             endif
 c
-            lb = real_mapped_labels(l)
-            mb = real_mapped_labels(m)
+            lb = real_labels(l)
+            mb = real_labels(m)
             if(m.ne.iref) then
                lbb = born_mapped_labels(lb)
                mbb = born_mapped_labels(mb)
@@ -129,8 +130,8 @@ c
 c
 c           call wsbar
             call get_sig2(xsb,1d0,nexternal-1)
-            map1=real_mapped_labels(csec)
-            map2=real_mapped_labels(dsec)
+            map1=real_labels(csec)
+            map2=real_labels(dsec)
             call get_wsbar_nlo(map1,map2)
 c
             if(m.ne.iref) then
@@ -147,10 +148,10 @@ c           call colour-connected Born matrix element
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_mjl = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
             M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_mjl*wsbar_nlo
-            M2_s_ss_gg = M2_s_ss_gg + M2tmp
+            M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c           plot
-            wgtpl = -m2tmp*ws_nlo
+            wgtpl = -M2tmp*ws_nlo
             wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -176,12 +177,12 @@ c           invariant quantities: (c,d) in the paper --> (m,l)
             Ei_jm = sjm/sij/sim
 c           safety check
             if(sij.le.0d0.or.sim.le.0d0)then
-               write(77,*)'inaccuracy 1 in m2_s_ss_gg',sij,sim
+               write(77,*)'Inaccuracy 1 in M2_S_SS_gg',sij,sim
                goto 999
             endif
 c
-            lb = real_mapped_labels(l)
-            mb = real_mapped_labels(m)
+            lb = real_labels(l)
+            mb = real_labels(m)
             if(m.eq.iref) then
                lbb = born_mapped_labels(lb)
                mbb = born_mapped_labels(mb)
@@ -200,8 +201,8 @@ c
 c
 c           call wsbar
             call get_sig2(xsb,1d0,nexternal-1)
-            map1=real_mapped_labels(csec)
-            map2=real_mapped_labels(dsec)
+            map1=real_labels(csec)
+            map2=real_labels(dsec)
             call get_wsbar_nlo(map1,map2)
 c
             if(m.eq.iref) then
@@ -218,10 +219,10 @@ c           call colour-connected Born matrix element
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_ljm = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
             M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_ljm*wsbar_nlo
-            M2_s_ss_gg = M2_s_ss_gg + M2tmp
+            M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c           plot
-            wgtpl = -m2tmp*ws_nlo
+            wgtpl = -M2tmp*ws_nlo
             wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
             wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -244,15 +245,15 @@ c         invariant quantities: (c,d) in the paper --> (m,l)
           sml = xs(m,l)
           sim = xs(i,m)
           sil = xs(i,l)
-          ei_ml = sml/sim/sil
+          Ei_ml = sml/sim/sil
 c         safety check
           if(sim.le.0d0.or.sil.le.0d0)then
-            write(77,*)'inaccuracy 1 in m2_s_ss_gg',sim,sil
+            write(77,*)'Inaccuracy 1 in M2_S_SS_gg',sim,sil
             goto 999
           endif
 c
-          lb = real_mapped_labels(l)
-          mb = real_mapped_labels(m)
+          lb = real_labels(l)
+          mb = real_labels(m)
           lbb = born_mapped_labels(lb)
           mbb = born_mapped_labels(mb)
 c
@@ -262,11 +263,11 @@ c
           sbml = xsb(mb,lb)
           sbjm = xsb(jb,mb)
           sbjl = xsb(jb,lb)
-          ebj_ml = sbml/sbjm/sbjl
+          Ebj_ml = sbml/sbjm/sbjl
 c         call wsbar
           call get_sig2(xsb,1d0,nexternal-1)
-          map1=real_mapped_labels(csec)
-          map2=real_mapped_labels(dsec)
+          map1=real_labels(csec)
+          map2=real_labels(dsec)
           call get_wsbar_nlo(map1,map2)
 c
           call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_mapped_labels)
@@ -275,13 +276,13 @@ c         possible cuts
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c         call colour-connected born
-          call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-          ccblo = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
-          m2tmp = 2d0*ei_ml*ebj_ml*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
-          M2_s_ss_gg = M2_s_ss_gg + M2tmp
+          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+          ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
+          M2tmp = 2d0*Ei_ml*Ebj_ml*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
+          M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c         plot
-          wgtpl = -m2tmp*ws_nlo
+          wgtpl = -M2tmp*ws_nlo
           wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
           wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
           wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -301,15 +302,15 @@ c       invariant quantities: (c,d) in the paper --> (m,l)
         sbm = xs(b,m)
         sib = xs(i,b)
         sim = xs(i,m)
-        ei_bm = sbm/sib/sim
+        Ei_bm = sbm/sib/sim
 c       safety check
         if(sib.le.0d0.or.sim.le.0d0)then
-          write(77,*)'inaccuracy 1 in m2_s_ss_gg',sib,sim
+          write(77,*)'Inaccuracy 1 in M2_S_SS_gg',sib,sim
           goto 999
         endif
 c
-        bb = real_mapped_labels(b)
-        mb = real_mapped_labels(m)
+        bb = real_labels(b)
+        mb = real_labels(m)
         bbb = born_mapped_labels(bb)
         mbb = born_mapped_labels(mb)
 c
@@ -319,11 +320,11 @@ c
         sbbm = xsb(bb,mb)
         sbjb = xsb(jb,bb)
         sbjm = xsb(jb,mb)
-        ebj_bm = sbbm/sbjb/sbjm
+        Ebj_bm = sbbm/sbjb/sbjm
 c       call wsbar
         call get_sig2(xsb,1d0,nexternal-1)
-        map1=real_mapped_labels(csec)
-        map2=real_mapped_labels(dsec)
+        map1=real_labels(csec)
+        map2=real_labels(dsec)
         call get_wsbar_nlo(map1,map2)
 c
         call phase_space_cs_inv(jb,bb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_mapped_labels)
@@ -332,13 +333,13 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born
-        call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccblo = %(proc_prefix_Born)s_GET_CCBLO(bbb,mbb)
-        m2tmp = 2d0*ei_bm*ebj_bm*(2d0*cf**2*ans(0)+ca*ccblo)*wsbar_nlo
-        M2_s_ss_gg = M2_s_ss_gg + M2tmp
+        call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+        ccBLO = %(proc_prefix_Born)s_GET_CCBLO(bbb,mbb)
+        M2tmp = 2d0*Ei_bm*Ebj_bm*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
+        M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c       plot
-        wgtpl = -m2tmp*ws_nlo
+        wgtpl = -M2tmp*ws_nlo
         wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -347,8 +348,8 @@ c        if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
         if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
-      m2_s_ss_gg = m2_s_ss_gg*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      m2_s_ss_gg = m2_s_ss_gg * %(proc_prefix_rr)s_fl_factor
+      M2_S_SS_gg = M2_S_SS_gg*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_SS_gg = M2_S_SS_gg * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SS_gg = wsbar_nlo*ws_nlo
 c

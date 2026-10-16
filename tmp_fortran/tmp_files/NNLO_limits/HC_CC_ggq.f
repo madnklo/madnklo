@@ -8,6 +8,7 @@ c     i, j are a g-g pair while k is a q (or qb) with any flavour
       include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
@@ -90,9 +91,12 @@ c     invariant quantities
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     fill mapped labels
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call born_real_mapped_labels((real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -102,7 +106,7 @@ c
       endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
-      parent_leg = born_mapped_labels(kb)
+      parent_leg = born_labels(kb,jb,kb)
 c
       kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
       kt2 = dot(kt,kt)
@@ -129,8 +133,8 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
       call get_wcbar_nlo(map1,map2,rb)
       M2_C_CC_ggq=M2_C_CC_ggq*wc_nlo*wcbar_nlo
 c
@@ -141,8 +145,8 @@ c     (same as dropbox eq. 31)
 c
 c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
       call get_wcbar_nlo(map1,map2,rb)
       M2_SC_CC_ggq=M2_SC_CC_ggq*wcbar_nlo
 c

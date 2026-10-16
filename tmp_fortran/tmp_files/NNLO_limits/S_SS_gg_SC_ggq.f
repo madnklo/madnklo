@@ -7,6 +7,7 @@ c     S(i) S(i,k) SC(i,k,l) kernel times WS_SS_SC
       include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'colored_partons.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
@@ -47,8 +48,6 @@ c     external
       integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_s_sc_1_mapped_labels(nexternal),real_s_sc_2_mapped_labels(nexternal),Born_s_sc_1_mapped_labels(nexternal-1),Born_s_sc_2_mapped_labels(nexternal-1)
-      common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
 c
@@ -81,42 +80,47 @@ c     compute soft soft-collinear sector function, (c.73) of 2212.11190
       call get_sig2(xs,alpha_mod,nexternal)
       call get_ws_nlo(asec,bsec)
 c
+c     soft soft-soft soft-collinear kernel, (143) on Dropbox
+c     ToDo: some contributions are 0 for ee->jj
+c
 c     mapping 1: [ima,bra]
 c
-c     get mapped labels
-      ab = real_s_sc_1_mapped_labels(a)
-      bb = real_s_sc_1_mapped_labels(b)
-      rb = real_s_sc_1_mapped_labels(r)
+c     fill mapped labels
+      call fill_real_mapped_labels(i,a,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(b,i,a),real_labels(a,i,a),real_leg_pdgs,born_leg_pdgs)
 c
 c     eikonal sum
       do m=1,nexternal
         if(.not.isnnloqcdparton(m))cycle
         if(m.eq.i.or.m.eq.a.or.m.eq.b)cycle
-        mb = real_s_sc_1_mapped_labels(m)
-        bbb = Born_s_sc_1_mapped_labels(bb)
-        mbb = Born_s_sc_1_mapped_labels(mb)
+        mb = real_labels(m,i,a)
+        ab = real_labels(a,i,a)
+        bb = real_labels(b,i,a)
+        rb = real_labels(r,i,a)
 c
+        bbb = born_labels(bb,bb,ab)
+        mbb = born_labels(mb,bb,ab)
 c       underlying born configuration is remapped
-        call phase_space_cs_inv(i,m,a,xp,xpb,nexternal,leg_pdgs,xjcs1,real_s_sc_1_mapped_labels)
+        call phase_space_cs_inv(i,m,a,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,a))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
         if(ierr.eq.1)goto 999
         sbab = xsb(ab,bb)
         sbar = xsb(ab,rb)
         sbbr = xsb(bb,rb)
         if(sbab.lt.0d0.or.sbar.lt.0d0.or.sbbr.lt.0d0) then
-          write(77,*)'inaccuracy 2 in m2_s_sc_ggq',sbab,sbar,sbbr
+          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbab,sbar,sbbr
           goto 999
         endif
-        eba_br = sbbr/sbab/sbar
+        Eba_br = sbbr/sbab/sbar
 c
-        call phase_space_cs_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_s_sc_1_mapped_labels)
+        call phase_space_cs_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_labels(:,bb,ab))
         if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
 c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
-        call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccblo_ima_bra = epem_ccx_get_ccblo(bbb,mbb)
+        call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+        ccBLO_ima_bra = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
 c       invariant quantities
         sim = xs(i,m)
@@ -124,12 +128,10 @@ c       invariant quantities
         sam = xs(a,m)
         Ei_am = sam/sia/sim
 c
-c       soft soft-soft soft-collinear kernel, (143) on Dropbox
-c       todo: some contributions are 0 for ee->jj
-        m2tmp = m2tmp+ca*Ei_am*Eba_br*ccblo_ima_bra
+        M2tmp = M2tmp+CA*Ei_am*Eba_br*ccBLO_ima_bra
 c
 c       plot
-        wgtpl = -m2tmp*ws_nlo
+        wgtpl = -M2tmp*ws_nlo
         wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -140,22 +142,25 @@ c       gtpl)
       enddo
 c
 c     mapping 2: [imb,arb]
-c
-c     get mapped labels
-      ab = real_s_sc_2_mapped_labels(a)
-      bb = real_s_sc_2_mapped_labels(b)
-      rb = real_s_sc_2_mapped_labels(r)
+
+c     fill mapped labels
+      call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(a,i,b),real_labels(b,i,b),real_leg_pdgs,born_leg_pdgs)
 c
 c     eikonal sum
       do m=1,nexternal
         if(.not.isnnloqcdparton(m))cycle
         if(m.eq.i.or.m.eq.a.or.m.eq.b)cycle
-        mb = real_s_sc_2_mapped_labels(m)
-        bbb = Born_s_sc_2_mapped_labels(bb)
-        mbb = Born_s_sc_2_mapped_labels(mb)
+        mb = real_labels(m,i,b)
+        ab = real_labels(a,i,b)
+        bb = real_labels(b,i,b)
+        rb = real_labels(r,i,b)
+c
+        bbb = born_labels(bb,ab,bb)
+        mbb = born_labels(mb,ab,bb)
 c
 c       underlying born configuration is remapped
-        call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_s_sc_2_mapped_labels)
+        call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,b))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
         if(ierr.eq.1)goto 999
         sbab = xsb(ab,bb)
@@ -165,16 +170,16 @@ c       underlying born configuration is remapped
           write(77,*)'inaccuracy 2 in m2_s_sc_ggq',sbab,sbar,sbbr
           goto 999
         endif
-        eba_br = sbbr/sbab/sbar
+        Eba_br = sbbr/sbab/sbar
 c
-        call phase_space_cs_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_s_sc_2_mapped_labels)
+        call phase_space_cs_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_labels(:,ab,bb))
         if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
 c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
-        call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccblo_imb_arb = epem_ccx_get_ccblo(bbb,mbb)
+        call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+        ccBLO_imb_arb = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
 c       invariant quantities
         sim = xs(i,m)
@@ -182,12 +187,10 @@ c       invariant quantities
         sbm = xs(b,m)
         Ei_bm = sbm/sib/sim
 c
-c       soft soft-soft soft-collinear kernel, (143) on Dropbox
-c       todo: some contributions are 0 for ee->jj
-        m2tmp = m2tmp+(2d0*cf-ca)*Ei_bm*Eba_br*ccblo_imb_arb
+        M2tmp = M2tmp+(2d0*CF-CA)*Ei_bm*Eba_br*ccBLO_imb_arb
 c
 c       plot
-        wgtpl = -m2tmp*ws_nlo
+        wgtpl = -M2tmp*ws_nlo
         wgtpl = wgtpl*pref*extra*damp*xj*wgt/nit*wgt_chan
         wgtpl = wgtpl*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
         wgtpl = wgtpl*%(proc_prefix_rr)s_fl_factor
@@ -197,8 +200,8 @@ c       gtpl)
         if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
       enddo
 c
-      m2_s_ss_gg_sc_ggq = m2tmp*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      m2_s_ss_gg_sc_ggq = m2_s_ss_gg_sc_ggq * %(proc_prefix_rr)s_fl_factor
+      M2_S_SS_gg_SC_ggq = M2tmp*pref*ws_nlo*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_SS_gg_SC_ggq = M2_S_SS_gg_SC_ggq * %(proc_prefix_rr)s_fl_factor
 c
       if(test_sector_function) M2_S_SS_gg_SC_ggq = ws_nlo
 c

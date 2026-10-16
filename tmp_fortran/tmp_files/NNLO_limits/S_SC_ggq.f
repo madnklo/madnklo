@@ -133,8 +133,8 @@ c       call wcbar
         call get_wcbar_nlo(map1,map2,rb)
 c
 c       call colour-connected born matrix element
-        call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccBLO_ima_bra = epem_ccx_get_ccBLO(bbb,mbb)
+        call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+        ccBLO_ima_bra = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
 c       invariant quantities
         sim = xs(i,m)
@@ -200,8 +200,8 @@ c       call wcbar
         call get_wcbar_nlo(map1,map2,rb)
 c
 c       call colour-connected born matrix element
-        call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-        ccBLO_imb_arb = epem_ccx_get_ccBLO(bbb,mbb)
+        call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+        ccBLO_imb_arb = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
 c       invariant quantities
         sim = xs(i,m)

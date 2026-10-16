@@ -164,8 +164,8 @@ c
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c         call colour-connected born
-          call epem_ccx_me_accessor_hook(xpbb,hel,alphas,ans)
-          ccBLO = epem_ccx_get_ccBLO(mbb,lbb)
+          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+          ccBLO = %(proc_prefix_Born)s_get_ccBLO(mbb,lbb)
 c
 c         collinear double-soft kernel, eq. (76) on dropbox
           M2_C_SS_gg = M2_C_SS_gg + (Pij/sij*Ebj_ml + Qij/sij*(+2d0/kt2*(ktkm/sbjm-ktkl/sbjl)**2+2d0*kmkl/sbjm/sbjl))*ccBLO * wc_nlo*wsbar_nlo

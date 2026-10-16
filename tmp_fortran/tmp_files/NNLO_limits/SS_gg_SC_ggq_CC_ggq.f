@@ -7,6 +7,7 @@ c     while k is a q (or qb)
       include 'nexternal.inc'
       include 'coupl.inc'
       include 'math.inc'
+      include 'mapped_labels_common.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
@@ -43,8 +44,6 @@ c     set logical doplot
       common/csecindices/asec,bsec,csec,dsec
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
-      common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
 c
@@ -70,12 +69,6 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
 c
-c     get mapped labels
-      ib = real_sc_mapped_labels(i)
-      jb = real_sc_mapped_labels(j)
-      kb = real_sc_mapped_labels(k)
-      rb = real_sc_mapped_labels(r)
-c
 c     invariant quantities
       sij  = xs(i,j)
       sjk  = xs(j,k)
@@ -100,8 +93,16 @@ c     double-soft soft-collinear double-collinear sector function, (C.65-C.67) o
       call get_wss_sc_cc_nnlo(asec,bsec,csec,dsec,iref)
 c
 c     mapping 1: [krj,irj]
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
-      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+c
+      ib = real_labels(i,a,b)
+      jb = real_labels(j,a,b)
+      kb = real_labels(k,a,b)
+      rb = real_labels(r,a,b)
+c
+      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -113,8 +114,9 @@ c     call Born matrix element
       BLO_krj_irj = ans(0)
 c
 c     mapping 2: [jrk,irk]
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
-      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc2_mapped_labels)
+      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return

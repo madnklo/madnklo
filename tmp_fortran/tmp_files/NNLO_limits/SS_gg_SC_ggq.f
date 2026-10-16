@@ -77,12 +77,6 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
       pref=-2d0*(8d0*pi*alphas)**2
 c
-c     get PDGs
-      ib = real_sc_mapped_labels(i)
-      jb = real_sc_mapped_labels(j)
-      kb = real_sc_mapped_labels(k)
-      rb = real_sc_mapped_labels(r)
-c
 c     Invariant quantities
       sij = xs(i,j)
       sik = xs(i,k)

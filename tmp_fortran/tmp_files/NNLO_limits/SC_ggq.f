@@ -105,7 +105,8 @@ c
       ib = real_labels(i,a,b)
       jb = real_labels(j,a,b)
       kb = real_labels(k,a,b)
-
+      bb = real_labels(b,a,b)
+c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle

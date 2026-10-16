@@ -104,6 +104,7 @@ c
       jb = real_labels(j,a,b)
       kb = real_labels(k,a,b)
       rb = real_labels(r,a,b)
+      bb = real_labels(b,a,b)
 c
       call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999

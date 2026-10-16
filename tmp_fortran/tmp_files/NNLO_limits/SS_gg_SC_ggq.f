@@ -105,6 +105,7 @@ c
       jb = real_labels(j,a,b)
       kb = real_labels(k,a,b)
       rb = real_labels(r,a,b)
+      bb = real_labels(b,a,b)
 c
 c     eikonal double sum
       do m=1,nexternal

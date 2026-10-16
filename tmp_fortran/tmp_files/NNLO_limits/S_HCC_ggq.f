@@ -8,6 +8,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
@@ -46,12 +47,6 @@ c     set logical doplot
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-      integer real_s_sc_1_mapped_labels(nexternal),real_s_sc_2_mapped_labels(nexternal),Born_s_sc_1_mapped_labels(nexternal-1),Born_s_sc_2_mapped_labels(nexternal-1)
-      common/c_nnlo_s_sc_mapped_labels/real_s_sc_1_mapped_labels,real_s_sc_2_mapped_labels,Born_s_sc_1_mapped_labels,Born_s_sc_2_mapped_labels
-      integer real_hcc_ia_mapped_labels(nexternal),Born_hcc_ia_mapped_labels(nexternal-1)
-      common/c_NNLO_hcc_mapped_labels/real_hcc_ia_mapped_labels,Born_hcc_ia_mapped_labels
-      integer real_hcc_ib_mapped_labels(nexternal),Born_hcc_ib_mapped_labels(nexternal-1)
-      common/c_NNLO_hcc_mapped_labels/real_hcc_ib_mapped_labels,Born_hcc_ib_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
       logical consistency_check
@@ -108,13 +103,19 @@ c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_ws12_nlo(isec,jsec,ksec)
 c
 c     building S(i)C(i,j,k) according to eq.(15) on dropbox
+c
 c     mapping 1: [ira,jkr]
-      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_hcc_ia_mapped_labels)
+c
+c     fill mapped labels
+      call fill_real_mapped_labels(i,a,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(b,i,a),real_labels(a,i,a),real_leg_pdgs,born_leg_pdgs)
+c
+      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      jb = real_hcc_ia_mapped_labels(j)
-      kb = real_hcc_ia_mapped_labels(k)
-      rb = real_hcc_ia_mapped_labels(r)
+      jb = real_labels(j,i,a)
+      kb = real_labels(k,i,a)
+      rb = real_labels(r,i,a)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -127,11 +128,11 @@ c     mapping 1: [ira,jkr]
       Pb_jkr_ira = CF*(2d0*zbk/zbj+zbj)/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,a)
+      map2=real_labels(dsec,i,a)
       call get_wcbar_nlo(map1,map2,rb)
 c
-      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_hcc_ia_mapped_labels)
+      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -143,12 +144,17 @@ c     call Born matrix element
       BLO_ira_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 2: [irb,jkr]
-      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_hcc_ib_mapped_labels)
+c
+c     fill mapped labels
+      call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(a,i,b),real_labels(b,i,b),real_leg_pdgs,born_leg_pdgs)
+c
+      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      jb = real_hcc_ib_mapped_labels(j)
-      kb = real_hcc_ib_mapped_labels(k)
-      rb = real_hcc_ib_mapped_labels(r)
+      jb = real_labels(j,i,b)
+      kb = real_labels(k,i,b)
+      rb = real_labels(r,i,b)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -161,11 +167,11 @@ c     mapping 2: [irb,jkr]
       Pb_jkr_irb = CF*(2d0*zbk/zbj+zbj)/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,b)
+      map2=real_labels(dsec,i,b)
       call get_wcbar_nlo(map1,map2,rb)
 c
-      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_hcc_ib_mapped_labels)
+      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ab,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -177,12 +183,12 @@ c     call Born matrix element
       BLO_irb_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 3: [iba,jkr]
-      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_hcc_ia_mapped_labels)
+      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      jb = real_hcc_ia_mapped_labels(j)
-      kb = real_hcc_ia_mapped_labels(k)
-      rb = real_hcc_ia_mapped_labels(r)
+      jb = real_labels(j,i,a)
+      kb = real_labels(k,i,a)
+      rb = real_labels(r,i,a)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -195,11 +201,11 @@ c     mapping 3: [iba,jkr]
       Pb_jkr_iba = CF*(2d0*zbk/zbj+zbj)/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,a)
+      map2=real_labels(dsec,i,a)
       call get_wcbar_nlo(map1,map2,rb)
 c
-      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_hcc_ia_mapped_labels)
+      call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -213,15 +219,17 @@ c
       M2_S_CC_ggq = CF*(CA/CF*Ei_ar*Pb_jkr_ira*BLO_ira_jkr+(2d0*CF-CA)/CF*Ei_br*Pb_jkr_irb*BLO_irb_jkr-(-CA/CF)*Ei_jk*Pb_jkr_iba*BLO_iba_jkr)
 c
 c     building S(i)SC(i,a,b)C(i,j,k) according to eq.(18) on dropbox
+c
 c     mapping 1: [ira,bra]
-      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_1_mapped_labels)
+c
+      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      ab = real_s_sc_1_mapped_labels(a)
-      bb = real_s_sc_1_mapped_labels(b)
-      jb = real_s_sc_1_mapped_labels(j)
-      kb = real_s_sc_1_mapped_labels(k)
-      rb = real_s_sc_1_mapped_labels(r)
+      ab = real_labels(a,i,a)
+      bb = real_labels(b,i,a)
+      jb = real_labels(j,i,a)
+      kb = real_labels(k,i,a)
+      rb = real_labels(r,i,a)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -233,7 +241,7 @@ c     mapping 1: [ira,bra]
       zbk = 1d0-zbj
       Pb_jkr_ira = CF*(2d0*zbk/zbj+zbj)/sbjk
 c
-      call phase_space_CS_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_1_mapped_labels)
+      call phase_space_CS_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -241,8 +249,8 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,a)
+      map2=real_labels(dsec,i,a)
       call get_wcbar_nlo(map1,map2,rb)
 c
 c     call Born matrix element
@@ -250,14 +258,14 @@ c     call Born matrix element
       BLO_ira_bra = ans(0)*wcbar_nlo
 c
 c     mapping 2: [irb,arb]
-      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_s_sc_2_mapped_labels)
+      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      ab = real_s_sc_2_mapped_labels(a)
-      bb = real_s_sc_2_mapped_labels(b)
-      jb = real_s_sc_2_mapped_labels(j)
-      kb = real_s_sc_2_mapped_labels(k)
-      rb = real_s_sc_2_mapped_labels(r)
+      ab = real_labels(a,i,b)
+      bb = real_labels(b,i,b)
+      jb = real_labels(j,i,b)
+      kb = real_labels(k,i,b)
+      rb = real_labels(r,i,b)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -269,7 +277,7 @@ c     mapping 2: [irb,arb]
       zbk = 1d0-zbj
       Pb_jkr_irb = CF*(2d0*zbk/zbj+zbj)/sbjk
 c
-      call phase_space_CS_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_s_sc_2_mapped_labels)
+      call phase_space_CS_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ab,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -277,8 +285,8 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,b)
+      map2=real_labels(dsec,i,b)
       call get_wcbar_nlo(map1,map2,rb)
 c
 c     call Born matrix element

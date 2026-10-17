@@ -53,8 +53,6 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-      integer Born_2_mapped_labels(nexternal-1)
-      common/c_NNLO_2_mapped_labels/Born_2_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
       logical consistency_check
@@ -82,16 +80,21 @@ c     overall kernel prefix
       alphas=alpha_qcd(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2/2d0
 c
-c     get PDGs
-      ib = real_labels(i)
-      jb = real_labels(j)
-c
 c     compute soft double-soft sector function eq. (C.72)
       call get_sig2(xs,alpha_mod,nexternal)
       call get_ws_nlo(asec,bsec)
 c
 c     mapping 1: [imj,jml]; third block eq. 115 in Dropbox
-c     eikonal double sum (c,d) -> (m,l)
+c
+c     fill mapped labels
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m)) cycle
+         if(m.eq.i.or.m.eq.j) cycle
+         call fill_real_mapped_labels(i,m,leg_pdgs,real_leg_pdgs)
+         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+      enddo
+c
+c     eikonal double sum (c=m,d=l)
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
          if(m.eq.i.or.m.eq.j)cycle
@@ -110,8 +113,10 @@ c           safety check
                goto 999
             endif
 c
-            lb = real_labels(l)
-            mb = real_labels(m)
+            ib = real_labels(i,i,m)
+            jb = real_labels(j,i,m)
+            lb = real_labels(l,i,m)
+            mb = real_labels(m,i,m)
             if(m.ne.iref) then
                lbb = born_mapped_labels(lb)
                mbb = born_mapped_labels(mb)
@@ -120,7 +125,7 @@ c
                mbb = born_2_mapped_labels(mb)
             endif
 c
-            call phase_space_CS_inv(i,m,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
+            call phase_space_CS_inv(i,m,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,m))
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
             sbml = xsb(mb,lb)
@@ -130,8 +135,8 @@ c
 c
 c           call wsbar
             call get_sig2(xsb,1d0,nexternal-1)
-            map1=real_labels(csec)
-            map2=real_labels(dsec)
+            map1=real_labels(csec,i,m)
+            map2=real_labels(dsec,i,m)
             call get_wsbar_nlo(map1,map2)
 c
             if(m.ne.iref) then
@@ -162,7 +167,7 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
       enddo
 c
 c     mapping 2: [ijl,ljm]; third block eq. 115 in Dropbox
-c     eikonal double sum (c,d) -> (m,l)
+c     eikonal double sum (c=m,d=l)
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
          if(m.eq.i.or.m.eq.j)cycle
@@ -241,7 +246,7 @@ c     mapping 3: [iml,jml]; first block eq (115) in Dropbox
           if(.not.isNNLOqcdparton(l))cycle
           if(l.eq.i.or.l.eq.j.or.l.eq.m)cycle
 c
-c         invariant quantities: (c,d) in the paper --> (m,l)
+c         invariant quantities:
           sml = xs(m,l)
           sim = xs(i,m)
           sil = xs(i,l)
@@ -252,12 +257,12 @@ c         safety check
             goto 999
           endif
 c
-          lb = real_labels(l)
-          mb = real_labels(m)
-          lbb = born_mapped_labels(lb)
-          mbb = born_mapped_labels(mb)
+          lb = real_labels(l,i,m)
+          mb = real_labels(m,i,m)
+          lbb = born_labels(lb,i,m)
+          mbb = born_labels(mb,i,m)
 c
-          call phase_space_cs_inv(i,m,l,xp,xpb,nexternal,leg_pdgs,xjcs1,real_mapped_labels)
+          call phase_space_cs_inv(i,m,l,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,m))
           call invariants_from_p(xpb,nexternal-1,xsb,ierr)
           if(ierr.eq.1)goto 999
           sbml = xsb(mb,lb)
@@ -266,8 +271,8 @@ c
           Ebj_ml = sbml/sbjm/sbjl
 c         call wsbar
           call get_sig2(xsb,1d0,nexternal-1)
-          map1=real_labels(csec)
-          map2=real_labels(dsec)
+          map1=real_labels(csec,i,m)
+          map2=real_labels(dsec,i,m)
           call get_wsbar_nlo(map1,map2)
 c
           call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_mapped_labels)
@@ -298,7 +303,7 @@ c     mapping 4: [imb,jbm]; second block eq (115) in Dropbox
         if(.not.isNNLOqcdparton(m))cycle
         if(m.eq.i.or.m.eq.j.or.m.eq.b)cycle
 c
-c       invariant quantities: (c,d) in the paper --> (m,l)
+c       invariant quantities:
         sbm = xs(b,m)
         sib = xs(i,b)
         sim = xs(i,m)
@@ -309,12 +314,12 @@ c       safety check
           goto 999
         endif
 c
-        bb = real_labels(b)
-        mb = real_labels(m)
+        bb = real_labels(b,i,m)
+        mb = real_labels(m,i,m)
         bbb = born_mapped_labels(bb)
         mbb = born_mapped_labels(mb)
 c
-        call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_mapped_labels)
+        call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,m))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
         if(ierr.eq.1)goto 999
         sbbm = xsb(bb,mb)
@@ -323,8 +328,8 @@ c
         Ebj_bm = sbbm/sbjb/sbjm
 c       call wsbar
         call get_sig2(xsb,1d0,nexternal-1)
-        map1=real_labels(csec)
-        map2=real_labels(dsec)
+        map1=real_labels(csec,i,m)
+        map2=real_labels(dsec,i,m)
         call get_wsbar_nlo(map1,map2)
 c
         call phase_space_cs_inv(jb,bb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_mapped_labels)

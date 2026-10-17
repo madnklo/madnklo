@@ -9,6 +9,7 @@ c     i, k are a g-g while j is a q (or qb) with any flavour
       include 'math.inc'
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
@@ -26,7 +27,7 @@ c     i, k are a g-g while j is a q (or qb) with any flavour
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk
-      double precision Pij,Ei_jr,Eb_kjr
+      double precision Pij,Qij,Ei_jr,Eb_jr_ijr
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -91,10 +92,13 @@ c     safety checks
         goto 999
       endif
 c
-c     getting PDG's
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     fill mapped labels [ijr,krj]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(k,i,j),real_labels(r,i,j),real_leg_pdgs,born_leg_pdgs)
+
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
@@ -112,14 +116,19 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
+      parent_leg = born_labels(jb,kb,jb)
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
+c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     collinear soft-collinear double-collinear kernel, eq. (C.43) of 2212.11190v2
-      Pij = CF*(2d0*zj/zi+zi)
-      Eb_kjr = sbjr/sbjk/sbkr
-      M2tmp = 2d0*CF*Eb_kjr*Pij
-      M2_C_SC_ggq_CC_ggq = M2tmp/sij*BLO
+      Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
+      Qij = -2d0*CA*zi*zj
+      Eb_jr_ijr = sbjr/sbjk/sbkr
+      M2tmp = 2d0*CA*Eb_kjr*(Pij+Qij)*BLO
+      M2tmp = M2tmp + 2d0*CA*Eb_kjr*2d0*KKBLO !TODO: check this
+      M2_C_SC_ggq_CC_ggq = M2tmp/sij
 c
 c     compute collinear soft-collinear double-collinear sector function eq. (C.86) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
@@ -128,7 +137,7 @@ c     compute collinear soft-collinear double-collinear sector function eq. (C.8
 c
 c     soft-collinear soft-collinear double-collinear kernel, eq. (C.44) of 2212.11190v2
       Ei_jr = sjr/sij/sir
-      M2_SC_SC_ggq_CC_ggq = 4d0*CA*CF*Ei_jr*Eb_kjr*BLO
+      M2_SC_SC_ggq_CC_ggq = 4d0*CA**2*Ei_jr*Eb_jr_ijr*BLO
 c
 c     soft-collinear soft-collinear double-collinear sector function eq. (C.87) of 2212.11190v2 is 1
 c

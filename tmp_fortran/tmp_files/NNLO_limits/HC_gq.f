@@ -7,6 +7,7 @@ c     collinear limit C_(ia,ib) * Wcollinear  - S_(ia)C_(ia,ib) * Wsoftcollinear
       include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
@@ -72,6 +73,9 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
 c
+c     fill mapped labels (ijr)
+      call fill_real_mapped_labels(ia,ib,leg_pdgs,real_leg_pdgs)
+c
 c     invariant quantities
       sab=xs(ia,ib)
       sar=xs(ia,ir)
@@ -100,13 +104,13 @@ c
       parent_leg = real_mapped_labels(ib)
       KKRNLO = %(proc_prefix_HC_gq)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
-      M2_C_gq=CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*RNLO
-      M2_SC_gq=CF*(2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*RNLO
+      M2_C_gq=CF*((1d0-x)+2d0*x/(1d0-x))*RNLO
+      M2_SC_gq=CF*(2d0*x/(1d0-x)*x**alpha)*RNLO
 c
 c     compute soft-collinear limit of sector function, eq. (C.53)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
       call get_wbar_nlo(map1,map2)
       M2_SC_gq=M2_SC_gq*wbar_nlo
 c
@@ -114,8 +118,8 @@ c     compute collinear limit of sector function, eq. (C.52)
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
       call get_wbar_nlo(map1,map2)
       M2_C_gq=M2_C_gq*wc_nlo*wbar_nlo
 c

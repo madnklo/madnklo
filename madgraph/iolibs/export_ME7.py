@@ -474,6 +474,10 @@ class ME7Exporter(object):
         # Only warn once about issues occurring during the dispatching of integrated
         # counterterms
         warned = False
+        # Integrated counterterms requiring a beam convolution are dropped silently when
+        # no initial-state parton is coloured (e.g. lepton collisions): no beam-factorization
+        # contribution exists to host them, and none is needed. They are only counted.
+        n_skipped_no_coloured_beams = 0
         for integrated_CT_properties in integrated_counterterms:
             # Extract quantities from integrated_counterterm_properties
             counterterm = integrated_CT_properties['integrated_counterterm']
@@ -556,6 +560,14 @@ class ME7Exporter(object):
 #                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n" +
 #                    "Available keys are:\n%s" % ('\n'.join(key_string(k) for k in routing_map)))
 #            logger.critical(msg)
+            if key not in routing_map and \
+                    (correlated_beam_convolution or torino_sub_BS or n_active_beams > 0) and \
+                    not any(self.model.get_particle(leg.get('id')).get('color') != 1
+                            for leg in counterterm.process.get('legs') if not leg.get('state')):
+                n_skipped_no_coloured_beams += 1
+                logger.debug("Skipping integrated counterterm requiring a beam convolution "+
+                             "(no coloured initial state):\n%s" % counterterm.nice_string())
+                continue
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
@@ -587,6 +599,10 @@ class ME7Exporter(object):
                 self.integrated_counterterms_refused_from_all_contribs.append(integrated_CT_properties)
                 continue
         
+        if n_skipped_no_coloured_beams > 0:
+            logger.info("%d integrated counterterm(s) requiring a beam convolution were not "%
+                        n_skipped_no_coloured_beams + "assigned, since no initial-state parton is coloured.")
+
         # Finally, the initial state collinear counterterms may be combined because the
         # BeamCurrents that implements them return the full backward evolution flavor
         # matrix, so that several initial state collinear counterterms that differ only
@@ -739,13 +755,23 @@ class ME7Exporter(object):
 
         # Save all the global couplings to write out afterwards
         global_wanted_couplings = []
+        # Lorentz structures used by the tree-level contributions finalised so far
+        # (LO before NLO before NNLO): the real-emission directories link the
+        # lower-multiplicity matrix_*.f files for the counterterms, so their local
+        # DHELAS must also contain the HELAS routines these files call.
+        tree_lorentz = set()
         # Forward the finalize request to each contribution
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
+            is_tree = (contrib.contribution_definition.n_loops == 0 and
+                       not contrib.has_beam_factorization())
             wanted_couplings_to_add_to_global = contrib.finalize(
-                flaglist=flaglist, interface_history=interface_history)
+                flaglist=flaglist, interface_history=interface_history,
+                extra_lorentz=(list(tree_lorentz) if is_tree else None))
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
+            if is_tree and contrib.all_matrix_elements is not None:
+                tree_lorentz.update(contrib.all_matrix_elements.get_used_lorentz())
 
         # Generate the global ME7 MODEL
         if global_wanted_couplings:
@@ -1302,13 +1328,23 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Save all the global couplings to write out afterwards
         global_wanted_couplings = []
+        # Lorentz structures used by the tree-level contributions finalised so far
+        # (LO before NLO before NNLO): the real-emission directories link the
+        # lower-multiplicity matrix_*.f files for the counterterms, so their local
+        # DHELAS must also contain the HELAS routines these files call.
+        tree_lorentz = set()
         # Forward the finalize request to each contribution
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
+            is_tree = (contrib.contribution_definition.n_loops == 0 and
+                       not contrib.has_beam_factorization())
             wanted_couplings_to_add_to_global = contrib.finalize(
-                flaglist=flaglist, interface_history=interface_history)
+                flaglist=flaglist, interface_history=interface_history,
+                extra_lorentz=(list(tree_lorentz) if is_tree else None))
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
+            if is_tree and contrib.all_matrix_elements is not None:
+                tree_lorentz.update(contrib.all_matrix_elements.get_used_lorentz())
 
         # Generate the global ME7 MODEL
         if global_wanted_couplings:

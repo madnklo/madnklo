@@ -2645,17 +2645,18 @@ c       %s
 
         #all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
         all_sector_list = all_3p_sector_list + all_4p_sector_list
-        tmp_str = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-
         file = """ \
           integer, parameter :: lensectors = %d
           integer tmp(4,lensectors)
           integer all_sector_list(4,lensectors)
           integer :: bar_indices(2*lensectors)
           common/c_NLObar/bar_indices""" % (len(all_sector_list))
-        for k in range(0,len(all_sector_list)):
+        # One short DATA statement per sector (no continuation lines: the file is also
+        # included in free-form sources, e.g. sectors4_module.f90). The leg indices are
+        # taken from the tuples, so two-digit leg numbers are handled correctly.
+        for k, sector in enumerate(all_sector_list):
             file += """
-          data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+7])
+          data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,','.join('%d' % l for l in sector))
           #  file += """
           #data all_sector_list(1,%d), all_sector_list(2,%d), all_sector_list(3,%d), all_sector_list(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+8])
 

@@ -741,14 +741,16 @@ class SectorGeneratorRV(sectors.SectorGenerator):
 
     def write_all_sector_list_include(self, writer, dirpath, all_sector_list):
 
-        replace_dict = {}
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-
+        # This file is included both in fixed-form (.f) and free-form (.f90) sources
+        # (e.g. sectors2_module.f90). A single DATA statement gets a fixed-form '$'
+        # continuation line once it exceeds 72 columns, which free form rejects; one
+        # short DATA statement per sector avoids continuation lines altogether.
         file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer all_sector_list(2,lensectors)
-          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+          integer, parameter :: lensectors = %d
+          integer all_sector_list(2,lensectors)""" % len(all_sector_list)
+        for n, (ii, jj) in enumerate(all_sector_list, 1):
+            file += """
+          data all_sector_list(1,%d),all_sector_list(2,%d)/%d,%d/""" % (n, n, ii, jj)
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
         writer(filename).writelines(file)

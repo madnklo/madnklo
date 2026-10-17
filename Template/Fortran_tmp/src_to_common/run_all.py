@@ -66,6 +66,40 @@ def run(cmd, cwd):
     subprocess.run(cmd, shell=True, check=True, cwd=cwd)
 
 
+# The 'libs' target of every P1_* makefile runs 'make' in the shared Source
+# directories (the contribution's Source/DHELAS and the top-level Source). The
+# top-level Source rebuilds lib/libpdf.a at every call (its 'all' target ends with
+# 'rm -f PDF/*.o', which makes the PDF directory newer than the library), so
+# 'make' run concurrently in several P1_* directories races on libpdf.a (e.g. an
+# archive member deleted or truncated while another process is archiving or
+# linking). Hence: build 'libs' once per P1_* directory, serially, before the
+# parallel phase, which then builds only the executables.
+def make_targets_without_libs(p):
+    """Targets of the 'all' rule of p/makefile, except 'libs' (None if not found)."""
+    try:
+        with open(os.path.join(p, "makefile")) as f:
+            text = f.read().replace("\\\n", " ")
+    except IOError:
+        return None
+    for line in text.splitlines():
+        if line.startswith("all:"):
+            return [t for t in line[len("all:"):].split() if t != "libs"]
+    return None
+
+
+def make_libs_serially(paths):
+    for p in paths:
+        run("make libs", p)
+
+
+def make_executables(p):
+    targets = make_targets_without_libs(p)
+    if targets:
+        run("make " + " ".join(targets), p)
+    else:
+        run("make", p)
+
+
 def collect_p1_paths(pattern):
     paths = []
     for path in glob.glob(pattern):
@@ -77,6 +111,8 @@ def run_parallel(paths, worker, n, pass_n=False):
     if not paths:
         print("No matching P1_* directories found.")
         return
+
+    make_libs_serially(paths)
 
     tasks = [(p, n) for p in paths] if pass_n else paths
 
@@ -97,7 +133,7 @@ def run_parallel(paths, worker, n, pass_n=False):
 
 # ---------------- LO ----------------
 def process_lo(p):
-    run("make", p)
+    make_executables(p)
     run("./Born", p)
     return p
 
@@ -109,7 +145,7 @@ def run_lo(n):
 
 # ---------------- NLO_V ----------------
 def process_nlo_v(p):
-    run("make", p)
+    make_executables(p)
     run("./virtual", p)
     return p
 
@@ -128,7 +164,7 @@ def run_sector(task):
 
 def process_nlo_r(task):
     p, n = task
-    run("make", p)
+    make_executables(p)
 
     sectors = sorted(glob.glob(os.path.join(p, "sector_*")))
     if not sectors:

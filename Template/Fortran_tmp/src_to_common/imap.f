@@ -90,6 +90,10 @@ c
      &           .not.assigned(jj))then
                assigned(jj)=.true.
                mapped_labels(i)=jj
+c              stop at the first free match: without this exit, a particle
+c              would take all free underlying partons of its flavour, and a
+c              second identical-flavour particle would be left with label 0
+               exit
             endif
          enddo
       enddo

@@ -906,8 +906,12 @@ class Contribution(object):
             if os.path.isfile(f) or os.path.islink(f):
                 os.remove(f)
 
-    def finalize(self, flaglist=[], interface_history=[]):
-        """ Finalize the output of the code necessary for this contribution."""
+    def finalize(self, flaglist=[], interface_history=[], extra_lorentz=None):
+        """ Finalize the output of the code necessary for this contribution.
+        extra_lorentz: additional lorentz structures (same format as
+        get_used_lorentz) to include in the local DHELAS, e.g. those of the
+        lower-multiplicity matrix elements that are linked into this
+        contribution's subprocess directories for the counterterms."""
         
         # WARNING: It would be ideal to use the same DHELAS output for all contributions.
         # This should be done eventually, but there are issues with coef_specs,
@@ -933,6 +937,8 @@ class Contribution(object):
             # wanted_lorentz are the lorentz structures which are actually used in the 
             # wavefunctions and amplitudes in these processes
             wanted_lorentz = self.all_matrix_elements.get_used_lorentz()
+            if extra_lorentz:
+                wanted_lorentz = list(set(wanted_lorentz) | set(extra_lorentz))
             if self.requires_its_own_model:
                 wanted_couplings = self.all_matrix_elements.get_used_couplings()
             else:

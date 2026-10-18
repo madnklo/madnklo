@@ -13,8 +13,8 @@ c     S(i,j) kernel times WSS
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,l,m,ierr,nit
-      integer jb,lb,mb
+      integer i,j,l,m,a,ierr,nit
+      integer jb,lb,mb,ab
       integer jbb,lbb,mbb
       logical isNLOmappedQCDparton(nexternal-1)
       logical isLOmappedQCDparton(nexternal-2)
@@ -69,12 +69,14 @@ c     check flavour match
         stop 1
       endif
 c
-c     fill mapped labels [icd,kcd]]
+      a = csec
+c
+c     fill mapped labels [iac,acd]
+      call fill_real_mapped_labels(i,a,leg_pdgs,real_leg_pdgs)
       do m=1,nexternal
          if(.not.isNNLOQCDparton(m)) cycle
-         if(m.eq.i.or.m.eq.j) cycle
-         call fill_real_mapped_labels(i,m,leg_pdgs,real_leg_pdgs)
-         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+         if(m.eq.i.or.m.eq.a) cycle
+         call fill_born_mapped_labels(real_labels(a,i,a),real_labels(m,i,a),real_leg_pdgs,born_leg_pdgs)
       enddo
 c
 c     call W double-soft
@@ -92,32 +94,19 @@ c     eikonal double sum
             if(.not.ISNNLOQCDPARTON(l))cycle
             if(l.eq.i.or.l.eq.j.or.l.eq.m)cycle
 c
-            jb = real_labels(j,i,m)
-            lb = real_labels(l,i,m)
-            mb = real_labels(m,i,m)
-            lbb = born_labels(lb,jb,mb)
-            mbb = born_labels(mb,jb,mb)
-c
-c         check labels and pdgs
-            if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
-               write(*,*)'Wrong indices 1 in M2_SS_qqx',lb,mb
-               stop
-            endif
-            if(.not.(islomappedqcdparton(lbb).and.islomappedqcdparton(mbb)))then
-               write(*,*)'Wrong indices 2 in M2_SS_qqx',lbb,mbb
-               stop
-            endif
-            if(leg_pdgs(l).ne.born_leg_pdgs(lbb).or.leg_pdgs(m).ne.born_leg_pdgs(mbb))then
-               write(*,*)'Wrong indices 3 in M2_SS_qqx',l,m,lbb,mbb
-               stop
-            endif
+            jb = real_labels(j,i,a)
+            lb = real_labels(l,i,a)
+            mb = real_labels(m,i,a)
+            ab = real_labels(a,i,a)
+            lbb = born_labels(lb,ab,mb)
+            mbb = born_labels(mb,ab,mb)
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,m))
-            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,jb,mb))
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
+            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ab,mb))
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999

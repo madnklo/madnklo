@@ -58,10 +58,6 @@ c     initialise
       damp=0d0
 c
 c     checks
-      if(.not.(abs(leg_pdgs(ia)).le.6.and.leg_pdgs(ia)+leg_pdgs(ib).eq.0.and.real_leg_pdgs(real_mapped_labels(ib)).eq.21))then
-         write(*,*)'Wrong pdgs in M2_HC_qqx',leg_pdgs(ia),leg_pdgs(ib),real_mapped_labels(ib)
-         stop
-      endif
       if(.not.(ia.eq.isec.and.ib.eq.jsec))then
          write(*,*)'Wrong indices in M2_HC_qqx',ia,ib,isec,jsec
          stop

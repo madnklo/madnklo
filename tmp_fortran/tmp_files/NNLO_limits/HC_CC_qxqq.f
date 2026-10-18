@@ -152,7 +152,7 @@ c     include correct multiplicity and flavour factors
 c
       if(test_sector_function) M2_HC_CC_qxqq = wc_nlo*wcbar_nlo
 c
-      call ct_log('KC_CC                  ',M2_HC_CC_qxqq
+      call ct_log('KC_CC                  ',M2_HC_CC_qxqq)
 c
 c     plot
       wgtpl=-M2_HC_CC_qxqq*wgt/nit*wgt_chan

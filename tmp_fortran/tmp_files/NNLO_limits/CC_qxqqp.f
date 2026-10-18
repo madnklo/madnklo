@@ -108,7 +108,10 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_CC_qxqqp = M2tmp*pref/sijk**2*xj*extra ! eq (C.15)
+c
       if(test_sector_function) M2_CC_qxqqp = wcc_nnlo
+c
+      call ct_log('KCC                    ', M2_CC_qxqqp)
 c
 c     plot
       wgtpl=-M2_CC_qxqqp*wgt/nit*wgt_chan

@@ -10,6 +10,7 @@ c     while k is a q (or qb) with any flavour
       include 'damping_factors.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      include 'mapped_labels_common.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit
@@ -89,11 +90,16 @@ c     safety checks
         write(77,*)'Inaccuracy 1 in m2_hc_ss_qqx_cc_qxqq',sij,sir,sjr
         goto 999
       endif
+c
       zi = sir/(sir+sjr)
       zj = 1d0-zi
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c
+c     fill mapped labels [ijr,jkr]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjk = xsb(jb,kb)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
@@ -131,7 +137,10 @@ c     Including correct multiplicity factor
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_HC_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra
+c
       if(test_sector_function) M2_HC_SS_qqx_CC_qxqq = wc_nlo
+c
+      call ct_log('KC_SS_CC               ', M2_HC_SS_qqx_CC_qxqq)
 c
 c     plot
       wgtpl=-M2_HC_SS_qqx_CC_qxqq*wgt/nit*wgt_chan

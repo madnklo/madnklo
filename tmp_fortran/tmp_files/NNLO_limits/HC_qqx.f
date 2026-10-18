@@ -130,7 +130,7 @@ c     include prefactors
 c
       if(test_sector_function) M2_HC_qqx = wc_nlo*wbar_nlo
 c
-      call ct_log('KC                     ',M2_C_qqx
+      call ct_log('KC                     ',M2_C_qqx)
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan

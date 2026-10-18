@@ -128,7 +128,7 @@ c
          if(m.eq.j)cycle
          do l=1,nexternal-1
             if(.not.isNLOmappedQCDparton(l))cycle
-            if(l.eq.j.or.l.eq)cycle
+            if(l.eq.j.or.l.eq.m)cycle
             lb = real_labels(l,i,j)
             mb = real_labels(m,i,j)
             lbb = born_labels(lb,jb,mb)
@@ -177,7 +177,8 @@ c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Eb_jlm = sblm/sbjl/sbjm
             M2tmp = TR*(Eb_jlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
-            M2tmp = m2tmp/sab*ccBLO
+            M2tmp = M2tmp/sab*ccBLO
+c
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alpha_mod,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)

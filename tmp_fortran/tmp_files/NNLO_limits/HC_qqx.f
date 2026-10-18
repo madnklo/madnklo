@@ -4,13 +4,14 @@ c     collinear limit C_(ia,ib) * Wcollinear
       use sectors4_module
       implicit none
       include 'nexternal.inc'
-      INCLUDE 'coupl.inc'
+      include 'coupl.inc'
       include 'math.inc'
       include 'damping_factors.inc'
+      include 'mapped_labels_common.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
-      INCLUDE 'input.inc'
-      INCLUDE 'run.inc'
+      include 'input.inc'
+      include 'run.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
       double precision pref,M2_C_qqx,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -47,6 +48,8 @@ c     set logical doplot
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
 c
 c     initialise
       M2_C_qqx=0d0
@@ -70,6 +73,9 @@ c
 c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=8d0*pi*alphas
+c
+c     fill mapped labels (ijr)
+      call fill_real_mapped_labels(ia,ib,leg_pdgs,real_leg_pdgs)
 c
 c     invariant quantities
       sab=xs(ia,ib)
@@ -96,18 +102,21 @@ c     call Real as per eq.(C.9)
       call %(proc_prefix_HC_qqx)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       RNLO = ANS(0)
 c
-      parent_leg = real_mapped_labels(ib)
+      parent_leg = real_labels(ib,ia,ib)
       KKRNLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+c
 c     TODO: improve ktmuktnuRmunu / kt^2
       M2_C_qqx=TR*(RNLO-4d0/sab*KKRNLO)
+c
 c     compute collinear limit of sector function
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(ia,ib,ksec,ir)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
       call get_wbar_nlo(map1,map2)
       M2_C_qqx=M2_C_qqx*wc_nlo*wbar_nlo
+c
 c     account for different damping factors according to recoiler position (ir)
       if(ir.ge.2)then
          damp=(1d0-y)**beta_FF
@@ -115,9 +124,13 @@ c     account for different damping factors according to recoiler position (ir)
          damp=xinit**beta_FI
       endif
       M2_HC_qqx=M2_C_qqx
+c
 c     include prefactors
       M2_HC_qqx = M2_HC_qqx*dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+c
       if(test_sector_function) M2_HC_qqx = wc_nlo*wbar_nlo
+c
+      call ct_log('KC                     ',M2_C_qqx
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan

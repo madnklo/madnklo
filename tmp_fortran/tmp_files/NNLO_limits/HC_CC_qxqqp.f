@@ -9,6 +9,7 @@ c     while k is a q (or qb) with any flavour
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      include 'mapped_labels_common.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,ierr,nit
@@ -92,9 +93,15 @@ c
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+c     fill mapped labels [ijr,jkr]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
+c
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -127,8 +134,8 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
       call get_wcbar_nlo(map1,map2,rb)
       M2tmp=M2tmp*wc_nlo*wcbar_nlo
 c
@@ -136,7 +143,10 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_HC_CC_qxqqp = M2tmp*pref*xj*extra
+c
       if(test_sector_function) M2_HC_CC_qxqqp = wc_nlo*wcbar_nlo
+c
+      call ct_log('KC_CC                  ',M2_HC_CC_qxqqp
 c
 c     plot
       wgtpl=-M2_HC_CC_qxqqp*wgt/nit*wgt_chan

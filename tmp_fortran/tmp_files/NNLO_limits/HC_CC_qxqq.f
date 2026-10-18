@@ -8,6 +8,7 @@ c     while k is a q (or qb) with any flavour
       include 'coupl.inc'
       include 'math.inc'
       include 'nsqso_born.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
@@ -60,7 +61,7 @@ c     initialise
 c
 c     check sector topology
       if(bsec.ne.csec .and. bsec.ne.dsec) then
-        write (*,*) 'Wrong topology in M2_HC_CC_qxqqp',asec,bsec,csec,dsec
+        write (*,*) 'Wrong topology in M2_HC_CC_qxqq',asec,bsec,csec,dsec
         stop 1
       endif
 c
@@ -85,7 +86,7 @@ c     invariant quantities
 c
 c     safety checks
       if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        write(77,*)'Inaccuracy 1 iN M2_HC_CC_qxqqp',sij,sir,sjr
+        write(77,*)'Inaccuracy 1 iN M2_HC_CC_qxqq',sij,sir,sjr
         goto 999
       endif
 c
@@ -93,11 +94,15 @@ c
       zi   = sir/(sir+sjr)
       zj   = 1d0-zi
 c
+c     fill mapped labels [ijr,jkr]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
+c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
-      jb = real_mapped_labels(j)
-      kb = real_mapped_labels(k)
-      rb = real_mapped_labels(r)
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -107,7 +112,7 @@ c
       endif
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
-      parent_leg = real_mapped_labels(jb)
+      parent_leg = real_labels(jb,i,j)
 c
       call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
       if(ierr.eq.1)goto 999
@@ -135,8 +140,8 @@ c     compute collinear double-collinear sector function eq. (C.82) of 2212.1119
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_mapped_labels(csec)
-      map2=real_mapped_labels(dsec)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
       call get_wcbar_nlo(map1,map2,rb)
       M2tmp=M2tmp*wc_nlo*wcbar_nlo
 c
@@ -144,7 +149,10 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_HC_CC_qxqq = M2tmp*pref*xj*extra
+c
       if(test_sector_function) M2_HC_CC_qxqq = wc_nlo*wcbar_nlo
+c
+      call ct_log('KC_CC                  ',M2_HC_CC_qxqq
 c
 c     plot
       wgtpl=-M2_HC_CC_qxqq*wgt/nit*wgt_chan

@@ -8,6 +8,7 @@ c     S(i,j) kernel times WSS
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
@@ -54,8 +55,6 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
-      integer real_ss_mapped_labels(nexternal),Born_ss_mapped_labels(nexternal-1)
-      common/c_NNLO_ss_mapped_labels/real_ss_mapped_labels,Born_ss_mapped_labels
       logical test_sector_function
       common/ctestsecfun/test_sector_function
 c
@@ -70,15 +69,12 @@ c     check flavour match
         stop 1
       endif
 c
-c     get PDGs
-      jb = real_mapped_labels(j)
-      do l=1,nexternal
-         if(l.eq.isec) cycle
-          if(abs(leg_pdgs(l)).le.6.or.leg_pdgs(l).eq.21) isNLOmappedQCDparton(real_mapped_labels(l)) = .true.
-      enddo
-      do l=1,nexternal-1
-         if(l.eq.jb) cycle
-          if(abs(real_leg_pdgs(l)).le.6.or.real_leg_pdgs(l).eq.21) isLOmappedQCDparton(Born_mapped_labels(l)) = .true.
+c     fill mapped labels [icd,kcd]]
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m)) cycle
+         if(m.eq.i.or.m.eq.j) cycle
+         call fill_real_mapped_labels(i,m,leg_pdgs,real_leg_pdgs)
+         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
       enddo
 c
 c     call W double-soft
@@ -96,10 +92,11 @@ c     eikonal double sum
             if(.not.ISNNLOQCDPARTON(l))cycle
             if(l.eq.i.or.l.eq.j.or.l.eq.m)cycle
 c
-            lb = real_mapped_labels(l)
-            mb = real_mapped_labels(m)
-            lbb = Born_mapped_labels(lb)
-            mbb = Born_mapped_labels(mb)
+            jb = real_labels(j,i,m)
+            lb = real_labels(l,i,m)
+            mb = real_labels(m,i,m)
+            lbb = born_labels(lb,jb,mb)
+            mbb = born_labels(mb,jb,mb)
 c
 c         check labels and pdgs
             if(.not.(isnlomappedqcdparton(lb).and.isnlomappedqcdparton(mb)))then
@@ -119,8 +116,8 @@ c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the double-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_mapped_labels)
-            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,m))
+            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,jb,mb))
             if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -151,7 +148,8 @@ c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l) (verified)
             M2tmp = 2d0*TR*(((sil*sjm-sim*sjl)**2-slm*sij*(sil+sjl)*(sim+sjm))/(sij**2*(sil+sjl)**2*(sim+sjm)**2))
-            M2TMP = CCBLO*M2TMP
+            M2tmp = ccBLO*M2tmp
+c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
@@ -170,7 +168,10 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
 c
 c     apply flavour factor
       M2_SS_qqx = M2_SS_qqx * %(proc_prefix_rr)s_fl_factor
+c
       if(test_sector_function) M2_SS_qqx = wss_nnlo
+c
+      call ct_log('KSS                    ', M2_SS_qqx)
 c
 c     sanity check
       if(abs(M2_SS_qqx).ge.huge(1d0).or.isnan(M2_SS_qqx))then

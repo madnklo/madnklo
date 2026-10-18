@@ -8,6 +8,7 @@ c     C(i,j) S(i,j) kernel times WC_SS: i, j are a q-qb pair
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
@@ -66,7 +67,7 @@ c      common/(proc_prefix_S_g)s_iden/(proc_prefix_S_g)s_den
       include 'pmass.inc'
 c
 c     initialise
-      M2_HC_SS_QQX=0d0
+      M2_HC_SS_qqx=0d0
       M2tmp=0d0
       ierr=0
 c
@@ -83,16 +84,16 @@ c     check flavour match
        stop 1
       endif
 c
-c     parent leg
-      jb = real_mapped_labels(ib)
-      do l=1,nexternal
-         if(l.eq.isec) cycle
-          if(abs(leg_pdgs(l)).le.6.or.leg_pdgs(l).eq.21) isNLOmappedQCDparton(real_mapped_labels(l)) = .true.
+c     fill mapped labels [ijr,jcd]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m)) cycle
+         if(m.eq.i.or.m.eq.j) cycle
+         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
       enddo
-      do l=1,nexternal-1
-         if(l.eq.jb) cycle
-          if(abs(real_leg_pdgs(l)).le.6.or.real_leg_pdgs(l).eq.21) isLOmappedQCDparton(Born_mapped_labels(l)) = .true.
-       enddo
+c
+c     parent leg
+      jb = real_labels(j,i,j)
 c
 c     invariant quantities
       sab=xs(ia,ib)
@@ -102,7 +103,7 @@ c     invariant quantities
 c
 c     safety check
       if(sab.le.0d0.or.sar+sbr.le.0d0.or.x.le.0d0.or.x.ge.1d0)then
-         write(77,*)'Inaccuracy 1 in M2_HC_SS_QQX',sab,sar+sbr,x
+         write(77,*)'Inaccuracy 1 in M2_HC_SS_qqx',sab,sar+sbr,x
          goto 999
       endif
 c
@@ -115,21 +116,23 @@ c     kt = wa pa + wb pb + wr pr
       kt2 = dot(kt(:),kt(:))
 c
 c     overall kernel prefix
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
+      alphas=alpha_qcd(asmz,nloop,scale)
       pref = -64d0*pi**2*alphas**2
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
 c     Eikonal double sum starts here
 c
-      do mb=1,nexternal-1
-         if(.not.isNLOmappedQCDparton(mb))cycle
-         if(mb.eq.jb)cycle
-         do lb=1,nexternal-1
-            if(.not.isNLOmappedQCDparton(lb))cycle
-            if(lb.eq.jb.or.lb.eq.mb)cycle
-            lbb = Born_mapped_labels(lb)
-            mbb = Born_mapped_labels(mb)
+      do m=1,nexternal-1
+         if(.not.isNLOmappedQCDparton(m))cycle
+         if(m.eq.j)cycle
+         do l=1,nexternal-1
+            if(.not.isNLOmappedQCDparton(l))cycle
+            if(l.eq.j.or.l.eq)cycle
+            lb = real_labels(l,i,j)
+            mb = real_labels(m,i,j)
+            lbb = born_labels(lb,jb,mb)
+            mbb = born_labels(mb,jb,mb)
 c
 c        check labels and pdgs
             if(.not.(isLOmappedQCDparton(lbb).and.isLOmappedQCDparton(mbb)))then
@@ -145,7 +148,7 @@ c        phase-space mapping according to lb and mb, at fixed radiation
 c        phase-space point: the singular kernel is in the same point
 c        as the double-real, ensuring numerical stability, while the
 c        underlying Born configuration is remapped
-            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_mapped_labels)
+            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,jb,mb))
             if(xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -174,15 +177,15 @@ c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Eb_jlm = sblm/sbjl/sbjm
             M2tmp = TR*(Eb_jlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
-            m2tmp = m2tmp/sab*ccBLO
+            M2tmp = m2tmp/sab*ccBLO
 c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alpha_mod,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
             call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-            map1=real_mapped_labels(csec)
-            map2=real_mapped_labels(dsec)
+            map1=real_labels(csec,i,j)
+            map2=real_labels(dsec,i,j)
             call get_wsbar_nlo(map1,map2)
-            M2TMP=M2TMP*wc_nlo*wsbar_nlo
+            M2tmp=M2tmp*wc_nlo*wsbar_nlo
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
@@ -203,7 +206,10 @@ c     Double sum ends here
 c
 c     apply flavour factor
       M2_HC_SS_qqx = M2_HC_SS_qqx * %(proc_prefix_rr)s_fl_factor
+c
       if(test_sector_function) M2_HC_SS_qqx = wc_nlo*wsbar_nlo
+c
+      call ct_log('KC_SS                  ',M2_HC_SS_qqx)
 c
 c     sanity check
       if(abs(M2_HC_SS_qqx).ge.huge(1d0).or.isnan(M2_HC_SS_qqx))then

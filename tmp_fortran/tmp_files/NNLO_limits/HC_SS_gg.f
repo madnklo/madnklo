@@ -83,7 +83,7 @@ c     check flavour match
        stop 1
       endif
 c
-c     fill mapped labels
+c     fill mapped labels [ijr,jcd]
       call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
 c     m=c & l=d in (76) of dropbox
       do m=1,nexternal

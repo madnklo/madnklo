@@ -87,7 +87,7 @@ c     invariant quantities
 c
 c     safety checks
       if(sij.lt.0d0.or.sir.lt.0d0.or.sjr.lt.0d0)then
-        write(77,*)'Inaccuracy 1 in m2_hc_ss_qqx_cc_qxqq',sij,sir,sjr
+        write(77,*)'Inaccuracy 1 in M2_HC_SS_qqx_CC_qxqq',sij,sir,sjr
         goto 999
       endif
 c
@@ -104,7 +104,7 @@ c     fill mapped labels [ijr,jkr]
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
-         write(77,*)'Inaccuracy 2 in m2_hc_ss_qqx_cc_qxqq',sbjk,sbjr,sbkr
+         write(77,*)'Inaccuracy 2 in M2_HC_SS_qqx_CC_qxqq',sbjk,sbjr,sbkr
          goto 999
       endif
       zbj = sbjr/(sbjr+sbkr)

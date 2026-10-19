@@ -163,6 +163,16 @@ def update_run_card_include():
         sys.exit("Source/run_card.inc was not regenerated: run 'bin/treatcards run' by hand.")
 
 
+# Real emission: the sources, the executable and the outputs of each sector are
+# in the sub-folder sector_<i>_<j> of the P1_* directory (the makefile of the
+# P1_* directory builds sector_<i>_<j>/sector_<i>_<j>), and the executable is run
+# there. Directories generated before this layout have everything in P1_*.
+def exe_dir(p, exe):
+    """Directory where executable exe of the P1_* directory p is and runs."""
+    sub = os.path.join(p, exe)
+    return sub if os.path.isdir(sub) else p
+
+
 def remove_outdated_executables(p):
     """Remove the executables of p older than Source/run_card.inc, so that make
     relinks them with the rebuilt libgeneric.a (the makefiles do not list the
@@ -172,7 +182,7 @@ def remove_outdated_executables(p):
         return
     t_inc = os.path.getmtime(inc)
     for target in make_targets_without_libs(p) or []:
-        exe = os.path.join(p, target)
+        exe = os.path.join(exe_dir(p, target), target)
         if os.path.isfile(exe) and os.path.getmtime(exe) < t_inc:
             os.remove(exe)
 
@@ -197,7 +207,8 @@ def collect_p1_paths(pattern):
 
 # ---------------- results bookkeeping ----------------
 # Each executable writes results_<tag>.log and seed_<iseed>_plot_<tag>.dat in
-# its P1_* directory. The files produced by the last *complete* run of each
+# the directory where it runs (P1_*, or P1_*/sector_<i>_<j> for the real
+# emission). The files produced by the last *complete* run of each
 # contribution (B, V, R) are recorded in Events/run_manifest.json, and
 # collect_results.py / collect_plots.py only use those: other files left in the
 # P1_* directories (other seeds, saved copies, sectors that no longer exist)
@@ -245,6 +256,7 @@ def relpath(path):
 def run_executable(task):
     """Run one executable and return the files it has written."""
     p, exe = task
+    p = exe_dir(p, exe)
     start = time.time() - 1.0  # tolerance for the file-system time resolution
     run(f"./{exe}", p)
     tag = output_tag(exe)
@@ -331,7 +343,8 @@ NAMES = {"B": "LO (Born)", "V": "NLO_V (Virtual)", "R": "NLO_R (Real)"}
 # ---------------- test-only mode ----------------
 # 'run_all.py <mode> --test_only' compiles as usual, then runs each virtual and
 # real-emission executable with '--test_only' (which can also be done by hand in
-# a P1_* directory: './virtual --test_only', './sector_3_4 --test_only'):
+# the P1_* directory, './virtual --test_only', or in the sector folder,
+# 'cd sector_3_4; ./sector_3_4 --test_only'):
 # the executables only write the pole test of V+I (test_poles_V.log) and the
 # IR-limit tests of R-K (testR_<i>_<j>.log), then stop, without integrating and
 # without touching results_*.log, the plots or Events/run_manifest.json.
@@ -345,6 +358,7 @@ def test_log_name(exe):
 
 def test_executable(task):
     p, exe = task
+    p = exe_dir(p, exe)
     start = time.time() - 1.0
     run(f"./{exe} --test_only", p)
     log = os.path.join(p, test_log_name(exe))
@@ -462,43 +476,32 @@ def summarize_test_log(exe, log, tol_poles, tol_limits, show_time=False):
 
 
 def limit_details(log):
-    """Approach to the limits of one testR log: for each lambda (rows) and each
-    limit (columns), the worst and the median of |R-K|/|K| over the test events."""
+    """Approach to the limits of one testR log: one table per limit, with,
+    for each lambda, the worst and the median of |R-K|/|K| over the test
+    events (8 significant digits)."""
     res = summarize_limits(log)
     if not res:
         return []
-    limits = list(res)
-    # group by lambda (the same sequence for all events and limits)
-    table = {}
-    for lim in limits:
-        for rows in res[lim]:
+    lines = [relpath(log)]
+    for lim, events in res.items():
+        table = {}
+        for rows in events:
             for lam, r, k in rows:
-                key = round(math.log10(abs(lam)), 3) if lam else None
+                if not lam:
+                    continue
+                key = round(math.log10(abs(lam)), 3)
                 rel = abs(r - k) / abs(k) if k != 0.0 else float("inf")
-                table.setdefault(key, {}).setdefault(lim, []).append(rel)
-    keys = sorted((k for k in table if k is not None), reverse=True)
-    n_events = max(len(res[lim]) for lim in limits)
-    spurious = [lim for lim in limits if lim.startswith(SPURIOUS_LIMITS)]
-    lines = [relpath(log),
-             f"  |R-K|/|K| at each lambda: worst and median over the {n_events} test events"
-             + (f" ({', '.join(spurious)}: spurious limits, only required to stay finite)"
-                if spurious else "")]
-    head = f"  {'lambda':>8} |" + "|".join(f" {lim:^21} " for lim in limits)
-    sub = f"  {'':>8} |" + "|".join(f" {'worst':>9}   {'median':>9} " for lim in limits)
-    lines.append(head)
-    lines.append(sub)
-    lines.append("  " + "-" * (len(head) - 2))
-    for key in keys:
-        cells = []
-        for lim in limits:
-            vals = sorted(table[key].get(lim, []))
-            if vals:
-                med = vals[len(vals) // 2]
-                cells.append(f" {vals[-1]:9.2e}   {med:9.2e} ")
-            else:
-                cells.append(" " * 23)
-        lines.append(f"  {10 ** key:8.0e} |" + "|".join(cells))
-    lines.append("")
+                table.setdefault(key, []).append(rel)
+        kind = ("spurious limit: R and K are only required to stay finite"
+                if lim.startswith(SPURIOUS_LIMITS) else "singular limit: |R-K|/|K| -> 0")
+        lines.append(f"  limit {lim} ({kind})")
+        lines.append(f"    |R-K|/|K| at each lambda, over the {len(events)} test events")
+        lines.append(f"    {'lambda':>8}   {'worst':>15}   {'median':>15}")
+        lines.append("    " + "-" * 44)
+        for key in sorted(table, reverse=True):
+            vals = sorted(table[key])
+            lines.append(f"    {10 ** key:8.0e}   {vals[-1]:15.7e}   {vals[len(vals) // 2]:15.7e}")
+        lines.append("")
     return lines
 
 
@@ -565,7 +568,7 @@ def collect_test_logs(tol_poles, tol_limits):
                 name = test_log_name(exe)
                 if not name:
                     continue
-                log = os.path.join(p, name)
+                log = os.path.join(exe_dir(p, exe), name)
                 if not os.path.isfile(log):
                     missing.append(relpath(log))
                     continue

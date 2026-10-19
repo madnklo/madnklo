@@ -123,9 +123,18 @@ def files_from_manifest(label, key):
     return files, [], warnings
 
 
+def p1_files(label, file_glob):
+    """Files matching file_glob in the P1_* directories of label and in their
+    sector_<i>_<j> sub-folders (real emission)."""
+    found = []
+    for sub in ("P1_*", os.path.join("P1_*", "sector_*")):
+        found += glob.glob(os.path.join(OUTPUT_DIR, TOP_PATTERNS[label], "SubProcesses", sub, file_glob))
+    return sorted(found)
+
+
 def other_files(label, file_glob, used):
     """Files matching file_glob in the P1_* directories of label, not used."""
-    found = glob.glob(os.path.join(OUTPUT_DIR, TOP_PATTERNS[label], "SubProcesses", "P1_*", file_glob))
+    found = p1_files(label, file_glob)
     used = set(os.path.abspath(f) for f in used)
     return sorted(f for f in found if os.path.abspath(f) not in used)
 
@@ -134,8 +143,7 @@ def select_files(label, key, file_glob, all_files):
     """Files to use for contribution label (None if unavailable), printing
     what is used and what is ignored."""
     if all_files:
-        files = sorted(glob.glob(os.path.join(OUTPUT_DIR, TOP_PATTERNS[label],
-                                              "SubProcesses", "P1_*", file_glob)))
+        files = p1_files(label, file_glob)
         print(f"{label}: --all-files, using all {len(files)} {file_glob} files")
         return files
     files, errors, warnings = files_from_manifest(label, key)

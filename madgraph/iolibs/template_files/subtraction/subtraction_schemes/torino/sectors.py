@@ -924,8 +924,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             ###
 
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
+            # The sources of the sector (NLO_IR_limits, NLO_Rsub, driver, NLO_K,
+            # testR) go to the sub-folder sector_<isec>_<jsec> of the P* directory,
+            # where the executable is linked and run (see write_makefile_npo_file)
+            secpath = self.sector_dir(dirpath, isec, jsec)
             # write NLO_IR_limits
-            filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
+            filename = pjoin(secpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
             #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = IR_limits_str % replace_dict_limits
             writer(filename).writelines(file)
@@ -936,16 +940,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
+            filename_int_real = pjoin(secpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
             UBgraphs = overall_sector_info[i]['Born_str']
-            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
+            self.write_driver_npo_template(writer, secpath, dirmadnklo, i , isec, jsec, UBgraphs)
 
 
             # write NLO_K
-            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
+            filename = pjoin(secpath, 'NLO_K_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
@@ -959,7 +963,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             iref_mass = model.get('particle_dict')[
                 [l.get('id') for l in leglist if l.get('number') == iref][0]]['mass']
-            self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
+            self.write_testR_template_file(writer, secpath, dirmadnklo, defining_process,
                                                     i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i],
                                                     iref_mass)
 
@@ -1058,6 +1062,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     #===========================================================================
     # write all_sector_list include file
     #===========================================================================
+
+    def sector_dir(self, dirpath, isec, jsec):
+        """Sub-folder sector_<isec>_<jsec> of the P* directory dirpath (created
+        if needed): sources, executable and outputs of the sector."""
+        secpath = pjoin(dirpath, 'sector_%d_%d' % (isec, jsec))
+        if not os.path.isdir(secpath):
+            os.makedirs(secpath)
+        return secpath
 
     def write_all_sector_list_include(self, writer, dirpath, all_sector_list):
 
@@ -1339,6 +1351,8 @@ c     spurious collinear limit
         proc_str = ''
         files_str = ''
         sector_str = ''
+        sector_rule_str = ''
+        phony_str = '.PHONY:'
         all_str = 'all: libs'
         proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
@@ -1370,12 +1384,24 @@ c     spurious collinear limit
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec)
+            # The sources of the sector are in sector_<isec>_<jsec>/ (objects in
+            # $(OBJ), as the shared ones), and so is the executable; the target
+            # sector_<isec>_<jsec> (phony, as the folder has the same name) builds it.
+            sec = 'sector_%d_%d' % (isec, jsec)
+            phony_str += ' %s %s_libs' % (sec, sec)
+            sector_rule_str += """
+%%.o: %s/%%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+""" % sec
             sector_str += """
-sector_%d_%d_libs: libs sector_%d_%d
+%s_libs: libs %s
 
-sector_%d_%d: $(FILES_%d_%d)
+%s: %s/%s
+
+%s/%s: $(FILES_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)
+""" % (sec, sec, sec, sec, sec, sec, sec, isec, jsec, isec, jsec)
+            self.write_sector_makefile(dirpath, isec, jsec)
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -1389,9 +1415,9 @@ sector_%d_%d: $(FILES_%d_%d)
 
 %.o: $(PATH_TO_USR_FILES)/%.cc
 \t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
-"""
+""" + sector_rule_str
         replace_dict['object_str'] = object_str
-        replace_dict['sector_str'] = sector_str
+        replace_dict['sector_str'] = phony_str + '\n' + sector_str
         replace_dict['all_str'] = all_str
         replace_dict['files_str'] = files_str
 
@@ -1408,6 +1434,26 @@ sector_%d_%d: $(FILES_%d_%d)
  #===========================================================================
     # write 'makefile' for real subprocesses
     #===========================================================================
+
+    def write_sector_makefile(self, dirpath, isec, jsec):
+        """makefile in sector_<isec>_<jsec>/: 'make' there builds the sector with
+        the makefile of the P* directory (where all objects are compiled)."""
+        sec = 'sector_%d_%d' % (isec, jsec)
+        with open(pjoin(self.sector_dir(dirpath, isec, jsec), 'makefile'), 'w') as f:
+            f.write("""# The sources of this sector are compiled by the makefile of the
+# P* directory (objects in ../obj-*); 'make' here (re)builds ./%s
+all:
+\t$(MAKE) -C .. %s
+
+%s:
+\t$(MAKE) -C .. %s
+
+libs:
+\t$(MAKE) -C .. libs
+
+.PHONY: all libs %s
+""" % (sec, sec, sec, sec, sec))
+        return True
 
     def write_ajob_npo_file(self, writer, dirpath, dirmadnklo, overall_sector_info):
 
@@ -1429,7 +1475,7 @@ sector_%d_%d: $(FILES_%d_%d)
             #replace_dict['jsec'] = jsec
             sec_str += 'isec=%d\n' %isec
             sec_str += 'jsec=%d\n' %jsec
-            sec_str += './sector_%d_%d 2>&1 &\n' %(isec,jsec)
+            sec_str += '(cd sector_%d_%d && ./sector_%d_%d) 2>&1 &\n' %(isec,jsec,isec,jsec)
 #             files_str += 'FILES_%d_%d= ' % (isec, jsec)
 #             files_str += 'driver_%d_%d.o ' % (isec, jsec)
 #             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)

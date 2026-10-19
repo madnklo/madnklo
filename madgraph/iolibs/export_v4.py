@@ -2881,8 +2881,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         # Copy script to combine results
 
-        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_plots.py'),pjoin(path_to_create,'Events'))
-        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_results.py'),pjoin(path_to_create,'Events'))
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect.py'),pjoin(path_to_create,'Events'))
         cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/run_all.py'),pjoin(path_to_create,'bin'))
 
         for file in linkfiles:

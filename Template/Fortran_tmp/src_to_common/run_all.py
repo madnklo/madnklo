@@ -8,7 +8,10 @@ import shutil
 import subprocess
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+import heapq
+import itertools
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor, wait, FIRST_COMPLETED
 
 
 
@@ -68,8 +71,70 @@ def check_onshell_widths():
         sys.stderr.write(BOLD + 'Please set WT=0 in Cards/param_card.dat before rerunning.' + RST + '\n')
         sys.stderr.write(sep + '\n\n')
 
-def run(cmd, cwd):
-    subprocess.run(cmd, shell=True, check=True, cwd=cwd)
+# ---------------- output of make and of the executables ----------------
+# By default the output of make goes to P1_*/compile.log and the output of each
+# executable to log_<executable>.txt (log_<executable>_test.txt with
+# --test_only) in the directory where it runs, and run_all.py prints one line
+# per directory compiled and per executable run; with --verbose everything is
+# printed on the screen, as before. The setting is passed to the worker
+# processes through the environment (macOS starts them with 'spawn').
+VERBOSE_ENV = "MADNKLO_RUN_ALL_VERBOSE"
+
+
+def verbose():
+    return bool(os.environ.get(VERBOSE_ENV))
+
+
+ERROR_RE = re.compile(r"error|fatal|\*\*\*|undefined|not found|cannot|no such", re.I)
+
+
+def tail(path, n=12, width=160):
+    """The interesting end of a log, for an error message: the lines of the last
+    command (after the last '###' header) around those that look like errors
+    (or else the last n lines), each cut to width characters."""
+    try:
+        with open(path, errors="replace") as f:
+            lines = f.read().splitlines()
+    except IOError:
+        return ""
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].startswith("### "):
+            lines = lines[i + 1:]
+            break
+    hits = [i for i, line in enumerate(lines) if ERROR_RE.search(line)]
+    if hits:
+        keep = sorted({j for i in hits for j in range(max(0, i - 3), min(len(lines), i + 2))})
+        shown = [lines[j] for j in keep][-n:]
+    else:
+        shown = lines[-n:]
+    return "\n".join("      | " + (line if len(line) <= width else line[:width] + " ...")
+                     for line in shown)
+
+
+def run(cmd, cwd, log=None, append=False):
+    """Run cmd in cwd, its output in the file log (on the screen if log is None
+    or with --verbose). On failure the last lines of log are in the error."""
+    if log is None or verbose():
+        subprocess.run(cmd, shell=True, check=True, cwd=cwd)
+        return
+    with open(log, "a" if append else "w") as f:
+        f.write(f"### {time.strftime('%Y-%m-%d %H:%M:%S')}  {cmd}  (in {relpath(cwd)})\n")
+        f.flush()
+        returncode = subprocess.run(cmd, shell=True, cwd=cwd, stdout=f,
+                                    stderr=subprocess.STDOUT).returncode
+    if returncode != 0:
+        raise RuntimeError(f"'{cmd}' failed (exit status {returncode}); "
+                           f"last lines of {relpath(log)}:\n{tail(log)}")
+
+
+def short(path):
+    """How a directory is shown: relative to the output directory, without
+    the 'SubProcesses/' level."""
+    return relpath(path).replace(os.sep + "SubProcesses" + os.sep, os.sep)
+
+
+def compile_log(p):
+    return os.path.join(p, "compile.log")
 
 
 # The 'libs' target of every P1_* makefile runs 'make' in the shared Source
@@ -94,8 +159,19 @@ def make_targets_without_libs(p):
 
 
 def make_libs_serially(paths):
+    width = max(len(short(p)) for p in paths)
     for p in paths:
-        run("make libs", p)
+        if not verbose():
+            print(f"    libraries  {short(p):<{width}}  ", end="", flush=True)
+        start = time.time()
+        try:
+            run("make libs", p, compile_log(p))
+        except RuntimeError:
+            if not verbose():
+                print("FAILED")
+            raise
+        if not verbose():
+            print(f"{time.time() - start:7.1f} s")
         remove_outdated_executables(p)
 
 
@@ -192,9 +268,9 @@ def make_executables(p):
     beforehand, serially, by make_libs_serially)."""
     targets = make_targets_without_libs(p)
     if targets:
-        run("make " + " ".join(targets), p)
+        run("make " + " ".join(targets), p, compile_log(p), append=True)
     else:
-        run("make", p)
+        run("make", p, compile_log(p), append=True)
     return p
 
 
@@ -210,7 +286,7 @@ def collect_p1_paths(pattern):
 # the directory where it runs (P1_*, or P1_*/sector_<i>_<j> for the real
 # emission). The files produced by the last *complete* run of each
 # contribution (B, V, R) are recorded in Events/run_manifest.json, and
-# collect_results.py / collect_plots.py only use those: other files left in the
+# Events/collect.py only uses those: other files left in the
 # P1_* directories (other seeds, saved copies, sectors that no longer exist)
 # are ignored. The entry of a contribution is removed when its run starts and
 # written back only if all its executables succeed.
@@ -258,7 +334,7 @@ def run_executable(task):
     p, exe = task
     p = exe_dir(p, exe)
     start = time.time() - 1.0  # tolerance for the file-system time resolution
-    run(f"./{exe}", p)
+    run(f"./{exe}", p, os.path.join(p, f"log_{exe}.txt"))
     tag = output_tag(exe)
     results = os.path.join(p, f"results_{tag}.log")
     if not (os.path.isfile(results) and os.path.getmtime(results) >= start):
@@ -273,55 +349,161 @@ def run_executable(task):
             "plot": relpath(plot), "plot_mtime": os.path.getmtime(plot)}
 
 
-def pool_map(fn, items, workers, label):
-    """Apply fn to items with at most 'workers' processes; wait for all of them,
-    then raise if any failed. Returns the results in the order of items."""
-    results = [None] * len(items)
-    failures = []
-    with ProcessPoolExecutor(max_workers=max(1, workers)) as executor:
-        futures = {executor.submit(fn, item): i for i, item in enumerate(items)}
-        for future in as_completed(futures):
-            i = futures[future]
-            name = items[i] if isinstance(items[i], str) else os.path.join(*items[i])
-            try:
-                results[i] = future.result()
-                print(f"[{label} OK] {name}")
-            except Exception as e:
-                failures.append(name)
-                print(f"[{label} FAIL] {name}: {e}")
-    if failures:
-        raise RuntimeError(f"{len(failures)} {label} task(s) failed: " + ", ".join(failures))
-    return results
+def timed_call(fn, item):
+    start = time.time()
+    return fn(item), time.time() - start
 
 
-def run_contribution(label, pattern, n, compile_jobs):
-    """Libraries (serially), executables (compile_jobs P1_* directories at a
-    time), then all the executables of the contribution with a single pool of
-    n processes (e.g. all the sectors of all the real-emission directories)."""
-    paths = collect_p1_paths(pattern)
-    if not paths:
-        print(f"No P1_* directories found for {pattern}.")
+# ---------------- scheduling ----------------
+# All the contributions of the mode share one set of n process slots. The
+# libraries are built first, serially, for all the P1_* directories (they
+# rebuild the shared Source, see make_libs_serially). Then the P1_* directories
+# are compiled, at most compile_jobs at the same time, and each executable
+# starts as soon as its directory is compiled and a slot is free: free slots go
+# to compilation first, then to the executables in the order V, R, B (the
+# virtuals are usually the slowest). So, e.g., the real-emission sectors run
+# while the virtuals are still compiling or running. A failure in one
+# contribution does not stop the others; each contribution is recorded in the
+# manifest as soon as all its executables have succeeded.
+# --sequential runs the contributions one after the other, as before.
+RUN_ORDER = ("V", "R", "B")
+
+
+def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_done=None):
+    """Build and run the executables of the contributions labels (see above).
+    run_fn((p, exe)) runs one executable; exe_filter(exe) selects the
+    executables (default all); label_done(label, state) is called when all
+    the tasks of a contribution are over. Returns {label: state}, state =
+    {"tasks": [(p, exe), ...], "results": {(p, exe): result}, "failed": [names]}."""
+    order = sorted(labels, key=RUN_ORDER.index)
+    paths = {}
+    for label in order:
+        paths[label] = collect_p1_paths(CONTRIBUTIONS[label])
+        if not paths[label]:
+            print(f"--- {label}: no P1_* directories found for {CONTRIBUTIONS[label]}")
+    order = [label for label in order if paths[label]]
+    all_paths = [p for label in order for p in paths[label]]
+    if not all_paths:
+        return {}
+    where = "" if verbose() else " (make output in P1_*/compile.log)"
+    print(f"--- libraries, {len(all_paths)} P1_* directories one at a time{where}")
+    make_libs_serially(all_paths)
+
+    state = {}
+    for label in order:
+        tasks = [(p, exe) for p in paths[label] for exe in (make_targets_without_libs(p) or [])
+                 if exe_filter is None or exe_filter(exe)]
+        state[label] = {"tasks": tasks, "results": {}, "failed": [],
+                        "left": len(paths[label]) + len(tasks)}
+    n_tasks = sum(len(state[label]["tasks"]) for label in order)
+    slots, compile_slots = max(1, n), max(1, min(n, compile_jobs))
+    output = "" if verbose() else f", output in log_<executable>{'_test' if run_verb == 'tested' else ''}.txt"
+    print(f"--- compiling {len(all_paths)} P1_* directories ({compile_slots} at a time) and "
+          f"running their {n_tasks} executables as soon as they are compiled: "
+          f"{slots} processes at a time, order {', '.join(order)}{output}")
+
+    names = [short(p) for p in all_paths] + [short(os.path.join(*t)) for label in order
+                                             for t in state[label]["tasks"]]
+    width = max(len(name) for name in names)
+    counters = {"compile": [0, len(all_paths)], "run": [0, n_tasks]}
+    compile_queue = deque((label, p) for label in order for p in paths[label])
+    ready, seq = [], itertools.count()
+    running, n_compiling = {}, 0
+
+    def finished(label):
+        st = state[label]
+        st["left"] -= 1
+        if st["left"] == 0 and label_done is not None:
+            label_done(label, st)
+
+    with ProcessPoolExecutor(max_workers=slots) as executor:
+        while compile_queue or ready or running:
+            while len(running) < slots:
+                if compile_queue and n_compiling < compile_slots:
+                    label, p = compile_queue.popleft()
+                    future = executor.submit(timed_call, make_executables, p)
+                    running[future] = ("compile", label, p)
+                    n_compiling += 1
+                elif ready:
+                    _, _, label, task = heapq.heappop(ready)
+                    future = executor.submit(timed_call, run_fn, task)
+                    running[future] = ("run", label, task)
+                else:
+                    break
+            done, _ = wait(running, return_when=FIRST_COMPLETED)
+            for future in done:
+                kind, label, item = running.pop(future)
+                st = state[label]
+                if kind == "compile":
+                    n_compiling -= 1
+                    name, verb = short(item), "compiled"
+                else:
+                    name, verb = short(os.path.join(*item)), run_verb
+                counter = counters[kind]
+                counter[0] += 1
+                k = f"{counter[0]:>{len(str(n_tasks if kind == 'run' else len(all_paths)))}}/{counter[1]}"
+                try:
+                    result, seconds = future.result()
+                except Exception as e:
+                    print(f"    [{k}] FAILED    {name}: {e}", flush=True)
+                    st["failed"].append(name)
+                    if kind == "compile":
+                        # its executables cannot run
+                        skipped = [t for t in st["tasks"] if t[0] == item]
+                        counters["run"][1] -= len(skipped)
+                        st["left"] -= len(skipped)
+                    finished(label)
+                    continue
+                print(f"    [{k}] {verb:<9} {name:<{width}}  {seconds:7.1f} s", flush=True)
+                if kind == "compile":
+                    for task in st["tasks"]:
+                        if task[0] == item:
+                            heapq.heappush(ready, (RUN_ORDER.index(label), next(seq), label, task))
+                else:
+                    st["results"][item] = result
+                finished(label)
+    return state
+
+
+def record_contribution(label, st):
+    """Manifest entry of a contribution whose executables all succeeded."""
+    if st["failed"]:
+        print(f"--- {label}: {len(st['failed'])} failure(s), not recorded in "
+              f"{relpath(manifest_path())}", flush=True)
         return
-    manifest = load_manifest()
-    manifest["contributions"].pop(label, None)
-    save_manifest(manifest)
-
-    print(f"--- {label}: libraries ({len(paths)} P1_* directories, serially)")
-    make_libs_serially(paths)
-    print(f"--- {label}: compiling, {compile_jobs} P1_* directories at a time")
-    pool_map(make_executables, paths, compile_jobs, "compile")
-
-    tasks = [(p, exe) for p in paths for exe in (make_targets_without_libs(p) or [])]
-    print(f"--- {label}: running {len(tasks)} executables, {n} at a time")
-    runs = pool_map(run_executable, tasks, n, "run")
-
     manifest = load_manifest()
     manifest["contributions"][label] = {
         "finished": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "runs": runs,
+        "runs": [st["results"][task] for task in st["tasks"]],
     }
     save_manifest(manifest)
-    print(f"--- {label}: done, {len(runs)} results recorded in {relpath(manifest_path())}")
+    print(f"--- {label}: done, {len(st['tasks'])} results recorded in "
+          f"{relpath(manifest_path())}", flush=True)
+
+
+def run_mode(labels, n, compile_jobs, sequential):
+    """Run the contributions labels: all together (default) or one after the
+    other (sequential, stopping at the first failure)."""
+    manifest = load_manifest()
+    for label in labels:
+        manifest["contributions"].pop(label, None)
+    save_manifest(manifest)
+    groups = [[label] for label in labels] if sequential else [list(labels)]
+    failed = []
+    for group in groups:
+        print(f"=== Running {' + '.join(NAMES[label] for label in group)}"
+              + (" (in parallel)" if len(group) > 1 else "") + " ===")
+        state = schedule(group, n, compile_jobs, run_executable, "done",
+                         label_done=record_contribution)
+        failed += [label for label in group if state.get(label, {}).get("failed")]
+        if failed:
+            break
+    if failed:
+        recorded = [label for label in labels if label in load_manifest()["contributions"]]
+        raise RuntimeError(
+            f"failures in {', '.join(NAMES[label] for label in failed)} (see the FAILED "
+            f"lines above)" + (f"; recorded: {', '.join(recorded)} (collect them with "
+                               f"'python3 Events/collect.py <MODE>')" if recorded else ""))
 
 
 # ---------------- contributions ----------------
@@ -360,7 +542,7 @@ def test_executable(task):
     p, exe = task
     p = exe_dir(p, exe)
     start = time.time() - 1.0
-    run(f"./{exe} --test_only", p)
+    run(f"./{exe} --test_only", p, os.path.join(p, f"log_{exe}_test.txt"))
     log = os.path.join(p, test_log_name(exe))
     if not (os.path.isfile(log) and os.path.getmtime(log) >= start):
         raise RuntimeError(f"{exe} in {p} did not write {test_log_name(exe)}")
@@ -517,26 +699,28 @@ def details_section(entries):
     return lines
 
 
-def run_tests(labels, n, compile_jobs, tol_poles, tol_limits):
-    lines = test_header("run_all.py --test_only", tol_poles, tol_limits)
+def run_tests(mode, labels, n, compile_jobs, tol_poles, tol_limits):
+    if not any(label in ("V", "R") for label in labels):
+        print(f"--- {mode}: nothing to test (tests exist for V and R only)")
+        return
+    lines = test_header(f"run_all.py {mode} --test_only", tol_poles, tol_limits)
     n_check = 0
     entries = []
-    for label in labels:
-        if label == "B":
-            print("--- B: nothing to test")
+    test_labels = [label for label in labels if label in ("V", "R")]
+    if "B" in labels:
+        print("--- B: nothing to test")
+    print(f"=== Testing {' + '.join(NAMES[label] for label in test_labels)} ===")
+    state = schedule(test_labels, n, compile_jobs, test_executable, "tested",
+                     exe_filter=test_log_name)
+    failed = [name for st in state.values() for name in st["failed"]]
+    if failed:
+        raise RuntimeError(f"{len(failed)} failure(s): " + ", ".join(failed))
+    for label in test_labels:
+        if label not in state:
             continue
-        paths = collect_p1_paths(CONTRIBUTIONS[label])
-        if not paths:
-            continue
-        print(f"--- {label}: libraries ({len(paths)} P1_* directories, serially)")
-        make_libs_serially(paths)
-        print(f"--- {label}: compiling, {compile_jobs} P1_* directories at a time")
-        pool_map(make_executables, paths, compile_jobs, "compile")
-        tasks = [(p, exe) for p in paths for exe in (make_targets_without_libs(p) or [])
-                 if test_log_name(exe)]
-        print(f"--- {label}: testing {len(tasks)} executables, {n} at a time")
-        logs = pool_map(test_executable, tasks, n, "test")
-        for (p, exe), log in zip(tasks, logs):
+        for task in state[label]["tasks"]:
+            p, exe = task
+            log = state[label]["results"][task]
             line, ok = summarize_test_log(exe, log, tol_poles, tol_limits)
             n_check += not ok
             lines.append(line)
@@ -545,15 +729,14 @@ def run_tests(labels, n, compile_jobs, tol_poles, tol_limits):
     lines.append(f"{n_check} test log(s) to check" if n_check else "all tests within tolerance")
     details = details_section(entries)
 
-    summary = next_free_name(os.path.join(output_dir(), "Events", "tests"), ".txt")
-    os.makedirs(os.path.dirname(summary), exist_ok=True)
+    summary = os.path.join(new_run_dir(f"run_{mode}_tests"), "tests.txt")
     with open(summary, "w") as f:
         f.write("\n".join(lines + details) + "\n")
     print("\n" + "\n".join(lines))
     print(f"\nTest summary (with the approach to the limits) written to {relpath(summary)}")
 
 
-def collect_test_logs(tol_poles, tol_limits):
+def collect_test_logs(tol_poles, tol_limits, labels=("V", "R")):
     """Summary of the test logs currently present (from 'run_all.py --test_only',
     from the executables run by hand with --test_only, or from the first points
     of a normal run): one line per virtual and per sector of the current
@@ -561,7 +744,7 @@ def collect_test_logs(tol_poles, tol_limits):
     lines = test_header("summary of the test logs", tol_poles, tol_limits)
     n_check = 0
     entries = []
-    for label in ("V", "R"):
+    for label in [l for l in ("V", "R") if l in labels]:
         missing = []
         for p in collect_p1_paths(os.path.join(output_dir(), CONTRIBUTIONS[label][3:])):
             for exe in make_targets_without_libs(p) or []:
@@ -584,11 +767,38 @@ def collect_test_logs(tol_poles, tol_limits):
     return lines + details_section(entries)
 
 
-def next_free_name(stem, ext=""):
+def new_run_dir(stem):
+    """Create and return Events/<stem>_<N>, with N = 1, 2, ... the first free
+    number (as MG5's Events/run_NN; mkdir reserves the name, so that two runs
+    started at the same time never share a directory)."""
+    events = os.path.join(output_dir(), "Events")
+    os.makedirs(events, exist_ok=True)
     i = 1
-    while os.path.exists(f"{stem}_{i}{ext}"):
-        i += 1
-    return f"{stem}_{i}{ext}"
+    while True:
+        path = os.path.join(events, f"{stem}_{i}")
+        try:
+            os.mkdir(path)
+            return path
+        except FileExistsError:
+            i += 1
+
+
+# ---------------- collection ----------------
+# At the end of a run, Events/collect.py <MODE> writes Events/run_<MODE>_<N>/
+# (cross sections with scale variations, test summary, histograms and plots,
+# copies of the cards); it can also be run by hand.
+def collect_run(mode, tol_poles, tol_limits):
+    script = os.path.join(output_dir(), "Events", "collect.py")
+    if not os.path.isfile(script):
+        print(f"\n{relpath(script)} not found: results not collected")
+        return
+    print("\n=== Collecting results ===")
+    result = subprocess.run([sys.executable, script, mode,
+                             f"--tol-poles={tol_poles}", f"--tol-limits={tol_limits}"])
+    if result.returncode != 0:
+        print(f"\nWARNING: {relpath(script)} {mode} failed (exit status "
+              f"{result.returncode}); the results of the run are recorded in "
+              f"{relpath(manifest_path())}: run it again by hand")
 
 
 if __name__ == "__main__":
@@ -604,48 +814,77 @@ if __name__ == "__main__":
         "-n",
         type=int,
         default=os.cpu_count(),
-        help="Number of executables (Born, virtual, sector_*) run at the same time",
+        help="Maximum number of processes at the same time, compilations and "
+             "executables (Born, virtual, sector_*) of all the contributions of MODE "
+             "together (default: the number of CPU cores, here %(default)s)",
     )
     parser.add_argument(
         "--test_only",
         action="store_true",
         help="Only run the tests: pole cancellation in the virtual, IR limits in the "
-             "real-emission sectors (summary in Events/tests_N.txt); no integration",
+             "real-emission sectors (summary in Events/run_<MODE>_tests_N/tests.txt); "
+             "no integration",
     )
     parser.add_argument(
         "--tol-poles",
         type=float,
         default=1e-5,
-        help="--test_only: tolerance on |V+I|/max(|V|,|I|) for the poles (default 1e-5)",
+        help="Tests (--test_only, and tests.txt of the collection at the end of a run): "
+             "tolerance on |V+I|/max(|V|,|I|) for the poles (default 1e-5)",
     )
     parser.add_argument(
         "--tol-limits",
         type=float,
         default=1e-3,
-        help="--test_only: tolerance on the best |R-K|/|K| reached in each limit "
-             "(default 1e-3)",
+        help="Tests (--test_only, and tests.txt of the collection at the end of a run): "
+             "tolerance on the best |R-K|/|K| reached in each limit (default 1e-3)",
     )
     parser.add_argument(
         "-j", "--compile-jobs",
         type=int,
         default=2,
-        help="Number of P1_* directories compiled at the same time (default 2; "
-             "compilation, especially of the virtuals, can take a lot of memory)",
+        help="Of these, maximum number of P1_* directories compiled at the same time "
+             "(default 2; compilation, especially of the virtuals, can take a lot of memory)",
+    )
+    parser.add_argument(
+        "--sequential",
+        action="store_true",
+        help="Run the contributions of MODE one after the other (B, V, R), each "
+             "compiled and run completely before the next one starts; by default "
+             "they share the n processes, and an executable starts as soon as its "
+             "directory is compiled (virtuals first)",
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Print the full output of make and of the executables (by default it "
+             "goes to P1_*/compile.log and log_<executable>.txt, and run_all.py "
+             "prints one line per directory compiled and per executable run)",
+    )
+    parser.add_argument(
+        "--no-collect",
+        action="store_true",
+        help="Do not run Events/collect.py at the end (by default it writes the "
+             "results, tests and plots of the run to Events/run_<MODE>_N/)",
     )
 
     check_onshell_widths()
     args = parser.parse_args()
+    if args.verbose:
+        os.environ[VERBOSE_ENV] = "1"
+    else:
+        os.environ.pop(VERBOSE_ENV, None)
     # run from bin/, where the patterns above are relative to
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     update_run_card_include()
 
     try:
         if args.test_only:
-            run_tests(MODES[args.mode], args.n, args.compile_jobs, args.tol_poles,
-                      args.tol_limits)
+            run_tests(args.mode, MODES[args.mode], args.n, args.compile_jobs,
+                      args.tol_poles, args.tol_limits)
             sys.exit(0)
-        for label in MODES[args.mode]:
-            print(f"=== Running {NAMES[label]} ===")
-            run_contribution(label, CONTRIBUTIONS[label], args.n, args.compile_jobs)
+        run_mode(MODES[args.mode], args.n, args.compile_jobs, args.sequential)
     except (RuntimeError, subprocess.CalledProcessError) as e:
         sys.exit(f"\nrun_all.py stopped: {e}")
+    if not args.no_collect:
+        collect_run(args.mode, args.tol_poles, args.tol_limits)

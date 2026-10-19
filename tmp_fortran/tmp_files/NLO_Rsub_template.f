@@ -10,6 +10,7 @@ c     (n+1)-body NLO integrand for vegas
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
+      INCLUDE 'qcd_power.inc'
       integer i
       integer ierr
       integer ievt,nthres,ntest
@@ -23,7 +24,7 @@ c     (n+1)-body NLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgtpl,wgts(1),wgt_chan
+      double precision wgt,wgtpl,wgts(sv_maxwgt),wgt_chan
       logical dotechcut
       logical doplot
       common/cdoplot/doplot
@@ -78,6 +79,9 @@ c     test phase-space singularities of matrix elements
          ntested=ntested+1
          call test_R_%(isec)d_%(jsec)d(ntested)
       endif
+c     the limit tests call the counterterms: discard their contributions
+c     to the renormalisation-scale variations
+      call sv_point_reset()
 c
 c     phase space and invariants
       call phase_space_npo(x,iU,iS,iB,iA,p,pb,xjac,xjacB)
@@ -127,10 +131,13 @@ c     real sector function
 c
 c     full real in sector Wij
       int_real_no_cnt=RNLO*W_NLO*xjac
+c     renormalisation-scale variations: R ~ alpha_s^(b+1), scale of the
+c     (n+1)-body kinematics
+      call sv_add(int_real_no_cnt*wgt_chan,0d0,born_qcd_power+1)
 c
 c     plot real
       wgtpl=int_real_no_cnt*wgt*wgt_chan
-      wgts=wgtpl
+      call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
  555  continue
 c

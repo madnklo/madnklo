@@ -9,6 +9,7 @@ c     n-body LO integrand for vegas
       INCLUDE 'cuts.inc'
       INCLUDE 'leg_PDGs.inc'
       INCLUDE 'ngraphs.inc'
+      INCLUDE 'qcd_power.inc'
       integer ierr
       integer ievt,nthres
       save ievt,nthres
@@ -17,7 +18,7 @@ c     n-body LO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgts(1),wgtpl
+      double precision wgt,wgts(sv_maxwgt),wgtpl
       logical doplot
       common/cdoplot/doplot
       logical docut
@@ -71,10 +72,12 @@ c     Born
       BLO = ANS(0)*AMP2(ich)
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
       int_Born=BLO*xjac*fl_factor
+c     renormalisation-scale variations: B ~ alpha_s^b
+      call sv_add(int_Born,0d0,born_qcd_power)
 c
 c     plot Born
       wgtpl=int_Born*wgt
-      wgts=wgtpl
+      call sv_wgts(wgtpl,0d0,born_qcd_power,wgts)
       if(doplot) then
          call invariants_from_p(p,nexternal,sLO,ierr)
          if(ierr.ne.0)then

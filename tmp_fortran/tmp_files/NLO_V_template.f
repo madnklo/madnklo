@@ -11,6 +11,7 @@ c     n-body NLO integrand for vegas
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
       INCLUDE 'leg_PDGs.inc'
+      INCLUDE 'qcd_power.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       integer nitV
@@ -20,7 +21,8 @@ c     n-body NLO integrand for vegas
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgts(1),wgtpl
+      double precision wgt,wgts(sv_maxwgt),wgtpl
+      double precision BLOI,dvsv
       logical doplot, docut
       common/cdoplot/doplot
       double precision p(0:3,nexternal)
@@ -126,7 +128,7 @@ c     call virtual
       VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
 c
 c     call counterterm
-      call int_counter_NLO(p,sLO,INLO,ierr)
+      call int_counter_NLO(p,sLO,INLO,BLOI,ierr)
       if(ierr.ne.0)then
          nfail=nfail+1
          write(77,*)'ierr failure: V',ierr,ich,failure_stage
@@ -152,9 +154,16 @@ c
 c     Multi channeling
       int_virtual = int_virtual * amp2(ich)
 c
+c     renormalisation-scale variations, with b = born_qcd_power:
+c     (V+I)(k muR) = r_k^(b+1) [ (V+I)(muR) + b beta0/2 alphas/(2 pi) B log(k^2) ]
+c     (the explicit infrared logarithms of V and I cancel, since their
+c     poles do; the remaining log comes from the UV renormalisation)
+      dvsv=born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*amp2(ich)
+      call sv_add(int_virtual,dvsv,born_qcd_power+1)
+c
 c     plot
       wgtpl=int_virtual*wgt
-      wgts=wgtpl
+      call sv_wgts(wgtpl,dvsv*wgt,born_qcd_power+1,wgts)
       if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
 c
  999  return

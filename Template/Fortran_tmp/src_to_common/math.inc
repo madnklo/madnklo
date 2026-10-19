@@ -24,6 +24,12 @@ c     scale for the kinematics at hand before reading them.
       real * 8 muR_current, alphas_current
       common/c_ren_scale/muR_current, alphas_current
 c
+c     maximum number of histogram weights: central value plus one per
+c     (muF,muR) pair of the scale variations (see sv_weights_info in
+c     ren_scale.f; at most 9 factors each, as in MG5_aMC)
+      integer sv_maxwgt
+      parameter (sv_maxwgt=82)
+c
 c     mathematical constants
       parameter (pi   =3.141592653589793238462643383279502884197d0)
       parameter (twopi=2d0*pi)

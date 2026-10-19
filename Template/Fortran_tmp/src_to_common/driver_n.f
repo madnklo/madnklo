@@ -44,7 +44,7 @@ c
       double precision sum_b,sum_err_b
       double precision sum_err_b_a,err_b_a(N_MAX_CG)
       integer nwgt
-      character*20 weights_info(1)
+      character*80 weights_info(100)
 c
       nfail=0
       sum_b=0d0
@@ -83,8 +83,10 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      nwgt=1
-      weights_info(1)='central value'
+c     renormalisation-scale variations (rw_rscale in run_card.dat):
+c     one histogram weight per scale factor
+      call sv_init()
+      call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_B.log')
       open(unit=iu7,file='failures_B.log',status='replace',action='write')
@@ -134,6 +136,7 @@ c
          failure_stage='main'
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
      &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call sv_add_channel()
          write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          sum_b = sum_b + res_b
@@ -148,6 +151,7 @@ c     finalise histograms and output files
       call analysis_end(1d0,'plot_B.dat')
       sum_err_b = dsqrt(sum_err_b)
       write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_err_b
+      call sv_write_results(iu,'B',sum_b,sum_err_b)
       close(iu)
       close(iu1)
       if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail

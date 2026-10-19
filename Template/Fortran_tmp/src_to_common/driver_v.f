@@ -44,7 +44,7 @@ c
       double precision sum_v, sum_err_v
       double precision sum_err_v_a,err_v_a(N_MAX_CG)
       integer nwgt
-      character*20 weights_info(1)
+      character*80 weights_info(100)
 c
       nfail=0
       sum_v=0d0
@@ -84,8 +84,10 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      nwgt=1
-      weights_info(1)='central value'
+c     renormalisation-scale variations (rw_rscale in run_card.dat):
+c     one histogram weight per scale factor
+      call sv_init()
+      call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_V.log')
       open(unit=iu2,file='test_poles_V.log')
@@ -136,6 +138,7 @@ c
          failure_stage='main'
          call vegas(region,ndim,int_virtual,init,nclV1,nitV,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call sv_add_channel()
          write(iu8,*)'V: channel, itns, calls = ',ich,nitV,nclV1
          rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
          sum_v = sum_v + res_v
@@ -149,6 +152,7 @@ c     finalise histograms and output files
       call analysis_end(1d0,'plot_V.dat')
       sum_err_v = dsqrt(sum_err_v)
       write(iu,*)' sigma V [pb]  = ',sum_v,' +-',sum_err_v
+      call sv_write_results(iu,'V',sum_v,sum_err_v)
       close(iu)
       close(iu1)
       close(iu2)

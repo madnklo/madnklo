@@ -13,8 +13,10 @@ c     it returns 0 if i is not a gluon
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
+      include 'qcd_power.inc'
       integer i,l,m,lb,mb,ierr,nit
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgts(sv_maxwgt),wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision svpc
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -148,11 +150,17 @@ c     damping factors
             M2tmp=M2tmp*damp*xj
             M2_S_g=M2_S_g+pref*M2tmp*ws_nlo*extra
 c
+c     renormalisation-scale variations: contribution of this dipole
+c     to the integrand (-K), ~ alpha_s^(b+1) at the dipole's scale
+            svpc=-pref*M2tmp*WS_NLO*extra*wgt_chan
+            svpc=svpc*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            call sv_add(svpc,0d0,born_qcd_power+1)
+c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
-            wgts=wgtpl
+            call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
             if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo

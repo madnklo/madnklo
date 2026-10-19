@@ -11,8 +11,9 @@ c     collinear limit C_(ia,ib) * Wcollinear
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
+      include 'qcd_power.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2_C_qqx,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
+      double precision pref,M2_C_qqx,wgt,wgts(sv_maxwgt),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -120,7 +121,10 @@ c
 c     plot
       wgtpl=-M2_HC_qqx*wgt*wgt_chan
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
-      wgts=wgtpl
+      call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
+c     renormalisation-scale variations: contribution to the integrand
+c     (-K), ~ alpha_s^(b+1) at the scale of the mapped kinematics
+      call sv_add(-M2_HC_qqx*wgt_chan,0d0,born_qcd_power+1)
       if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     sanity check

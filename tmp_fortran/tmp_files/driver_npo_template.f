@@ -45,7 +45,7 @@ c
       double precision sum_r,sum_err_r
 c     double precision sum_err_r_a,err_r_a(N_MAX_CG)
       integer nwgt
-      character*20 weights_info(1)
+      character*80 weights_info(100)
       INCLUDE 'all_sector_list.inc'
 c
       nfail=0
@@ -87,8 +87,10 @@ c     phase-space dimension, same for all contributions to this folder
 c
 c     initialise histograms and open output files
 c      call histo_init
-      nwgt=1
-      weights_info(1)='central value'
+c     renormalisation-scale variations (rw_rscale in run_card.dat):
+c     one histogram weight per scale factor
+      call sv_init()
+      call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log',status='replace',action='write')
@@ -141,6 +143,7 @@ c         nclR1=max(1000,int(nclR*err_r_a(ich)/sum_err_r_a))
 c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          failure_stage='main'
          call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call sv_add_channel()
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
@@ -158,6 +161,7 @@ c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)
       write(iu,*)' sigma R%(isec)d%(jsec)d [pb]  = ',sum_r,' +-',sum_err_r
+      call sv_write_results(iu,'R%(isec)d%(jsec)d',sum_r,sum_err_r)
 c      write(iu,*)
 c      write(iu,*)' '//line
 c      write(iu,*)

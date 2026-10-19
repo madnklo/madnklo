@@ -2,6 +2,7 @@
 
 import glob
 import os
+import shutil
 import subprocess
 import sys
 
@@ -22,6 +23,9 @@ def run_histograms_sum(input_files, out_prefix):
         *input_files,
         "--sum",
         "--HwU",
+        # keep the scale-variation weights ('dyn= .. muR= .. muF= ..'), which
+        # histograms.py drops by default; MG5_aMC's combine_plots_HwU does the same
+        "--keep_all_weights",
         "--no_open",
         f"--out={out_prefix}",
     ]
@@ -29,6 +33,33 @@ def run_histograms_sum(input_files, out_prefix):
     print("Running:")
     print("  " + " ".join(cmd))
     subprocess.run(cmd, check=True)
+
+
+def run_histograms_plot(prefix):
+    """Gnuplot output of <prefix>.HwU with the scale variations: the extra
+    weights are kept (as in MG5_aMC's combine_plots_HwU) and the scale
+    variation is drawn as a band in the main panel and in the lower panel of
+    relative uncertainties (histograms.py default; MG5_aMC's '--band=[]' draws
+    it only as lines in the lower panel).
+    Writes <prefix>.gnuplot (and rewrites <prefix>.HwU with the same content),
+    then runs gnuplot, if available, to produce the .ps/.pdf files."""
+    cmd = [
+        HISTOGRAMS,
+        f"{prefix}.HwU",
+        "--gnuplot",
+        "--keep_all_weights",
+        "--no_open",
+        f"--out={prefix}",
+    ]
+    print("Running:")
+    print("  " + " ".join(cmd))
+    subprocess.run(cmd, check=True)
+    if shutil.which("gnuplot"):
+        result = subprocess.run(["gnuplot", f"{prefix}.gnuplot"])
+        if result.returncode != 0:
+            print(f"Warning: gnuplot failed on {prefix}.gnuplot", file=sys.stderr)
+    else:
+        print(f"gnuplot not found: run 'gnuplot {prefix}.gnuplot' to produce the plots")
 
 
 def main():
@@ -75,12 +106,17 @@ def main():
         "NLO",
     )
 
+    # Plots (gnuplot) with the scale variations
+    run_histograms_plot("NLOcorr")
+    run_histograms_plot("NLO")
+
     print("\nDone. Created:")
     print("  B.HwU")
     print("  V.HwU")
     print("  R.HwU")
     print("  NLOcorr.HwU")
     print("  NLO.HwU")
+    print("  NLOcorr.gnuplot, NLO.gnuplot (and their .ps/.pdf if gnuplot is available)")
 
 
 if __name__ == "__main__":

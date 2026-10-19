@@ -3452,7 +3452,11 @@ if __name__ == "__main__":
     use_band      = None
     auto_open = True
     ratio_correlations = True
-    consider_reweights = ['pdf','scale','murmuf_scales','merging_scale','alpsfact']
+    # 'scale_adv'/'pdf_adv' are the 'dyn= .. muR= .. muF= ..' and 'PDF= .. <set>'
+    # weights written by the fixed-order codes (MG5_aMC, MadNkLO): kept by
+    # default, so that '--keep_all_weights' is not needed to see them
+    consider_reweights = ['pdf','scale','murmuf_scales','merging_scale','alpsfact',
+                          'scale_adv','pdf_adv']
 
     def log(msg):
         print "histograms.py :: %s"%str(msg)
@@ -3547,11 +3551,12 @@ if __name__ == "__main__":
     # Now remove from the weights considered all those not deemed necessary
     # in view of which uncertainties are selected
     if isinstance(consider_reweights, list):
-        naming_map={'pdf':'pdf','scale':'scale',
-                  'merging_scale':'merging_scale','alpsfact':'alpsfact'}
+        naming_map={'pdf':['pdf','pdf_adv'],'scale':['scale','scale_adv'],
+                  'merging_scale':['merging_scale'],'alpsfact':['alpsfact']}
         for key in naming_map:
-            if (not key in uncertainties) and (naming_map[key] in consider_reweights):
-                consider_reweights.remove(naming_map[key])
+            for name in naming_map[key]:
+                if (not key in uncertainties) and (name in consider_reweights):
+                    consider_reweights.remove(name)
 
     n_files    = len([_ for _ in sys.argv[1:] if not _.startswith('--')])
     histo_norm = [1.0]*n_files

@@ -77,6 +77,8 @@ C**
         si=0.d0
         swgt=0.d0
         schi=0.d0
+c     renormalisation-scale variations (ren_scale.f): reset results
+        call sv_vegas_reset()
 C**
         it=1
 C**
@@ -249,7 +251,10 @@ c
               write(*,*)'xo:',xo,'xnd: ',xnd
               write(*,*)'ia:',ia
             endif
+            call sv_point_reset()
             f=wgt*fxn(x,wgt)
+c     renormalisation-scale variations: accumulate this point
+            call sv_vegas_point(f,wgt)
 c     As in MG5_aMC: all (correlated) histogram fills made for this
 c     phase-space point (event and counterevents) are added to the
 c     histograms as a single point.
@@ -284,6 +289,8 @@ c     processed by a single thread (true when OpenMP is not enabled).
              call HwU_end_cell(npg)
 !$OMP END CRITICAL(hwu_points)
           endif
+c     renormalisation-scale variations: variance of this supercell
+          call sv_vegas_end_cell(npg)
           f2b=sqrt(f2b*npg)
           f2b=(f2b-fb)*(f2b+fb)
           IF (f2b.LE.0.d0) f2b=tiny
@@ -320,6 +327,9 @@ c     accumulated sd before this iteration (0 at the first one), for HwU
         schi=schi+sigma_sq_inv*ti**2    
                                ! Accumulates  ti(itmx)**2/sigma(itmx)**2
         swgt=swgt+sigma_sq_inv ! Accumulates  1/sigma(itmx)**2
+c     renormalisation-scale variations: combine the iterations with
+c     the weights of the central value
+        call sv_vegas_end_iter(dv2g,sigma_sq_inv)
         tgral=si/swgt
         chi2a=max((schi-si*tgral)/(it-.99d0),0.d0)
         sd=sqrt(1.d0/swgt)     ! sd= 1/sqrt(sum of 1/sigma(itmx)**2)

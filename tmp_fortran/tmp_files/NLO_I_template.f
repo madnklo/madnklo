@@ -1,8 +1,9 @@
-      subroutine int_counter_NLO(p,sLO,INLO,ierr)
+      subroutine int_counter_NLO(p,sLO,INLO,BLOI,ierr)
 c     MSbar integrated counterterm
 c     FINITE_PART = INLO(0)
 c     SINGLE_POLE = INLO(-1)
 c     DOUBLE_POLE = INLO(-2)
+c     BLOI = Born matrix element (for the renormalisation-scale variations)
       implicit none
       INCLUDE 'nexternal.inc'
       INCLUDE 'damping_factors.inc'
@@ -18,7 +19,7 @@ c     DOUBLE_POLE = INLO(-2)
       double precision p(0:3,nexternal)
       double precision sLO(nexternal,nexternal)
       double precision INLO(-2:0),pref
-      double precision BLO,ccBLO
+      double precision BLO,ccBLO,BLOI
       double precision A20a,A21a,A20b,A20,A21
       DOUBLE PRECISION ALPHAS,ANS(0:NSQSO_BORN)
       DOUBLE PRECISION ALPHA_QCD
@@ -48,10 +49,12 @@ c     renormalisation scale for the n-body kinematics
       iref1 = 0
       CCBLO = 0d0
       BLO = 0d0
+      BLOI = 0d0
       res = 0d0
 
       CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       BLO = ANS(0)
+      BLOI = BLO
 c
 c     TODO: add check 
       do i=1,len_iref

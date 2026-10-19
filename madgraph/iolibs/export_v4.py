@@ -2750,6 +2750,10 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #gl
         self.write_leg_PDGs_file(dirpath, matrix_element.get('processes'))
 
+        # QCD power of the underlying Born (qcd_power.inc), used for the
+        # renormalisation-scale variations by reweighting
+        self.write_qcd_power_file(dirpath, matrix_element)
+
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
         plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
@@ -3149,6 +3153,57 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         return True
 
+
+    #===========================================================================
+    # write qcd_power.inc (Torino subtraction: renormalisation-scale variations)
+    #===========================================================================
+    def write_qcd_power_file(self, dirpath, matrix_element):
+        """Write qcd_power.inc, defining born_qcd_power = b, the power of
+        alpha_s of the underlying Born matrix element: the matrix element of
+        this directory in LO_* directories, the real-emission matrix element
+        divided by one power of alpha_s in NLO_R_* directories (the NLO_V_*
+        directories link the file of the corresponding LO_* directory).
+        The scale variations are obtained by reweighting each contribution
+        with (alpha_s(k muR)/alpha_s(muR))^p, p = b (Born) or b+1 (NLO), which
+        requires all diagrams to have the same QCD order. Otherwise b = -1
+        is written, and the Fortran code stops if scale variations are
+        requested. Nothing is written for other directories."""
+
+        contrib_dir_name = os.path.basename(os.path.normpath(str(self.dir_path)))
+        if contrib_dir_name.startswith('LO'):
+            n_emissions = 0
+        elif contrib_dir_name.startswith('NLO_R'):
+            n_emissions = 1
+        else:
+            return False
+
+        model = matrix_element.get('processes')[0].get('model')
+        interaction_dict = model.get('interaction_dict')
+        qcd_orders = set()
+        for diagram in matrix_element.get('base_amplitude').get('diagrams'):
+            qcd_order = 0
+            for vertex in diagram.get('vertices'):
+                interaction = interaction_dict.get(vertex.get('id'))
+                if interaction:
+                    qcd_order += interaction.get('orders').get('QCD', 0)
+            qcd_orders.add(qcd_order)
+
+        if len(qcd_orders) == 1 and min(qcd_orders) >= n_emissions:
+            born_qcd_power = min(qcd_orders) - n_emissions
+        else:
+            born_qcd_power = -1
+            logger.warning('The diagrams of %s have different QCD orders (%s): '
+                % (matrix_element.get('processes')[0].nice_string(),
+                   ', '.join('%d' % o for o in sorted(qcd_orders))) +
+                'renormalisation-scale variations by reweighting are not '+
+                'possible for this process (set reweight_scale = False).')
+
+        text = """ \
+          integer born_qcd_power
+          parameter (born_qcd_power=%d)""" % born_qcd_power
+        writers.FortranWriter(pjoin(dirpath, 'qcd_power.inc')).writelines(text)
+
+        return True
 
     #===========================================================================
     # write the list of colored partons in the process

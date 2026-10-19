@@ -44,7 +44,9 @@ C     sqrt(s)= center of mass energy
       REAL*8 BLO
       integer ntested,ntest
       parameter(ntest=20)
-      save ntested
+c     number of points whose poles were tested (also read by the driver
+c     in test-only mode)
+      common/c_test_poles_v/ntested
 C     
 C     GLOBAL VARIABLES
 C     

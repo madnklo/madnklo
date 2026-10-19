@@ -130,6 +130,11 @@ def run_histograms_plot(prefix):
         print(f"gnuplot not found: run 'gnuplot {prefix}.gnuplot' to produce the plots")
 
 
+def shown(name):
+    """How an output name is printed: relative to the output directory."""
+    return os.path.relpath(os.path.abspath(name), OUTPUT_DIR)
+
+
 def next_free_name(stem, ext=""):
     """stem_1<ext>, stem_2<ext>, ...: the first name that does not exist yet."""
     i = 1
@@ -229,7 +234,7 @@ def main():
         else:
             print(f"{out} not produced: missing contributions")
 
-    print(f"\nDone. Created in Events/{out_dir}/:")
+    print(f"\nDone. Created in {shown(out_dir)}/:")
     for c in created + ["sources.txt (the files summed)"]:
         print("  " + c)
 

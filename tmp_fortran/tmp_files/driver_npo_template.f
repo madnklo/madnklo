@@ -9,6 +9,14 @@
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer mxdim
       parameter(mxdim=30)
+c     test-only mode (command-line argument --test_only)
+      logical test_only
+      character*40 arg
+      integer iarg
+      double precision xtest(mxdim),wtest,ftest,ran2
+      external ran2
+      integer ntest_r
+      parameter(ntest_r=20)
       integer ndim,i,j,idum
       double precision s_had
       integer iu,iu1,iu7,iu8,iu9
@@ -84,6 +92,33 @@ c     phase-space dimension, same for all contributions to this folder
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
+c
+c     test-only mode: './sector_i_j --test_only' only runs the tests
+      test_only=.false.
+      do iarg=1,command_argument_count()
+         call get_command_argument(iarg,arg)
+         if(trim(arg).eq.'--test_only')test_only=.true.
+      enddo
+      if(test_only)then
+c        IR-limit tests of the first ntest_r calls of the integrand
+c        (testR_i_j.log), without integration
+         open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
+         open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d_test.log',status='replace')
+         ich=1
+         doplot=.false.
+         failure_stage='test'
+         do i=1,ntest_r
+            do j=1,ndim
+               xtest(j)=ran2(idum)
+            enddo
+            wtest=1d0
+            ftest=int_real_%(isec)d_%(jsec)d(xtest,wtest)
+         enddo
+         close(iu8)
+         close(iu7)
+         write(*,*)'Test only: IR limits written to testR_%(isec)d_%(jsec)d.log'
+         stop
+      endif
 c
 c     initialise histograms and open output files
 c      call histo_init

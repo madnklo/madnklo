@@ -9,6 +9,15 @@
       INCLUDE 'ngraphs.inc'
       integer mxdim
       parameter(mxdim=30)
+c     test-only mode (command-line argument --test_only)
+      logical test_only
+      character*40 arg
+      integer iarg
+      double precision xtest(mxdim),wtest,ftest,ran2
+      external ran2
+      integer ntested_v,ntest_v
+      parameter(ntest_v=20)
+      common/c_test_poles_v/ntested_v
       integer ndim,i,j,idum
       double precision s_had
       integer iu,iu1,iu2,iu7,iu8
@@ -82,6 +91,36 @@ c     phase-space dimension, same for all contributions to this folder
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
+c
+c     test-only mode: './virtual --test_only' only runs the tests
+      test_only=.false.
+      do iarg=1,command_argument_count()
+         call get_command_argument(iarg,arg)
+         if(trim(arg).eq.'--test_only')test_only=.true.
+      enddo
+      if(test_only)then
+c        pole cancellation V+I on the first ntest_v points passing the
+c        cuts (test_poles_V.log), without integration
+         open(unit=iu2,file='test_poles_V.log')
+         open(unit=iu7,file='failures_V_test.log',status='replace')
+         ich=1
+         doplot=.false.
+         failure_stage='test'
+         ntested_v=0
+         do i=1,100000
+            do j=1,ndim
+               xtest(j)=ran2(idum)
+            enddo
+            wtest=1d0
+            ftest=int_virtual(xtest,wtest)
+            if(ntested_v.ge.ntest_v)exit
+         enddo
+         close(iu2)
+         close(iu7)
+         write(*,*)'Test only:',ntested_v,
+     &        ' points with V+I poles written to test_poles_V.log'
+         stop
+      endif
 c
 c     initialise histograms and open output files
 c     renormalisation-scale variations (rw_rscale in run_card.dat):

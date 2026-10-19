@@ -223,6 +223,11 @@ def format_variations(variations: Dict[float, List[float]], n_expected: int,
                      f"{central:8.3e} pb  +{s_max:0.1f}% -{s_min:0.1f}%")
     return lines
 
+def shown(name):
+    """How an output name is printed: relative to the output directory."""
+    return os.path.relpath(os.path.abspath(name), OUTPUT_DIR)
+
+
 def next_free_name(stem, ext=""):
     """stem_1<ext>, stem_2<ext>, ...: the first name that does not exist yet."""
     i = 1
@@ -261,6 +266,26 @@ def provenance_lines(all_files):
     return lines
 
 
+def collect_tests(args, out_file) -> None:
+    """Summary of all the test logs in one file; the parsing and the checks are
+    those of bin/run_all.py --test_only (imported from there)."""
+    import importlib.util
+    path = os.path.join(OUTPUT_DIR, "bin", "run_all.py")
+    try:
+        spec = importlib.util.spec_from_file_location("madnklo_run_all", path)
+        run_all = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(run_all)
+        collect_test_logs = run_all.collect_test_logs
+    except Exception as e:
+        print(f"Test summary not produced: cannot use {shown(path)} ({e})")
+        return
+    lines = collect_test_logs(args.tol_poles, args.tol_limits)
+    with open(out_file, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    print(f"\nTest summary written to {shown(out_file)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -282,16 +307,53 @@ def main() -> None:
     parser.add_argument(
         "--out",
         default=None,
-        help="Name of the output (in Events/); default: the next free results_N.txt (N = 1, 2, ...)",
+        help="Name of the output (in Events/): <out>.txt and <out>_tests.txt; "
+             "default: the next free results_N.txt and tests_N.txt, N = 1, 2, ...",
     )
     parser.add_argument(
         "--force",
         action="store_true",
         help="Replace the --out output if it already exists",
     )
+    parser.add_argument(
+        "--tests-only", "--tests",
+        dest="tests_only",
+        action="store_true",
+        help="Only write the summary of the test logs, not the cross sections",
+    )
+    parser.add_argument(
+        "--no-tests",
+        action="store_true",
+        help="Do not write the summary of the test logs (by default it is written "
+             "to Events/tests_N.txt, or <out>_tests.txt with --out <out>, next to "
+             "the cross sections): V+I poles and IR limits of the real-emission "
+             "sectors, from the test logs currently in the P1_* directories",
+    )
+    parser.add_argument(
+        "--tol-poles",
+        type=float,
+        default=1e-5,
+        help="--tests: tolerance on |V+I|/max(|V|,|I|) for the poles (default 1e-5)",
+    )
+    parser.add_argument(
+        "--tol-limits",
+        type=float,
+        default=1e-3,
+        help="--tests: tolerance on the best |R-K|/|K| reached in each limit (default 1e-3)",
+    )
     args = parser.parse_args()
     os.chdir(EVENTS_DIR)
+
+    # output names first, so that an existing --out stops everything at once
+    tests_file = None
+    if args.tests_only:
+        tests_file = output_name(args.out, "tests", ".txt", args.force)
+        collect_tests(args, tests_file)
+        return
     out_file = output_name(args.out, "results", ".txt", args.force)
+    if not args.no_tests:
+        tests_file = output_name(None if args.out is None else args.out + "_tests",
+                                 "tests", ".txt", args.force)
 
     summaries = {label: collect(label, args.all_files) for label in ("B", "V", "R")}
     print("")
@@ -347,7 +409,12 @@ def main() -> None:
     with open(out_file, "w") as f:
         f.write("\n".join(output_lines) + "\n")
 
-    print(f"\nResults written to Events/{out_file}")
+    print(f"\nResults written to {shown(out_file)}")
+
+    # Summary of the test logs (pole cancellation, IR limits)
+    if tests_file is not None:
+        print("")
+        collect_tests(args, tests_file)
 
 if __name__ == "__main__":
     main()

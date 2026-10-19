@@ -86,15 +86,17 @@ c     compute soft double-soft sector function eq. (C.72)
 c
 c     mapping 1: [imj,jml]; third block eq. 115 in Dropbox
 c
+      b = dsec
 c     fill mapped labels
       do m=1,nexternal
          if(.not.isNNLOQCDparton(m)) cycle
          if(m.eq.i.or.m.eq.j) cycle
          call fill_real_mapped_labels(i,m,leg_pdgs,real_leg_pdgs)
-         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+         call fill_born_mapped_labels(real_labels(b,i,m),real_labels(j,i,m),real_leg_pdgs,born_leg_pdgs)
+         call fill_born_mapped_labels(real_labels(r,i,m),real_labels(j,i,m),real_leg_pdgs,born_leg_pdgs)
       enddo
+
 c
-      k = dsec
 c     eikonal double sum (c=m,d=l)
       do m=1,nexternal
          if(.not.ISNNLOQCDPARTON(m))cycle
@@ -116,12 +118,13 @@ c           safety check
 c
             ib = real_labels(i,i,m)
             jb = real_labels(j,i,m)
-            kb = real_labels(k,i,m)
+            bb = real_labels(b,i,m)
+            rb = real_labels(r,i,m)
             lb = real_labels(l,i,m)
             mb = real_labels(m,i,m)
             if(m.ne.iref) then
-               lbb = born_labels(lb,kb,jb)
-               mbb = born_labels(mb,kb,jb)
+               lbb = born_labels(lb,bb,jb)
+               mbb = born_labels(mb,bb,jb)
             elseif(m.eq.iref) then
                lbb = born_labels(lb,rb,jb)
                mbb = born_labels(mb,rb,jb)
@@ -142,7 +145,7 @@ c           call wsbar
             call get_wsbar_nlo(map1,map2)
 c
             if(m.ne.iref) then
-               call phase_space_cs_inv(mb,jb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,kb,jb))
+               call phase_space_cs_inv(mb,jb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,bb,jb))
                if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
                if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
             elseif(m.eq.iref) then
@@ -204,8 +207,8 @@ c
             rb = real_labels(r,i,m)
 c
             if(m.eq.iref) then
-               lbb = born_labels(lb,kb,jb)
-               mbb = born_labels(mb,kb,jb)
+               lbb = born_labels(lb,bb,jb)
+               mbb = born_labels(mb,bb,jb)
             elseif(m.ne.iref) then
                lbb = born_labels(lb,rb,jb)
                mbb = born_labels(mb,rb,jb)
@@ -221,12 +224,12 @@ c
 c
 c           call wsbar
             call get_sig2(xsb,1d0,nexternal-1)
-            map1=real_labels(csec)
-            map2=real_labels(dsec)
+            map1=real_labels(csec,i,m)
+            map2=real_labels(dsec,i,m)
             call get_wsbar_nlo(map1,map2)
 c
             if(m.eq.iref) then
-               call phase_space_cs_inv(lb,jb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,kb,jb))
+               call phase_space_cs_inv(lb,jb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,bb,jb))
                if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
                if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
             elseif(m.ne.iref) then
@@ -253,7 +256,6 @@ c            if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl
       enddo
 c
 c     mapping 3: [iml,jml]; first block eq (115) in Dropbox
-      b = dsec
 c
       do m=1,nexternal
         if(.not.isNNLOqcdparton(m))cycle
@@ -275,8 +277,8 @@ c         safety check
 c
           lb = real_labels(l,i,m)
           mb = real_labels(m,i,m)
-          lbb = born_labels(lb,i,m)
-          mbb = born_labels(mb,i,m)
+          lbb = born_labels(lb,bb,jb)
+          mbb = born_labels(mb,bb,jb)
 c
           call phase_space_cs_inv(i,m,l,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,m))
           call invariants_from_p(xpb,nexternal-1,xsb,ierr)
@@ -291,7 +293,7 @@ c         call wsbar
           map2=real_labels(dsec,i,m)
           call get_wsbar_nlo(map1,map2)
 c
-          call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,kb,jb))
+          call phase_space_cs_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,bb,jb))
           if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
 c         possible cuts
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -314,7 +316,7 @@ c          if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,born_leg_pdgs,wgtpl)
       enddo
 c
 c     mapping 4: [imb,jbm]; second block eq (115) in Dropbox
-      b = dsec
+c
 c     fill mapped labels
       do m=1,nexternal
          if(.not.isNNLOQCDparton(m)) cycle
@@ -339,8 +341,8 @@ c       safety check
 c
         bb = real_labels(b,i,m)
         mb = real_labels(m,i,m)
-        bbb = born_labels(bb,jb,bb)
-        mbb = born_labels(mb,jb,bb)
+        bbb = born_labels(bb,bb,jb)
+        mbb = born_labels(mb,bb,jb)
 c
         call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,m))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
@@ -355,7 +357,7 @@ c       call wsbar
         map2=real_labels(dsec,i,m)
         call get_wsbar_nlo(map1,map2)
 c
-        call phase_space_cs_inv(jb,bb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,jb,bb))
+        call phase_space_cs_inv(jb,bb,mb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,born_labels(:,bb,jb))
         if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
 c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle

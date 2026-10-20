@@ -629,11 +629,19 @@ def summarize_poles(log):
     return rel
 
 
-# Limits tested by testR_<i>_<j>.f: Si, Sj, Cij are singular limits of the
+# Limits tested by testR_<i>_<j>.f: Si and Cij are singular limits of the
 # sector, where R and the counterterm K must agree (|R-K|/|K| -> 0); Cir and
 # Cjr are spurious limits (damped by the sector function), where R and K must
-# only stay finite.
+# only stay finite. Sj (j soft, tested in the ordered gg sectors) is damped by
+# the sector function too, but only by one power: there R*W and K grow like
+# 1/lambda, while the soft singularity is 1/lambda**2 (the approach rescales
+# zCS and yCS together, measure ~ lambda dlambda). Both are integrable, and
+# need not agree: the check is on the growth exponent of |R| and |K|.
 SPURIOUS_LIMITS = ("Cir", "Cjr")
+INTEGRABLE_LIMITS = ("Sj",)
+# growth exponent p (|X| ~ lambda**-p) above which an integrable limit is
+# flagged: 1 is expected, 2 is the non-integrable soft singularity
+MAX_INTEGRABLE_POWER = 1.5
 
 
 def summarize_limits(log):
@@ -667,11 +675,23 @@ def summarize_limits(log):
 def check_limit(lim, events, tol):
     """(value, ok) for one limit over all its test events. Singular limits: the
     best |R-K|/|K| along the approach, worst event. Spurious limits: the largest
-    growth of |R| or |K| from lambda ~ 1e-2 to the smallest lambda (finite: ~1)."""
+    growth of |R| or |K| from lambda ~ 1e-2 to the smallest lambda (finite: ~1).
+    Integrable limits: the largest growth exponent p of |R| or |K| (|X| ~
+    lambda**-p) over the same range."""
     spurious = lim.startswith(SPURIOUS_LIMITS)
+    integrable = lim.startswith(INTEGRABLE_LIMITS)
     worst = 0.0
     for rows in events:
-        if spurious:
+        if integrable:
+            ref = min(rows, key=lambda row: abs(math.log10(abs(row[0]) or 1e-300) + 2))
+            last = rows[-1]
+            if not (ref[0] and last[0]) or abs(ref[0]) <= abs(last[0]):
+                continue
+            decades = math.log10(abs(ref[0]) / abs(last[0]))
+            for i in (1, 2):
+                if ref[i] and last[i]:
+                    worst = max(worst, math.log10(abs(last[i]) / abs(ref[i])) / decades)
+        elif spurious:
             ref = min(rows, key=lambda row: abs(math.log10(abs(row[0]) or 1e-300) + 2))
             last = rows[-1]
             growth = max(abs(last[1]) / abs(ref[1]) if ref[1] else 0.0,
@@ -680,6 +700,8 @@ def check_limit(lim, events, tol):
         else:
             rels = [abs(r - k) / abs(k) for _, r, k in rows if k != 0.0]
             worst = max(worst, min(rels) if rels else float("inf"))
+    if integrable:
+        return worst, worst <= MAX_INTEGRABLE_POWER
     if spurious:
         return worst, worst <= 10.0
     return worst, worst <= tol
@@ -689,7 +711,9 @@ def test_header(title, tol_poles, tol_limits):
     return [f"{title}, {time.strftime('%Y-%m-%d %H:%M:%S')}",
             f"tolerances: poles {tol_poles:g} (|V+I|/max(|V|,|I|)), "
             f"limits {tol_limits:g} (best |R-K|/|K| along the approach, worst event; "
-            f"spurious limits Cir, Cjr: R and K must stay finite)", ""]
+            f"spurious limits Cir, Cjr: R and K must stay finite; "
+            f"integrable limit Sj: R and K must grow at most as "
+            f"lambda^-{MAX_INTEGRABLE_POWER:g}, 1 expected)", ""]
 
 
 def summarize_test_log(exe, log, tol_poles, tol_limits, show_time=False):
@@ -715,7 +739,9 @@ def summarize_test_log(exe, log, tol_poles, tol_limits, show_time=False):
     for lim, events in res.items():
         value, ok = check_limit(lim, events, tol_limits)
         all_ok = all_ok and ok
-        if lim.startswith(SPURIOUS_LIMITS):
+        if lim.startswith(INTEGRABLE_LIMITS):
+            parts.append(f"{lim} ~lambda^-{value:.1f}" + (" integrable" if ok else "(!)"))
+        elif lim.startswith(SPURIOUS_LIMITS):
             parts.append(f"{lim} " + ("finite" if ok else f"grows x{value:.1e}(!)"))
         else:
             parts.append(f"{lim} {value:.1e}" + ("" if ok else "(!)"))
@@ -739,8 +765,13 @@ def limit_details(log):
                 key = round(math.log10(abs(lam)), 3)
                 rel = abs(r - k) / abs(k) if k != 0.0 else float("inf")
                 table.setdefault(key, []).append(rel)
-        kind = ("spurious limit: R and K are only required to stay finite"
-                if lim.startswith(SPURIOUS_LIMITS) else "singular limit: |R-K|/|K| -> 0")
+        if lim.startswith(INTEGRABLE_LIMITS):
+            kind = ("integrable limit: R and K must grow slower than 1/lambda^2, "
+                    "|R-K|/|K| need not vanish")
+        elif lim.startswith(SPURIOUS_LIMITS):
+            kind = "spurious limit: R and K are only required to stay finite"
+        else:
+            kind = "singular limit: |R-K|/|K| -> 0"
         lines.append(f"  limit {lim} ({kind})")
         lines.append(f"    |R-K|/|K| at each lambda, over the {len(events)} test events")
         lines.append(f"    {'lambda':>8}   {'worst':>15}   {'median':>15}")

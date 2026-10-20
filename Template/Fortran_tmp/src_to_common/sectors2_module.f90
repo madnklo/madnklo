@@ -27,14 +27,16 @@ contains
     integer, intent(in) :: n_ext_in
     double precision, intent(in) :: xs_in(n_ext_in,n_ext_in)
     integer :: i,j
-    double precision :: ei,ej,wij,sigma_ij
+    double precision :: ei,ej,wij
 
     n_ext=n_ext_in
     call ensure_workspace(n_ext)
     xs_mod=xs_in
 
-    ! Calculate each symmetric pair only once.  Sector labels are ordered,
-    ! but sigma_ij itself is symmetric under i <-> j.
+    ! sigma_ij = (1/(e_i w_ij))**alpha.  w_ij is symmetric under i <-> j,
+    ! but e_i is not: sigma_ij is singular when i is soft, sigma_ji when j
+    ! is soft.  Each pair is visited once, w_ij computed once, and both
+    ! orderings are filled with their own energy fraction.
     sig2=0d0
     do i=3,n_ext-1
        do j=i+1,n_ext
@@ -46,9 +48,8 @@ contains
              wij=xs_mod(1,2)*xs_mod(i,j) / &
                   (xs_mod(i,1)+xs_mod(i,2)) / &
                   (xs_mod(j,1)+xs_mod(j,2))
-             sigma_ij=(1d0/ei/wij)**alpha_mod
-             sig2(i,j)=sigma_ij
-             sig2(j,i)=sigma_ij
+             sig2(i,j)=(1d0/ei/wij)**alpha_mod
+             sig2(j,i)=(1d0/ej/wij)**alpha_mod
           endif
        enddo
     enddo

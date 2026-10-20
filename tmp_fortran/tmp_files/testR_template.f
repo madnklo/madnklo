@@ -68,6 +68,11 @@ c
       double precision ran2
       double precision CSpow(2)
       common /cCSpow/CSpow
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_u_pdgs/underlying_leg_pdgs
+      logical docut
+      integer itry,maxtry
+      parameter(maxtry=100)
 c
 c     initialise
       str5 ='     '
@@ -76,8 +81,21 @@ c     initialise
       sNLO=0d0
       sLO=0d0
       wgt_chan=1d0
-      do i=1,3*nexternal-10
-         x0(i)=ran2(33+10*i)
+c
+c     draw the test point. Along the approach only x(1:2) change,
+c     so the underlying Born (from x(4:)) is fixed and all mapped
+c     Born configurations of the counterterms tend to it. If it
+c     fails the cuts, the counterterms vanish in the limit (and so
+c     does R in the integrand, which is cut on the n+1 kinematics):
+c     redraw, at most maxtry times (one Born point + docut each)
+      do itry=1,maxtry
+         do i=1,3*nexternal-10
+            x0(i)=ran2(33+10*i)
+         enddo
+         call phase_space_npo(x0,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         if(xjacB.ne.0d0)then
+            if(.not.docut(pb,nexternal-1,underlying_leg_pdgs,0))exit
+         endif
       enddo
       xr=x0
 c
@@ -85,6 +103,9 @@ c     start testing
       write(88,*)
       write(88,*)
       write(88,*)'LIM = '//trim(limstr)
+      if(itry.gt.maxtry)then
+         write(88,*)'WARNING: no test point whose Born passes the cuts in',maxtry,'trials'
+      endif
       write(88,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
 c
 c     loop to get closer and closer to the limit

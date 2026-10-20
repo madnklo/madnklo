@@ -44,6 +44,11 @@ PATH_TO_COMMON_FILES=../../../../Template/Fortran_tmp/src_to_common
 
 PATH_TO_USR_FILES=../../../Common_Files
 
+# Fixed-order analysis: Common_Files/$(ANALYSIS).f, chosen with 'analysis' in
+# Cards/run_card.dat (bin/run_all.py writes the choice to Source/analysis.mk)
+ANALYSIS = analysis
+-include $(PATH_TO_USR_FILES)/../Source/analysis.mk
+
 INCLUDE0=$(PWD)/include
 
 INCLUDE1=$(PWD)
@@ -72,7 +77,7 @@ VPATH = $(OBJ)
 COMMON_FILES=  genps.o vegas.o fjcore.o fastjetfortran_core.o invarients.o transpole.o myamp.o idenparts.o dsample.o ranmar.o
 
 #USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o hbook.o cuts.o
-USR_FILES=alphaS.o kinematics.o LO_B.o analysis.o HwU.o cuts.o ren_scale.o
+USR_FILES=alphaS.o kinematics.o LO_B.o $(ANALYSIS).o HwU.o cuts.o ren_scale.o
 
 PROC_FILES = matrix.o configs.o props.o decayBW.o leshouche.o
 

@@ -3564,6 +3564,9 @@ class RunCardNLO(RunCard):
         self.add_param('isoem', True)        
         self.add_param('maxjetflavor', 4, hidden=True)
         self.add_param('iappl', 0)   
+        # MadNkLO (Torino): fixed-order analysis file in Common_Files/, compiled
+        # in the executables by bin/run_all.py (not used by aMC@NLO)
+        self.add_param('analysis', 'analysis.f', include=False)
         self.add_param('lhe_version', 3, hidden=True, include=False)
         
         #internal variable related to FO_analyse_card

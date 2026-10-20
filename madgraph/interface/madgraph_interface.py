@@ -8943,11 +8943,8 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
         # For MadEvent7 output we delegate this task to the ME7 exporter itself
         if self._export_format == 'ME7':
             self._curr_exporter.finalize(flaglist, self.history)
-            # Create configuration file [path to executable] for MadEvent7
-            #filename = os.path.join(self._export_dir, 'Cards', 'me7_configuration.txt')
-            filename = os.path.join(self._export_dir, 'Cards', 'amcatnlo_configuration.txt') #GIOVANNI
-            self.do_save('options %s' % filename.replace(' ', '\ '), check=False,
-                                                        to_keep={'mg5_path':MG5DIR})
+            # MadNkLO outputs are run with bin/run_all.py: no bin/madevent, hence
+            # no configuration file for it (Cards/amcatnlo_configuration.txt)
             return
 
         compiler_dict = {'fortran': self.options['fortran_compiler'],

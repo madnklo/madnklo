@@ -96,7 +96,11 @@ proc_characteristics = banner_mod.ProcCharacteristic(pjoin(export_dir,'SubProces
 if args[0] in ['param', 'all']:
     # TODO: import MadEventCmd functions
     # read model name from proc_card
-    for line in open(os.path.join(export_dir,'Cards','proc_card_mg5.dat')):
+    # (Cards/proc_card.dat; proc_card_mg5.dat in outputs generated before)
+    proc_card = os.path.join(export_dir,'Cards','proc_card.dat')
+    if not os.path.isfile(proc_card):
+        proc_card = os.path.join(export_dir,'Cards','proc_card_mg5.dat')
+    for line in open(proc_card):
         line = line.split('#')[0]
         if line.startswith('import') and 'model' in line:
             model = line.split()[2]   

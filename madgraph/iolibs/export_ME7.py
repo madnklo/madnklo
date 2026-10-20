@@ -1222,42 +1222,9 @@ class ME7ExporterTorino(ME7Exporter):
         # Forward the request for copying the template to each contribution
         self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
 
-        self.copy_python_files()
-
-
-    #===========================================================================
-    # copy_python_files 
-    #===========================================================================        
-    def copy_python_files(self):
-        """copy python files required for the Template"""
-
-        files_to_copy = [ \
-          pjoin('interface','amcatnlo_run_interface.py'),
-          pjoin('interface','extended_cmd.py'),
-          pjoin('interface','common_run_interface.py'),
-          pjoin('interface','coloring_logging.py'),
-          pjoin('various','misc.py'),
-          pjoin('various','shower_card.py'),
-          pjoin('various','FO_analyse_card.py'),
-          pjoin('various','histograms.py'),      
-          pjoin('various','banner.py'),          
-          pjoin('various','cluster.py'),
-          pjoin('various','systematics.py'),          
-          pjoin('various','lhe_parser.py'),
-          pjoin('madevent','sum_html.py'),
-          pjoin('madevent','gen_crossxhtml.py'),          
-          pjoin('iolibs','files.py'),
-          pjoin('iolibs','save_load_object.py'),
-          pjoin('iolibs','file_writers.py'),
-          pjoin('..','models','check_param_card.py'),
-          pjoin('__init__.py')
-        ]
-        cp(_file_path+'/interface/.mg5_logging.conf', 
-                                 self.export_dir+'/bin/internal/me5_logging.conf')
-        
-        for cp_file in files_to_copy:
-            cp(pjoin(_file_path,cp_file),
-                pjoin(self.export_dir,'bin','internal',os.path.basename(cp_file)))
+        # No Python modules in bin/internal: they served the MG5/aMC run
+        # interfaces (bin/madevent, bin/aMCatNLO), which MadNkLO outputs do not
+        # have; bin/treatcards and bin/run_all.py use the madnklo repository.
 
     def create_run_card(self):
         """Create the canonical NLO run card used by the Torino runtime."""
@@ -1278,14 +1245,34 @@ class ME7ExporterTorino(ME7Exporter):
         run_card['fixed_ren_scale'] = True
         run_card['fixed_fac_scale'] = True
 
-        # Quark flavours counted as jet partons (cuts.f): at least all the
-        # massless quarks of the model (NF in coupl.inc), as in aMC@NLO
-        run_card['maxjetflavor'] = self.get_model_maxjetflavor(run_card)
+        # Quark flavours counted as jet partons (cuts.f, analysis): not a
+        # run_card parameter in MadNkLO, setrun.f sets them to the massless
+        # quarks of the model (NF in coupl.inc). Do not write it to the card
+        # (create_default_for_process sets it for hadronic initial states).
+        run_card.user_set.discard('maxjetflavor')
 
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+    def rename_proc_card(self):
+        """Cards/proc_card_mg5.dat -> Cards/proc_card.dat"""
+        cards = pjoin(self.export_dir, 'Cards')
+        old, new = pjoin(cards, 'proc_card_mg5.dat'), pjoin(cards, 'proc_card.dat')
+        if os.path.isfile(old):
+            if os.path.exists(new):
+                os.remove(new)
+            os.rename(old, new)
+
+    def remove_empty_contribution_bins(self):
+        """Remove <contribution>/bin/internal and <contribution>/bin when empty
+        (the output's own bin/, with treatcards and run_all.py, is untouched)."""
+        for internal in glob.glob(pjoin(self.export_dir, '*', 'bin', 'internal')):
+            for path in (internal, os.path.dirname(internal)):
+                if os.path.isdir(path) and not os.path.islink(path) \
+                                                    and not os.listdir(path):
+                    os.rmdir(path)
 
     def get_model_maxjetflavor(self, run_card):
         """maxjetflavor raised (never lowered) to the number of massless
@@ -1367,6 +1354,15 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Create the single canonical NLO run card.
         self.create_run_card()
+
+        # The process card (the MG5 commands that generated this output,
+        # written by each contribution's finalize as proc_card_mg5.dat) is
+        # called proc_card.dat in MadNkLO.
+        self.rename_proc_card()
+
+        # Empty bin/internal (and then empty bin) folders that the standalone
+        # exporter creates in each contribution folder: nothing uses them.
+        self.remove_empty_contribution_bins()
 
         # Add the cards generated in MODEL to the Cards directory
         self.copy_model_resources()

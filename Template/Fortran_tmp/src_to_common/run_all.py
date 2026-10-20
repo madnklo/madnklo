@@ -250,17 +250,82 @@ def exe_dir(p, exe):
 
 
 def remove_outdated_executables(p):
-    """Remove the executables of p older than Source/run_card.inc, so that make
-    relinks them with the rebuilt libgeneric.a (the makefiles do not list the
-    libraries among the prerequisites of the executables)."""
-    inc = run_card_include()
-    if not os.path.isfile(inc):
+    """Remove the executables of p older than Source/run_card.inc or
+    Source/analysis.mk, so that make relinks them with the rebuilt
+    libgeneric.a or the analysis now chosen (the makefiles do not list the
+    libraries among the prerequisites of the executables, and an analysis
+    object compiled earlier can be older than the executables)."""
+    times = [os.path.getmtime(f) for f in (run_card_include(), analysis_mk())
+             if os.path.isfile(f)]
+    if not times:
         return
-    t_inc = os.path.getmtime(inc)
+    t_inc = max(times)
     for target in make_targets_without_libs(p) or []:
         exe = os.path.join(exe_dir(p, target), target)
         if os.path.isfile(exe) and os.path.getmtime(exe) < t_inc:
             os.remove(exe)
+
+
+# ---------------- fixed-order analysis ----------------
+# 'analysis' in Cards/run_card.dat names the analysis file in Common_Files/
+# (default analysis.f). The makefiles compile Common_Files/$(ANALYSIS).f, with
+# ANALYSIS read from Source/analysis.mk, which is written here when the choice
+# changes; the executables older than it are then relinked (see
+# remove_outdated_executables).
+ANALYSIS_RE = re.compile(r"^\s*(\S+)\s*=\s*analysis\s*(?:[!#].*)?$", re.I)
+DEFAULT_ANALYSIS = "analysis.f"
+
+
+def analysis_mk():
+    return os.path.join(output_dir(), "Source", "analysis.mk")
+
+
+def card_analysis():
+    """The analysis file named in Cards/run_card.dat (default analysis.f)."""
+    card = os.path.join(output_dir(), "Cards", "run_card.dat")
+    try:
+        with open(card, errors="replace") as f:
+            for line in f:
+                if line.lstrip().startswith("#"):
+                    continue
+                m = ANALYSIS_RE.match(line.rstrip("\n"))
+                if m:
+                    return m.group(1).strip("'\"")
+    except IOError:
+        pass
+    return DEFAULT_ANALYSIS
+
+
+def update_analysis():
+    """Check the analysis file of the run_card and write Source/analysis.mk."""
+    name = card_analysis()
+    stem, ext = os.path.splitext(name)
+    if ext != ".f" or os.path.basename(name) != name or not stem:
+        sys.exit(f"run_card.dat: analysis = {name}: give the name of a .f file "
+                 f"in Common_Files/ (e.g. {DEFAULT_ANALYSIS})")
+    if not os.path.isfile(os.path.join(output_dir(), "Common_Files", name)):
+        sys.exit(f"run_card.dat: analysis = {name}, but Common_Files/{name} does not exist")
+    if name != DEFAULT_ANALYSIS:
+        # makefiles written before the analysis became a run_card parameter
+        # would silently compile analysis.f
+        old = [p for p in glob.glob(os.path.join(output_dir(), "*", "SubProcesses", "P*", "makefile"))
+               if "$(ANALYSIS).o" not in open(p, errors="replace").read()]
+        if old:
+            sys.exit(f"run_card.dat: analysis = {name}, but the makefiles of this output "
+                     f"(e.g. {relpath(old[0])}) always compile analysis.f: regenerate the "
+                     f"output, or use analysis.f")
+    text = ("# written by bin/run_all.py from 'analysis' in Cards/run_card.dat\n"
+            f"ANALYSIS = {stem}\n")
+    path = analysis_mk()
+    try:
+        with open(path) as f:
+            old_text = f.read()
+    except IOError:
+        old_text = None
+    if old_text != text:
+        with open(path, "w") as f:
+            f.write(text)
+        print(f"Analysis: Common_Files/{name} (Source/analysis.mk updated)")
 
 
 def make_executables(p):
@@ -877,6 +942,7 @@ if __name__ == "__main__":
     # run from bin/, where the patterns above are relative to
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     update_run_card_include()
+    update_analysis()
 
     try:
         if args.test_only:

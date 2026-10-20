@@ -78,15 +78,10 @@ c     start
 c----------
       include 'run_card.inc'
 c
-c-check consistency of maxjetflavor in the run_card and with Nf
-c specified in coupl.inc (as in aMC@NLO, SubProcesses/setcuts.f)
-      if (maxjetflavor.lt.int(Nf)) then
-         write(*,'(a,i3,a,i3)') "WARNING: the value of maxjetflavor"/
-     $        /" specified in the run_card (",maxjetflavor,") is"/
-     $        /" inconsistent with the number of light flavours in"/
-     $        /" the model. Hence it will be set to:", int(Nf)
-         maxjetflavor = int(Nf)
-      endif
+c Quark flavours clustered into jets (cuts.f, analysis): exactly the
+c massless quarks of the model (Nf in coupl.inc, at most 5). Not a
+c run_card parameter in MadNkLO, so that it cannot change silently.
+      maxjetflavor = min(5, int(Nf))
       
 c MZ add the possibility to have shower_MC input lowercase
       ! call to_upper(shower_MC)

@@ -84,16 +84,13 @@ c     check flavour match
        stop 1
       endif
 c
-c     fill mapped labels [ijr,jcd]
-      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+c     fill mapped labels [ijr,jcd][c=m,d=l]
+      call fill_real_mapped_labels(ia,ib,leg_pdgs,real_leg_pdgs)
       do m=1,nexternal
          if(.not.isNNLOQCDparton(m)) cycle
-         if(m.eq.i.or.m.eq.j) cycle
-         call fill_born_mapped_labels(real_labels(j,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+         if(m.eq.ia.or.m.eq.ib) cycle
+         call fill_born_mapped_labels(real_labels(ib,ia,ib),real_labels(m,ia,ib),real_leg_pdgs,born_leg_pdgs)
       enddo
-c
-c     parent leg
-      jb = real_labels(j,i,j)
 c
 c     invariant quantities
       sab=xs(ia,ib)
@@ -129,8 +126,9 @@ c
          do l=1,nexternal-1
             if(.not.isNLOmappedQCDparton(l))cycle
             if(l.eq.j.or.l.eq.m)cycle
-            lb = real_labels(l,i,j)
-            mb = real_labels(m,i,j)
+            lb = real_labels(l,ia,ib)
+            mb = real_labels(m,ia,ib)
+            jb = real_labels(ib,ia,ib)
             lbb = born_labels(lb,jb,mb)
             mbb = born_labels(mb,jb,mb)
 c
@@ -183,8 +181,8 @@ c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
             call get_sig2(xs,alpha_mod,nexternal)
             call get_wc_nlo(ia,ib,ksec,ir)
             call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-            map1=real_labels(csec,i,j)
-            map2=real_labels(dsec,i,j)
+            map1=real_labels(csec,ia,ib)
+            map2=real_labels(dsec,ia,ib)
             call get_wsbar_nlo(map1,map2)
             M2tmp=M2tmp*wc_nlo*wsbar_nlo
 c

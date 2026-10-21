@@ -82,6 +82,14 @@ c Quark flavours clustered into jets (cuts.f, analysis): exactly the
 c massless quarks of the model (Nf in coupl.inc, at most 5). Not a
 c run_card parameter in MadNkLO, so that it cannot change silently.
       maxjetflavor = min(5, int(Nf))
+c
+c Histogram bin smearing (HwU.f): half-width of the kernel in units of
+c the bin width, 0 (no smearing) to 0.5
+      if(hwu_smear.lt.0d0.or.hwu_smear.gt.0.5d0)then
+         write(*,*)'setrun: hwu_smear must be between 0 and 0.5, got',
+     $        hwu_smear
+         stop
+      endif
       
 c MZ add the possibility to have shower_MC input lowercase
       ! call to_upper(shower_MC)

@@ -107,3 +107,9 @@ c    For FO run (with lhe type of analysis
 c
       double precision FO_LHE_weight_ratio
       common /FO_ANALYSIS_LHW/FO_LHE_weight_ratio
+c
+c     Histograms (HwU.f): half-width of the bin-smearing kernel, in
+c     units of the bin width (run_card hwu_smear, 0 = no smearing)
+c
+      double precision hwu_smear
+      common /to_hwu_smear/hwu_smear

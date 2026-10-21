@@ -64,6 +64,16 @@
 #***********************************************************************
  %(analysis)s = analysis ! analysis file in Common_Files/
 #***********************************************************************
+# Histogram bin smearing. Each histogram fill within hwu_smear bin     *
+# widths of an inner bin edge shares part of its weight with the       *
+# neighbouring bin (linear kernel, half-width hwu_smear x bin width),  *
+# so that real-emission events and counterevents falling on opposite   *
+# sides of a bin edge still cancel (no mis-binning spikes). Totals     *
+# are unchanged; distributions are smeared over hwu_smear bin widths.  *
+# 0 = no smearing; maximum 0.5.                                        *
+#***********************************************************************
+ %(hwu_smear)s = hwu_smear ! bin smearing, in units of the bin width
+#***********************************************************************
 # Collider type and energy                                             *
 # Only lepton beams (lpp = 0) are supported for now: with hadron beams *
 # (lpp = 1, -1, 2, -2) the PDF weights are not applied yet.            *

@@ -3567,6 +3567,9 @@ class RunCardNLO(RunCard):
         # MadNkLO (Torino): fixed-order analysis file in Common_Files/, compiled
         # in the executables by bin/run_all.py (not used by aMC@NLO)
         self.add_param('analysis', 'analysis.f', include=False)
+        # half-width of the histogram bin-smearing kernel (HwU.f), in
+        # units of the bin width: 0 = no smearing, at most 0.5
+        self.add_param('hwu_smear', 0.2)
         self.add_param('lhe_version', 3, hidden=True, include=False)
         
         #internal variable related to FO_analyse_card

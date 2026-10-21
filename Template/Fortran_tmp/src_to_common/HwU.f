@@ -147,11 +147,23 @@ c always be as large as the number of weights ('nweights') specified in
 c the 'HwU_inithist' subroutine. That means that each point should have
 c the same number of weights.
       subroutine HwU_fill(label,x,wgts)
+c     Fill histogram 'label' at x with the weights wgts, with optional
+c     bin smearing: hwu_smear = h (run_card, common in run.inc) is the
+c     half-width of a linear (tent) kernel in units of the bin width,
+c     0 <= h <= 0.5 (0: no smearing). A fill at a distance d < h (in
+c     bin widths) from an inner bin edge gives the fraction (h-d)/(2h)
+c     of its weight to the neighbouring bin, so the bin contents depend
+c     continuously on x: an event and its counterevent on opposite
+c     sides of a bin edge still cancel. Not smeared: fills exactly on a
+c     lower bin edge (discrete observables filled at the edges, e.g.
+c     a total-rate or jet-multiplicity histogram) and the outer edges
+c     of the plotting range.
       use HwU_variables
       implicit none
-      integer label,i,j,bin
-      double precision x, wgts(*)
-
+      integer label,bin,nb
+      double precision x,wgts(*),u,d,f
+      double precision hwu_smear
+      common /to_hwu_smear/hwu_smear
 c     If central weight is zero do not add this point.
       if (wgts(1).eq.0d0) return
 c     Check if point is within plotting range
@@ -162,12 +174,39 @@ c     Compute the bin to fill
 c     To prevent numerical inaccuracy, double check that bin is
 c     reasonable
       if (bin.lt.1 .or. bin.gt.nbin(label)) return
+c     Neighbouring bin and fraction of the weight given to it
+      nb=0
+      f=0d0
+      if(hwu_smear.gt.0d0)then
+         u=(x-histxl(label,bin))/step(label)
+         if(u.gt.0d0.and.u.lt.hwu_smear)then
+            nb=bin-1
+            d=u
+         elseif(u.gt.1d0-hwu_smear)then
+            nb=bin+1
+            d=1d0-u
+         endif
+         if(nb.lt.1.or.nb.gt.nbin(label))nb=0
+         if(nb.ne.0)f=(hwu_smear-d)/(2d0*hwu_smear)
+      endif
+      call HwU_fill_bin(label,bin,wgts,1d0-f)
+      if(nb.ne.0)call HwU_fill_bin(label,nb,wgts,f)
+      return
+      end
+
+      subroutine HwU_fill_bin(label,bin,wgts,fac)
+c     add fac*wgts to bin 'bin' of histogram 'label' for the current
+c     phase-space point
+      use HwU_variables
+      implicit none
+      integer label,i,j,bin
+      double precision wgts(*),fac
 c     Check if we already had another (correlated) point in this bin. If
 c     so, add the current weight to that point.
       do i=1,np
          if ( p_label(i).eq.label .and. p_bin(i).eq.bin) then
             do j=1,nwgts
-               p_wgts(j,i)=p_wgts(j,i)+wgts(j)
+               p_wgts(j,i)=p_wgts(j,i)+fac*wgts(j)
             enddo
             return
          endif
@@ -178,7 +217,7 @@ c     If a new bin, add it to the list of points
       p_label(np)=label
       p_bin(np)=bin
       do j=1,nwgts
-         p_wgts(j,np)=wgts(j)
+         p_wgts(j,np)=fac*wgts(j)
       enddo
       return
       end

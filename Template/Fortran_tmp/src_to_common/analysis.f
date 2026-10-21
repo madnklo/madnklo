@@ -92,6 +92,7 @@ c     check on jet pt ordering
          do i=1,njet
             ptjet(i)=sqrt(pjet(1,i)**2+pjet(2,i)**2)
             etajet(i)=eta(pjet(0,i))
+            yjet(i)=getrapidity(pjet(0,i),pjet(3,i))
             if(i.gt.1)then
                if (ptjet(i)-ptjet(i-1).gt.tiny) then
                   write (*,*) 'Error 1 in analyis: jets unordered in pt'

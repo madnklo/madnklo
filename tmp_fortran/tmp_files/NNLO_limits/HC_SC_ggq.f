@@ -9,6 +9,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
+      include 'mapped_labels_common.inc'
       include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
@@ -50,8 +51,6 @@ c     external
       integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
-      integer real_sc_mapped_labels(nexternal),Born_sc1_mapped_labels(nexternal-1),Born_sc2_mapped_labels(nexternal-1)
-      common/c_NNLO_sc_mapped_labels/real_sc_mapped_labels,Born_sc1_mapped_labels,Born_sc2_mapped_labels
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
       common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
       logical test_sector_function
@@ -84,11 +83,6 @@ c     compute wc_nlo
       call get_sig2(xs,alpha_mod,nexternal)
       call get_wc_nlo(i,j,ksec,r)
 c
-c     get mapped labels
-      ib = real_sc_mapped_labels(i)
-      jb = real_sc_mapped_labels(j)
-      kb = real_sc_mapped_labels(k)
-c
 c     invariant quantities
       sij = xs(i,j)
       sik = xs(i,k)
@@ -100,19 +94,30 @@ c     invariant quantities
       Pjkr = CF*(2d0*zk/zj+zj)
       Ej_kr = skr/sjk/sjr
 c
-c     mapping: [ijr,kmj]
-      call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_sc_mapped_labels)
+c     fill mapped labels [ijr,kmj]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m)) cycle
+         if(m.eq.i.or.m.eq.j.or.m.eq.k) cycle
+         call fill_born_mapped_labels(real_labels(k,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+      enddo
 c
-c     eikonal double sum TODO: check mapped labels
+c     mapping: [ijr,kmj]
+      call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,j))
+c
+c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_sc_mapped_labels(m)
-         kbb = Born_sc1_mapped_labels(kb)
-         mbb = Born_sc1_mapped_labels(mb)
+         ib = real_labels(i,i,j)
+         jb = real_labels(j,i,j)
+         kb = real_labels(k,i,j)
+         mb = real_labels(m,i,j)
+         kbb = born_sc1_mapped_labels(kb,kb,mb)
+         mbb = born_sc1_mapped_labels(mb,kb,mb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,Born_sc1_mapped_labels)
+         call phase_space_CS_inv(kb,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,kb,mb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -138,8 +143,8 @@ c     TODO: some contributions are 0 for ee->jj
 c
 c     collinear soft-collinear sector, eq. (C.78)
          call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-         map1=real_mapped_labels(csec)
-         map2=real_mapped_labels(dsec)
+         map1=real_labels(csec,i,j)
+         map2=real_labels(dsec,i,j)
          call get_wsbar_nlo(map1,map2)
          M2_C_SC_ggq=M2_C_SC_ggq*wc_nlo*wsbar_nlo
 c

@@ -9,6 +9,7 @@ c     while j, l is a q (or qb)
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      include 'mapped_labels_common.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,l,r,ierr,nit,parent_leg
@@ -18,8 +19,8 @@ c     while j, l is a q (or qb)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      double precision sij,sik,sjk,sir,sjr,skr,zj,zk
-      double precision BLO,Eij_kr,Ei_kr,Ej_kr
+      double precision sij,skl,sik,sjk,sir,sjr,skr,sjl,slr,zj,zk
+      double precision BLO,Ei_jr,Ek_lr
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -73,9 +74,12 @@ c     invariant quantities
       sij  = xs(i,j)
       sjk  = xs(j,k)
       sik  = xs(i,k)
+      skl  = xs(k,l)
       sir  = xs(i,r)
       sjr  = xs(j,r)
       skr  = xs(k,r)
+      sjl  = xs(j,l)
+      slr  = xs(l,r)
       zj   = sjr/(sir+sjr+skr)
       zk   = skr/(sir+sjr+skr)
 c
@@ -85,18 +89,22 @@ c     safety check
         goto 999
       endif
 
-c     double-soft double-collinear sector function, eq. (C.69) of 2212.11190
+c     TODO: double-soft double-collinear sector function, eq. (C.69) of 2212.11190
       call get_hatsignnlo(r,xs,nexternal)
       call get_wss_cc_nnlo(asec,bsec,csec,dsec)
+c
+c     fill mapped labels [ijr,klr]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(k,i,j),real_labels(l,i,j),real_leg_pdgs,born_leg_pdgs)
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     double-soft double-collinear kernel, eq. (C.23)
-      Ei_kr = skr/sik/sir
-      Ej_kr = skr/sjk/sjr
-      M2tmp = CF*(4d0*CF*Ei_kr*Ej_kr+2d0*CA*Eij_kr)*BLO
+      Ei_jr = sjr/sij/sir
+      Ek_lr = slr/skl/skr
+      M2tmp = 4d0*CF**2*Ei_jr*Ek_lr*BLO
       M2tmp = M2tmp*pref*wss_cc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_SS_gg_CC_gqgq = M2tmp

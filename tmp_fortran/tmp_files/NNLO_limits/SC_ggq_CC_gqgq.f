@@ -18,8 +18,8 @@ c     while j, l is a q (or qb)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      double precision sij,sik,sjk,sir,sjr,skr,zj,zk
-      double precision BLO,Eij_kr,Ei_kr,Ej_kr
+      double precision sij,skl,slr,sik,sjk,sir,sjr,skr,zi,zj,zk,zl
+      double precision BLO,Ei_jr,P_kl
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -78,8 +78,12 @@ c     invariant quantities
       sir  = xs(i,r)
       sjr  = xs(j,r)
       skr  = xs(k,r)
-      zj   = sjr/(sir+sjr+skr)
-      zk   = skr/(sir+sjr+skr)
+      skl  = xs(k,l)
+      slr  = xs(l,r)
+      zj   = sjr/(sir+sjr+skr+slr)
+      zk   = skr/(sir+sjr+skr+slr)
+      zl   = slr/(sir+sjr+skr+slr)
+      zi   = sir/(sir+sjr+skr+slr)
 c
 c     safety check
       if(sij.lt.0d0.or.sik.lt.0d0.or.sjk.lt.0d0.or.zj.lt.0d0.or.zk.lt.0d0)then
@@ -89,16 +93,17 @@ c     safety check
 
 c     soft-collinear double-collinear sector function, eq. (C.70) of 2212.11190
       call get_hatsignnlo(r,xs,nexternal)
-      call get_wss_cc_nnlo(asec,bsec,csec,dsec)
+      call get_wss_cc_nnlo(asec,bsec,csec,dsec) !TODO: sector function
 c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
 c     soft-collinear double-collinear kernel, eq. (C.24)
-      Ei_kr = skr/sik/sir
-      Ej_kr = skr/sjk/sjr
-      M2tmp = CF*(4d0*CF*Ei_kr*Ej_kr+2d0*CA*Eij_kr)*BLO
+c     Note: Qij is zero for gq
+      Ei_jr = sjr/sij/sir
+      P_kl  = CF*(2d0*zl/zk+zk)
+      M2tmp = 2d0*CF*Ei_jr*P_kl/skl*BLO
       M2tmp = M2tmp*pref*wss_cc_nnlo*extra*%(proc_prefix_rr)s_fl_factor*xj
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_SC_ggq_CC_gqgq = M2tmp

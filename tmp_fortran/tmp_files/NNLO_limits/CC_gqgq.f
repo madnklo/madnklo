@@ -9,6 +9,7 @@ c     while j, l is a q (or qb)
       include 'math.inc'
       include 'nsqso_born.inc'
       include 'leg_PDGs.inc'
+      include 'mapped_labels_common.inc'
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,l,r,ierr,nit,parent_leg
@@ -19,8 +20,8 @@ c     while j, l is a q (or qb)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
-      double precision sijk,sij,sik,sjk,sir,sjr,skr
-      double precision zi,zj,zk,zij,zik,zjk,Pijkr
+      double precision sijk,sij,sik,sjk,skl,sir,sjr,skr,slr
+      double precision zi,zj,zk,zl,zij,zik,zjk,Pij,Pkl
       integer, parameter :: hel = - 1
       logical flavourmatch
       double precision alphas,alpha_qcd
@@ -76,13 +77,16 @@ c     invariant quantities
       sij  = xs(i,j)
       sjk  = xs(j,k)
       sik  = xs(i,k)
+      skl  = xs(k,l)
       sijk = sij+sik+sjk
       sir  = xs(i,r)
       sjr  = xs(j,r)
       skr  = xs(k,r)
-      zi   = sir/(sir+sjr+skr)
-      zj   = sjr/(sir+sjr+skr)
-      zk   = skr/(sir+sjr+skr)
+      slr  = xs(l,r)
+      zi   = sir/(sir+sjr+skr+slr)
+      zj   = sjr/(sir+sjr+skr+slr)
+      zk   = skr/(sir+sjr+skr+slr)
+      zl   = skr/(sir+sjr+skr+slr)
       zik  = zi+zk
       zjk  = zj+zk
       zij  = zi+zj
@@ -94,15 +98,22 @@ c     safety check
         goto 999
       endif
 c
-c     call Born matrix element
+c     fill mapped labels [ijr,klr]
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      call fill_born_mapped_labels(real_labels(k,i,j),real_labels(l,i,j),real_leg_pdgs,born_leg_pdgs)
+
+c     call Born matrix element TODO: check spin correlated Born
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
-c     double-collinear kernel, using eq. (C.22) of 2212.11190 TODO
-      M2tmp = BLO
+c     double-collinear kernel, using eq. (C.22) of 2212.11190
+c     Note: Qij is zero for gqgq
+      Pij = CF*(2d0*zj/zi+zi)
+      Pkl = CF*(2d0*zl/zk+zk)
+      M2tmp = Pij/sij*Pkl/skl*BLO
 c
 c
-c     include double-collinear sector function, eq. (C.68) TODO
+c     include double-collinear sector function, eq. (C.68) TODO:
       call get_hatsignnlo(r,xs,nexternal)
       call get_wcc_nnlo(asec,bsec,csec,dsec)
       M2tmp=M2tmp*wcc_nnlo
@@ -110,7 +121,7 @@ c
 c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
-      M2_CC_gqgq = M2tmp*pref*xj*extra ! eq.(C.22)
+      M2_CC_gqgq = M2tmp*pref*xj*extra
 c
       if(test_sector_function) M2_CC_gqgq = wcc_nnlo
 c

@@ -118,14 +118,22 @@ c     overall kernel prefix
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
+c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
+      call get_sig2(xs,alpha_mod,nexternal)
+      call get_wc_nlo(ia,ib,ksec,ir)
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_labels(csec,ia,ib)
+      map2=real_labels(dsec,ia,ib)
+      call get_wsbar_nlo(map1,map2)
+c
 c     Eikonal double sum starts here
 c
-      do m=1,nexternal-1
-         if(.not.isNLOmappedQCDparton(m))cycle
-         if(m.eq.j)cycle
-         do l=1,nexternal-1
-            if(.not.isNLOmappedQCDparton(l))cycle
-            if(l.eq.j.or.l.eq.m)cycle
+      do m=1,nexternal
+         if(.not.isNNLOQCDparton(m))cycle
+         if(m.eq.ia.or.m.eq.ib)cycle
+         do l=1,nexternal
+            if(.not.isNNLOQCDparton(l))cycle
+            if(l.eq.ia.or.l.eq.ib.or.l.eq.m)cycle
             lb = real_labels(l,ia,ib)
             mb = real_labels(m,ia,ib)
             jb = real_labels(ib,ia,ib)
@@ -133,20 +141,16 @@ c
             mbb = born_labels(mb,jb,mb)
 c
 c        check labels and pdgs
-            if(.not.(isLOmappedQCDparton(lbb).and.isLOmappedQCDparton(mbb)))then
-               write(*,*)'Wrong indices 1 in M2_HC_SS_qqx',lbb,mbb
-               stop
-            endif
-            if(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb)) then
-               write(*,*)'Wrong indices 2 in M2_HC_SS_qqx',lb,mb,lbb,mbb
-               stop
-            endif
+c            if(real_leg_pdgs(lb).ne.born_leg_pdgs(lbb).or.real_leg_pdgs(mb).ne.born_leg_pdgs(mbb)) then
+c               write(*,*)'Wrong indices 2 in M2_HC_SS_qqx',lb,mb,lbb,mbb
+c               stop
+c            endif
 c
 c        phase-space mapping according to lb and mb, at fixed radiation
 c        phase-space point: the singular kernel is in the same point
 c        as the double-real, ensuring numerical stability, while the
 c        underlying Born configuration is remapped
-            call phase_space_CS_inv(jb,lb,mb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,jb,mb))
+            call phase_space_CS_inv(jb,mb,lb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,jb,mb))
             if(xjCS2.eq.0d0)goto 999
             call invariants_from_p(xpbb,nexternal-2,xsbb,ierr)
             if(ierr.eq.1)goto 999
@@ -170,21 +174,15 @@ c     safety check
 c
 c     call colour-connected Born
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
+            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
 c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Eb_jlm = sblm/sbjl/sbjm
             M2tmp = TR*(Eb_jlm+4d0*x*(1d0-x)/kt2*(ktkl/sbjl-ktkm/sbjm)**2)
             M2tmp = M2tmp/sab*ccBLO
 c
-c     Include collinear double-soft sector functions, eq. (C.80) of 2212.11190v2
-            call get_sig2(xs,alpha_mod,nexternal)
-            call get_wc_nlo(ia,ib,ksec,ir)
-            call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-            map1=real_labels(csec,ia,ib)
-            map2=real_labels(dsec,ia,ib)
-            call get_wsbar_nlo(map1,map2)
-            M2tmp=M2tmp*wc_nlo*wsbar_nlo
+c     multiply with sector function
+           M2tmp=M2tmp*wc_nlo*wsbar_nlo
 c
 c     Including correct multiplicity factor
             M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)

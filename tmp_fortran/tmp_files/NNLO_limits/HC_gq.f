@@ -101,7 +101,7 @@ c     call Real as per eq. (C.9)
       call %(proc_prefix_HC_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       RNLO = ANS(0)
 c
-      parent_leg = real_mapped_labels(ib)
+      parent_leg = real_labels(ib,ia,ib)
       KKRNLO = %(proc_prefix_HC_gq)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuRmunu / kt^2
       M2_C_gq=CF*((1d0-x)+2d0*x/(1d0-x))*RNLO
@@ -133,7 +133,11 @@ c
       M2_HC_gq = M2_C_gq-M2_SC_gq
 c     include prefactors
       M2_HC_gq = M2_HC_gq*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+c
       if(test_sector_function) M2_HC_gq = (wc_nlo-1d0)*wbar_nlo
+c
+      call ct_log('KC                     ',M2_C_gq*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
+      call ct_log('KS_C                   ',M2_SC_gq*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
 c
 c     plot
       wgtpl=-M2_HC_gq*wgt/nit*wgt_chan

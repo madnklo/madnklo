@@ -48,6 +48,11 @@ c     external
       common/c_mapped_labels/mapped_labels
       logical sig2_called
       common/c_sig2_called/sig2_called
+c     channel decomposition (run_card channel_decomposition): when
+c     ldip is nonzero, only the dipole (l,m) = (ldip,mdip) is
+c     evaluated
+      integer ldip,mdip
+      common/c_chan_dipole/ldip,mdip
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -88,6 +93,7 @@ c            if(l.eq.m)cycle
          do l=m+1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
+            if(ldip.ne.0.and.(l.ne.ldip.or.m.ne.mdip))cycle
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -161,7 +167,7 @@ c     plot
             wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
             call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
-            if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
+            if(doplot.and.wgtpl.ne.0d0)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo
       enddo

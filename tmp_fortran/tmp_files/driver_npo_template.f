@@ -54,6 +54,14 @@ c
 c     double precision sum_err_r_a,err_r_a(N_MAX_CG)
       integer nwgt
       character*80 weights_info(100)
+c     channel decomposition (run_card channel_decomposition)
+      integer maxchan
+      parameter(maxchan=100)
+      integer ichan,nch,k
+      common/c_nlo_chan_cur/ichan
+      double precision err_ch(maxchan),sum_err_ch
+      double precision xi_ch(ndmx,mxdim,maxchan)
+      integer ndo_ch(maxchan),ncl_ch(maxchan)
       INCLUDE 'all_sector_list.inc'
 c
       nfail=0
@@ -92,6 +100,11 @@ c     phase-space dimension, same for all contributions to this folder
          region(i)=0d0
          region(i+ndim)=1d0
       enddo
+c
+c     channel decomposition: list of channels (momentum mappings)
+      nch=1
+      ichan=1
+      if(channel_decomposition)call setup_channels_%(isec)d_%(jsec)d(nch)
 c
 c     test-only mode: './sector_i_j --test_only' only runs the tests
       test_only=.false.
@@ -149,44 +162,81 @@ c         err_r_a(ich) = err_r
 c         sum_err_r_a = sum_err_r_a + err_r_a(ich)
 c      enddo
 c
-c     single channel: multichannelling was removed (commit d6a8be228);
-c     the integrand is not multiplied by channel weights (wgt_chan=1),
-c     so a sum over channels i=1,N_MAX_CG would multiply the result
-c     by the number of channels. Restore both together if needed.
-         ich=1
-         write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ich
+c     single phase-space channel for the Born (ich=1). With the
+c     channel decomposition (run_card channel_decomposition), one
+c     integration per channel ichan (momentum mapping of a
+c     counterterm piece), with its own vegas grid: warm-ups of all
+c     channels first (nclRth/nch calls each), then the main runs,
+c     the nclR calls being shared among the channels in proportion
+c     to their warm-up errors (optimal for the total error). The
+c     results, histograms and scale variations are summed over the
+c     channels.
+      ich=1
+      do ichan=1,nch
+         write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ichan
          write(iu1,*)
          write(iu1,*)'============================='
-         write(iu1,*)' REAL_%(isec)d_%(jsec)d WARMUP, CHANNEL',ich
+         write(iu1,*)' REAL_%(isec)d_%(jsec)d WARMUP, CHANNEL',ichan
          write(iu1,*)'============================='
          init=0
          doplot=.false.
-c         nclRth1=max(1000,int(nclRth*err_r_a(ich)/sum_err_r_a))
-c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth1,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          failure_stage='warmup'
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth,nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ich,nitRth,nclRth
-c
-         write(*,*)'Real %(isec)d%(jsec)d for channel',ich
+         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,max(1,nclRth/nch),nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ichan,nitRth,max(1,nclRth/nch)
+         err_ch(ichan)=err_r
+         if(nch.gt.1)then
+            do k=1,ndim
+               do j=1,ndmx
+                  xi_ch(j,k,ichan)=xi(j,k)
+               enddo
+            enddo
+            ndo_ch(ichan)=ndo
+         endif
+      enddo
+c     calls of the main runs
+      if(nch.eq.1)then
+         ncl_ch(1)=nclR
+      else
+         sum_err_ch=0d0
+         do ichan=1,nch
+            sum_err_ch=sum_err_ch+err_ch(ichan)
+         enddo
+         do ichan=1,nch
+            if(sum_err_ch.gt.0d0)then
+               ncl_ch(ichan)=max(nclR/(10*nch),nint(nclR*err_ch(ichan)/sum_err_ch))
+            else
+               ncl_ch(ichan)=max(1,nclR/nch)
+            endif
+         enddo
+      endif
+      do ichan=1,nch
+         if(nch.gt.1)then
+            do k=1,ndim
+               do j=1,ndmx
+                  xi(j,k)=xi_ch(j,k,ichan)
+               enddo
+            enddo
+            ndo=ndo_ch(ichan)
+         endif
+         write(*,*)'Real %(isec)d%(jsec)d for channel',ichan
          write(iu1,*)
          write(iu1,*)'============================='
-         write(iu1,*)' REAL_%(isec)d_%(jsec)d, CHANNEL',ich
+         write(iu1,*)' REAL_%(isec)d_%(jsec)d, CHANNEL',ichan
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-c         nclR1=max(1000,int(nclR*err_r_a(ich)/sum_err_r_a))
-c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR1,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          failure_stage='main'
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclR,nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,ncl_ch(ichan),nitR,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
          call sv_add_channel()
          rescale_plot_R=dble(nitR)/min(dble(nitR),dble(it))
          sum_r = sum_r + res_r
          sum_err_r = sum_err_r + err_r**2
-         write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ich,nitR,nclR
-         write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ich,' = ',res_r,' +-',err_r
+         write(iu9,*)'R%(isec)d%(jsec)d: channel, itns, calls = ',ichan,nitR,ncl_ch(ichan)
+         write(iu9,*)' sigma R%(isec)d_%(jsec)d [pb], channel',ichan,' = ',res_r,' +-',err_r
          write(iu9,*)
+      enddo
 c
-         write(*,*)'...done'
+      write(*,*)'...done'
 c
 c     finalise histograms and output files
       call analysis_end(1d0,'plot_R_%(isec)d_%(jsec)d.dat')

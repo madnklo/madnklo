@@ -763,6 +763,55 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             str_M2 = " ".join(list_M2)
             str_int_real = " ".join(list_int_real)
             replace_dict_ct['str_M2'] = str_M2
+
+            # Channel decomposition (run_card channel_decomposition, off by
+            # default): the local counterterm split into pieces, one per
+            # momentum mapping (iU,iS,iB) -- each soft dipole (isec,l,m) and
+            # the hard-collinear piece (isec,jsec,iref) on the Born of its own
+            # mapping. Used by local_counter_chan_NLO_<i>_<j> (NLO_K) and by
+            # setup_channels_<i>_<j> (NLO_Rsub).
+            chan_has_soft = necessary_ct_list[i][0] != 0
+            chan_hc = necessary_ct_list[i][2] if necessary_ct_list[i][2] != 0 else None
+            chan_soft_block = ''
+            if chan_has_soft:
+                chan_soft_block = """c     soft pieces: one per dipole (l,m), mapping (isec,l,m)
+      do m=1,nexternal-1
+         if(.not.isNLOQCDparton(m))cycle
+         if(m.eq.isec)cycle
+         do l=m+1,nexternal
+            if(.not.isNLOQCDparton(l))cycle
+            if(l.eq.isec)cycle
+            ldip=l
+            mdip=m
+            wch=0d0
+            if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.l.and.chtrip(3,ichan).eq.m)wch=1d0
+            val=M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wch,ierr)
+            if(ierr.eq.1)goto 999
+            KNLO=KNLO+val
+            KCH=KCH+wch*val
+         enddo
+      enddo
+      ldip=0
+      mdip=0
+""" % necessary_ct_list[i][0]
+            chan_hc_block = ''
+            if chan_hc:
+                chan_hc_block = """c     hard-collinear piece, on the Born of its own mapping (isec,jsec,iref)
+      call phase_space_CS_inv(isec,jsec,iref,xp,xpbhc,nexternal,leg_PDGs,xjcs,mapped_labels)
+      if(xjcs.eq.0d0)goto 999
+      call invariants_from_p(xpbhc,nexternal-1,xsbhc,ierr)
+      if(ierr.ne.0)goto 999
+      wch=0d0
+      if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.jsec.and.chtrip(3,ichan).eq.iref)wch=1d0
+      val=M2_%s(isec,jsec,iref,xs,xp,xsbhc,xpbhc,wgt,xj,nitR,1d0,wch,ierr)
+      if(ierr.eq.1)goto 999
+      KNLO=KNLO+val
+      KCH=KCH+wch*val
+""" % chan_hc
+            replace_dict_ct['chan_soft_block'] = chan_soft_block
+            replace_dict_ct['chan_hc_block'] = chan_hc_block
+            replace_dict_int_real['chan_has_soft'] = '.true.' if chan_has_soft else '.false.'
+            replace_dict_int_real['chan_has_hc'] = '.true.' if chan_hc else '.false.'
             replace_dict_int_real['str_int_real'] = str_int_real
             replace_dict_int_real['NLO_process'] =  str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False))

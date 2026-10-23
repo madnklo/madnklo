@@ -127,7 +127,7 @@ c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
 c     renormalisation-scale variations: contribution to the integrand
 c     (-K), ~ alpha_s^(b+1) at the scale of the mapped kinematics
       call sv_add(-M2_HC_gg*wgt_chan,0d0,born_qcd_power+1)
-      if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
+      if(doplot.and.wgtpl.ne.0d0)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     sanity check
       if(abs(M2_HC_gg).ge.huge(1d0).or.isnan(M2_HC_gg))then

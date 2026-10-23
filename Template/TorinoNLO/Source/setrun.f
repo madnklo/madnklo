@@ -90,6 +90,14 @@ c the bin width, 0 (no smearing) to 0.5
      $        hwu_smear
          stop
       endif
+c
+c Channel decomposition of the real-emission integrand: criterion of
+c the channel fractions, |R W - K| < channel_delta |K|
+      if(channel_decomposition.and.channel_delta.le.0d0)then
+         write(*,*)'setrun: channel_delta must be positive, got',
+     $        channel_delta
+         stop
+      endif
       
 c MZ add the possibility to have shower_MC input lowercase
       ! call to_upper(shower_MC)

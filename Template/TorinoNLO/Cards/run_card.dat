@@ -74,6 +74,18 @@
 #***********************************************************************
  %(hwu_smear)s = hwu_smear ! bin smearing, in units of the bin width
 #***********************************************************************
+# Real emission (R): channel decomposition. If True, the integrand of  *
+# each sector is split into channels, one per momentum mapping of the  *
+# counterterm pieces (each soft dipole, the hard-collinear piece);     *
+# each channel is integrated with its own mapping and VEGAS grid.      *
+# Channel alpha integrates rho_alpha R W - K_alpha, with rho_alpha =   *
+# K_alpha/K where |R W - K| < channel_delta |K| (near the singular     *
+# limits) and 1/(number of channels) elsewhere. The total is the same; *
+# the points of a sector are shared among its channels.                *
+#***********************************************************************
+ %(channel_decomposition)s = channel_decomposition ! True/False
+ %(channel_delta)s = channel_delta ! criterion of the channel fractions
+#***********************************************************************
 # Collider type and energy                                             *
 # Only lepton beams (lpp = 0) are supported for now: with hadron beams *
 # (lpp = 1, -1, 2, -2) the PDF weights are not applied yet.            *

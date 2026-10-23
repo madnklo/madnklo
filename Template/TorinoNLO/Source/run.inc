@@ -113,3 +113,10 @@ c     units of the bin width (run_card hwu_smear, 0 = no smearing)
 c
       double precision hwu_smear
       common /to_hwu_smear/hwu_smear
+c
+c     NLO real (R) integration: channel decomposition (run_card
+c     channel_decomposition, channel_delta)
+c
+      logical channel_decomposition
+      double precision channel_delta
+      common /to_nlo_channels/channel_decomposition,channel_delta

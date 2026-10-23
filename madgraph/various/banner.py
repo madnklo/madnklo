@@ -3570,6 +3570,10 @@ class RunCardNLO(RunCard):
         # half-width of the histogram bin-smearing kernel (HwU.f), in
         # units of the bin width: 0 = no smearing, at most 0.5
         self.add_param('hwu_smear', 0.2)
+        # MadNkLO: channel decomposition of the real-emission integrand
+        # (one integration per momentum mapping of the counterterm pieces)
+        self.add_param('channel_decomposition', False)
+        self.add_param('channel_delta', 1.0)
         self.add_param('lhe_version', 3, hidden=True, include=False)
         
         #internal variable related to FO_analyse_card

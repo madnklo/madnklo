@@ -58,6 +58,20 @@ c     TODO: understand x(mxdim) definition by Vegas
       common/c_mapped_labels/mapped_labels
       logical sig2_called
       common/c_sig2_called/sig2_called
+c     channel decomposition (run_card channel_decomposition, run.inc)
+      integer maxchan
+      parameter(maxchan=100)
+      integer nchan,chtrip(3,maxchan)
+      common/c_nlo_channels/nchan,chtrip
+      integer ichan
+      common/c_nlo_chan_cur/ichan
+      integer jU,jS,jB
+      double precision KCH,rho,Kstd,xjcs
+      double precision pbs(0:3,nexternal-1)
+      double precision sLOs(nexternal-1,nexternal-1)
+      integer nchecked
+      data nchecked/0/
+      save nchecked
 c
 c     call initialisation function
       if(firsttime)then
@@ -84,7 +98,16 @@ c     to the renormalisation-scale variations
       call sv_point_reset()
 c
 c     phase space and invariants
-      call phase_space_npo(x,iU,iS,iB,iA,p,pb,xjac,xjacB)
+c     (with the channel decomposition: mapping of the current channel)
+      jU=iU
+      jS=iS
+      jB=iB
+      if(channel_decomposition)then
+         jU=chtrip(1,ichan)
+         jS=chtrip(2,ichan)
+         jB=chtrip(3,ichan)
+      endif
+      call phase_space_npo(x,jU,jS,jB,iA,p,pb,xjac,xjacB)
       if(xjac*xjacB.eq.0d0) then
          write(77,*) 'int_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
@@ -131,6 +154,9 @@ c     real sector function
 c
 c     full real in sector Wij
       int_real_no_cnt=RNLO*W_NLO*xjac
+c     (with the channel decomposition: below, times the channel
+c     fraction)
+      if(.not.channel_decomposition)then
 c     renormalisation-scale variations: R ~ alpha_s^(b+1), scale of the
 c     (n+1)-body kinematics
       call sv_add(int_real_no_cnt*wgt_chan,0d0,born_qcd_power+1)
@@ -139,7 +165,52 @@ c     plot real
       wgtpl=int_real_no_cnt*wgt*wgt_chan
       call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
       if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
+      endif
  555  continue
+c
+c     channel decomposition: integrand rho * R W - K_ch of channel
+c     ichan, with K_ch the counterterm pieces whose momentum mapping
+c     is the channel's one and rho = K_ch/K near the singular limits
+c     (|R W - K| < channel_delta |K|), 1/nchan elsewhere. Summed
+c     over the channels this is R W - K at every phase-space point.
+      if(channel_decomposition)then
+         call local_counter_chan_NLO_%(isec)d_%(jsec)d(sNLO,p,wgt,xjac,xjacB,ichan,KNLO,KCH,ierr)
+         if(ierr.ne.0) then
+            nfail=nfail+1
+            write(77,*)'ierr failure: R',ierr,ichan,failure_stage
+            write(77,*) 'int_real: '
+            write(77,*) 'Something wrong in the counterterm', KNLO
+            goto 999
+         endif
+         if(KNLO.ne.0d0.and.abs(int_real_no_cnt-KNLO).lt.channel_delta*abs(KNLO))then
+            rho=KCH/KNLO
+         else
+            rho=1d0/dble(nchan)
+         endif
+         if(int_real_no_cnt.ne.0d0)then
+            call sv_add(rho*int_real_no_cnt*wgt_chan,0d0,born_qcd_power+1)
+            wgtpl=rho*int_real_no_cnt*wgt*wgt_chan
+            call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
+            if(doplot)call analysis_fill(p,sNLO,nexternal,leg_pdgs,wgts)
+         endif
+         int_real_%(isec)d_%(jsec)d=(rho*int_real_no_cnt-KCH)*wgt_chan
+c     check, at the first points: the pieces add up to the
+c     counterterm of the sector (evaluated with the Born of the
+c     sector mapping, without histogram fills or scale variations)
+         if(nchecked.lt.ntest.and.KNLO.ne.0d0)then
+            nchecked=nchecked+1
+            call phase_space_CS_inv(isec,jsec,iref,p,pbs,nexternal,leg_pdgs,xjcs,mapped_labels)
+            if(xjcs.ne.0d0)then
+               call invariants_from_p(pbs,nexternal-1,sLOs,ierr)
+               if(ierr.eq.0)then
+                  call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLOs,pbs,wgt,xjac,xjacB,x,Kstd,0d0,ierr)
+                  if(ierr.eq.0.and.Kstd.ne.0d0)write(88,*)'channel check: K(sum of channel pieces)/K - 1 =',KNLO/Kstd-1d0,' channel',ichan
+               endif
+            endif
+            ierr=0
+         endif
+         goto 999
+      endif
 c
 c     counterterm
       call local_counter_NLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KNLO,wgt_chan,ierr)
@@ -172,7 +243,16 @@ c
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      integer ldip,mdip
+      common/c_chan_dipole/ldip,mdip
+      logical done
+      data done/.false./
+      save done
 c
+      if(done)return
+      done=.true.
+      ldip=0
+      mdip=0
       isec = %(isec)d
       jsec = %(jsec)d
       ksec = 0
@@ -199,5 +279,62 @@ c     fill underlying pdgs, labels and flavours
       call get_iref(nexternal,isec,jsec,mapped_labels,iref)
       ib = iref
 c
+      return
+      end
+
+
+
+      subroutine setup_channels_%(isec)d_%(jsec)d(nch)
+c     channel decomposition: list of the momentum mappings
+c     (iU,iS,iB) of the counterterm pieces of sector
+c     (%(isec)d,%(jsec)d), without repetitions: soft dipoles
+c     (isec,l,m), l > m coloured and different from isec, and the
+c     hard-collinear piece (isec,jsec,iref)
+      implicit none
+      include 'nexternal.inc'
+      include 'colored_partons.inc'
+      integer nch,l,m,k
+      integer isec,jsec,ksec,lsec,iref
+      common/csecindices/isec,jsec,ksec,lsec,iref
+      integer maxchan
+      parameter(maxchan=100)
+      integer nchan,chtrip(3,maxchan)
+      common/c_nlo_channels/nchan,chtrip
+      logical has_soft,has_hc,found
+      parameter(has_soft=%(chan_has_soft)s,has_hc=%(chan_has_hc)s)
+c
+      call initialise_sector()
+      nchan=0
+      if(has_soft)then
+         do m=1,nexternal-1
+            if(.not.isNLOQCDparton(m))cycle
+            if(m.eq.isec)cycle
+            do l=m+1,nexternal
+               if(.not.isNLOQCDparton(l))cycle
+               if(l.eq.isec)cycle
+               nchan=nchan+1
+               chtrip(1,nchan)=isec
+               chtrip(2,nchan)=l
+               chtrip(3,nchan)=m
+            enddo
+         enddo
+      endif
+      if(has_hc)then
+         found=.false.
+         do k=1,nchan
+            if(chtrip(2,k).eq.jsec.and.chtrip(3,k).eq.iref)found=.true.
+         enddo
+         if(.not.found)then
+            nchan=nchan+1
+            chtrip(1,nchan)=isec
+            chtrip(2,nchan)=jsec
+            chtrip(3,nchan)=iref
+         endif
+      endif
+      if(nchan.eq.0.or.nchan.gt.maxchan)then
+         write(*,*)'setup_channels: wrong number of channels',nchan
+         stop
+      endif
+      nch=nchan
       return
       end

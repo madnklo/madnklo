@@ -2799,7 +2799,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         linkfiles = ['check_sa.f']
         user_linkfiles = []
         common_files = []
-        common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc','CSmapping.f','genps.f','ct_log.f']
+        common_files = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','colours.f','hbook.inc','jets.inc','CSmapping.f','genps.f','ct_log.f']
         common_files+=['invarients.f','transpole.f']
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']

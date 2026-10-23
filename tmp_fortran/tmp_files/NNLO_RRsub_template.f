@@ -196,6 +196,8 @@ c
       common/csecindices/asec,bsec,csec,dsec
       integer real_leg_pdgs(nexternal-1),born_leg_pdgs(nexternal-2)
       common/C_NNLO_U_PDGS/real_leg_pdgs,born_leg_pdgs
+      double precision C_i(nexternal)
+      common/ccasimirs/C_i
       include 'all_sector_list.inc'
 
 C
@@ -226,6 +228,7 @@ c     configuration files
       call props_%(str_UBorn)s
       call decaybw_%(str_UBorn)s
       call getleshouche_%(str_UBorn)s
+      call get_casimirs
 c
 c     fill underlying pdgs, labels and flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)

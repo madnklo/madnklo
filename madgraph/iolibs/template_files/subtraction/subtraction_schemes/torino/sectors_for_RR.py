@@ -1740,12 +1740,12 @@ c       KHC_CC = C_ij (1-S_i) CC_ijk (1 - SC_kij)"""
                     if all_3p_K12_ct[i][j] == 0:
                         continue
                     if j == 0:    # S_i SS_ik
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_SS', 'S_SS', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
                     elif j == 1:  # + S_i SC_ijk
-                        list_str_M2_K12.append('K%s=K%s+M2_%s(isec,%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
+                        list_str_M2_K12.append('K%s=K%s+M2_%s(%s,iref,xs,xp,wgt,xj,xjB,nitRR,1d0,wgt_chan,ierr)\n'
                                        % ('S_SC', 'S_SC', all_3p_K12_ct[i][j], K12_3p_indices[j]))
                         list_str_M2_K12.append('if(ierr.eq.1)goto 999\n')
                         os.system('cat ' + NNLO_IR_limits_tmp_path + all_3p_K12_ct[i][j] + '.f >> ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
@@ -2446,7 +2446,7 @@ c       %s
         for s in filtered_all:
             pos = s['original_pos']
             pdg = s['original_pdg']
-    
+
             # Check if two particles are both gluons
             if len(pdg) >= 2 and pdg[0] == 21 and pdg[1] == 21:
                 g1, g2 = pos[0], pos[1]
@@ -2504,7 +2504,7 @@ c       %s
             [s['order_leg_K2']     for s in sectors],
             [s['order_leg_K12']    for s in sectors]
         )
-    
+
     def swap_idx(self,idx,g1,g2):
         if idx == g1:
             return g2

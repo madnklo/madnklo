@@ -113,8 +113,8 @@ c     eikonal double sum
          jb = real_labels(j,i,j)
          kb = real_labels(k,i,j)
          mb = real_labels(m,i,j)
-         kbb = born_sc1_mapped_labels(kb,kb,mb)
-         mbb = born_sc1_mapped_labels(mb,kb,mb)
+         kbb = born_labels(kb,kb,mb)
+         mbb = born_labels(mb,kb,mb)
 c
 c     underlying Born configuration is remapped
          call phase_space_CS_inv(kb,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,kb,mb))

@@ -13,12 +13,12 @@ c     i, k are a g-g while j is a q (or qb) with any flavour
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,ir,ierr,nit
+      integer i,j,k,r,ir,ierr,nit,parent_leg
       integer jb,kb,rb
       double precision pref,M2_C_SC_ggq_CC_ggq,M2_SC_SC_ggq_CC_ggq,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO
+      double precision BLO,KKBLO
       double precision dot
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
@@ -28,6 +28,7 @@ c     i, k are a g-g while j is a q (or qb) with any flavour
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk
       double precision Pij,Qij,Ei_jr,Eb_jr_ijr
+      double precision %(proc_prefix_Born)s_get_kkblo
       integer, parameter :: hel = - 1
       logical flavourmatch
 c     set logical doplot
@@ -126,8 +127,8 @@ c     collinear soft-collinear double-collinear kernel, eq. (C.43) of 2212.11190
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
       Qij = -2d0*CA*zi*zj
       Eb_jr_ijr = sbjr/sbjk/sbkr
-      M2tmp = 2d0*CA*Eb_kjr*(Pij+Qij)*BLO
-      M2tmp = M2tmp + 2d0*CA*Eb_kjr*2d0*KKBLO !TODO: check this
+      M2tmp = 2d0*CA*Eb_jr_ijr*(Pij+Qij)*BLO
+      M2tmp = M2tmp + 2d0*CA*Eb_jr_ijr*2d0*KKBLO !TODO: check this
       M2_C_SC_ggq_CC_ggq = M2tmp/sij
 c
 c     compute collinear soft-collinear double-collinear sector function eq. (C.86) of 2212.11190v2

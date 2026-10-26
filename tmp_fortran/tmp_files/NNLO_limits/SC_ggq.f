@@ -1,5 +1,5 @@
 
-      double precision function M2_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     SC(i,j,k) kernel times WSC;
 c     i, j is a g-g pair, k is a q (or qb)
       use sectors4_module
@@ -14,7 +14,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,m,a,b,ierr,nit
+      integer i,j,k,r,m,a,b,ierr,nit,itmp,jtmp,ktmp
       integer ib,jb,kb,mb,kbb,mbb,ab,bb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -28,6 +28,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       logical doplot
       common/cdoplot/doplot
       double precision sCM
@@ -68,9 +69,26 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
-        write(*,*) 'Flavour mismatch in M2_SC_ggq', leg_PDGs(i),leg_PDGs(j)
+      flavourmatch_ijjk =  leg_pdgs(itmp).ne.leg_pdgs(jtmp)
+      flavourmatch_ijkj =  leg_pdgs(itmp).ne.leg_pdgs(ktmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SC_ggq', leg_PDGs(itmp),leg_PDGs(jtmp)
         stop 1
+      endif
+c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
       endif
 c
 c     overall kernel prefix

@@ -1,5 +1,5 @@
 
-      double precision function M2_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SC_GGQ_CC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     SC(i,j,k)CC(i,j,k) kernel times WSC_CC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module
@@ -12,7 +12,7 @@ c     while k is a q (or qb)
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,ierr,nit,parent_leg
+      integer itmp,jtmp,ktmp,i,j,k,r,a,b,ierr,nit,parent_leg
       integer ib,jb,kb,rb,ab,bb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -24,7 +24,7 @@ c     while k is a q (or qb)
       double precision sij,sik,sjk,sir,sjr,skr,zj,zk
       double precision Ei_jr,Ei_kr,Pjkr
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk, flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -59,10 +59,26 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_SC_ggq_CC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(.not.(flavourmatch_ijjk.or.flavourmatch_ijkj))then
+        write(*,*) 'Flavour mismatch in M2_CC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
+      endif
+c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
       endif
 c
 c     overall kernel prefix

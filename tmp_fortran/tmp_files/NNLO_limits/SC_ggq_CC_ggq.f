@@ -62,7 +62,7 @@ c     check flavour match
       flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
       flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
       if(.not.(flavourmatch_ijjk.or.flavourmatch_ijkj))then
-        write(*,*) 'Flavour mismatch in M2_CC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
+        write(*,*) 'Flavour mismatch in M2_SC_ggq_CC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
       endif
 c

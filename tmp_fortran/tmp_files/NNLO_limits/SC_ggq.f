@@ -69,8 +69,8 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch_ijjk =  leg_pdgs(itmp).ne.leg_pdgs(jtmp)
-      flavourmatch_ijkj =  leg_pdgs(itmp).ne.leg_pdgs(ktmp)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
       if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
         write(*,*) 'Flavour mismatch in M2_SC_ggq', leg_PDGs(itmp),leg_PDGs(jtmp)
         stop 1

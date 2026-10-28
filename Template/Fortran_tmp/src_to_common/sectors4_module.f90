@@ -386,10 +386,10 @@ contains
     do i=1,len
        sec=sc_sector_list(c,ii(1),ii(2),i,:)
        if(all(sec.eq.0))cycle
-       if(sec(1).eq.a) then
-          wr=w(sec(1),r)
+       if(sec(1).eq.c) then
+          wr=w(sec(3),r)
        else
-          wr=w(sec(4),r)
+          wr=w(sec(1),r)
        endif
        sigma = sigma + &
             sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr

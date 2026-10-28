@@ -138,7 +138,7 @@ c     call Born matrix element
 c
 c     mapping 2: [jrk,irk]
       call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,k,j))
       call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts

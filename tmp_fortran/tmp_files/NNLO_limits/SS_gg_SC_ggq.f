@@ -13,8 +13,8 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,m,ierr,nit,itmp,jtmp,ktmp
-      integer ib,jb,kb,rb,mb,ab,bb
+      integer i,j,k,r,m,ierr,nit,itmp,jtmp,ktmp
+      integer ib,jb,kb,rb,mb
       integer jbb,kbb,rbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
@@ -63,7 +63,7 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(bsec.ne.csec.or.bsec.ne.dsec) then
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_SS_gg_SC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
@@ -107,34 +107,35 @@ c     Invariant quantities
 c
 c     call W double-soft soft-collinear, (C.57-C.58) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_wss_sc_nnlo(asec,bsec,csec,dsec)
+      if(i.eq.asec)then
+        call get_wss_sc_nnlo(asec,bsec,csec,dsec)
+      elseif(i.eq.csec)then
+        call get_wss_sc_nnlo(csec,bsec,asec,dsec)
+      endif
 c
 c     mapping 1: [krj,imj]
 c
-      a = csec
-      b = dsec
-c
 c     fill mapped labels
-      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+c     fill mapped labels
+      call fill_real_mapped_labels(j,k,leg_pdgs,real_leg_pdgs)
+      ib = real_labels(i,j,k)
+      jb = real_labels(j,j,k)
+      kb = real_labels(k,j,k)
+      rb = real_labels(r,j,k)
+      call fill_born_mapped_labels(ib,jb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
-      ib = real_labels(i,a,b)
-      jb = real_labels(j,a,b)
-      kb = real_labels(k,a,b)
-      rb = real_labels(r,a,b)
-      bb = real_labels(b,a,b)
+      kbb = born_labels(kb,ib,jb)
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,bb)
-         mbb = born_labels(mb,ib,bb)
+         mb = real_labels(m,j,k)
+         mbb = born_labels(mb,ib,jb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
+         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c
 c     possible cuts
@@ -167,19 +168,19 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       enddo
 c
 c     mapping 2: [jrk,imk]
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,jb)
-         mbb = born_labels(mb,ib,jb)
+         mb = real_labels(m,j,k)
+         kbb = born_labels(kb,ib,kb)
+         mbb = born_labels(mb,ib,kb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
+         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle

@@ -435,7 +435,7 @@ contains
     sigma=0d0
     ii = sort2([ic,id])
     do i=1,len
-       sec=sc_cc_sector_list(ii(1),a,ii(2),i,:)
+       sec=sc_cc_sector_list(a,ii(1),ii(2),i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
     enddo
@@ -459,7 +459,7 @@ contains
     sigma=0d0
     ii = sort2([ic,id])
     do i=1,len
-       sec=sc_cc_sector_list(a,ii(1),ii(2),i,:)
+       sec=sc_cc_sector_list(ii(1),a,ii(2),i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
     enddo

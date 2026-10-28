@@ -14,8 +14,8 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,m,a,b,ierr,nit,itmp,jtmp,ktmp
-      integer ib,jb,kb,mb,kbb,mbb,ab,bb
+      integer i,j,k,r,m,ierr,nit,itmp,jtmp,ktmp
+      integer ib,jb,kb,mb,kbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -24,7 +24,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sik,sjk,sjr,skr,sim,sjm,skm
       double precision zj,zk,Pjkr,Ei_jm,Ei_km
-      double precision pref,extra
+      double precision pref,extra,wsc_nnlo
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
 c     set logical doplot
@@ -105,36 +105,39 @@ c     invariant quantities
       zk = skr/(sjr+skr)
       Pjkr = CF*(2d0*zk/zj+zj)
 c
-c     soft-collinear sector function, (C.55) of 2212.11190
+c     soft-collinear sector function, (C.55) or (C.56) of 2212.11190
       call get_w(xs,nexternal)
       call get_sig2(xs,1d0,nexternal)
-      call get_wsc_nnlo(asec,bsec,csec,dsec,iref)
+      if(i.eq.asec)then
+        call get_wsc_ikl_nnlo(asec,bsec,csec,dsec,iref)
+        wsc_nnlo = wsc_ikl_nnlo
+      elseif(i.eq.csec)then
+        call get_wsc_kij_nnlo(asec,bsec,csec,dsec,iref)
+        wsc_nnlo = wsc_kij_nnlo
+      endif
 c
 c     mapping 1: [krj,imj]
 c
-      a = csec
-      b = dsec
-c
 c     fill mapped labels
-      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_real_mapped_labels(j,k,leg_pdgs,real_leg_pdgs)
+      ib = real_labels(i,j,k)
+      jb = real_labels(j,j,k)
+      kb = real_labels(k,j,k)
+      call fill_born_mapped_labels(ib,jb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
-      ib = real_labels(i,a,b)
-      jb = real_labels(j,a,b)
-      kb = real_labels(k,a,b)
-      bb = real_labels(b,a,b)
+      kbb = born_labels(kb,ib,jb)
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,bb)
-         mbb = born_labels(mb,ib,bb)
+         mb = real_labels(m,j,k)
+         kbb = born_labels(kb,ib,jb)
+         mbb = born_labels(mb,ib,jb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
+         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -165,19 +168,19 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       enddo
 c
 c     mapping 2: [jrk,imk]
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,jb)
-         mbb = born_labels(mb,ib,jb)
+         mb = real_labels(m,j,k)
+         kbb = born_labels(kb,ib,kb)
+         mbb = born_labels(mb,ib,kb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
+         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle

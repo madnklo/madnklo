@@ -3,13 +3,13 @@ module sectors4_module
   integer, public :: n_ext
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
-  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
+  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_IKL_NNLO, WSC_KIJ_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO, WS12_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: w,sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
-  public :: get_WSC_NNLO, get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO
+  public :: get_WSC_IKL_NNLO, get_WSC_KIJ_NNLO,  get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO
   public :: get_w, get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO, get_WS12_NLO
   private
 
@@ -350,7 +350,7 @@ contains
     WCbar_NLO = num/sigma
   end subroutine get_WCbar_NLO
 
-  subroutine get_WSC_NNLO(a,b,c,d,r)
+  subroutine get_WSC_IKL_NNLO(a,b,c,d,r)
     implicit none
     integer :: a,b,c,d,r,ii(2)
     integer :: i,sec(4)
@@ -370,8 +370,31 @@ contains
        sigma = sigma + &
             sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
     enddo
-    WSC_NNLO = num/sigma
-  end subroutine get_WSC_NNLO
+    WSC_IKL_NNLO = num/sigma
+  end subroutine get_WSC_IKL_NNLO
+
+ subroutine get_WSC_KIJ_NNLO(a,b,c,d,r)
+    implicit none
+    integer :: a,b,c,d,r,ii(2)
+    integer :: i,sec(4)
+    double precision :: wr,num,sigma
+    include 'all_K2_sector_list.inc'
+    num = sig2(a,b)**alpha_mod*sig2(c,d)/w(a,r)
+    sigma = 0d0
+    ii = sort2([a,b])
+    do i=1,len
+       sec=sc_sector_list(c,ii(1),ii(2),i,:)
+       if(all(sec.eq.0))cycle
+       if(sec(1).eq.a) then
+          wr=w(sec(1),r)
+       else
+          wr=w(sec(4),r)
+       endif
+       sigma = sigma + &
+            sig2(sec(1),sec(2))**alpha_mod*sig2(sec(3),sec(4))/wr
+    enddo
+    WSC_KIJ_NNLO = num/sigma
+  end subroutine get_WSC_KIJ_NNLO
 
   subroutine get_WSS_SC_NNLO(a,b,c,d)
     !     NNLO double-soft soft-collinear sector functions WSS_SC(a,b,c,d)

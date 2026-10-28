@@ -13,7 +13,7 @@ c     while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer itmp,jtmp,ktmp,i,j,k,r,a,b,ierr,nit,parent_leg
-      integer ib,jb,kb,rb,ab,bb
+      integer ib,jb,kb,rb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -22,7 +22,7 @@ c     while k is a q (or qb)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sij,sik,sjk,sir,sjr,skr,zj,zk
-      double precision Ei_jr,Ei_kr,Pjkr
+      double precision Ei_jr,Ei_kr,Pjkr,wsc_cc_nnlo
       integer, parameter :: hel = - 1
       logical flavourmatch_ijjk, flavourmatch_ijkj
       double precision alphas,alpha_qcd
@@ -85,9 +85,6 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
 c
-      a = csec
-      b = dsec
-c
 c     invariant quantities
       sij  = xs(i,j)
       sjk  = xs(j,k)
@@ -111,20 +108,24 @@ c
 c     soft-collinear double-collinear sector function, (C.62-63) of 2212.11190
       call get_w(xs,nexternal)
       call get_sig2(xs,1d0,nexternal)
-      call get_wsc_cc_nnlo(asec,bsec,csec,dsec,iref)
+      if(i.eq.asec)then
+        call get_wsc_cc_ijk_nnlo(asec,bsec,csec,dsec,iref)
+        wsc_cc_nnlo = wsc_cc_ijk_nnlo
+      elseif(i.eq.csec)then
+        call get_wsc_cc_kij_nnlo(asec,bsec,csec,dsec,iref)
+        wsc_cc_nnlo = wsc_cc_kij_nnlo
+      endif
 c
 c     mapping 1: [krj,irj]
-      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_real_mapped_labels(k,j,leg_pdgs,real_leg_pdgs)
+      ib = real_labels(i,k,j)
+      jb = real_labels(j,k,j)
+      kb = real_labels(k,k,j)
+      rb = real_labels(r,k,j)
+      call fill_born_mapped_labels(ib,jb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,k,j))
 c
-      ib = real_labels(i,a,b)
-      jb = real_labels(j,a,b)
-      kb = real_labels(k,a,b)
-      rb = real_labels(r,a,b)
-      bb = real_labels(b,a,b)
-c
-      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
+      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -136,9 +137,9 @@ c     call Born matrix element
       BLO_krj_irj = ans(0)
 c
 c     mapping 2: [jrk,irk]
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
+      call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
       call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
-      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
+      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return

@@ -3,13 +3,14 @@ module sectors4_module
   integer, public :: n_ext
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
-  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_IKL_NNLO, WSC_KIJ_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO, WSC_CC_NNLO
+  double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_IKL_NNLO, WSC_KIJ_NNLO, WSS_SC_NNLO, WSS_SC_CC_NNLO
+  double precision, public :: WSC_CC_IJK_NNLO, WSC_CC_KIJ_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO, WS12_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: w,sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
-  public :: get_WSC_IKL_NNLO, get_WSC_KIJ_NNLO,  get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_NNLO
+  public :: get_WSC_IKL_NNLO, get_WSC_KIJ_NNLO,  get_WSS_SC_NNLO, get_WSS_SC_CC_NNLO, get_WSC_CC_IJK_NNLO, get_WSC_CC_KIJ_NNLO
   public :: get_w, get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO, get_WS12_NLO
   private
 
@@ -417,7 +418,31 @@ contains
     WSS_SC_NNLO = num/sigma
   end subroutine get_WSS_SC_NNLO
 
-  subroutine get_WSC_CC_NNLO(a,b,c,d,r)
+  subroutine get_WSC_CC_IJK_NNLO(a,b,c,d,r)
+    !     NNLO soft-collinear double-collinear sector functions WSC_CC(a,b,c,d)
+    implicit none
+    integer :: i,a,b,c,d,r,ic,id,ii(2),sec(4)
+    double precision :: num,sigma
+    include 'all_K2_sector_list.inc'
+    num = (sig2(a,b)/w(a,r))**alpha_mod*sig2(c,d)/w(c,r)
+    if(b.eq.c) then
+        ic=b
+        id=d
+    elseif(b.eq.d)then
+        ic=d
+        id=c
+    endif
+    sigma=0d0
+    ii = sort2([ic,id])
+    do i=1,len
+       sec=sc_cc_sector_list(ii(1),a,ii(2),i,:)
+       if(all(sec.eq.0))cycle
+       sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
+    enddo
+    WSC_CC_IJK_NNLO = num/sigma
+  end subroutine get_WSC_CC_IJK_NNLO
+
+  subroutine get_WSC_CC_KIJ_NNLO(a,b,c,d,r)
     !     NNLO soft-collinear double-collinear sector functions WSC_CC(a,b,c,d)
     implicit none
     integer :: i,a,b,c,d,r,ic,id,ii(2),sec(4)
@@ -438,8 +463,8 @@ contains
        if(all(sec.eq.0))cycle
        sigma = sigma + (sig2(sec(1),sec(2))/w(sec(1),r))**alpha_mod*sig2(sec(3),sec(4))/w(sec(3),r)
     enddo
-    WSC_CC_NNLO = num/sigma
-  end subroutine get_WSC_CC_NNLO
+    WSC_CC_KIJ_NNLO = num/sigma
+  end subroutine get_WSC_CC_KIJ_NNLO
 
   subroutine get_WSS_SC_CC_NNLO(a,b,c,d,r)
     !     NNLO double-soft soft-collinear double-collinear sector functions WSS_SC_CC(a,b,c,d)

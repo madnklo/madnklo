@@ -19,7 +19,7 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision ccBLO_krj_imj,ccBLO_jrk_imk
+      double precision ccBLO_krj_imj,ccBLO_jrk_imk,wss_sc_nnlo
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sik,sjk,sir,sjr,skr,sim,sjm,skm
@@ -108,9 +108,11 @@ c
 c     call W double-soft soft-collinear, (C.57-C.58) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       if(i.eq.asec)then
-        call get_wss_sc_nnlo(asec,bsec,csec,dsec)
+        call get_wss_sc_ikl_nnlo(asec,bsec,csec,dsec)
+        wss_sc_nnlo = wss_sc_ikl_nnlo
       elseif(i.eq.csec)then
-        call get_wss_sc_nnlo(csec,bsec,asec,dsec)
+        call get_wss_sc_kij_nnlo(asec,bsec,csec,dsec)
+        wss_sc_nnlo = wss_sc_kij_nnlo
       endif
 c
 c     mapping 1: [krj,imj]

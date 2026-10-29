@@ -18,7 +18,7 @@ c     while k is a q (or qb)
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO_krj_irj,BLO_jrk_irk
+      double precision BLO_krj_irj,BLO_jrk_irk,wss_sc_cc_nnlo
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
@@ -106,7 +106,13 @@ c
 c     double-soft soft-collinear double-collinear sector function, (C.65-C.67) of 2212.11190
       call get_w(xs,nexternal)
       call get_sig2(xs,1d0,nexternal)
-      call get_wss_sc_cc_nnlo(asec,bsec,csec,dsec,iref)
+      if(i.eq.asec)then
+        call get_wss_sc_cc_ijk_nnlo(asec,bsec,csec,dsec,iref)
+        wss_sc_cc_nnlo = wss_sc_cc_ijk_nnlo
+      elseif(i.eq.csec)then
+        call get_wss_sc_cc_kij_nnlo(asec,bsec,csec,dsec,iref)
+        wss_sc_cc_nnlo = wss_sc_cc_kij_nnlo
+      endif
 c
 c     mapping 1: [krj,irj]
       call fill_real_mapped_labels(k,j,leg_pdgs,real_leg_pdgs)

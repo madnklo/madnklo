@@ -19,7 +19,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO_ira_jkr,BLO_irb_jkr,BLO_iba_jkr,BLO_ira_bra,BLO_irb_arb
       double precision sia,sab,sib,sir,sbr,sar,sbbr,sbar,sbab
-      double precision Ei_ar,Ei_br,Ei_ab
+      double precision Ei_ar,Ei_br,Ei_ab,Cb
       double precision Eba_br_ira,Eba_br_irb,Eba_br_iba
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
@@ -92,7 +92,6 @@ c     overall kernel prefix
       alphas=alpha_QCD(asmz,nloop,scale)
       pref=(8d0*pi*alphas)**2
 c
-c
       a = csec
       b = dsec
 c
@@ -118,6 +117,13 @@ c
 c     compute soft double-soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws12_nlo(isec,jsec,ksec)
+c
+c     calling the correct casimir
+      if(abs((abs(leg_PDGs(b)).eq.21)then
+        Cb = CA
+      elseif(abs(leg_PDGs(b)).le.5)then
+        Cb = CF
+      endif
 c
 c     building S(i)S(i,j)C(i,j,k) according to eq.(17) on dropbox
 c
@@ -219,7 +225,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_iba_jkr = ans(0)
 c
-      M2_S_SS_gg_CC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_jkr+(2d0*CF-CA)*Ei_br*Eba_br_irb*BLO_irb_jkr+CA*Ei_ab*Eba_br_iba*BLO_iba_jkr)
+      M2_S_SS_gg_CC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_jkr+(2d0*Cb-CA)*Ei_br*Eba_br_irb*BLO_irb_jkr+CA*Ei_ab*Eba_br_iba*BLO_iba_jkr)
 c
 c     building S(i)S(i,a)SC(i,a,b)C(i,j,k) according to eq.(19) on dropbox
 c     mapping 1: [ira,bra]
@@ -260,7 +266,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)
 c
-      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*CF-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
+      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*Cb-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
 c
 c     soft double-soft double-hardcollinear kernel, TODO: Q_ij contribution is zero for ee->jj
       M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_CC_ggq - M2_S_SS_gg_CC_ggq_SC_ggq

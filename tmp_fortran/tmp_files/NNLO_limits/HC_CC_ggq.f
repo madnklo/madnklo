@@ -147,7 +147,7 @@ c     (same as dropbox eq. 23) (term 2 is zero for k=q)
 c
 c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_labels(csec,i,j)
       map2=real_labels(dsec,i,j)

@@ -129,7 +129,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2 
 c
 c     compute collinear double-soft double-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
       M2_C_SS_gg_CC_ggq=M2_C_SS_gg_CC_ggq*wc_nlo
 c
 c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.11190v2 (same as dropbox eq. 33)

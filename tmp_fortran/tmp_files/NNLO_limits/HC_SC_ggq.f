@@ -99,7 +99,7 @@ c     overall kernel prefix
 c
 c     compute wc_nlo
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
 c
 c     invariant quantities
       sij = xs(i,j)

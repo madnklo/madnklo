@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SS_GG_HCC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SS_GG_HCC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) S(i,j) C(i,j,k) * (1 - SC(i,j,k)) * WS_SS_HCC
 c     where  i, j is a g-g pair while k is a q (or qb)
       use sectors4_module
@@ -13,7 +13,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,a,b,r,ierr,nit,parent_leg
-      integer ib,jb,kb,rb,ab,bb
+      integer ib,jb,kb,rb,ab,bb,itmp,jtmp,ktmp
       double precision pref,M2tmp,M2_S_SS_gg_CC_ggq,M2_S_SS_gg_CC_ggq_SC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -25,7 +25,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -66,10 +66,26 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_S_SS_gg_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_S_SS_gg_HCC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
+      endif
+c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
       endif
 c
 c     overall kernel prefix

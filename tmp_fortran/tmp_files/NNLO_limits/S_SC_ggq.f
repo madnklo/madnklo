@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) SC(i,j,k) kernel times WS_SC;
 c     i, j is a g-g pair, k is a q (or qb)
       use sectors4_module
@@ -14,7 +14,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,m,ierr,nit
+      integer i,j,k,r,a,b,m,ierr,nit,itmp,jtmp,ktmp
       integer ib,ab,bb,rb,mb,bbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1),xsbb(nexternal-2,nexternal-2)
@@ -25,6 +25,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision pref,extra,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
+      logical flavourmatch_ijjk,flavourmatch_ijkj
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -69,9 +70,26 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
-        write(*,*) 'Flavour mismatch in M2_S_SC_ggq', leg_PDGs(i),leg_PDGs(j)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_S_SC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
+      endif
+c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
       endif
 c
 c     overall kernel prefix

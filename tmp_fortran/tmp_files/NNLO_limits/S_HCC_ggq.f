@@ -1,5 +1,5 @@
 
-      double precision function M2_S_HCC_ggq(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_HCC_ggq(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) C(i,j,k) * (1 - SC(i,j,k)) * WS_HCC
 c     where  i, j is a g-g pair while k is a q (or qb)
       use sectors4_module
@@ -13,19 +13,19 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,a,b,ierr,nit,parent_leg,map1,map2
-      integer ib,jb,kb,ab,bb,rb
+      integer ib,jb,kb,ab,bb,rb,itmp,jtmp,ktmp
       double precision pref,M2tmp,M2_S_CC_ggq,M2_S_SC_CC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO_ira_jkr,BLO_irb_jkr,BLO_iba_jkr,BLO_ira_bra,BLO_irb_arb
       double precision sia,sab,sib,sir,sbr,sar,sij,sik,sjk,sjr,skr,sbjk,sbjr,sbkr,zbj,zbk
-      double precision Ei_ar,Ei_br,Ei_jk,Ei_ab
+      double precision Ei_ar,Ei_br,Ei_jk,Ei_ab,r1,r2,r3
       double precision Pb_jkr_ira,Pb_jkr_irb,Pb_jkr_iba
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -66,10 +66,26 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_S_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
+      endif
+c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
       endif
 c
 c     overall kernel prefix
@@ -101,6 +117,10 @@ c
 c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws12_nlo(isec,jsec,ksec)
+c
+c     call rho structures
+c     r1 is rho_ab, r2 is rho_ba, r3 is rho_[ab] = rho_[ba]
+      call get_rhos(a,b,i,real_leg_pdgs,r1,r2,r3)
 c
 c     building S(i)C(i,j,k) according to eq.(15) on dropbox
 c
@@ -220,7 +240,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_iba_jkr = ans(0)*wcbar_nlo
 c
-      M2_S_CC_ggq = CF*(CA/CF*Ei_ar*Pb_jkr_ira*BLO_ira_jkr+(2d0*CF-CA)/CF*Ei_br*Pb_jkr_irb*BLO_irb_jkr-(-CA/CF)*Ei_jk*Pb_jkr_iba*BLO_iba_jkr)
+      M2_S_CC_ggq = CF*(r1*Ei_ar*Pb_jkr_ira*BLO_ira_jkr+r2*Ei_br*Pb_jkr_irb*BLO_irb_jkr-r3*Ei_jk*Pb_jkr_iba*BLO_iba_jkr)
 c
 c     building S(i)SC(i,a,b)C(i,j,k) according to eq.(18) on dropbox
 c
@@ -297,7 +317,7 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)*wcbar_nlo
 c
-      M2_S_SC_CC_ggq = CF*(CA/CF*Ei_ar*Pb_jkr_ira*BLO_ira_bra+(2d0*CF-CA)/CF*Ei_br*Pb_jkr_irb*BLO_irb_arb)
+      M2_S_SC_CC_ggq = CF*(r1*Ei_ar*Pb_jkr_ira*BLO_ira_bra+r2*Ei_br*Pb_jkr_irb*BLO_irb_arb)
 c
 c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
       M2_S_HCC_ggq = M2_S_CC_ggq - M2_S_SC_CC_ggq

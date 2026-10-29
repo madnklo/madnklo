@@ -13,7 +13,7 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,a,b,ierr,nit,parent_leg,map1,map2
-      integer ib,jb,kb,ab,bb,rb,itmp,jtmp,ktmp
+      integer ib,jb,kb,ab,bb,rb,itmp,jtmp,ktmp,parent
       double precision pref,M2tmp,M2_S_CC_ggq,M2_S_SC_CC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -120,7 +120,12 @@ c     compute soft double-hardcollinear sector function, (C.75) of 2212.11190
 c
 c     call rho structures
 c     r1 is rho_ab, r2 is rho_ba, r3 is rho_[ab] = rho_[ba]
-      call get_rhos(a,b,i,real_leg_pdgs,r1,r2,r3)
+      if(abs((leg_PDGs(a))).le.5.and.abs(leg_PDGs(b)).eq.21)then
+        parent = a
+      elseif(abs((leg_PDGs(a))).eq.21.and.abs(leg_PDGs(b)).le.5)then
+        parent = b
+      endif
+      call get_rhos(a,b,parent,real_leg_pdgs,r1,r2,r3)
 c
 c     building S(i)C(i,j,k) according to eq.(15) on dropbox
 c

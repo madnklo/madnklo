@@ -119,7 +119,7 @@ c     compute soft double-soft double-hardcollinear sector function, (C.75) of 2
       call get_ws12_nlo(isec,jsec,ksec)
 c
 c     calling the correct casimir
-      if(abs((abs(leg_PDGs(b)).eq.21)then
+      if(abs(leg_PDGs(b)).eq.21)then
         Cb = CA
       elseif(abs(leg_PDGs(b)).le.5)then
         Cb = CF

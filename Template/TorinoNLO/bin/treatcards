@@ -100,6 +100,7 @@ if args[0] in ['param', 'all']:
     proc_card = os.path.join(export_dir,'Cards','proc_card.dat')
     if not os.path.isfile(proc_card):
         proc_card = os.path.join(export_dir,'Cards','proc_card_mg5.dat')
+    model = 'sm'   # MG5 default when the process card has no 'import model'
     for line in open(proc_card):
         line = line.split('#')[0]
         if line.startswith('import') and 'model' in line:
@@ -146,12 +147,9 @@ if args[0] in ['param', 'all']:
 
 if args[0] in ['run', 'all']:
     run_card = banner_mod.RunCardNLO(pjoin(export_dir,'Cards','run_card.dat'))
-    n_initial = run_card['lpp1']+run_card['lpp2']
-    if n_initial == 1:
-        run_card['lpp1'] =  0
-        run_card['lpp2'] =  0
-        run_card['ebeam1'] = 0
-        run_card['ebeam2'] = 0
+    # The beams are kept as in the run_card: one hadron beam (lpp1 + lpp2
+    # = +-1, e.g. e- p) is a valid collider and must not be turned into
+    # lepton beams.
 
     run_card.write_include_file(opt['output_dir'])
 

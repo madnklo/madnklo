@@ -225,7 +225,7 @@ class FlatInvertiblePhasespace(VirtualPhaseSpaceGenerator):
            (not self.beam_types[0]==self.beam_types[1]==0):
             raise InvalidCmd(
                 "This basic generator does not support the collider configuration: (lpp1=%d, lpp2=%d)"%
-                             (self.run_card['lpp1'], self.run_card['lpp2']))
+                             (self.beam_types[0], self.beam_types[1]))
         
         if self.beam_Es[0]!=self.beam_Es[1]:
             raise InvalidCmd(

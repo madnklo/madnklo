@@ -1,0 +1,17 @@
+################################################################################
+# MadNkLO configuration (input/madnklo_config.txt)
+#
+# Read by bin/run_all.py of every output in this MadNkLO directory.
+# input/madnklo_config.txt is created from input/.madnklo_config_default.txt
+# if missing; it is not tracked by git (machine-specific paths).
+################################################################################
+
+# Path to the lhapdf-config executable of LHAPDF 6 (>= 6.2). Required with
+# hadron beams (lpp1 or lpp2 != 0 in the run_card): the PDFs, alpha_s(MZ) and
+# its running are then always taken from LHAPDF (set lhaid of the run_card).
+# lhapdf = /path/to/LHAPDF/bin/lhapdf-config
+lhapdf =
+
+# Directory of the PDF sets. Optional: by default the data directory of the
+# LHAPDF above ('lhapdf-config --datadir').
+# lhapdf_data_path = /path/to/LHAPDF/share/LHAPDF

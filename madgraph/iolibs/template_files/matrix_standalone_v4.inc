@@ -148,6 +148,11 @@ C     For a 1>N process, them BEAMTWO_HELAVGFACTOR would be set to 1.
       DATA GOODHEL/NCOMB*.FALSE./
       
       INTEGER HELICITIES(NEXTERNAL)
+C     Multi-channel weights |AMP(I)|^2/sum_J |AMP(J)|^2, summed over
+C     helicities (accumulated in MATRIX, used by the Torino integrands)
+      DOUBLE PRECISION AMP2(%(ngraphs)d)
+      COMMON/TO_AMP2/AMP2
+      DOUBLE PRECISION SUM_AMP2
 
 C
 C GLOBAL VARIABLES
@@ -239,6 +244,7 @@ C     If spin correlations are active, then remove the helicity filtering.
 ## }
 	  
       ANS = 0D0
+      AMP2=0D0
       
 ## if (spin_correlation) {
 C     Save helicity indices of the spin-correlated legs that we will use to insert the extra spin. corr. runs.
@@ -332,6 +338,9 @@ C                 End of the do-loop for the insertion of the extra spin-correla
                 ENDIF
 		     ENDIF
           ENDDO
+C     Normalise the multi-channel weights
+      SUM_AMP2=SUM(AMP2)
+      IF(SUM_AMP2.GT.0D0)AMP2=AMP2/SUM_AMP2
       ANS=ANS/DBLE(IDEN)
 ## if (color_correlation) {
       DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
@@ -417,6 +426,8 @@ C
       COMPLEX*16 ZTEMP
       REAL*8 DENOM(NCOLOR), CF(NCOLOR,NCOLOR)
       COMPLEX*16 AMP(NGRAPHS), JAMP(NCOLOR)
+      DOUBLE PRECISION AMP2(NGRAPHS)
+      COMMON/TO_AMP2/AMP2
       COMPLEX*16 W(20,NWAVEFUNCS)
       COMPLEX*16 DUM0,DUM1
       DATA DUM0, DUM1/(0d0, 0d0), (1d0, 0d0)/
@@ -472,6 +483,13 @@ ENDIF
 
 %(helas_calls)s
 %(jamp_lines)s
+
+C   Accumulate |AMP|^2 over helicities for the multi-channel weights.
+C   AMP2 is reset and normalised in SMATRIX (normalising here, for each
+C   helicity separately, gives 0/0 for vanishing helicity amplitudes).
+	DO I=1,NGRAPHS
+	AMP2(I)=AMP2(I)+AMP(I)*DCONJG(AMP(I))
+	ENDDO
 
       %(proc_prefix)sMATRIX = 0.D0 
       DO I = 1, NCOLOR

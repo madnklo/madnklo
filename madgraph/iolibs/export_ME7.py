@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
@@ -1240,6 +1241,15 @@ class ME7ExporterTorino(ME7Exporter):
 
         run_card.create_default_for_process(proc_characteristic, history, processes[0])
 
+        # One hadron beam (e.g. e- p): create_default_for_process sets lpp = 1
+        # for both beams as soon as one initial-state parton is coloured; a
+        # beam whose initial-state particles are all leptons has no PDF
+        if processes[0][0].get_ninitial() == 2:
+            for ibeam in (0, 1):
+                ids = set(proc['legs'][ibeam]['id'] for proc in processes[0])
+                if ids and all(11 <= abs(i) <= 16 for i in ids):
+                    run_card['lpp%d' % (ibeam+1)] = 0
+
         # Torino runtime: fixed renormalisation and factorisation scales by
         # default (dynamical choices are selected in ren_scale.f:get_mur)
         run_card['fixed_ren_scale'] = True
@@ -1251,10 +1261,69 @@ class ME7ExporterTorino(ME7Exporter):
         # (create_default_for_process sets it for hadronic initial states).
         run_card.user_set.discard('maxjetflavor')
 
+        # Hadron beams: the PDFs always come from LHAPDF (path to
+        # lhapdf-config in input/madnklo_config.txt, read by bin/run_all.py)
+        if run_card['lpp1'] != 0 or run_card['lpp2'] != 0:
+            run_card['pdlabel'] = 'lhapdf'
+            run_card['lhaid'] = 331100   # NNPDF40_nnlo_as_01180
+
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
         run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),
             template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+        # Hadron beams: link LHAPDF already at output time, so that the
+        # executables can also be built by hand (make in a P1_* directory)
+        # before bin/run_all.py is ever run
+        if run_card['lpp1'] != 0 or run_card['lpp2'] != 0:
+            self.configure_lhapdf()
+
+    def configure_lhapdf(self):
+        """Hadron beams: write 'lhapdf' (path to lhapdf-config, from
+        input/madnklo_config.txt of the MadNkLO directory) in Source/make_opts,
+        link lib/PDFsets to the LHAPDF data directory and write
+        Source/lhapdf.stamp, as bin/run_all.py does (which redoes it, with
+        more checks, whenever the setting changes). Only warns if LHAPDF is
+        not configured: bin/run_all.py then stops with the instructions."""
+
+        config = pjoin(MG5DIR, 'input', 'madnklo_config.txt')
+        default = pjoin(MG5DIR, 'input', '.madnklo_config_default.txt')
+        if not os.path.isfile(config) and os.path.isfile(default):
+            shutil.copy(default, config)
+        options = {}
+        if os.path.isfile(config):
+            for line in open(config):
+                line = line.split('#', 1)[0].strip()
+                if '=' in line:
+                    name, value = line.split('=', 1)
+                    options[name.strip().lower()] = value.strip()
+        lhapdf = os.path.expanduser(options.get('lhapdf', ''))
+        if not lhapdf or not os.path.isfile(lhapdf) or not os.access(lhapdf, os.X_OK):
+            logger.warning('Hadron beams: no valid lhapdf-config in %s (lhapdf = %s). '
+                % (config, lhapdf if lhapdf else '') + 'Set it there, then run '
+                'bin/run_all.py once before compiling by hand.')
+            return
+        lhapdf = os.path.abspath(lhapdf)
+        datadir = os.path.expanduser(options.get('lhapdf_data_path', ''))
+        if not datadir:
+            try:
+                datadir = misc.Popen([lhapdf, '--datadir'], stdout=subprocess.PIPE
+                                     ).communicate()[0].strip()
+            except Exception:
+                datadir = ''
+        if not os.path.isdir(datadir):
+            logger.warning('Hadron beams: LHAPDF data directory %s not found: '
+                'check %s, then run bin/run_all.py once.' % (datadir, config))
+            return
+        common_run_interface.CommonRunCmd.update_make_opts_full(
+            pjoin(self.export_dir, 'Source', 'make_opts'),
+            {'lhapdf': lhapdf, 'lhapdfversion': '6'})
+        link = pjoin(self.export_dir, 'lib', 'PDFsets')
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(os.path.abspath(datadir), link)
+        open(pjoin(self.export_dir, 'Source', 'lhapdf.stamp'), 'w').write(lhapdf + '\n')
+        logger.info('Hadron beams: LHAPDF from %s, PDF sets in %s' % (lhapdf, datadir))
 
     def rename_proc_card(self):
         """Cards/proc_card_mg5.dat -> Cards/proc_card.dat"""
@@ -1429,6 +1498,10 @@ class ME7ExporterTorino(ME7Exporter):
 
         ME7_options = dict(self.options)
         ME7_options['me_dir'] = self.export_dir
+        # The Python integrands are only used here to identify sectors and
+        # counterterms: the Fortran code evaluates the PDFs itself, so the
+        # Python LHAPDF interface is not loaded (hadronic initial states)
+        ME7_options['skip_python_pdf'] = True
         for contrib in self.contributions:
             all_integrands.extend(
                 contrib.get_integrands(

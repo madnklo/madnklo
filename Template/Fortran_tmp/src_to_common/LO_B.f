@@ -10,6 +10,7 @@ c     n-body LO integrand for vegas
       INCLUDE 'leg_PDGs.inc'
       INCLUDE 'ngraphs.inc'
       INCLUDE 'qcd_power.inc'
+      INCLUDE 'initial_states.inc'
       integer ierr
       integer ievt,nthres
       save ievt,nthres
@@ -46,6 +47,23 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer last_ich
       data last_ich /-1/
       save last_ich
+c     hadron beams (lpp != 0): PDFs and mirror processes (pdf_lumi.f)
+      logical hadrons,firsttime
+      data firsttime/.true./
+      save hadrons,firsttime
+      double precision pm(0:3,nexternal),BLOm,muf,lum,lumm,den,num
+      double precision rf(10),facf(10)
+      integer nvf,ii
+      double precision get_muf,pdf_lumi,pdf_swap_initial
+      external get_muf,pdf_lumi,pdf_swap_initial
+      double precision born_chan_weight
+      external born_chan_weight
+c
+      if(firsttime)then
+         hadrons=(lpp(1).ne.0.or.lpp(2).ne.0)
+         if(hadrons)call set_tau_min(nexternal,leg_pdgs)
+         firsttime=.false.
+      endif
 c
 c     call initialisation function, once per channel
       if (ich.ne.last_ich) then
@@ -69,9 +87,44 @@ c     renormalisation scale for the n-body kinematics
 c
 c     Born
       call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-      BLO = ANS(0)*AMP2(ich)
+      BLO = ANS(0)*born_chan_weight(ich)
       if(BLO.lt.0d0.or.abs(BLO).ge.huge(1d0).or.isnan(BLO))goto 999
-      int_Born=BLO*xjac*fl_factor
+      if(.not.hadrons)then
+         int_Born=BLO*xjac*fl_factor
+      else
+c        hadron beams: sum over the processes of this directory of
+c        f_a(x1) f_b(x2) B_ab(p), plus the mirror processes, with the
+c        matrix element evaluated with the initial momenta exchanged
+         muf=get_muf(p,nexternal,leg_pdgs)
+         q2fact(1)=muf**2
+         q2fact(2)=muf**2
+         lum=pdf_lumi(xbk(1),xbk(2),muf,1)
+         BLOm=0d0
+         lumm=0d0
+         if(has_mirror)then
+            lumm=pdf_lumi(xbk(1),xbk(2),muf,2)*
+     &           pdf_swap_initial(p,pm,nexternal)
+            call ME_ACCESSOR_HOOK(PM,HEL,ALPHAS,ANS)
+            BLOm = ANS(0)*born_chan_weight(ich)
+            if(BLOm.lt.0d0.or.abs(BLOm).ge.huge(1d0).or.isnan(BLOm))
+     &           then
+               int_Born=0d0
+               goto 999
+            endif
+         endif
+         den=BLO*lum+BLOm*lumm
+         int_Born=den*xjac
+c        factorisation-scale variations: PDF ratios at k*muF
+         call sv_get_muf_factors(nvf,facf)
+         do ii=1,nvf
+            num=BLO*pdf_lumi(xbk(1),xbk(2),facf(ii)*muf,1)
+            if(has_mirror)num=num+
+     &           BLOm*pdf_lumi(xbk(1),xbk(2),facf(ii)*muf,2)
+            rf(ii)=1d0
+            if(den.ne.0d0)rf(ii)=num/den
+         enddo
+         call sv_set_muf_ratios(rf)
+      endif
 c     renormalisation-scale variations: B ~ alpha_s^b
       call sv_add(int_Born,0d0,born_qcd_power)
 c
@@ -108,5 +161,55 @@ c
       call decaybw_born
       call getleshouche_born
 c
+      return
+      end
+
+
+      integer function n_born_channels()
+c     Number of integration channels: the phase-space configurations of
+c     configs.f (MAPCONFIG(0)). Diagrams without a configuration (e.g.
+c     with a four-gluon vertex only) have no channel of their own.
+      implicit none
+      include 'maxconfigs.inc'
+      integer mapconfig(0:lmaxconfigs),this_config
+      common/to_mconfigs/mapconfig,this_config
+      call configs_born
+      n_born_channels=mapconfig(0)
+      return
+      end
+
+
+      double precision function born_chan_weight(ich)
+c     Multi-channel weight of channel ich (configuration ich of
+c     configs.f, diagram MAPCONFIG(ich)), from the |AMP|^2 of the last
+c     matrix-element call (AMP2, normalised over all the diagrams), so
+c     that the weights of the channels add up to 1. When every diagram
+c     has its own configuration in the same order, this is AMP2(ich).
+      implicit none
+      include 'maxconfigs.inc'
+      include 'ngraphs.inc'
+      integer ich,k
+      integer mapconfig(0:lmaxconfigs),this_config
+      common/to_mconfigs/mapconfig,this_config
+      integer NGRAPHS2
+      double precision amp2(N_MAX_CG)
+      COMMON/TO_AMP2/AMP2,NGRAPHS2
+      logical identity
+      double precision sum
+c
+      identity=(mapconfig(0).eq.N_MAX_CG)
+      do k=1,mapconfig(0)
+         if(mapconfig(k).ne.k)identity=.false.
+      enddo
+      if(identity)then
+         born_chan_weight=amp2(ich)
+      else
+         sum=0d0
+         do k=1,mapconfig(0)
+            sum=sum+amp2(mapconfig(k))
+         enddo
+         born_chan_weight=0d0
+         if(sum.gt.0d0)born_chan_weight=amp2(mapconfig(ich))/sum
+      endif
       return
       end

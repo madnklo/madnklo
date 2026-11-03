@@ -2754,6 +2754,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # renormalisation-scale variations by reweighting
         self.write_qcd_power_file(dirpath, matrix_element)
 
+        # Initial-state flavours of the processes of this directory and of
+        # their mirrors (initial_states.inc), for the PDF luminosities with
+        # hadron beams (pdf_lumi.f)
+        self.write_initial_states_file(dirpath, matrix_element)
+
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
         plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
@@ -2812,6 +2817,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files += ['sectors.f', 'sectors2_module.f90', 'sectors4_module.f90']
         # renormalisation-scale setting (muR_current, alphas_current in math.inc)
         common_files += ['ren_scale.f']
+        # PDF luminosities with hadron beams (initial_states.inc)
+        common_files += ['pdf_lumi.f']
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
@@ -3152,6 +3159,41 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         return True
 
+
+    #===========================================================================
+    # write initial_states.inc (Torino: PDF luminosities with hadron beams)
+    #===========================================================================
+    def write_initial_states_file(self, dirpath, matrix_element):
+        """Write initial_states.inc: the initial-state flavours (beam 1,
+        beam 2) of the processes of this matrix element, which share the
+        matrix element of the first one, followed by those of their mirror
+        processes (beams exchanged, matrix element evaluated with the two
+        initial momenta exchanged) if the matrix element has mirror
+        processes. Used by pdf_lumi.f with hadron beams only (lpp != 0):
+        with lepton beams the flavour factor FL_FACTOR is used instead."""
+
+        states = []
+        for proc in matrix_element.get('processes'):
+            ids = proc.get_initial_ids()
+            if len(ids) != 2:
+                return False
+            states.append((ids[0], ids[1], False))
+        if matrix_element.get('has_mirror_process'):
+            states += [(b, a, True) for (a, b, m) in list(states)]
+
+        lines = ["integer n_init_states",
+                 "parameter (n_init_states=%d)" % len(states),
+                 "integer init_states(2,n_init_states)",
+                 "logical init_mirror(n_init_states)",
+                 "logical has_mirror",
+                 "parameter (has_mirror=.%s.)" %
+                     ('true' if matrix_element.get('has_mirror_process') else 'false')]
+        for k, (a, b, m) in enumerate(states):
+            lines.append("data init_states(1,%d),init_states(2,%d)/%d,%d/" % (k+1, k+1, a, b))
+            lines.append("data init_mirror(%d)/.%s./" % (k+1, 'true' if m else 'false'))
+        writers.FortranWriter(pjoin(dirpath, 'initial_states.inc')).writelines(
+                                                         '\n'.join(lines) + '\n')
+        return True
 
     #===========================================================================
     # write qcd_power.inc (Torino subtraction: renormalisation-scale variations)

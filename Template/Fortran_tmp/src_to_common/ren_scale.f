@@ -49,23 +49,39 @@ c=======================================================================
 c     number of muR factors (0: no scale variations) and factors
       integer sv_n
       double precision sv_fac(sv_max)
-c     muF factors and dynamical-scale label, only used to lay out the
-c     histogram weights as MG5_aMC does (muF does not enter: no PDFs)
-      integer sv_nf,sv_dyn
+c     muF factors (rw_fscale) and dynamical-scale label. They lay out
+c     the histogram weights as MG5_aMC does; without PDFs (lepton
+c     beams) muF does not enter and the weights with the same muR
+c     coincide. With hadron beams, in the executables that call
+c     sv_allow_muf before sv_init (LO for now), the muF factors are
+c     also varied (PDF reweighting): sv_nv = sv_nf muF factors in the
+c     integrals, otherwise sv_nv = 1 (only muR)
+      integer sv_nf,sv_dyn,sv_nv
       double precision sv_facf(sv_max)
+      logical sv_muf_ok
+c     ratios f(muF_ii)/f(muF) of the current contribution (PDFs at
+c     sv_facf(ii)*muF over PDFs at muF), set by sv_set_muf_ratios
+c     before sv_add and sv_wgts (1 by default)
+      double precision sv_rf(sv_max)
 c     alpha_s(sv_fac(k)*muR_current), set by set_mur
       double precision sv_as(sv_max)
+c     integrals: index k = (ii-1)*sv_n+jj for the pair (muF_ii,muR_jj),
+c     ii = 1..sv_nv, jj = 1..sv_n (k = jj without muF variations); 0 is
+c     the central value
+      integer sv_maxp
+      parameter (sv_maxp=sv_max*sv_max)
 c     current phase-space point
-      double precision sv_pt(0:sv_max)
+      double precision sv_pt(0:sv_maxp)
 c     vegas accumulators: supercell, iteration, vegas call
-      double precision sv_fb(0:sv_max),sv_f2b(0:sv_max)
-      double precision sv_ti(0:sv_max),sv_tsi(0:sv_max)
-      double precision sv_si(0:sv_max),sv_vs(0:sv_max),sv_sw
+      double precision sv_fb(0:sv_maxp),sv_f2b(0:sv_maxp)
+      double precision sv_ti(0:sv_maxp),sv_tsi(0:sv_maxp)
+      double precision sv_si(0:sv_maxp),sv_vs(0:sv_maxp),sv_sw
       integer sv_nmis
 c     sums over channels of the main vegas runs (value, error^2)
-      double precision sv_sum(0:sv_max),sv_sum2(0:sv_max)
+      double precision sv_sum(0:sv_maxp),sv_sum2(0:sv_maxp)
       integer sv_nmis_tot
-      data sv_n/0/
+      data sv_n/0/,sv_nv/1/,sv_muf_ok/.false./
+      data sv_rf/sv_max*1d0/
       save
       end module scale_var_module
 
@@ -86,37 +102,13 @@ c     cancels the singularities of the matrix element it subtracts.
       integer pdgs(npart)
       double precision p(0:3,npart)
       double precision mu
-      integer i
+      double precision get_dyn_scale
+      external get_dyn_scale
 c
       if(fixed_ren_scale)then
          mu=muR_ref_fixed
       else
-         select case(dynamical_scale_choice)
-c        Add further dynamical scale choices here (MadGraph numbering).
-c        Each must be infrared safe: mu(p) -> mu(pbar) in all soft and
-c        collinear limits.
-         case(3)
-c           HT/2: half the sum of the transverse masses of the
-c           final-state QCD partons (massless: |pT|; soft partons drop
-c           out and collinear massless partons add up to their parent)
-            mu=0d0
-            do i=3,npart
-               if(abs(pdgs(i)).le.6.or.pdgs(i).eq.21)
-     &            mu=mu+sqrt(max(0d0,p(0,i)**2-p(3,i)**2))
-            enddo
-            mu=mu/2d0
-         case(4)
-c           partonic centre-of-mass energy sqrt(shat) = sqrt((p1+p2)^2)
-c           (constant for e+e- without ISR: useful as a check against
-c           the fixed-scale result)
-            mu=sqrt(max(0d0,(p(0,1)+p(0,2))**2-(p(1,1)+p(1,2))**2
-     &              -(p(2,1)+p(2,2))**2-(p(3,1)+p(3,2))**2))
-         case default
-            write(*,*)'get_mur: dynamical_scale_choice =',
-     &           dynamical_scale_choice,' is not implemented.'
-            write(*,*)'Set fixed_ren_scale = True in run_card.dat'
-            stop
-         end select
+         mu=get_dyn_scale(p,npart,pdgs)
       endif
 c
       get_mur=muR_over_ref*mu
@@ -124,6 +116,79 @@ c
          write(*,*)'get_mur: non-positive scale',get_mur
          stop
       endif
+c
+      return
+      end
+
+
+      double precision function get_muf(p,npart,pdgs)
+c     Factorisation scale (hadron beams), same conventions as get_mur:
+c       fixed_fac_scale = T : muF = muF_over_ref * muF_ref_fixed
+c       fixed_fac_scale = F : muF = muF_over_ref * mu_dyn(p,pdgs), with
+c                             the same dynamical_scale_choice as muR
+      implicit none
+      include 'run.inc'
+      integer npart
+      integer pdgs(npart)
+      double precision p(0:3,npart)
+      double precision mu
+      double precision get_dyn_scale
+      external get_dyn_scale
+c
+      if(fixed_fac_scale)then
+         mu=muF_ref_fixed
+      else
+         mu=get_dyn_scale(p,npart,pdgs)
+      endif
+c
+      get_muf=muF_over_ref*mu
+      if(get_muf.le.0d0)then
+         write(*,*)'get_muf: non-positive scale',get_muf
+         stop
+      endif
+c
+      return
+      end
+
+
+      double precision function get_dyn_scale(p,npart,pdgs)
+c     Dynamical reference scale selected by dynamical_scale_choice
+      implicit none
+      include 'run.inc'
+      integer npart
+      integer pdgs(npart)
+      double precision p(0:3,npart)
+      double precision mu
+      integer i
+c
+      select case(dynamical_scale_choice)
+c     Add further dynamical scale choices here (MadGraph numbering).
+c     Each must be infrared safe: mu(p) -> mu(pbar) in all soft and
+c     collinear limits.
+      case(3)
+c        HT/2: half the sum of the transverse masses of the
+c        final-state QCD partons (massless: |pT|; soft partons drop
+c        out and collinear massless partons add up to their parent)
+         mu=0d0
+         do i=3,npart
+            if(abs(pdgs(i)).le.6.or.pdgs(i).eq.21)
+     &         mu=mu+sqrt(max(0d0,p(0,i)**2-p(3,i)**2))
+         enddo
+         mu=mu/2d0
+      case(4)
+c        partonic centre-of-mass energy sqrt(shat) = sqrt((p1+p2)^2)
+c        (constant for e+e- without ISR: useful as a check against
+c        the fixed-scale result)
+         mu=sqrt(max(0d0,(p(0,1)+p(0,2))**2-(p(1,1)+p(1,2))**2
+     &           -(p(2,1)+p(2,2))**2-(p(3,1)+p(3,2))**2))
+      case default
+         write(*,*)'get_dyn_scale: dynamical_scale_choice =',
+     &        dynamical_scale_choice,' is not implemented.'
+         write(*,*)'Set fixed_ren_scale = True (and fixed_fac_scale ',
+     &        '= True with hadron beams) in run_card.dat'
+         stop
+      end select
+      get_dyn_scale=mu
 c
       return
       end
@@ -140,8 +205,8 @@ c     With scale variations, also fills sv_as(k) = alpha_s(sv_fac(k)*mu).
       include 'run.inc'
       double precision mu
       integer k
-      double precision alpha_qcd
-      external alpha_qcd
+      double precision alpha_qcd,pdf_alphas
+      external alpha_qcd,pdf_alphas
       logical firsttime
       data firsttime/.true./
       save firsttime
@@ -166,10 +231,18 @@ c     bit and must not trigger a full coupling update at every call)
       if(mu.ne.muR_current.or.
      &   abs(G-dsqrt(4d0*pi*alphas_current)).gt.1d-10*abs(G))then
          muR_current=mu
-         alphas_current=alpha_qcd(asmz,nloop,mu)
-         do k=1,sv_n
-            sv_as(k)=alpha_qcd(asmz,nloop,sv_fac(k)*mu)
-         enddo
+         if(lpp(1).ne.0.or.lpp(2).ne.0)then
+c           hadron beams: alpha_s of the LHAPDF set (Source/PDF)
+            alphas_current=pdf_alphas(mu)
+            do k=1,sv_n
+               sv_as(k)=pdf_alphas(sv_fac(k)*mu)
+            enddo
+         else
+            alphas_current=alpha_qcd(asmz,nloop,mu)
+            do k=1,sv_n
+               sv_as(k)=alpha_qcd(asmz,nloop,sv_fac(k)*mu)
+            enddo
+         endif
 c        keep the legacy run.inc variable in sync
          scale=mu
 c        model: sets MU_R, G, AS and recomputes the couplings
@@ -238,9 +311,11 @@ c
 c     Read the factors of the renormalisation-scale variations from
 c     run_card.dat (filled by setrun, which must be called first):
 c     variations are switched on if reweight_scale is true (as in
-c     MG5_aMC). Only muR is varied (no PDFs, so muF does not enter); the
-c     muF factors (rw_fscale) are only used to lay out the histogram
-c     weights exactly as MG5_aMC does.
+c     MG5_aMC). The muR factors (rw_rscale) are always varied. The muF
+c     factors (rw_fscale) lay out the histogram weights exactly as
+c     MG5_aMC does; they are also varied (PDF reweighting) with hadron
+c     beams in the executables that called sv_allow_muf (LO), and must
+c     be 1 with hadron beams elsewhere (no PDFs: muF does not enter).
       use scale_var_module
       implicit none
       include 'run.inc'
@@ -270,16 +345,37 @@ c     sets dynamical_scale_choice = -2 when both scales are fixed
             sv_fac(k)=scalevarR(k)
          enddo
          do k=1,nf
+            if(scalevarF(k).le.0d0)then
+               write(*,*)'sv_init: non-positive factor in rw_fscale',
+     &              scalevarF(k)
+               stop
+            endif
             sv_facf(k)=scalevarF(k)
+c           hadron beams: the muF variations (PDF reweighting) are only
+c           implemented where sv_allow_muf was called (LO); elsewhere
+c           stop rather than give weights that do not depend on muF
+            if((lpp(1).ne.0.or.lpp(2).ne.0).and.(.not.sv_muf_ok).and.
+     &           abs(scalevarF(k)-1d0).gt.1d-12)then
+               write(*,*)'sv_init: muF variations (rw_fscale) are not ',
+     &              'implemented yet for this contribution with hadron',
+     &              ' beams: set rw_fscale = 1.0 in run_card.dat'
+               stop 1
+            endif
          enddo
          sv_n=n
          sv_nf=max(nf,1)
          if(nf.lt.1)sv_facf(1)=1d0
+         sv_nv=1
+         if((lpp(1).ne.0.or.lpp(2).ne.0).and.sv_muf_ok)sv_nv=sv_nf
       endif
       if(sv_n.gt.0)then
          write(*,*)'Renormalisation-scale variations, muR/muR0 =',
      &        (sv_fac(k),k=1,sv_n)
+         if(sv_nv.gt.1.or.abs(sv_facf(1)-1d0).gt.1d-12)
+     &        write(*,*)'Factorisation-scale variations, muF/muF0 =',
+     &        (sv_facf(k),k=1,sv_nv)
       endif
+      sv_rf=1d0
 c
       sv_sum=0d0
       sv_sum2=0d0
@@ -289,6 +385,48 @@ c
 c     force set_mur to fill sv_as at its next call
       call sv_force_mur_update()
 c
+      return
+      end
+
+
+      subroutine sv_allow_muf()
+c     Call before sv_init in the executables whose integrands provide
+c     the PDF ratios of the muF variations (sv_set_muf_ratios)
+      use scale_var_module
+      implicit none
+      sv_muf_ok=.true.
+      return
+      end
+
+
+      subroutine sv_set_muf_ratios(rf)
+c     PDF ratios rf(ii) = (contribution with PDFs at sv_facf(ii)*muF) /
+c     (contribution with PDFs at muF), ii = 1..sv_nv, of the
+c     contribution passed next to sv_add and sv_wgts
+      use scale_var_module
+      implicit none
+      double precision rf(*)
+      integer ii
+      do ii=1,sv_nv
+         sv_rf(ii)=rf(ii)
+      enddo
+      return
+      end
+
+
+      subroutine sv_get_muf_factors(n,fac)
+c     number of muF factors varied in the integrals (0: no scale
+c     variations, 1: no muF variation) and the factors, for the
+c     integrands that compute sv_set_muf_ratios
+      use scale_var_module
+      implicit none
+      integer n,ii
+      double precision fac(*)
+      n=sv_nv
+      if(sv_n.eq.0)n=0
+      do ii=1,n
+         fac(ii)=sv_facf(ii)
+      enddo
       return
       end
 
@@ -366,15 +504,25 @@ c     explicit muR dependence of v at fixed alpha_s: 0, except for V+I.
       include 'coupl.inc'
       include 'math.inc'
       double precision v,dv
-      integer npow,k
+      integer npow,k,ii
 c
       if(sv_n.eq.0)return
       call sv_check_power(npow)
       sv_pt(0)=sv_pt(0)+v
-      do k=1,sv_n
-         sv_pt(k)=sv_pt(k)+(sv_as(k)/alphas_current)**npow*
-     &        (v+dv*2d0*log(sv_fac(k)))
-      enddo
+      if(sv_nv.eq.1)then
+         do k=1,sv_n
+            sv_pt(k)=sv_pt(k)+(sv_as(k)/alphas_current)**npow*
+     &           (v+dv*2d0*log(sv_fac(k)))*sv_rf(1)
+         enddo
+      else
+         do ii=1,sv_nv
+            do k=1,sv_n
+               sv_pt((ii-1)*sv_n+k)=sv_pt((ii-1)*sv_n+k)
+     &              +(sv_as(k)/alphas_current)**npow*
+     &              (v+dv*2d0*log(sv_fac(k)))*sv_rf(ii)
+            enddo
+         enddo
+      endif
 c
       return
       end
@@ -397,7 +545,7 @@ c
       do jj=1,sv_n
          wk=(sv_as(jj)/alphas_current)**npow*(w+dw*2d0*log(sv_fac(jj)))
          do ii=1,sv_nf
-            wgts(1+(ii-1)*sv_n+jj)=wk
+            wgts(1+(ii-1)*sv_n+jj)=wk*sv_rf(min(ii,sv_nv))
          enddo
       enddo
 c
@@ -435,7 +583,7 @@ c
       if(f.eq.0d0)return
       if(abs(wgt*sv_pt(0)-f).gt.1d-8*max(abs(f),abs(wgt*sv_pt(0))))
      &     sv_nmis=sv_nmis+1
-      do k=0,sv_n
+      do k=0,sv_n*sv_nv
          fk=wgt*sv_pt(k)
          sv_fb(k)=sv_fb(k)+fk
          sv_f2b(k)=sv_f2b(k)+fk**2
@@ -454,7 +602,7 @@ c     variance estimate as for the central value
       double precision t
 c
       if(sv_n.eq.0)return
-      do k=0,sv_n
+      do k=0,sv_n*sv_nv
          t=sqrt(sv_f2b(k)*npg)
          t=(t-sv_fb(k))*(t+sv_fb(k))
          if(t.le.0d0)t=1d-30
@@ -479,7 +627,7 @@ c     the combination is sum(w^2 sigma_k^2)/(sum w)^2.
       integer k
 c
       if(sv_n.eq.0)return
-      do k=0,sv_n
+      do k=0,sv_n*sv_nv
          sv_si(k)=sv_si(k)+w*sv_ti(k)
          sv_vs(k)=sv_vs(k)+(w*sv_tsi(k)*dv2g)*w
          sv_ti(k)=0d0
@@ -500,7 +648,7 @@ c     (call it after each main vegas run)
 c
       if(sv_n.eq.0)return
       if(sv_sw.le.0d0)return
-      do k=0,sv_n
+      do k=0,sv_n*sv_nv
          sv_sum(k)=sv_sum(k)+sv_si(k)/sv_sw
          sv_sum2(k)=sv_sum2(k)+(sv_vs(k)/sv_sw)/sv_sw
       enddo
@@ -515,16 +663,28 @@ c     write the results for each scale factor in the results_*.log file,
 c     after the central line ' sigma <tag> [pb]  = central +- error'
       use scale_var_module
       implicit none
-      integer iu,k
+      integer iu,k,ii,jj
       character*(*) tag
       double precision central,central_err
 c
       if(sv_n.eq.0)return
-      do k=1,sv_n
-         write(iu,'(a,a,a,f9.5,a,es23.15e3,a,es23.15e3)')
-     &        ' sigma ',trim(tag),' [pb] muR/muR0 = ',sv_fac(k),' : ',
-     &        sv_sum(k),' +- ',sqrt(sv_sum2(k))
-      enddo
+      if(sv_nv.eq.1)then
+         do k=1,sv_n
+            write(iu,'(a,a,a,f9.5,a,es23.15e3,a,es23.15e3)')
+     &           ' sigma ',trim(tag),' [pb] muR/muR0 = ',sv_fac(k),
+     &           ' : ',sv_sum(k),' +- ',sqrt(sv_sum2(k))
+         enddo
+      else
+         do ii=1,sv_nv
+            do jj=1,sv_n
+               k=(ii-1)*sv_n+jj
+               write(iu,'(a,a,a,f9.5,a,f9.5,a,es23.15e3,a,es23.15e3)')
+     &              ' sigma ',trim(tag),' [pb] muR/muR0 = ',sv_fac(jj),
+     &              ' muF/muF0 = ',sv_facf(ii),' : ',sv_sum(k),' +- ',
+     &              sqrt(sv_sum2(k))
+            enddo
+         enddo
+      endif
 c     cross-checks
       if(abs(sv_sum(0)-central).gt.1d-8*abs(central))then
          write(iu,*)'WARNING: the scale-variation reweighting does ',

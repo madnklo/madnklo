@@ -87,20 +87,23 @@
  %(channel_delta)s = channel_delta ! criterion of the channel fractions
 #***********************************************************************
 # Collider type and energy                                             *
-# Only lepton beams (lpp = 0) are supported for now: with hadron beams *
-# (lpp = 1, -1, 2, -2) the PDF weights are not applied yet.            *
+# lpp = 0: lepton beam, no PDF; lpp = 1 (-1): proton (antiproton).     *
+# Hadron beams: LO only for now (NLO with initial-state partons is in  *
+# progress).                                                           *
 #***********************************************************************
  %(lpp1)s   = lpp1    ! beam 1 type (0 = no PDF)
  %(lpp2)s   = lpp2    ! beam 2 type (0 = no PDF)
  %(ebeam1)s   = ebeam1  ! beam 1 energy in GeV
  %(ebeam2)s   = ebeam2  ! beam 2 energy in GeV
 #***********************************************************************
-# PDF choice: used only with hadron beams (lpp != 0, not supported     *
-# yet), where it would also fix alpha_s(MZ) and its running.           *
+# PDF choice, hadron beams only: always LHAPDF 6 (pdlabel = lhapdf),   *
+# set lhaid, with the path to lhapdf-config in                         *
+# input/madnklo_config.txt of the MadNkLO directory. alpha_s and its   *
+# running then come from the PDF set.                                  *
 # With lpp = 0, alpha_s(MZ) is the aS entry of the param_card.         *
 #***********************************************************************
  %(pdlabel)s = pdlabel ! PDF set
- %(lhaid)s  = lhaid   ! If pdlabel=lhapdf, this is the lhapdf number.
+ %(lhaid)s  = lhaid   ! LHAPDF number of the PDF set (member 0)
 #***********************************************************************
 # Renormalisation and factorisation scales                             *
 # - fixed_ren_scale = True: muR = muR_over_ref * muR_ref_fixed         *
@@ -111,8 +114,9 @@
 #         final-state QCD partons                                      *
 #     4 = partonic centre-of-mass energy sqrt(s_hat)                   *
 #   Any other value stops the run. One value only.                     *
-# - The factorisation scale (muF) is used only with hadron beams (not  *
-#   supported yet).                                                    *
+# - The factorisation scale (muF), hadron beams only, is set in the    *
+#   same way (fixed_fac_scale, muF_ref_fixed, muF_over_ref), with the  *
+#   same dynamical_scale_choice.                                       *
 #***********************************************************************
  %(fixed_ren_scale)s    = fixed_ren_scale  ! True: fixed muR, False: dynamical muR
  %(fixed_fac_scale)s    = fixed_fac_scale  ! True: fixed muF (hadron beams only)
@@ -127,12 +131,13 @@
 # also computed at muR = k * muR, for each factor k of rw_rscale (at   *
 # most 9 values; 1.0 is always included): results_*.log, results.txt  *
 # and the HwU files (same weight layout as MG5_aMC: one weight per     *
-# (muF, muR) pair of rw_fscale x rw_rscale; without PDFs the muF       *
-# factors do not change the result).                                   *
+# (muF, muR) pair of rw_fscale x rw_rscale). Without PDFs the muF      *
+# factors do not change the result; with hadron beams they are varied *
+# by PDF reweighting (LO only for now: rw_fscale = 1.0 at NLO).        *
 #***********************************************************************
  %(rw_rscale)s = rw_rscale ! muR factors k
- %(rw_fscale)s = rw_fscale ! muF factors (hadron beams only; HwU layout)
- %(reweight_scale)s = reweight_scale ! True: compute the muR variations
+ %(rw_fscale)s = rw_fscale ! muF factors (varied with hadron beams)
+ %(reweight_scale)s = reweight_scale ! True: compute the scale variations
  %(reweight_pdf)s = reweight_PDF  ! PDF uncertainties by reweighting: not available yet
 #***********************************************************************
 # Reweighting information in LHE files: not available yet (no events) *

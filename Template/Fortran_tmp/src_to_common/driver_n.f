@@ -7,6 +7,8 @@
       INCLUDE 'cuts.inc'
       INCLUDE 'colored_partons.inc'
       INCLUDE 'ngraphs.inc'
+      integer nchan,n_born_channels
+      external n_born_channels
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -73,9 +75,10 @@ c     initialise physics parameters
       iu8=88
 c
 c     phase-space dimension, same for all contributions to this folder
-      ndim=3*(nexternal-2)-4
+      ndim=max(3*(nexternal-2)-4,0)
+c     plus one Bjorken x per hadron beam (same rule as gen_mom, genps.f)
       do i=1,2
-         if(ISLOQCDPARTON(i)) ndim = ndim + 1
+         if(lpp(i).ne.0) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0
@@ -85,6 +88,8 @@ c
 c     initialise histograms and open output files
 c     renormalisation-scale variations (rw_rscale in run_card.dat):
 c     one histogram weight per scale factor
+c     LO: the PDF ratios of the muF variations are computed (LO_B.f)
+      call sv_allow_muf()
       call sv_init()
       call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
@@ -99,8 +104,10 @@ c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
       nclBth0=max(10000,int(nclBth/5d0))
       nitBth0=max(5,int(nitBth/2d0))
+c     channels: the phase-space configurations (configs.f)
+      nchan=n_born_channels()
       sum_err_b_a=0d0
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          init=0
          doplot=.false.
          failure_stage='probe'
@@ -111,7 +118,7 @@ c     number of points thrown per channel in the main loop
       enddo
 c
 c     main loop over channels
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          write(*,*)'Born warmup for channel',ich
          write(iu1,*)
          write(iu1,*)'============================='

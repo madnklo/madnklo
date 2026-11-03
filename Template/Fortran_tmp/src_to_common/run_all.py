@@ -187,11 +187,6 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import madgraph.various.banner as banner_mod
 run_card = banner_mod.RunCardNLO(sys.argv[2])
-if run_card['lpp1'] + run_card['lpp2'] == 1:
-    run_card['lpp1'] = 0
-    run_card['lpp2'] = 0
-    run_card['ebeam1'] = 0
-    run_card['ebeam2'] = 0
 run_card.write_include_file(sys.argv[3])
 """
 
@@ -250,12 +245,13 @@ def exe_dir(p, exe):
 
 
 def remove_outdated_executables(p):
-    """Remove the executables of p older than Source/run_card.inc or
-    Source/analysis.mk, so that make relinks them with the rebuilt
-    libgeneric.a or the analysis now chosen (the makefiles do not list the
+    """Remove the executables of p older than Source/run_card.inc,
+    Source/analysis.mk or Source/lhapdf.stamp, so that make relinks them
+    with the rebuilt libgeneric.a and libpdf.a or the analysis now chosen (the makefiles do not list the
     libraries among the prerequisites of the executables, and an analysis
     object compiled earlier can be older than the executables)."""
-    times = [os.path.getmtime(f) for f in (run_card_include(), analysis_mk())
+    times = [os.path.getmtime(f) for f in (run_card_include(), analysis_mk(),
+                                           lhapdf_stamp())
              if os.path.isfile(f)]
     if not times:
         return
@@ -264,6 +260,189 @@ def remove_outdated_executables(p):
         exe = os.path.join(exe_dir(p, target), target)
         if os.path.isfile(exe) and os.path.getmtime(exe) < t_inc:
             os.remove(exe)
+
+
+# ---------------- hadron beams: LHAPDF ----------------
+# With hadron beams (lpp1 or lpp2 != 0 in Cards/run_card.dat) the PDFs always
+# come from LHAPDF 6 (>= 6.2), whose lhapdf-config is given in
+# input/madnklo_config.txt of the MadNkLO directory (created from
+# input/.madnklo_config_default.txt if missing). Here:
+#  - the path is written as 'lhapdf=' in Source/make_opts (empty for lepton
+#    beams, which keeps the built-in PDF library, never evaluated);
+#  - lib/PDFsets is linked to the LHAPDF data directory (pdfwrap_lhapdf.f
+#    looks for it), and the set lhaid of the run_card is checked there;
+#  - when the LHAPDF setting changes, the PDF and generic libraries are
+#    removed (rebuilt by 'make libs') and Source/lhapdf.stamp is updated, so
+#    that the executables are relinked.
+def madnklo_dir():
+    return os.path.dirname(output_dir())
+
+
+def madnklo_config_path():
+    return os.path.join(madnklo_dir(), "input", "madnklo_config.txt")
+
+
+def read_madnklo_config():
+    """Options 'name = value' of input/madnklo_config.txt ('#' comments)."""
+    path = madnklo_config_path()
+    if not os.path.isfile(path):
+        default = os.path.join(madnklo_dir(), "input", ".madnklo_config_default.txt")
+        if os.path.isfile(default):
+            shutil.copy(default, path)
+            print(f"Created {path} from {default}")
+    options = {}
+    if os.path.isfile(path):
+        with open(path) as f:
+            for line in f:
+                line = line.split("#", 1)[0].strip()
+                if "=" in line:
+                    name, value = line.split("=", 1)
+                    options[name.strip().lower()] = value.strip()
+    return options
+
+
+def run_card_value(name, default=None):
+    """Value of 'value = name' in Cards/run_card.dat (default if absent)."""
+    card = os.path.join(output_dir(), "Cards", "run_card.dat")
+    with open(card) as f:
+        for line in f:
+            line = line.split("#", 1)[0].split("!", 1)[0]
+            if "=" not in line:
+                continue
+            value, key = line.split("=", 1)
+            if key.strip().lower() == name.lower():
+                return value.strip()
+    return default
+
+
+def lhapdf_stamp():
+    return os.path.join(output_dir(), "Source", "lhapdf.stamp")
+
+
+def lhapdf_config_output(lhapdf, option):
+    out = subprocess.run([lhapdf, option], capture_output=True, text=True)
+    if out.returncode != 0:
+        sys.exit(f"'{lhapdf} {option}' failed:\n{out.stderr}")
+    return out.stdout.strip()
+
+
+def lhapdf_set_name(datadirs, lhaid):
+    """Name of the set containing the LHAPDF id lhaid (pdfsets.index), and
+    the directory where it is installed (None if not installed)."""
+    for d in datadirs:
+        index = os.path.join(d, "pdfsets.index")
+        if not os.path.isfile(index):
+            continue
+        best = None
+        with open(index) as f:
+            for line in f:
+                words = line.split()
+                if len(words) >= 2 and words[0].isdigit() and int(words[0]) <= lhaid:
+                    if best is None or int(words[0]) > best[0]:
+                        best = (int(words[0]), words[1])
+        if best is not None:
+            for dd in datadirs:
+                if os.path.isfile(os.path.join(dd, best[1], best[1] + ".info")):
+                    return best[1], dd
+            return best[1], None
+    return None, None
+
+
+def setup_lhapdf():
+    lpp = [int(float(run_card_value(f"lpp{i}", "0"))) for i in (1, 2)]
+    hadrons = any(l != 0 for l in lpp)
+    lhapdf = ""
+    if hadrons:
+        if any(abs(l) > 1 for l in lpp):
+            sys.exit(f"run_card.dat: lpp1 = {lpp[0]}, lpp2 = {lpp[1]}: MadNkLO supports "
+                     "0 (no PDF), 1 (proton) and -1 (antiproton)")
+        pdlabel = run_card_value("pdlabel", "").lower()
+        if pdlabel != "lhapdf":
+            sys.exit(f"run_card.dat: hadron beams with pdlabel = {pdlabel}: MadNkLO "
+                     "always takes the PDFs from LHAPDF, set 'lhapdf = pdlabel' and "
+                     "the LHAPDF number of the set in 'lhaid'")
+        options = read_madnklo_config()
+        lhapdf = os.path.expanduser(options.get("lhapdf", ""))
+        if not lhapdf:
+            sys.exit(f"Hadron beams: set the path to lhapdf-config (LHAPDF >= 6.2) as "
+                     f"'lhapdf = <path>' in {madnklo_config_path()}")
+        if not (os.path.isfile(lhapdf) and os.access(lhapdf, os.X_OK)):
+            sys.exit(f"{madnklo_config_path()}: lhapdf = {lhapdf} is not an executable "
+                     "lhapdf-config")
+        lhapdf = os.path.abspath(lhapdf)
+        version = lhapdf_config_output(lhapdf, "--version")
+        v = [int(x) for x in re.findall(r"\d+", version)[:2]]
+        if len(v) < 2 or v[0] != 6 or v[1] < 2:
+            sys.exit(f"{lhapdf}: LHAPDF version {version}, MadNkLO needs LHAPDF 6 (>= 6.2)")
+        datadir = os.path.expanduser(options.get("lhapdf_data_path", "")) or \
+            lhapdf_config_output(lhapdf, "--datadir")
+        datadir = os.path.abspath(datadir)
+        if not os.path.isdir(datadir):
+            sys.exit(f"LHAPDF data directory {datadir} does not exist "
+                     f"(lhapdf_data_path in {madnklo_config_path()})")
+        lhaid = int(float(run_card_value("lhaid", "0")))
+        name, where = lhapdf_set_name([datadir], lhaid)
+        if name is None:
+            sys.exit(f"run_card.dat: lhaid = {lhaid} is not in {datadir}/pdfsets.index")
+        if where is None:
+            sys.exit(f"run_card.dat: lhaid = {lhaid} is the set {name}, not installed in "
+                     f"{datadir} (e.g. 'lhapdf install {name}', or download it there)")
+        link = os.path.join(output_dir(), "lib", "PDFsets")
+        if os.path.islink(link) and os.path.realpath(link) != os.path.realpath(datadir):
+            os.remove(link)
+        if not os.path.lexists(link):
+            os.symlink(datadir, link)
+        elif not os.path.islink(link):
+            sys.exit(f"{link} exists and is not a link: remove it, MadNkLO links it to "
+                     f"the LHAPDF data directory {datadir}")
+        print(f"Hadron beams: LHAPDF {version} ({lhapdf}), set {name} "
+              f"(lhaid = {lhaid}) in {datadir}")
+    write_make_opts_lhapdf(lhapdf)
+
+
+def write_make_opts_lhapdf(lhapdf):
+    """Set 'lhapdf=' in the variables of Source/make_opts; when it changes,
+    remove the libraries that depend on it and update Source/lhapdf.stamp."""
+    make_opts = os.path.join(output_dir(), "Source", "make_opts")
+    with open(make_opts) as f:
+        lines = f.read().split("\n")
+    end = next((i for i, l in enumerate(lines)
+                if l.startswith("#end_of_make_opts_variables")), None)
+    if end is None:
+        sys.exit(f"{make_opts}: no '#end_of_make_opts_variables' line")
+    old = None
+    head = []
+    for l in lines[:end]:
+        if re.match(r"\s*lhapdf\s*=", l):
+            old = l.split("=", 1)[1].strip()
+        elif re.match(r"\s*lhapdfversion\s*=", l):
+            continue
+        else:
+            head.append(l)
+    if lhapdf:
+        head += [f"lhapdf={lhapdf}", "lhapdfversion=6"]
+    else:
+        head += ["lhapdf="]
+    stamp = lhapdf_stamp()
+    if (old or "") == lhapdf and (os.path.isfile(stamp) or not lhapdf):
+        # unchanged (lepton beams in an output that never used LHAPDF:
+        # make_opts is left untouched)
+        return
+    with open(make_opts, "w") as f:
+        f.write("\n".join(head + lines[end:]))
+    libdir = os.path.join(output_dir(), "lib")
+    for lib in ("libpdf.a", "libgeneric.a"):
+        path = os.path.join(libdir, lib)
+        if os.path.isfile(path):
+            os.remove(path)
+    for obj in glob.glob(os.path.join(output_dir(), "Source", "*.o")) + \
+            glob.glob(os.path.join(output_dir(), "Source", "PDF", "*.o")):
+        os.remove(obj)
+    with open(stamp, "w") as f:
+        f.write((lhapdf or "no LHAPDF (lepton beams)") + "\n")
+    if (old or "") != lhapdf:
+        print("Source/make_opts: " + (f"lhapdf={lhapdf}" if lhapdf else "LHAPDF not used")
+              + " (PDF and generic libraries will be rebuilt)")
 
 
 # ---------------- fixed-order analysis ----------------
@@ -974,6 +1153,7 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     update_run_card_include()
     update_analysis()
+    setup_lhapdf()
 
     try:
         if args.test_only:

@@ -2819,6 +2819,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files += ['ren_scale.f']
         # PDF luminosities with hadron beams (initial_states.inc)
         common_files += ['pdf_lumi.f']
+        # integration channels of the Born and of the virtual
+        common_files += ['born_channels.f']
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':

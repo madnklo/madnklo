@@ -72,6 +72,9 @@ C
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)
       COMMON/TO_AMP2/AMP2,NGRAPHS2
+c     multi-channel weight of channel ich (born_channels.f)
+      double precision chw,born_chan_weight
+      external born_chan_weight
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=4)     
 C     Index 0 is the number of correlators to consider and the next
@@ -154,13 +157,14 @@ c     apply flavour multiplicity factor
       int_virtual=int_virtual*fl_factor
 c
 c     Multi channeling
-      int_virtual = int_virtual * amp2(ich)
+      chw = born_chan_weight(ich)
+      int_virtual = int_virtual * chw
 c
 c     renormalisation-scale variations, with b = born_qcd_power:
 c     (V+I)(k muR) = r_k^(b+1) [ (V+I)(muR) + b beta0/2 alphas/(2 pi) B log(k^2) ]
 c     (the explicit infrared logarithms of V and I cancel, since their
 c     poles do; the remaining log comes from the UV renormalisation)
-      dvsv=born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*amp2(ich)
+      dvsv=born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*chw
       call sv_add(int_virtual,dvsv,born_qcd_power+1)
 c
 c     plot

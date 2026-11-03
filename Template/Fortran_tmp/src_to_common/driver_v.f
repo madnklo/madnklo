@@ -7,6 +7,8 @@
       INCLUDE 'cuts.inc'
       INCLUDE 'colored_partons.inc'
       INCLUDE 'ngraphs.inc'
+      integer nchan,n_born_channels
+      external n_born_channels
       integer mxdim
       parameter(mxdim=30)
 c     test-only mode (command-line argument --test_only)
@@ -140,8 +142,10 @@ c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
       nclVth0=max(10000,int(nclVth/5d0))
       nitVth0=max(5,int(nitVth/2d0))
+c     channels: the phase-space configurations (configs.f)
+      nchan=n_born_channels()
       sum_err_v_a=0d0
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          init=0
          doplot=.false.
          failure_stage='probe'
@@ -152,7 +156,7 @@ c     number of points thrown per channel in the main loop
       enddo
 c
 c     main loop over channels
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          write(*,*)'Virtual warmup for channel',ich
          write(iu1,*)
          write(iu1,*)'============================='

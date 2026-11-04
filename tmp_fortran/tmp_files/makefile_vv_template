@@ -97,7 +97,27 @@ PROCESS= MadLoopParamReader.o MadLoopCommons.o \
  $(patsubst $(DOTF),$(DOTO),$(wildcard VV_GOLEM_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard VV_COLLIER_interface.f)) \
  $(patsubst $(DOTF),$(DOTO),$(wildcard VV_compute_color_flows.f)) \
- $(patsubst $(DOTF),$(DOTO),$(wildcard VV_user_access_subroutines.f))
+ $(patsubst $(DOTF),$(DOTO),$(wildcard VV_user_access_subroutines.f))\
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_polynomial.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_loop_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_improve_ps.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_born_matrix.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_CT_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_loop_num.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_helas_calls*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_jamp?_calls_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_mp_born_amps_and_wfs.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_mp_compute_loop_coefs.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_mp_helas_calls*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_coef_construction_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_loop_CT_calls_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_mp_coef_construction_*.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_TIR_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_GOLEM_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_COLLIER_interface.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_compute_color_flows.f)) \
+ $(patsubst $(DOTF),$(DOTO),$(wildcard V_user_access_subroutines.f))
+
 
 VPATH = $(OBJ)
 

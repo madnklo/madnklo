@@ -114,23 +114,49 @@ c     renormalisation scale for the n-body kinematics
       pref=(alphas/(2d0*pi))**2
       call ME_ACCESSOR_HOOK(p,hel,alphas,ans)
       born=ans(0)
-      do a=1,n
-         i=legs(a)
-         do b=1,n
-            if (b.eq.a) cycle
-            j=legs(b)
-            bc(a,b)=get_ccblo(i,j)
-            do c=1,n
-               k=legs(c)
-               do d=1,n
-                  if (d.eq.c) cycle
-                  l=legs(d)
-c                  b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
+c      do a=1,n
+c         i=legs(a)
+c         do b=1,n
+c            if (b.eq.a) cycle
+c            j=legs(b)
+c            bc(a,b)=get_ccblo(i,j)
+c            do c=1,n
+c               k=legs(c)
+c               do d=1,n
+c                  if (d.eq.c) cycle
+c                  l=legs(d)
+c     b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
+c               enddo
+c            enddo
+c         enddo
+c      enddo
+c
+      do i=1,nexternal
+         if(.NOT.ISLOQCDPARTON(I)) cycle
+         do j=1,nexternal
+            if(.NOT.ISLOQCDPARTON(J)) cycle
+            BC(I,J) = GET_CCBLO(I,J)
+         enddo
+      enddo
+
+      do i=1,nexternal
+         if(.NOT.ISLOQCDPARTON(I)) cycle
+         do j=1,nexternal
+            if(.NOT.ISLOQCDPARTON(J)) cycle
+            do k=1,nexternal
+               if(.NOT.ISLOQCDPARTON(K)) cycle
+               do l=1,nexternal
+                  if(.NOT.ISLOQCDPARTON(L)) cycle
+                  B4(i,j,k,l) = 2d0*BC(I,J)*BC(K,L)/Born ! Test for this specific process
                enddo
             enddo
          enddo
       enddo
-      call I2NNLO_CORE(nexternal,n,flav,refs,ss,mu2,born,bc,b4,coeff,ierr)
+
+
+
+      
+      call I2NNLO_CORE(nexternal,n,legs,flav,refs,ss,mu2,born,bc,b4,coeff,ierr)
       if (ierr.ne.0) return
       do ip=-4,0
          if (.not.(abs(pref*coeff(ip)).le.huge(1d0))) then
@@ -145,11 +171,12 @@ c                  b4(a,b,c,d)=get_quadruple_blo(i,j,k,l)
 c     Core returns epsilon-indexed coefficients without alpha_s prefactor.
 c     All arrays use leading dimension ND; only the first N legs are used.
 c     FLAV=21 for gluons; 1..6 for quarks or antiquarks (same integrals).
-      subroutine I2NNLO_CORE(nd,n,flav,refs,s,mu2,born,bc,b4,res,ierr)
+      subroutine I2NNLO_CORE(nd,n,legs,flav,refs,s,mu2,born,bc,b4,res,ierr)
       implicit none
       include 'coupl.inc'
       include 'math.inc'
       integer nd,n,flav(nd),refs(nd),ierr
+      integer legs(nd)
       integer c,d,e,f,k,r,j,l,ip,id
       double precision s(nd,nd),mu2,born
       double precision bc(nd,nd),b4(nd,nd,nd,nd),res(-4:0)
@@ -202,15 +229,15 @@ c     Double soft: Eq. (4.42). Every sum is ordered as in the paper.
                do f=1,n
                   if (f.eq.c.or.f.eq.d.or.f.eq.e) cycle
                   sc=logs(c,d)+logs(e,f)
-                  call I2NNLO_ADD(res,tab(-4,5),sc,b4(c,d,e,f)/4d0)
+                  call I2NNLO_ADD(res,tab(-4,5),sc,b4(legs(c),legs(d),legs(e),legs(f))/4d0)
                enddo
                sc=logs(c,d)+logs(e,d)
-               call I2NNLO_ADD(res,tab(-4,6),sc,b4(c,d,e,d))
+               call I2NNLO_ADD(res,tab(-4,6),sc,b4(legs(c),legs(d),legs(e),legs(d)))
             enddo
             sc=2d0*logs(c,d)
-            call I2NNLO_ADD(res,tab(-4,7),sc,b4(c,d,c,d)/2d0)
+            call I2NNLO_ADD(res,tab(-4,7),sc,b4(legs(c),legs(d),legs(c),legs(d))/2d0)
             w=nf*tr*tab(:,8)-ca*tab(:,9)/2d0
-            call I2NNLO_ADD(res,w,sc,bc(c,d))
+            call I2NNLO_ADD(res,w,sc,bc(legs(c),legs(d)))
          enddo
       enddo
 c     Soft x hard collinear: Eqs. (4.43),(4.44).
@@ -232,18 +259,18 @@ c     Soft x hard collinear: Eqs. (4.43),(4.44).
             do d=1,n
                if (d.eq.c) cycle
                sc=logs(k,r)+logs(c,d)
-               call I2NNLO_ADD(res,v,sc,-bc(c,d))
+               call I2NNLO_ADD(res,v,sc,-bc(legs(c),legs(d)))
             enddo
          enddo
          sc=2d0*logs(k,r)
          call I2NNLO_ADD(res,w,sc,-born)
-         call I2NNLO_ADD(res,a,sc,-bc(k,r))
+         call I2NNLO_ADD(res,a,sc,-bc(legs(k),legs(r)))
          do c=1,n
             if (c.eq.k.or.c.eq.r) cycle
             sc=logs(k,r)+logs(k,c)
-            call I2NNLO_ADD(res,b,sc,-bc(k,c))
+            call I2NNLO_ADD(res,b,sc,-bc(legs(k),legs(c)))
             sc=logs(k,r)+logs(c,r)
-            call I2NNLO_ADD(res,b,sc,-bc(c,r))
+            call I2NNLO_ADD(res,b,sc,-bc(legs(c),legs(r)))
          enddo
 c     Three-parton hard double collinear, between (4.44) and (4.45).
          if (flav(k).eq.21) then

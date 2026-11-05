@@ -1,5 +1,5 @@
 
-      double precision function M2_HC_SC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SC_GGQ(k,i,j,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,k) SC(i,j,k) - S(i) C(i,k) SC(i,j,k) kernel;
 c     i, j is a g-g pair, k is a q (or qb)
       use sectors4_module
@@ -15,7 +15,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,m,ierr,nit,itmp,jtmp,ktmp
-      integer ib,jb,kb,mb,kbb,mbb
+      integer ib,jb,kb,mb,jbb,mbb
       double precision M2tmp,M2_C_SC_ggq,M2_SC_SC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
@@ -27,6 +27,8 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision pref,extra
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
+      logical isNLOmappedQCDparton(nexternal-1)
+      logical isLOmappedQCDparton(nexternal-2)
       logical flavourmatch_ijkj,flavourmatch_ijjk
 c     set logical doplot
       logical doplot
@@ -71,26 +73,11 @@ c     check sector topology (only appears in ijkj)
       endif
 c
 c     check flavour match
-      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
-      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
-      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
-        write(*,*) 'Flavour mismatch in M2_HC_SC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
+      flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
+      if(leg_pdgs(i).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_HC_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
-      endif
-c
-c     rearrange the flavours to always land at ggq
-      if(abs(leg_PDGs(itmp)).le.5)then
-              i = ktmp
-              j = jtmp
-              k = itmp
-      elseif(abs(leg_PDGs(jtmp)).le.5)then
-              i = itmp
-              j = ktmp
-              k = jtmp
-      else
-              i = itmp
-              j = jtmp
-              k = ktmp
       endif
 c
 c     overall kernel prefix
@@ -114,10 +101,13 @@ c     invariant quantities
 c
 c     fill mapped labels [ijr,kmj]
       call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      kb = real_labels(k,i,j)
+      jb = real_labels(j,i,j)
+      ib = real_labels(i,i,j)
       do m=1,nexternal
          if(.not.isNNLOQCDparton(m)) cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k) cycle
-         call fill_born_mapped_labels(real_labels(k,i,m),real_labels(m,i,m),real_leg_pdgs,born_leg_pdgs)
+         call fill_born_mapped_labels(kb,real_labels(m,i,j),real_leg_pdgs,born_leg_pdgs)
       enddo
 c
 c     mapping: [ijr,kmj]
@@ -127,11 +117,8 @@ c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         ib = real_labels(i,i,j)
-         jb = real_labels(j,i,j)
-         kb = real_labels(k,i,j)
          mb = real_labels(m,i,j)
-         kbb = born_labels(kb,kb,mb)
+         jbb = born_labels(jb,kb,mb)
          mbb = born_labels(mb,kb,mb)
 c
 c     underlying Born configuration is remapped
@@ -144,12 +131,12 @@ c     possible cuts
 c
 c     call colour-connected Born matrix element
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
-         ccBLO_ijr_kmj = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
+         ccBLO_ijr_kmj = %(proc_prefix_Born)s_GET_CCBLO(jbb,mbb)
 c
 c     invariant quantities
-         sbim = xsb(i,m)
-         sbkm = xsb(k,m)
-         sbik = xsb(i,k)
+         sbim = xsb(ib,mb)
+         sbkm = xsb(kb,mb)
+         sbik = xsb(ib,kb)
          Ebi_km = sbkm/sbik/sbim
 c
 c     collinear soft-collinear kernel, eq. (C.33)
@@ -183,6 +170,9 @@ c
       M2_HC_SC_ggq = M2_C_SC_ggq - M2_SC_SC_ggq
 c
       if(test_sector_function) M2_HC_SC_ggq = wsbar_nlo*wc_nlo-wsbar_nlo
+c
+      call ct_log('KC_SC                  ',M2_C_SC_ggq)
+      call ct_log('KS_SC_SC               ',M2_SC_SC_ggq)
 c
 c     sanity check
       if(abs(M2_HC_SC_ggq).ge.huge(1d0).or.isnan(M2_HC_SC_ggq))then

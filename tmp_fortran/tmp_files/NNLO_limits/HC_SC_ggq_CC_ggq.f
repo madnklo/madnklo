@@ -63,7 +63,7 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology (only appears in ijkj)
+c     check sector topology (only appears in ijkj when k is a gluon)
       if(bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_HC_SC_ggq_CC_ggq',asec,bsec,csec,dsec
         stop 1
@@ -126,20 +126,18 @@ c     possible cuts
 c
 c     collinear soft-collinear double-collinear kernel, eq. (C.43) of 2212.11190v2
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
-      Qij = -2d0*CA*zi*zj
       Eb_jr_ijr = sbjr/sbjk/sbkr
-      M2tmp = 2d0*CA*Eb_jr_ijr*(Pij+Qij)*BLO
-      M2tmp = M2tmp + 2d0*CA*Eb_jr_ijr*2d0*KKBLO !TODO: check this
+      M2tmp = 2d0*CF*Eb_jr_ijr*Pij*BLO
       M2_C_SC_ggq_CC_ggq = M2tmp/sij
 c
 c     compute collinear soft-collinear double-collinear sector function eq. (C.86) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
       M2_C_SC_ggq_CC_ggq=M2_C_SC_ggq_CC_ggq*wc_nlo
 c
 c     soft-collinear soft-collinear double-collinear kernel, eq. (C.44) of 2212.11190v2
       Ei_jr = sjr/sij/sir
-      M2_SC_SC_ggq_CC_ggq = 4d0*CA**2*Ei_jr*Eb_jr_ijr*BLO
+      M2_SC_SC_ggq_CC_ggq = 4d0*CF**2*Ei_jr*Eb_jr_ijr*BLO
 c
 c     soft-collinear soft-collinear double-collinear sector function eq. (C.87) of 2212.11190v2 is 1
 c
@@ -152,8 +150,8 @@ c     Including correct multiplicity factor
 c
       if(test_sector_function) M2_HC_SC_ggq_CC_ggq = wc_nlo-1d0
 c
-      call ct_log('KC_SC_CC           ',M2_C_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
-      call ct_log('KSC_SC_CC           ',M2_SC_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      call ct_log('KC_SC_CC               ',M2_C_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      call ct_log('KSC_SC_CC              ',M2_SC_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
 c
 c     plot
       wgtpl=-M2_HC_SC_ggq_CC_ggq*wgt/nit*wgt_chan

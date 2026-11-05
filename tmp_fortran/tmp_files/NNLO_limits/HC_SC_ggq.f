@@ -66,7 +66,7 @@ c     initialise
       M2tmp=0d0
       ierr=0
 c
-c     check sector topology (only appears in ijkj)
+c     check sector topology (only appears in ijkj when k is a gluon)
       if(bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_HC_SC_ggq',asec,bsec,csec,dsec
         stop 1

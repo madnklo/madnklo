@@ -133,14 +133,19 @@ c     account for different damping factors according to recoiler position (ir)
          damp=xinit**beta_FI
       endif
 c
-      M2_HC_gg = M2_C_gg-M2_SC_gg
 c     include prefactors
-      M2_HC_gg = M2_HC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+      M2_C_gg = M2_C_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+      M2_SC_gg = M2_SC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra
+      M2_HC_gg = M2_C_gg-M2_SC_gg
 c
-      if(test_sector_function) M2_HC_gg = (wc_nlo-1d0)*wbar_nlo
+      if(test_sector_function)then
+        M2_HC_gg = (wc_nlo-1d0)*wbar_nlo
+        M2_C_gg = wc_nlo*wbar_nlo
+        M2_SC_gg = 1d0*wbar_nlo
+      endif
 c
-      call ct_log('KC                     ',M2_C_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
-      call ct_log('KS_C                   ',M2_SC_gg*dble(%(proc_prefix_HC_gg)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*damp*pref/sab*xj*extra)
+      call ct_log('KC                     ',M2_C_gg)
+      call ct_log('KS_C                   ',M2_SC_gg)
 c
 c     plot
       wgtpl=-M2_HC_gg*wgt/nit*wgt_chan

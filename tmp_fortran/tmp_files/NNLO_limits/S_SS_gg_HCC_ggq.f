@@ -269,14 +269,18 @@ c
       M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*Cb-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
 c
 c     soft double-soft double-hardcollinear kernel, TODO: Q_ij contribution is zero for ee->jj
+      M2_S_SS_gg_CC_ggq = M2_S_SS_gg_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_SS_gg_CC_ggq_SC_ggq = M2_S_SS_gg_CC_ggq_SC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_CC_ggq - M2_S_SS_gg_CC_ggq_SC_ggq
-      M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_HCC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
-      M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_HCC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
-      if(test_sector_function) M2_S_SS_gg_HCC_ggq = ws12_nlo
+      if(test_sector_function)then
+        M2_S_SS_gg_HCC_ggq = ws12_nlo
+        M2_S_SS_gg_CC_ggq = ws12_nlo
+        M2_S_SS_gg_CC_ggq_SC_ggq = ws12_nlo
+      endif
 c
-      call ct_log('KS_SS_CC               ',M2_S_SS_gg_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
-      call ct_log('KS_SS_CC_SC            ',M2_S_SS_gg_CC_ggq_SC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_SS_CC               ',M2_S_SS_gg_CC_ggq)
+      call ct_log('KS_SS_CC_SC            ',M2_S_SS_gg_CC_ggq_SC_ggq)
 c
 c     plot
       wgtpl=+M2_S_SS_gg_HCC_ggq*wgt/nit*wgt_chan

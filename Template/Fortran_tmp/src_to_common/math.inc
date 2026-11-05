@@ -6,6 +6,7 @@ c
       real * 8 CF,CA,TR,beta0
       real * 8 gamma_g,gamma_q,phi_g,phi_q
       real * 8 gamma_hc_g,gamma_hc_q,phi_hc_g,phi_hc_q
+      real * 8 rho_gq,rho_qg,rhob_gq,rhob_qg
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ
 c     TODO: remove all unnecessary terms
@@ -36,6 +37,11 @@ c
       parameter (phi_q=CF*13d0/3d0+CF*(2d0/3d0-7d0/2d0*zeta2))
       parameter (phi_hc_g=beta0*4d0/3d0-16d0/3d0*CA)
       parameter (phi_hc_q=-CF)
+      parameter (rho_gq=CA/CF)
+      parameter (rho_qg=(2d0*CF-CA)/CF)
+      parameter (rhob_gq=-CA/CF)
+      parameter (rhob_qg=-CA/CF)
+
 c
 c     space-time dimension
       parameter (dim=4d0)

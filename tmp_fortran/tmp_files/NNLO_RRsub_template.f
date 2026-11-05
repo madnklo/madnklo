@@ -230,10 +230,10 @@ c     configuration files
       call getleshouche_%(str_UBorn)s
       call get_casimirs
 c
-c     fill underlying pdgs, labels and flavours
+c     fill underlying pdgs, labels, flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-
+c
 c     initialisation for mapping-label common block
 c     initialise labels for RR mapping (iU1,iS1,iB1; iU2,iS2,iB2)
       real_pair_done=.false.
@@ -247,8 +247,8 @@ c     fill bar_indices for barred sector functions
          i1=all_sector_list(1,i)
          i2=all_sector_list(2,i)
          if(i1.eq.asec.and.i2.eq.bsec) then
-            ib3=real_labels(all_sector_list(3,i),asec,bsec)
-            ib4=real_labels(all_sector_list(4,i),asec,bsec)
+            ib3=real_labels(all_sector_list(3,i),iU1,iS1)
+            ib4=real_labels(all_sector_list(4,i),iU1,iS1)
             bar_indices(j) = ib3
             bar_indices(j+1) = ib4
          endif

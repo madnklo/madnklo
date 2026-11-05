@@ -187,16 +187,19 @@ c         ,wgtpl)
 c
 c     Double sum ends here
 c
+c     apply flavour factor
+      M2_C_SS_gg = M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor
+      M2_SC_SS_gg = M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor
       M2_HC_SS_gg = M2_C_SS_gg - M2_SC_SS_gg
 c
-c     apply flavour factor
-      M2_HC_SS_gg = M2_HC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function)then
+        M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
+        M2_C_SS_gg = wc_nlo*wsbar_nlo
+        M2_SC_SS_gg = wsbar_nlo
+      endif
 c
-      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
-c
-      call ct_log('KC_SS                  ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
-      call ct_log('KS_C_SS                ',M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KC_SS                  ',M2_C_SS_gg)
+      call ct_log('KS_C_SS                ',M2_SC_SS_gg)
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then

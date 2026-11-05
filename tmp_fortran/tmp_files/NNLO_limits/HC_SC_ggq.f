@@ -172,7 +172,7 @@ c
       if(test_sector_function) M2_HC_SC_ggq = wsbar_nlo*wc_nlo-wsbar_nlo
 c
       call ct_log('KC_SC                  ',M2_C_SC_ggq)
-      call ct_log('KS_SC_SC               ',M2_SC_SC_ggq)
+      call ct_log('KSC_SC                  ',M2_SC_SC_ggq)
 c
 c     sanity check
       if(abs(M2_HC_SC_ggq).ge.huge(1d0).or.isnan(M2_HC_SC_ggq))then

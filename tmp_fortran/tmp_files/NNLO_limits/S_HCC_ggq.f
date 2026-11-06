@@ -326,6 +326,8 @@ c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is ze
 c
       if(test_sector_function)then
         M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
+        M2_S_CC_ggq = ws12_nlo*wcbar_nlo
+        M2_S_SC_CC_ggq = ws12_nlo*wcbar_nlo
       endif
 c
       call ct_log('KS_CC                  ',M2_S_CC_ggq)

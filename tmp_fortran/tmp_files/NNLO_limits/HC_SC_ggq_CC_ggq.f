@@ -142,8 +142,8 @@ c
 c     soft-collinear soft-collinear double-collinear sector function eq. (C.87) of 2212.11190v2 is 1
 c
 c     Including correct multiplicity factor
-      M2_C_SC_ggq_CC_ggq = M2_C_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
-      M2_SC_SC_ggq_CC_ggq = M2_SC_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      M2_C_SC_ggq_CC_ggq = M2_C_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
+      M2_SC_SC_ggq_CC_ggq = M2_SC_SC_ggq_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
       M2_HC_SC_ggq_CC_ggq = M2_C_SC_ggq_CC_ggq - M2_SC_SC_ggq_CC_ggq
 c
       if(test_sector_function) then

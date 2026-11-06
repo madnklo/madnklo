@@ -23,7 +23,7 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sik,sjk,sjr,skr,sir,sbim,sbjk,sbjm,sbik,sbkm
-      double precision zi,zj,Pijr,Ebk_jm,Ej_kr,Ei_jr
+      double precision zi,zj,Pijr,Ebk_jm,Ej_kr,Ei_jr,Cj
       double precision pref,extra
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
@@ -114,6 +114,7 @@ c
 c     mapping: [ijr,kmj]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,j))
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
 c
 c     eikonal double sum
       do m=1,nexternal
@@ -157,7 +158,12 @@ c     collinear soft-collinear sector, eq. (C.78)
 c
 c     soft-collinear soft-collinear kernel, eq. (C.34)
 c     TODO: some contributions are 0 for ee->jj
-         M2tmp = 4d0*CF*Ei_jr*Ebk_jm*ccBLO_ijr_kmj
+         if(leg_PDGs(j).eq.21)then
+           Cj = CA
+         elseif(abs(leg_PDGs(j)).le.6)then
+           Cj = CF
+         endif
+         M2tmp = 4d0*Cj*Ei_jr*Ebk_jm*ccBLO_ijr_kmj
          M2tmp = M2tmp*pref*wsbar_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_SC_SC_ggq = M2_SC_SC_ggq + M2tmp
@@ -178,7 +184,7 @@ c
       endif
 c
       call ct_log('KC_SC                  ',M2_C_SC_ggq)
-      call ct_log('KSC_SC                  ',M2_SC_SC_ggq)
+      call ct_log('KS_C_SC                ',M2_SC_SC_ggq)
 c
 c     sanity check
       if(abs(M2_HC_SC_ggq).ge.huge(1d0).or.isnan(M2_HC_SC_ggq))then

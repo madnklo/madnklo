@@ -169,7 +169,11 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
 c
       M2_HC_SC_ggq = M2_C_SC_ggq - M2_SC_SC_ggq
 c
-      if(test_sector_function) M2_HC_SC_ggq = wsbar_nlo*wc_nlo-wsbar_nlo
+      if(test_sector_function) then
+        M2_HC_SC_ggq = wsbar_nlo*wc_nlo-wsbar_nlo
+        M2_C_SC_ggq = wc_nlo*wsbar_nlo
+        M2_SC_SC_ggq = wsbar_nlo
+      endif
 c
       call ct_log('KC_SC                  ',M2_C_SC_ggq)
       call ct_log('KSC_SC                  ',M2_SC_SC_ggq)

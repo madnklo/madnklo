@@ -106,7 +106,11 @@ c     include prefactors
       M2_SC_gq = M2_SC_gq*dble(%(proc_prefix_HC_gq)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref/sab*xj*extra
       M2_HC_gq = M2_C_gq-M2_SC_gq
 c
-      if(test_sector_function) M2_HC_gq = (wc_nlo-1d0)*wbar_nlo
+      if(test_sector_function) then
+        M2_HC_gq = (wc_nlo-1d0)*wbar_nlo
+        M2_C_gq = wc_nlo*wbar_nlo
+        M2_SC_gq = wbar_nlo
+      endif
 c
       call ct_log('KC                     ',M2_C_gq)
       call ct_log('KS_C                   ',M2_SC_gq)

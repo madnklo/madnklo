@@ -71,7 +71,7 @@ c     check flavour match
       flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
       flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
       if(leg_pdgs(i).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
-        write(*,*) 'Flavour mismatch in M2_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        write(*,*) 'Flavour mismatch in M2_S_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c

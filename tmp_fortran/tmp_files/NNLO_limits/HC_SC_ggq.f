@@ -1,5 +1,5 @@
 
-      double precision function M2_HC_SC_GGQ(k,i,j,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_HC_SC_GGQ(k,i,j,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     C(i,k) SC(i,j,k) - S(i) C(i,k) SC(i,j,k) kernel;
 c     i, j is a g-g pair, k is a q (or qb)
       use sectors4_module
@@ -113,6 +113,7 @@ c     fill mapped labels [ijr,kmj]
 c
 c     mapping: [ijr,kmj]
       call phase_space_CS_inv(i,j,r,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,j))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
 c
 c     eikonal double sum
       do m=1,nexternal

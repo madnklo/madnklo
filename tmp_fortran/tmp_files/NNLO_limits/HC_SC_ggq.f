@@ -22,8 +22,8 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision ccBLO_ijr_kmj
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
-      double precision sij,sik,sjk,sjr,skr,sbim,sbjm,sbkm,sbik
-      double precision zj,zk,Pjkr,Ebi_km,Ej_kr
+      double precision sij,sik,sjk,sjr,skr,sir,sbim,sbjk,sbjm,sbik,sbkm
+      double precision zi,zj,Pijr,Ebk_jm,Ej_kr,Ei_jr
       double precision pref,extra
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
@@ -94,10 +94,11 @@ c     invariant quantities
       sjk = xs(j,k)
       sjr = xs(j,r)
       skr = xs(k,r)
-      zj = sjr/(sjr+skr)
-      zk = skr/(sjr+skr)
-      Pjkr = CF*(2d0*zk/zj+zj)
-      Ej_kr = skr/sjk/sjr
+      sir = xs(i,r)
+      zi = sir/(sir+sjr)
+      zj = 1d0 - zi
+      Pijr = CF*(2d0*zj/zi+zi)
+      Ei_jr = sjr/sij/sir
 c
 c     fill mapped labels [ijr,kmj]
       call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
@@ -134,14 +135,14 @@ c     call colour-connected Born matrix element
          ccBLO_ijr_kmj = %(proc_prefix_Born)s_GET_CCBLO(jbb,mbb)
 c
 c     invariant quantities
-         sbim = xsb(ib,mb)
+         sbjm = xsb(jb,mb)
          sbkm = xsb(kb,mb)
-         sbik = xsb(ib,kb)
-         Ebi_km = sbkm/sbik/sbim
+         sbjk = xsb(jb,kb)
+         Ebk_jm = sbjm/sbjk/sbkm
 c
 c     collinear soft-collinear kernel, eq. (C.33)
 c     TODO: some contributions are 0 for ee->jj
-         M2tmp = 2d0*Pjkr/sjk*Ebi_km*ccBLO_ijr_kmj
+         M2tmp = 2d0*Pijr/sij*Ebk_jm*ccBLO_ijr_kmj
          M2tmp = M2tmp*pref*extra*%(proc_prefix_rr)s_fl_factor*xj
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_C_SC_ggq = M2_C_SC_ggq + M2tmp
@@ -155,7 +156,7 @@ c     collinear soft-collinear sector, eq. (C.78)
 c
 c     soft-collinear soft-collinear kernel, eq. (C.34)
 c     TODO: some contributions are 0 for ee->jj
-         M2tmp = 4d0*CF*Ej_kr*Ebi_km*ccBLO_ijr_kmj
+         M2tmp = 4d0*CF*Ei_jr*Ebk_jm*ccBLO_ijr_kmj
          M2tmp = M2tmp*pref*wsbar_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
          M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
          M2_SC_SC_ggq = M2_SC_SC_ggq + M2tmp

@@ -107,25 +107,15 @@ c     fill mapped labels [ijr,krj]
       zbj = sbjr/(sbjr+sbkr)
       zbk = 1d0-zbj
 c
-c     calculate kt between i and j, as well as ktb between jb and kb
-c     TODO: check if labels are fine after reshufflings
-      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
-      kt2 = -zi*zj*sij
-      ktb(:) = zbk*xpb(:,jb) - zbj*xpb(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpb(:,rb)
-      ktb2 = -zbj*zbk*sbjk
-c
 c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
-c
-      parent_leg = born_labels(jb,kb,jb)
-      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
 c
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     collinear soft-collinear double-collinear kernel, eq. (C.43) of 2212.11190v2
-      Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
+      Pij = CF*(2d0*zj/zi+zi)
       Eb_jr_ijr = sbjr/sbjk/sbkr
       M2tmp = 2d0*CF*Eb_jr_ijr*Pij*BLO
       M2_C_SC_ggq_CC_ggq = M2tmp/sij

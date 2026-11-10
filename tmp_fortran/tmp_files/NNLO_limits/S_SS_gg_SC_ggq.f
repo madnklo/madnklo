@@ -74,22 +74,22 @@ c     check flavour match
 c
 c     rearrange the flavours to always land at ggq
       if(abs(leg_PDGs(itmp)).le.5)then
-              i = ktmp
-              j = jtmp
-              k = itmp
+        i = ktmp
+        j = jtmp
+        k = itmp
       elseif(abs(leg_PDGs(jtmp)).le.5)then
-              i = itmp
-              j = ktmp
-              k = jtmp
+        i = itmp
+        j = ktmp
+        k = jtmp
       else
-              i = itmp
-              j = jtmp
-              k = ktmp
+        i = itmp
+        j = jtmp
+        k = ktmp
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-2d0*(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -137,6 +137,10 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-2d0*(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO_ima_bra = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
@@ -160,7 +164,7 @@ c       gtpl)
       enddo
 c
 c     mapping 2: [imb,arb]
-
+c
 c     fill mapped labels
       call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
       call fill_born_mapped_labels(real_labels(a,i,b),real_labels(b,i,b),real_leg_pdgs,born_leg_pdgs)
@@ -196,6 +200,10 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-2d0*(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO_imb_arb = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c

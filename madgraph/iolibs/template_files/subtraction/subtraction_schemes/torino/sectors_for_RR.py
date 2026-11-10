@@ -1229,9 +1229,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
 
         # Point to the right process directory
         dirmadnklo=os.getcwd()
-        dirpath = pjoin(dirmadnklo,glob.glob("%s/NNLO_RR_x_RR_*" % interface.user_dir_name[0])[0])
+        dirpath = pjoin(dirmadnklo, sectors.glob_one("%s/NNLO_RR_x_RR_*" % sectors.get_user_dir(),
+                                                     'double-real (NNLO_RR_x_RR_*) directory'))
         dirpath = pjoin(dirpath, 'SubProcesses', "P%s" % defining_process.shell_string())
-        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
+        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % sectors.get_user_dir()))
         import Born_PDGs as PDGs_from_Born
         import Real_PDGs as PDGs_from_Real
 
@@ -1246,8 +1247,10 @@ class SectorGeneratorRR(sectors.SectorGenerator):
         path_UBorn_procs = []
         UReal_procs = []
         path_UReal_procs = []
-        dirpathB_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
-        dirpathR_head = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
+        dirpathB_head = pjoin(dirmadnklo, sectors.glob_one("%s/LO_*" % sectors.get_user_dir(),
+                                                           'Born (LO_*) directory'))
+        dirpathR_head = pjoin(dirmadnklo, sectors.glob_one("%s/NLO_R_x_R_*" % sectors.get_user_dir(),
+                                                           'real-emission (NLO_R_x_R_*) directory'))
 
         K1_sector_lists = defaultdict(lambda: defaultdict(list))
         K2_sector_lists = defaultdict(lambda: defaultdict(list))
@@ -2320,6 +2323,42 @@ c       %s
         self.link_files_to_RR_dir(dirpath, overall_sector_info)
 
 
+
+        # GIOVANNI
+        for i in range(0,len(overall_sector_info)):
+            
+            vv_rec = recoiler_function.get_virtual_recoiler(getattr(PDGs_from_Born, "leg_PDGs_%s" % sector_info['Born_str']))
+            data_vv_rec = str(vv_rec).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
+            pattern = pjoin(dirmadnklo, sectors.get_user_dir(), "NNLO_VV*")
+            paths = [path for path in glob.glob(pattern) if os.path.isdir(path)]
+            UBpath = overall_sector_info[i]['path_to_Born']
+            
+
+            if not paths:
+                continue
+            
+            subprocess_pattern = pjoin(paths[0], "SubProcesses", "*%s" % sector_info['Born_str'])
+            subprocess_paths = [path for path in glob.glob(subprocess_pattern) if os.path.isdir(path)]
+            if not subprocess_paths:
+                continue
+            dirpath_double_virtual = subprocess_paths[0]
+            if not glob.glob("%s/matrix.f" % dirpath_double_virtual):
+                            # symlink to Born ME
+                            os.symlink( "%s/matrix.f" % UBpath, "%s/matrix.f" % dirpath_double_virtual )
+                            if len(glob.glob(dirpath_double_virtual + '/spin_correlations.inc')) == 0 :
+                                os.symlink(UBpath + '/spin_correlations.inc', dirpath_double_virtual + '/spin_correlations.inc' )
+            
+                
+            file = """ \
+                integer, parameter :: len_iref = %d
+                integer iref(2,len_iref)
+                data iref/%s/
+                """ % (len(vv_rec), data_vv_rec)
+            filename = pjoin(dirpath_double_virtual, 'double_virtual_recoilers.inc')
+            writer(filename).writelines(file)
+            if not glob.glob('%s/double_virtual_recoilers.inc' % dirpath):
+                os.symlink( '%s/double_virtual_recoilers.inc' % dirpath_double_virtual, '%s/double_virtual_recoilers.inc' % dirpath)      
+
         return #all_sectors
 
 
@@ -2606,17 +2645,18 @@ c       %s
 
         #all_sector_list = all_3p_sector_list_with_0 + all_4p_sector_list
         all_sector_list = all_3p_sector_list + all_4p_sector_list
-        tmp_str = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-
         file = """ \
           integer, parameter :: lensectors = %d
           integer tmp(4,lensectors)
           integer all_sector_list(4,lensectors)
           integer :: bar_indices(2*lensectors)
           common/c_NLObar/bar_indices""" % (len(all_sector_list))
-        for k in range(0,len(all_sector_list)):
+        # One short DATA statement per sector (no continuation lines: the file is also
+        # included in free-form sources, e.g. sectors4_module.f90). The leg indices are
+        # taken from the tuples, so two-digit leg numbers are handled correctly.
+        for k, sector in enumerate(all_sector_list):
             file += """
-          data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+7])
+          data tmp(1,%d), tmp(2,%d), tmp(3,%d), tmp(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,','.join('%d' % l for l in sector))
           #  file += """
           #data all_sector_list(1,%d), all_sector_list(2,%d), all_sector_list(3,%d), all_sector_list(4,%d) /%s/ """ % (k+1,k+1,k+1,k+1,tmp_str[k*8:k*8+8])
 

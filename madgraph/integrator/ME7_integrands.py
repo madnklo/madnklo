@@ -1160,7 +1160,13 @@ class ME7Integrand(integrands.VirtualIntegrand):
         if self.n_initial==1:
             raise InvalidCmd("MadEvent7 does not yet support decay processes.")
         
-        if not (self.run_card['lpp1']==self.run_card['lpp2']==1) and \
+        # The Torino (Fortran) exporter only uses these integrands to extract
+        # the sectors and counterterms: the Python phase-space generator below
+        # is never used, and the collider (e.g. one hadron beam, e- p, with
+        # different beam energies) is handled by the Fortran code
+        fortran_only = self.ME7_configuration.get('skip_python_pdf', False)
+        if not fortran_only and \
+           not (self.run_card['lpp1']==self.run_card['lpp2']==1) and \
            not (self.run_card['lpp1']==self.run_card['lpp2']==0):
             raise InvalidCmd("MadEvent7 does not support the following collider mode yet (%d,%d)."%\
                                                             (self.run_card['lpp1'], self.run_card['lpp2']))
@@ -1170,9 +1176,15 @@ class ME7Integrand(integrands.VirtualIntegrand):
             0 if self.contribution_definition.beam_factorization['beam_one'] is None else 1,
             0 if self.contribution_definition.beam_factorization['beam_two'] is None else 1,
         )
+        beam_Es = (self.run_card['ebeam1'], self.run_card['ebeam2'])
+        if fortran_only:
+            # (unused) symmetric collider accepted by the basic generator
+            beam_Es = ((beam_Es[0]+beam_Es[1])/2.,)*2
+            if simplified_beam_types[0] != simplified_beam_types[1]:
+                simplified_beam_types = (1, 1)
         self.phase_space_generator = phase_space_generators.FlatInvertiblePhasespace(
             self.masses[0], self.masses[1],
-            beam_Es             = (self.run_card['ebeam1'], self.run_card['ebeam2']),
+            beam_Es             = beam_Es,
             beam_types          = simplified_beam_types,
             is_beam_factorization_active =
                         ( self.contribution_definition.is_beam_active('beam_one'),
@@ -1203,7 +1215,12 @@ class ME7Integrand(integrands.VirtualIntegrand):
         # Setup the PDF cache
         self.PDF_cache = {}
         self.PDF_cache_entries = []
-        if self.run_card['lpp1']==0 and self.run_card['lpp2']==0:
+        # The Torino (Fortran) exporter only builds these Python integrands to
+        # extract the sectors and counterterms at output time: the Fortran code
+        # evaluates the PDFs itself, so the Python LHAPDF set is not needed there
+        # (ME7_configuration['skip_python_pdf'], set by ME7ExporterTorino).
+        if (self.run_card['lpp1']==0 and self.run_card['lpp2']==0) or \
+                                  self.ME7_configuration.get('skip_python_pdf', False):
             self.pdf = None
             self.pdfsets = None
         else:

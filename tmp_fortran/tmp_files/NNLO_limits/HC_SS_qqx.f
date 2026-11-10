@@ -113,8 +113,8 @@ c     kt = wa pa + wb pb + wr pr
       kt2 = dot(kt(:),kt(:))
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref = -64d0*pi**2*alphas**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
 c
@@ -156,7 +156,7 @@ c        underlying Born configuration is remapped
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpbb,nexternal-2,born_leg_pdgs,2))cycle
+            if(docut(xpbb,nexternal-2,born_leg_pdgs,0))cycle
 c
 c     invariant quantities
 c     (c,d) in the paper --> (m,l)
@@ -173,6 +173,10 @@ c     safety check
             endif
 c
 c     call colour-connected Born
+c     renormalisation scale for the remapped kinematics xpbb
+            call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+            alphas=alphas_current
+            pref = -64d0*pi**2*alphas**2
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
 c

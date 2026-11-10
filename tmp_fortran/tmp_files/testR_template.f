@@ -36,6 +36,7 @@ c
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
+      INCLUDE 'leg_PDGs.inc'
       integer iitn,i,j,maxitn,ierr
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
@@ -57,7 +58,6 @@ c
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
-      DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NLO_proc_str)sfl_factor
       common/%(NLO_proc_str)sflavour_factor/%(NLO_proc_str)sfl_factor
@@ -68,9 +68,11 @@ c
       double precision ran2
       double precision CSpow(2)
       common /cCSpow/CSpow
-c
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-      SCM = (2D0*EBEAM(1))**2
+      integer underlying_leg_pdgs(nexternal-1)
+      common/c_u_pdgs/underlying_leg_pdgs
+      logical docut
+      integer itry,maxtry
+      parameter(maxtry=100)
 c
 c     initialise
       str5 ='     '
@@ -79,8 +81,21 @@ c     initialise
       sNLO=0d0
       sLO=0d0
       wgt_chan=1d0
-      do i=1,3*nexternal-10
-         x0(i)=ran2(33+10*i)
+c
+c     draw the test point. Along the approach only x(1:2) change,
+c     so the underlying Born (from x(4:)) is fixed and all mapped
+c     Born configurations of the counterterms tend to it. If it
+c     fails the cuts, the counterterms vanish in the limit (and so
+c     does R in the integrand, which is cut on the n+1 kinematics):
+c     redraw, at most maxtry times (one Born point + docut each)
+      do itry=1,maxtry
+         do i=1,3*nexternal-10
+            x0(i)=ran2(33+10*i)
+         enddo
+         call phase_space_npo(x0,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         if(xjacB.ne.0d0)then
+            if(.not.docut(pb,nexternal-1,underlying_leg_pdgs,0))exit
+         endif
       enddo
       xr=x0
 c
@@ -88,6 +103,9 @@ c     start testing
       write(88,*)
       write(88,*)
       write(88,*)'LIM = '//trim(limstr)
+      if(itry.gt.maxtry)then
+         write(88,*)'WARNING: no test point whose Born passes the cuts in',maxtry,'trials'
+      endif
       write(88,*)str10//'lambda'//str10//str10//'R'//str10//str10//str5//'LIM'//str10//str10//'|R-LIM|/|LIM|'
 c
 c     loop to get closer and closer to the limit
@@ -100,12 +118,16 @@ c     TODO: this rescaling is specific for (ijr) mapping; generalise
          xr(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(xr,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         call phase_space_npo(xr,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
          if(ierr.eq.1)cycle
          call invariants_from_p(pb,nexternal-1,sLO,ierr)
          if(ierr.eq.1)cycle
+c
+c     renormalisation scale for the (n+1)-body kinematics
+         call set_mur_from_momenta(p,nexternal,leg_pdgs)
+         alphas=alphas_current
 c
 c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)

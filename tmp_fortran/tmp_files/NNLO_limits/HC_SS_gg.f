@@ -115,8 +115,8 @@ c     safety check
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref = -(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -164,6 +164,10 @@ c
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c         call colour-connected born
+c     renormalisation scale for the remapped kinematics xpbb
+          call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+          alphas=alphas_current
+          pref = -(8d0*pi*alphas)**2
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
           ccBLO = %(proc_prefix_Born)s_get_ccBLO(mbb,lbb)
 c

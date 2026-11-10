@@ -11,8 +11,9 @@ c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
+      include 'qcd_power.inc'
       integer ia,ib,ir,ierr,nit,parent_leg
-      double precision pref,M2_C_gg,M2_SC_gg,wgt,wgts(1),wgtpl,wgt_chan,xj,extra
+      double precision pref,M2_C_gg,M2_SC_gg,wgt,wgts(sv_maxwgt),wgtpl,wgt_chan,xj,extra
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,KKBLO
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),kt(0:3)
@@ -40,6 +41,8 @@ c     set logical doplot
       common/c_U_PDGs/UNDERLYING_LEG_PDGS
       integer mapped_labels(nexternal)
       common/c_mapped_labels/mapped_labels
+      double precision pmass(nexternal)
+      include 'pmass.inc'
 c
 c     initialise
       M2_C_gg=0d0
@@ -62,7 +65,9 @@ c     possible cuts
       if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the mapped n-body kinematics
+      call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+      alphas=alphas_current
       pref=8d0*pi*alphas
 c
 c     invariant quantities
@@ -93,13 +98,20 @@ c
       parent_leg = mapped_labels(ib)
       KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     TODO: improve ktmuktnuBmunu / kt^2
-      M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*(1d0+1d0-x**alpha)*BLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
-      M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*BLO)
+      M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*BLO+(1d0-x)/x*BLO)
+      M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0-x)**alpha)*BLO
 c     compute collinear limit of sector function
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gg  = M2_C_gg*wc_nlo
+c     damping with a massive recoiler is not available (the integrated
+c     massive-recoiler counterterm is computed without damping)
+      if(beta_FF.ne.0d0.and.pmass(ir).ne.0d0)then
+         write(*,*)'M2_HC_gg: damping (beta_FF) not available with a'
+         write(*,*)'massive recoiler: set beta_FF=0'
+         stop
+      endif
 c     account for different damping factors according to recoiler position (ir)
-      if(ir.ge.2)then
+      if(ir.gt.2)then
          damp=(1d0-y)**beta_FF
       else
          damp=xinit**beta_FI
@@ -111,8 +123,11 @@ c
 c     plot
       wgtpl=-M2_HC_gg*wgt*wgt_chan
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
-      wgts=wgtpl
-      if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
+      call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
+c     renormalisation-scale variations: contribution to the integrand
+c     (-K), ~ alpha_s^(b+1) at the scale of the mapped kinematics
+      call sv_add(-M2_HC_gg*wgt_chan,0d0,born_qcd_power+1)
+      if(doplot.and.wgtpl.ne.0d0)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
 c     sanity check
       if(abs(M2_HC_gg).ge.huge(1d0).or.isnan(M2_HC_gg))then

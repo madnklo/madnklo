@@ -93,8 +93,8 @@ c     call W soft
       call get_ws_nlo(isec,jsec)
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,mu_r)
-      pref=-8d0*pi*alphas
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     fill mapped labels with mapping (iml)
       do m=1,nexternal
@@ -140,8 +140,16 @@ c
 c     call colour-connected Born and Virtual
             lb=mapped_labels(l,i,m)
             mb=mapped_labels(m,i,m)
+c     renormalisation scale for the remapped kinematics xpb
+            call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(mb,lb)
+c     renormalisation scale for the remapped kinematics xpb
+            call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = [(V_MATELEM(i,0), i=3,1,-1)]
             call %(V_long_proc_prefix)sget_ccvnlo(mb,lb,ccvnlo)
@@ -150,8 +158,8 @@ c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
             EIK1(-2) =  CA*EIK0
-            EIK1(-1) = -CA*EIK0*log(sil*sim/slm/mu_r**2)
-            EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/mu_r**2)**2-5d0*zeta2)
+            EIK1(-1) = -CA*EIK0*log(sil*sim/slm/muR_current**2)
+            EIK1( 0) =  CA*EIK0/2d0*(log(sil*sim/slm/muR_current**2)**2-5d0*zeta2)
 c     EIK1 (B.5) is calculated in a different convention than MadLoop
 c     Torino to ML conversion factor (gamma[1-eps] -> exp[eps eulergamma])
             EIK1( 0) =  EIK1( 0)+CA*EIK0*zeta2/2d0
@@ -176,7 +184,7 @@ c
 c     eikonals
                EIK2(-2) = 0d0
                EIK2(-1) = EIK0
-               EIK2( 0) = -EIK0*log(sim*siq/smq/mu_r**2)
+               EIK2( 0) = -EIK0*log(sim*siq/smq/muR_current**2)
 
                M2TMP(-2:0) = M2TMP(-2:0) + alphas*TRIBLO*EIK2(-2:0)
             enddo
@@ -313,8 +321,8 @@ c     initialise
       xpb_rk = 0d0
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,mu_r)
-      pref=-8d0*pi*alphas
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       do l=1,nexternal
         if(.not.isnloqcdparton(l)) cycle
@@ -371,6 +379,10 @@ c
             endif
 c
 c     call colour-connected B^{(ilm)} and B^{(iml)}
+c     renormalisation scale for the remapped kinematics xpb_lm
+            call set_mur_from_momenta(xpb_lm,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ans)
             ccBLO_lm =%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) goto 778
@@ -421,6 +433,10 @@ c     call invariants
                   sbpm = xsb_lm(pb,mb)
                   sbpq = xsb_lm(pb,qb)
 c     call quadruple-colour-connected Born
+c     renormalisation scale for the remapped kinematics xpb_lm
+                  call set_mur_from_momenta(xpb_lm,nexternal-1,underlying_leg_pdgs)
+                  alphas=alphas_current
+                  pref=-8d0*pi*alphas
                   call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
                   if(size(leg_pdgs).le.5) then
                      write(77,*)'ee -> >2j is not implemented yet'
@@ -448,8 +464,12 @@ c
 c
             lb=mapped_labels(l,i,m)
             mb=mapped_labels(m,i,m)
-c
- 778        call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
+c	
+c     renormalisation scale for the remapped kinematics xpb_ml
+ 778        call set_mur_from_momenta(xpb_ml,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
+            call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
             ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) cycle
 c
@@ -496,11 +516,19 @@ c     safety check
 c     call colour-connected B^{(icr)} and B^{(irc)}
             kb=mapped_labels(k,i,iref)
             rb=mapped_labels(iref,i,iref)
+c     renormalisation scale for the remapped kinematics xpb_kr
+            call set_mur_from_momenta(xpb_kr,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
             ccBLO_kr =%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
 c
             kb=mapped_labels(k,i,k)
             rb=mapped_labels(iref,i,k)
+c     renormalisation scale for the remapped kinematics xpb_kr
+            call set_mur_from_momenta(xpb_kr,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
             ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
 c     eikonals

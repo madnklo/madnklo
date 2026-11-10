@@ -76,8 +76,8 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -154,6 +154,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_jkr = ans(0)*wcbar_nlo
 c
@@ -196,6 +200,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_jkr = ans(0)*wcbar_nlo
 c
@@ -234,6 +242,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_iba_jkr = ans(0)*wcbar_nlo
 c
@@ -276,6 +288,10 @@ c
       call get_wcbar_nlo(ab,bb,rb)
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_bra = ans(0)*wcbar_nlo
 c
@@ -314,6 +330,10 @@ c
       call get_wcbar_nlo(ab,bb,rb)
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)*wcbar_nlo
 c

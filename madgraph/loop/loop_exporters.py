@@ -937,12 +937,22 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         self.link_files_from_Subprocesses(self.get_SubProc_folder_name(
                        matrix_element.get('processes')[0],group_number,proc_id))
 
-        #gl
-        # self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+        
+        #GIOVANNI
+        # Currently excluding subprocesses entering at NLO, which do not have a Born diagram
+        if matrix_element.get('processes')[0].get('has_born'):
+            self.link_files_from_Born_directory(matrix_element.get('processes')[0])
+            self.write_NNLO_VV_template(writers.FortranWriter, matrix_element)
+            self.write_NNLO_I2_template(writers.FortranWriter, matrix_element)
+            self.write_NNLO_IRV_template(writers.FortranWriter, matrix_element)
+            self.link_files_from_Virtual_directory(matrix_element.get('processes')[0])
         self.link_files_common_directory()
-        self.write_makefile_vv_template(writers.FileWriter, matrix_element)
+        self.write_makefile_vv_template(writers.FileWriter, matrix_element) 
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
         #     os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
+
+        #self.link_files_from_B_R_V_to_RV_dir(dirpath, Born_processes, path_Born_processes, overall_sector_info)
+        
 
         # Return to original PWD
 
@@ -960,11 +970,6 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         """ To link required files from the Subprocesses directory to the
         different P* ones"""
         
-        # linkfiles = ['coupl.inc',
-        #              'cts_mprec.h', 'cts_mpc.h', 'mp_coupl.inc', 
-        #              'mp_coupl_same_name.inc',
-        #              'MadLoopParamReader.f','MadLoopCommons.f',
-        #              'MadLoopParams.inc','global_specs.inc']
         
         #DEBUG GIOVANNIII
         linkfiles = ['coupl.inc',
@@ -984,6 +989,68 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
             
         # Also like the whole MadLoop5_files directory
         ln('../MadLoop5_resources')
+    ######### GIOVANNI 
+    def link_files_from_Virtual_directory(self,process):
+
+
+            # import pdb
+            # pdb.set_trace()
+            if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B':
+                dirpathBorn = glob.glob("%s/../LO_*" % self.dir_path)[0]
+                dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+            elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_VV_x_B':
+                dirpathBorn = glob.glob("%s/../NLO_V_x_B*" % self.dir_path)[0]
+                # dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+                pattern = "%s/SubProcesses/P*_%s" % (
+                dirpathBorn, process.shell_string(print_id=False))
+                matches = glob.glob(pattern)
+                if len(matches) != 1:
+                    raise RuntimeError(
+                    "Expected one NLO virtual subprocess for %s; found %s"
+                    % (pattern, matches))
+
+                dirpathBorn = matches[0]
+            elif (self.dir_path).split('/')[-1][0:11] == 'NNLO_RV_x_R':
+                dirpathBorn = glob.glob("%s/../NLO_R*" % self.dir_path)[0]
+                dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
+
+
+            Vpref = open(pjoin(dirpathBorn,"proc_prefix.txt")).read()
+            os.symlink( "%s/V_polynomial.f" % dirpathBorn, "%s/V_polynomial.f" % os.getcwd())
+            os.symlink( "%s/V_loop_matrix.f" % dirpathBorn, "%s/V_loop_matrix.f" % os.getcwd())
+            os.symlink( "%s/V_improve_ps.f" % dirpathBorn, "%s/V_improve_ps.f" % os.getcwd())
+            os.symlink( "%s/born_matrix.f" % dirpathBorn, "%s/V_born_matrix.f" % os.getcwd())
+            os.symlink( "%s/V_CT_interface.f" % dirpathBorn, "%s/V_CT_interface.f" % os.getcwd())
+            os.symlink( "%s/V_loop_num.f" % dirpathBorn, "%s/V_loop_num.f" % os.getcwd())
+            os.symlink( "%s/helas_calls_ampb_1.f" % dirpathBorn, "%s/V_helas_calls_ampb_1.f" % os.getcwd())
+            os.symlink( "%s/V_mp_compute_loop_coefs.f" % dirpathBorn, "%s/V_mp_compute_loop_coefs.f" % os.getcwd())
+            os.symlink( "%s/mp_helas_calls_ampb_1.f" % dirpathBorn, "%s/V_mp_helas_calls_ampb_1.f" % os.getcwd())
+            os.symlink( "%s/coef_construction_1.f" % dirpathBorn, "%s/V_coef_construction_1.f" % os.getcwd())
+            os.symlink( "%s/loop_CT_calls_1.f" % dirpathBorn, "%s/V_loop_CT_calls_1.f" % os.getcwd())
+            os.symlink( "%s/mp_coef_construction_1.f" % dirpathBorn, "%s/V_mp_coef_construction_1.f" % os.getcwd())
+            os.symlink( "%s/V_TIR_interface.f" % dirpathBorn, "%s/V_TIR_interface.f" % os.getcwd())
+            os.symlink( "%s/V_compute_color_flows.f" % dirpathBorn, "%s/V_compute_color_flows.f" % os.getcwd())
+            os.symlink( "%s/V_user_access_subroutines.f" % dirpathBorn, "%s/V_user_access_subroutines.f" % os.getcwd())
+            os.symlink( "%s/V_tir_cache_size.inc" % dirpathBorn, "%s/V_tir_cache_size.inc" % os.getcwd())
+            os.symlink( "%s/V_process_info.inc" % dirpathBorn, "%s/V_process_info.inc" % os.getcwd())
+            os.symlink( "%s/%sspin_correlations.inc" % (dirpathBorn, Vpref),"%s/%sspin_correlations.inc" % (os.getcwd(), Vpref) )
+            os.symlink( "%s/nsquaredSO.inc" % dirpathBorn, "%s/V_nsquaredSO.inc" % os.getcwd())
+            os.symlink( "%s/ngraphs.inc" % dirpathBorn, "%s/V_ngraphs.inc" % os.getcwd())
+            src_dir = "%s/MadLoop5_resources/" % dirpathBorn
+            tgt_dir = "%s/MadLoop5_resources/" % os.getcwd()
+            for name in os.listdir(src_dir):
+                src_path = os.path.join(src_dir,name)
+                tgt_path = os.path.join(tgt_dir,name)
+                try:
+                    os.remove(tgt_path)
+                except OSError:
+                    pass
+                os.symlink(src_path, tgt_path)
+            
+
+
+
+
 
     #gl
     def link_files_from_Born_directory(self,process):
@@ -1004,6 +1071,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 
         owd = os.getcwd()
         os.chdir(dirpathBorn)
+
+       
+       
         tmp_leg_PDGs = glob.glob("leg_PDGs*.inc")
         tmp_ngraphs = "ngraphs.inc"
         tmp_configs = "configs.f"
@@ -1012,17 +1082,26 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         tmp_decayBW = "decayBW.f"
         tmp_leshouche = "leshouche.f"
         tmp_channels = "channels.txt"
+
+        tmp_link_files=["ngraphs.inc", "configs.f", "props.f", "genps.inc",
+                         "decayBW.f", "leshouche.f", "channels.txt"]
+        
+
         os.chdir(owd)
         for i in range(0,len(tmp_leg_PDGs)):
             os.symlink(dirpathBorn + '/%s' % tmp_leg_PDGs[i], os.getcwd() + '/%s' % tmp_leg_PDGs[i])
 
-        os.symlink(dirpathBorn + '/%s' % tmp_ngraphs, os.getcwd() + '/%s' % tmp_ngraphs)
-        os.symlink(dirpathBorn + '/%s' % tmp_configs, os.getcwd() + '/%s' % tmp_configs)
-        os.symlink(dirpathBorn + '/%s' % tmp_props, os.getcwd() + '/%s' % tmp_props)
-        os.symlink(dirpathBorn + '/%s' % tmp_genps, os.getcwd() + '/%s' % tmp_genps)
-        os.symlink(dirpathBorn + '/%s' % tmp_decayBW, os.getcwd() + '/%s' % tmp_decayBW)
-        os.symlink(dirpathBorn + '/%s' % tmp_leshouche, os.getcwd() + '/%s' % tmp_leshouche)
-        os.symlink(dirpathBorn + '/%s' % tmp_channels, os.getcwd() + '/%s' % tmp_channels)
+        for files in tmp_link_files:
+
+            src=dirpathBorn + '/%s' % files
+            dst=os.getcwd() + '/%s' % files
+
+            if os.path.islink(dst):
+                    os.unlink(dst)
+            if not os.path.lexists(dst):
+                    os.symlink(src, dst)
+
+        
 
         # Copy ajob_template_v into the proc_dir
         cp(pjoin(os.getcwd(),'../../../../Template/Fortran_tmp/src_to_common/ajob_template_virtual'),pjoin(os.getcwd(),'ajob1'))
@@ -1141,13 +1220,13 @@ virtual: $(FILES)
     def write_NNLO_VV_template(self, writer, matrix_element, group_number = None, proc_id = None):
         
         replace_dict = {}
-        replace_dict['long_proc_prefix'] = self.get_ME_identifier(matrix_element,
+        replace_dict['long_proc_prefix'] = 'VV_'+self.get_ME_identifier(matrix_element,
                        group_number = group_number, group_elem_number = proc_id)
 
         # write driver
-        filename = pjoin(tmp_proc_dir, 'NNLO_VV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_VV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_VV_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_VV_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -1158,16 +1237,16 @@ virtual: $(FILES)
     # write NNLO_I2 : integrated counterterms
     #===========================================================================
     #gl
-    def write_NNLO_I2_template(self, tmp_proc_dir, writer, matrix_element):
+    def write_NNLO_I2_template(self, writer, matrix_element):
         
         replace_dict = {}
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         # write driver
-        filename = pjoin(tmp_proc_dir, 'NNLO_I2_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_I2_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -1179,17 +1258,16 @@ virtual: $(FILES)
     # write NNLO_IRV : integrated counterterms
     #===========================================================================
     #gl
-    def write_NNLO_IRV_template(self, tmp_proc_dir, writer, matrix_element):
+    def write_NNLO_IRV_template(self, writer, matrix_element):
         
         replace_dict = {}
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
 
         # write driver
-        print(tmp_proc_dir)
-        filename = pjoin(tmp_proc_dir, 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
+        filename = pjoin(os.getcwd(), 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
-        file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
+        file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
         file = file % replace_dict
         writer(filename).writelines(file)
 
@@ -3415,8 +3493,7 @@ PARAMETER (NSQUAREDSO=%d)"""%matrix_element.rep_dict['nSquaredSO'])
 
         #### GIOVANNI
         replace_dict['loopstr'] = loop_str
-
-
+        replace_dict['hel_double_checked_after_filter'] = ('.TRUE.' if loop_str == 'V_' else '.FALSE.')
 
         file = file % replace_dict
         number_of_calls = len(filter(lambda call: call.find('CALL LOOP') != 0, \

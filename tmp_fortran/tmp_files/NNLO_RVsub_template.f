@@ -32,6 +32,11 @@ c     TODO: understand x(mxdim) definition by Vegas
       logical dotechcut
       logical doplot
       common/cdoplot/doplot
+      integer ich,nfail
+      character*8 failure_stage
+      common/comich/ich
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       logical docut
       integer iU,iS,iB,iA
       common/cNLOmaplabels/iU,iS,iB,iA
@@ -69,16 +74,6 @@ c     call initialisation function
          firsttime=.false.
       endif
 c
-c     TODO: convert to partonic sCM
-      sCM = (2d0*EBEAM(1))**2
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
-      endif
-c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       int_real_virtual_%(isec)d_%(jsec)d=0d0
       WGT_CHAN=1d0
@@ -90,22 +85,32 @@ c     phase-space tests (for double pole, single pole, finite part)
       endif
 c
 c     phase space and invariants
-      call phase_space_npo(x,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB,mapped_labels)
+      call phase_space_npo(x,iU,iS,iB,iA,p,pb,xjac,xjacB)
       if(xjac.eq.0d0.or.xjacB.eq.0d0) then
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong (n+1)-body invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Wrong n-body invariants ', sLO
+         goto 999
+      endif
+      sCM=sNLO(1,2)
+      if(sCM.le.0d0.or.abs(sCM-sLO(1,2))/sCM.gt.1d-8)then
+         write(77,*) 'int_real_virtual: '
+         write(77,*) 'Wrong sCM ', sLO(1,2),sCM
          goto 999
       endif
 c
@@ -124,6 +129,10 @@ c     real virtual
          allocate(prec_found(0:nsquaredso_loop))
       endif
 c
+c     renormalisation scale for the (n+1)-body kinematics
+c     (set_mur also updates MU_R and the couplings used by MadLoop)
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
       RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       do i=-2,0
@@ -137,15 +146,14 @@ c
 c     real sector function
       call get_sig2(snlo,nexternal)
       call get_W_NLO(isec,jsec)
-      if(ierr.eq.1)then
-         write(77,*) 'int_real_virtual: '
-         write(77,*) 'Wrong W_NLO', W_NLO
-         goto 999
-      endif
 c
 c     1-unresolved integrated counterterm
       call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I1NNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     pole-free combination RV+I1
       int_rv_i1 = (RVNNLO(0)+I1NNLO(0))*w_nlo*xjac
@@ -160,7 +168,9 @@ c     if(doplot)call histo_fill(p,sNLO,nexternal,leg_pdgs,wgtpl)
 c
 c     real-virtual counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,x,KRVNNLO,wgt_chan,ierr)
-      if(ierr.eq.1)then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
          write(77,*) 'int_real_virtual: '
          write(77,*) 'Something wrong in the RV counterterm', KRVNNLO
          goto 999
@@ -168,7 +178,11 @@ c     real-virtual counterterm
 c
 c     12-unresolved integrated counterterm
       call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,sNLO,sLO,I12NNLO,ierr)
-      if(ierr.eq.1)goto 999
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RV',ierr,ich,failure_stage
+         goto 999
+      endif
 c
 c     test coefficients of epsilon poles
       if(ntested.lt.ntest)then
@@ -211,7 +225,7 @@ c
 c
 c     check we are not in the ISR case
       if(isec.le.2.or.jsec.le.2)then
-         write(*,*)'update sCM in int_real'
+         write(*,*)'ISR indices in RV initialise sectot',isec,jsec
          stop
       endif
 c

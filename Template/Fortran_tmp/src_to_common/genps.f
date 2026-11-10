@@ -183,6 +183,11 @@ c
       logical set_cm_rap
       common/to_cm_rap/set_cm_rap,cm_rap      
 
+c     MadNkLO, hadron beams: lower bound on tau = x1 x2 (set_tau_min)
+      double precision tau_min
+      common/to_tau_min/tau_min
+      double precision chy,shy,e0,e3,xlmin
+
 c     External function
       double precision SumDot
       external SumDot
@@ -298,7 +303,10 @@ c     TODO: to implement xbj sampling for initial state hadrons 4/7/23
 
       
       if (abs(lpp(1)) .ge. 1 .and. abs(lpp(2)) .ge. 1) then
-         call sample_get_x(sjac,x(ndim-1),ndim-1,mincfig,0d0,1d0)
+c        MadNkLO: with tau_min > 0, GENCMS_LOGTAU maps x(ndim-1) itself
+c        (log and Breit-Wigner): no pole mapping of sample_get_x on top
+         if (.not.(npart.gt.3 .and. tau_min.gt.0d0))
+     &      call sample_get_x(sjac,x(ndim-1),ndim-1,mincfig,0d0,1d0)
 c-----
 c tjs 5/24/2010 for 2->1 process
 c-------
@@ -309,7 +317,15 @@ c-------
          endif
 
          call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
-         CALL GENCMS(STOT,Xbk(1),Xbk(2),X(ndim-1), SMIN,SJAC)
+         if (npart.gt.3 .and. tau_min.gt.0d0) then
+c           MadNkLO: tau = x1 x2 sampled between tau_min (set by
+c           set_tau_min from masses and cuts) and 1, uniformly in
+c           log(tau), or following the s-channel resonance of the
+c           channel that carries the whole shat, if any
+            CALL GENCMS_LOGTAU(Xbk(1),Xbk(2),X(ndim-1),SJAC,iconfig,npart)
+         else
+            CALL GENCMS(STOT,Xbk(1),Xbk(2),X(ndim-1), SMIN,SJAC)
+         endif
          x(ndim-1) = xtau                   !Fix for 2->1 process
 c        Set CM rapidity for use in the rap() function
          cm_rap=.5d0*dlog(xbk(1)*ebeam(1)/(xbk(2)*ebeam(2)))
@@ -317,8 +333,16 @@ c        Set CM rapidity for use in the rap() function
 c        Set shat
          s(-nbranch) = xbk(1)*xbk(2)*stot
       elseif (abs(lpp(1)) .ge. 1) then
-         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
-         xbk(1) = x(ndim)
+         if (npart.gt.3 .and. tau_min.gt.0d0) then
+c           MadNkLO: xbk(1) uniform in log, above the value giving
+c           shat = tau_min*stot
+            xlmin=max(tau_min*stot-m2**2,0d0)/
+     $           (2d0*ebeam(1)*(ebeam(2)+sqrt(ebeam(2)**2-m2**2)))
+            call gen_logx(x(ndim),xlmin,xbk(1),sjac)
+         else
+            call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
+            xbk(1) = x(ndim)
+         endif
 c        Set CM rapidity for use in the rap() function
          p0=xbk(1)*ebeam(1)+ebeam(2)
          p3=xbk(1)*ebeam(1)-sqrt(ebeam(2)**2-m2**2)
@@ -328,8 +352,16 @@ c        Set shat
          s(-nbranch) = m2**2+2*xbk(1)*ebeam(1) *
      $                 (ebeam(2)+sqrt(ebeam(2)**2-m2**2))
       elseif (abs(lpp(2)) .ge. 1) then
-         call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
-         xbk(2) = x(ndim)
+         if (npart.gt.3 .and. tau_min.gt.0d0) then
+c           MadNkLO: xbk(2) uniform in log, above the value giving
+c           shat = tau_min*stot
+            xlmin=max(tau_min*stot-m1**2,0d0)/
+     $           (2d0*ebeam(2)*(ebeam(1)+sqrt(ebeam(1)**2-m1**2)))
+            call gen_logx(x(ndim),xlmin,xbk(2),sjac)
+         else
+            call sample_get_x(sjac,x(ndim),ndim,mincfig,0d0,1d0)
+            xbk(2) = x(ndim)
+         endif
 c        Set CM rapidity for use in the rap() function
          p0=ebeam(1)+xbk(2)*ebeam(2)
          p3=sqrt(ebeam(1)**2-m1**2)-xbk(2)*ebeam(2)
@@ -387,6 +419,19 @@ c
                enddo
 c               write(*,'(i3,4f15.5)') i,(p(j,i),j=0,3)
             enddo
+c           MadNkLO, hadron beams: momenta in the laboratory frame (boost
+c           along z by the rapidity cm_rap of the partonic centre of mass),
+c           p1(:,1) = xbk(1) * beam 1, p1(:,2) = xbk(2) * beam 2
+            if (lpp(1).ne.0 .or. lpp(2).ne.0) then
+               chy=cosh(cm_rap)
+               shy=sinh(cm_rap)
+               do i=1,nparticles
+                  e0=p1(0,i)
+                  e3=p1(3,i)
+                  p1(0,i)=e0*chy+e3*shy
+                  p1(3,i)=e3*chy+e0*shy
+               enddo
+            endif
 c$$$            p1(0,nparticles+1)=xbk(1)
 c$$$            p1(1,nparticles+1)=xbk(2)
          else
@@ -584,7 +629,9 @@ c
       integer ibranch,i,ns_channel,nt_channel,ix  !,nerr
 c      data nerr/0/
       double precision smin,smax,totmass,totmassin,xa2,xb2,wgt
-      double precision costh,phi,tmin,tmax,t
+      double precision costh,phi,tmin,tmax,t,tref,sref
+      double precision      spole(maxinvar),swidth(maxinvar),bwjac
+      common/to_brietwigner/spole          ,swidth          ,bwjac
       double precision ma2,mb2,m12,mn2,s1
 c
 c     External
@@ -667,13 +714,18 @@ c         write(*,*) ibranch,sqrt(smin),sqrt(smax)
 c
 c        Choose the appropriate s given our constraints smin,smax
 c     
+c        MadNkLO, hadron beams: invariants without Breit-Wigner mapping
+c        are sampled in [0,shat] rather than [0,stot] (see tref below)
+         sref = stot
+         if ((lpp(1).ne.0 .or. lpp(2).ne.0) .and.
+     &        swidth(-ibranch).le.0d0) sref = s(-nbranch)
          call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
      &        smin/stot,smax/stot)
-         s(ibranch) = x(-ibranch)*stot
+         s(ibranch) = x(-ibranch)*sref
 
 c         write(*,*) 'using s',-ibranch
 
-         jac = jac*stot
+         jac = jac*sref
          if (jac .lt. 0d0 .or. .not. pass) then
             jac = -6
             return
@@ -733,11 +785,13 @@ c
             jac=-3d0
             return
          endif
+         sref = stot
+         if (lpp(1).ne.0 .or. lpp(2).ne.0) sref = s(-nbranch)
          call sample_get_x(wgt,x(nbranch-1+(-ibranch)*2),
      &        nbranch-1+(-ibranch)*2,iconfig,
      &        smin/stot,smax/stot)
 
-         m(ibranch-1)=dsqrt(max(stot*x(nbranch-1+(-ibranch)*2), 0d0))
+         m(ibranch-1)=dsqrt(max(sref*x(nbranch-1+(-ibranch)*2), 0d0))
 c         write(*,*) 'Using s',nbranch-1+(-ibranch)*2
 
          if (m(ibranch-1)**2.lt.smin.or.m(ibranch-1)**2.gt.smax
@@ -745,7 +799,7 @@ c         write(*,*) 'Using s',nbranch-1+(-ibranch)*2
             jac=-1d0
             return
          endif
-         jac = jac * stot
+         jac = jac * sref
       enddo
       m(-nbranch) = m(itree(2,-nbranch))
 c
@@ -783,7 +837,15 @@ c         write(*,*) 'tmin, tmax',tmin,tmax
 
          call sample_get_x(wgt,x(-ibranch),-ibranch,iconfig,
      $        -tmax/stot, -tmin/stot)
-         t = stot*(-x(-ibranch))
+c        MadNkLO: -t is sampled uniformly in [0,tref]. With hadron beams
+c        tref = shat (partonic: |t| <= shat), not the hadronic stot,
+c        so that the range does not depend on x1 x2 (with tref = stot
+c        most points fall outside the physical region and the vegas
+c        grid, which factorises the variables, cannot adapt to the
+c        correlated boundary |t| < x1 x2 stot)
+         tref = stot
+         if (lpp(1).ne.0 .or. lpp(2).ne.0) tref = s(-nbranch)
+         t = tref*(-x(-ibranch))
 c
 c     now reset tmax if messed it up for t freedom 3 lines above
 c
@@ -804,8 +866,8 @@ c     tmin and tmax set to -s,+s for jacobian because part of jacobian
 c     was determined from choosing the point x from the grid based on
 c     tmin and tmax.  (ie wgt contains some of the jacobian)
 c
-         tmin=-stot
-         tmax= stot
+         tmin=-tref
+         tmax= tref
 c         call sample_get_x(wgt,x(nbranch+(-ibranch-1)*2),
 c     &        nbranch+(-ibranch-1)*2,iconfig,0d0,1d0)
          phi = 2d0*pi*x(nbranch+(-ibranch-1)*2)
@@ -1124,6 +1186,126 @@ c-----
          pass = .false.
       endif
       end
+
+
+      SUBROUTINE GEN_LOGX(U,XMIN,XB,SJACOBI)
+C***********************************************************************
+C     MadNkLO, one hadron beam: Bjorken x XB = XMIN**(1-U) in [XMIN,1],
+C     uniform in log(XB); SJACOBI is multiplied by dXB/dU
+C***********************************************************************
+      IMPLICIT NONE
+      DOUBLE PRECISION U,XMIN,XB,SJACOBI
+      IF(XMIN.LE.0D0.OR.XMIN.GE.1D0)THEN
+         WRITE(*,*)'GEN_LOGX: wrong minimum x',XMIN
+         STOP 1
+      ENDIF
+      XB=MIN(EXP(LOG(XMIN)*(1D0-U)),1D0)
+      SJACOBI=SJACOBI*XB*(-LOG(XMIN))
+      END
+
+
+      SUBROUTINE GENCMS_LOGTAU(X1,X2,X,SJACOBI,ICONFIG,NPART)
+C***********************************************************************
+C     MadNkLO, hadron beams: parton momentum fractions X1, X2 from
+C     X(1) --> TAU = X1*X2 in [TAU_MIN,1]
+C     X(2) --> ETA = .5*LOG(X1/X2), uniform in [.5 LOG(TAU),-.5 LOG(TAU)]
+C     TAU is sampled with the density
+C       p(TAU) = (1-F) p_log(TAU) + F p_BW(TAU)
+C     p_log uniform in log(TAU); p_BW a Breit-Wigner in shat = TAU*STOT
+C     for the s-channel propagator of the channel ICONFIG that carries
+C     the whole shat (e.g. the Z in q qbar -> Z -> l+ l-), if it has a
+C     width and its mass is in the range; otherwise F = 0. The first
+C     fraction F of X(1) samples p_BW, the rest p_log, and the jacobian
+C     1/p(TAU) of the mixture is used (importance sampling).
+C     The jacobian d(TAU) d(ETA) / d X(1) d X(2) multiplies SJACOBI.
+C     TAU_MIN (common /to_tau_min/) is set by set_tau_min.
+C***********************************************************************
+      IMPLICIT NONE
+      include 'genps.inc'
+      include 'maxconfigs.inc'
+      include 'nexternal.inc'
+      include 'maxamps.inc'
+      DOUBLE PRECISION X1,X2,SJACOBI
+      DOUBLE PRECISION X(2)
+      INTEGER ICONFIG,NPART
+      DOUBLE PRECISION TAU,ETA,ETAMIN,ETAMAX,LTAUMIN,U,F,PLOG,PBW
+      DOUBLE PRECISION RM2,RMG,TH1,TH2,SH
+      double precision tau_min
+      common/to_tau_min/tau_min
+      double precision stot,m1,m2
+      common/to_stot/stot,m1,m2
+      DOUBLE PRECISION PRMASS(-NEXTERNAL:0,LMAXCONFIGS)
+      DOUBLE PRECISION PRWIDTH(-NEXTERNAL:0,LMAXCONFIGS)
+      INTEGER POW(-NEXTERNAL:0,LMAXCONFIGS)
+      COMMON/PROPS/PRMASS,PRWIDTH,POW
+      integer iforest(2,-max_branch:-1,lmaxconfigs)
+      common/to_forest/ iforest
+      integer sprop(maxsproc,-max_branch:-1,lmaxconfigs)
+      integer tprid(-max_branch:-1,lmaxconfigs)
+      common/to_sprop/sprop,tprid
+      INTEGER MASK(-MAX_BRANCH:-1),IB,K,ID,ALLFIN,IRES
+      DOUBLE PRECISION, PARAMETER :: PI=3.14159265358979323846D0
+C
+C     s-channel branch whose daughters are all the final-state particles
+      ALLFIN=0
+      DO K=3,NPART
+         ALLFIN=IOR(ALLFIN,ISHFT(1,K))
+      ENDDO
+      IRES=0
+      DO IB=-1,-(NPART-3),-1
+         MASK(IB)=0
+         IF(TPRID(IB,ICONFIG).NE.0)EXIT
+         DO K=1,2
+            ID=IFOREST(K,IB,ICONFIG)
+            IF(ID.GT.0)THEN
+               MASK(IB)=IOR(MASK(IB),ISHFT(1,ID))
+            ELSE
+               MASK(IB)=IOR(MASK(IB),MASK(ID))
+            ENDIF
+         ENDDO
+         IF(MASK(IB).EQ.ALLFIN)THEN
+            IRES=IB
+            EXIT
+         ENDIF
+      ENDDO
+      F=0D0
+      IF(IRES.NE.0)THEN
+         IF(PRWIDTH(IRES,ICONFIG).GT.0D0)THEN
+            RM2=PRMASS(IRES,ICONFIG)**2
+            RMG=PRMASS(IRES,ICONFIG)*PRWIDTH(IRES,ICONFIG)
+            IF(RM2.GT.TAU_MIN*STOT.AND.RM2.LT.STOT)THEN
+               F=0.5D0
+               TH1=ATAN((TAU_MIN*STOT-RM2)/RMG)
+               TH2=ATAN((STOT-RM2)/RMG)
+            ENDIF
+         ENDIF
+      ENDIF
+C
+      LTAUMIN = LOG(TAU_MIN)
+      IF(X(1).LT.F)THEN
+         U  = X(1)/F
+         SH = RM2+RMG*TAN(TH1+(TH2-TH1)*U)
+         TAU= MIN(MAX(SH/STOT,TAU_MIN),1D0)
+      ELSE
+         U  = (X(1)-F)/(1D0-F)
+         TAU= EXP(LTAUMIN*(1D0-U))
+      ENDIF
+      PLOG = 1D0/(TAU*(-LTAUMIN))
+      PBW  = 0D0
+      IF(F.GT.0D0)THEN
+         SH  = TAU*STOT
+         PBW = STOT*RMG/((SH-RM2)**2+RMG**2)/(TH2-TH1)
+      ENDIF
+      SJACOBI = SJACOBI/((1D0-F)*PLOG+F*PBW)
+      ETAMIN  = .5D0*LOG(TAU)
+      ETAMAX  = -ETAMIN
+      ETA     = (ETAMAX-ETAMIN)*X(2)+ETAMIN
+      SJACOBI = SJACOBI*(ETAMAX-ETAMIN)
+      X1 = SQRT(TAU)*EXP(ETA)
+      X2 = SQRT(TAU)*EXP(-ETA)
+      X1 = MIN(X1,1D0)
+      X2 = MIN(X2,1D0)
+      END
 
 
       SUBROUTINE GENCMS(S,X1,X2,X,SMIN,SJACOBI)

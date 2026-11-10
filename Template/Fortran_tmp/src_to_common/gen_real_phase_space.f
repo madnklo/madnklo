@@ -1,4 +1,4 @@
-      subroutine phase_space_npo(x,shat,iU,iS,iB,iA,p,pbar,xjac,xjacB)
+      subroutine phase_space_npo(x,iU,iS,iB,iA,p,pbar,xjac,xjacB)
 c     iU is the unresolved parton associated with the soft singularity
       implicit none
       include 'coupl.inc'
@@ -6,7 +6,7 @@ c     iU is the unresolved parton associated with the soft singularity
       include 'nexternal.inc'
       include 'rv_mapped_labels_common.inc'
       include 'leg_PDGs.inc'
-      double precision x(3*nexternal-10),shat
+      double precision x(3*nexternal-10)
       double precision p(0:3,nexternal),pbar(0:3,nexternal-1)
       double precision xjac,xjacB,xjacCS
       integer i,j,iU,iS,iB,iA

@@ -76,8 +76,8 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -152,6 +152,10 @@ c       call wcbar
         call get_wcbar_nlo(ab,bb,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
@@ -216,6 +220,10 @@ c       call wcbar
         call get_wcbar_nlo(ab,bb,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccblo = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c

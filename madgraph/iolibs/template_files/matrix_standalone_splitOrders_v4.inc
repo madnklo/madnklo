@@ -266,6 +266,7 @@ C
 	  DO I=1,NSQAMPSO
       	ANS(I) = 0D0	  
 	  ENDDO
+      AMP2=0D0
 C     When spin-2 particles are involved, the Helicity filtering is dangerous for the 2->1 topology.
 C     This is because depending on the MC setup the initial PS points have back-to-back initial states
 C     for which some of the spin-2 helicity configurations are zero. But they are no longer zero
@@ -383,6 +384,9 @@ C             End of the do-loop for the insertion of the extra spin-correlation
             ENDIF
 		  ENDIF
        ENDDO
+C     Normalise the multi-channel weights
+      SUM_AMP2=SUM(AMP2)
+      IF(SUM_AMP2.GT.0D0)AMP2=AMP2/SUM_AMP2
 	  ANS(0)=0.0d0
 ## if (color_correlation) {
      DO CCIA=1,COLOR_CORRELATORS_TO_CONSIDER(0)
@@ -596,14 +600,12 @@ ENDIF
 %(jamp_lines)s
 
 
-  	AMP2=0d0	
-	SUM_AMP2=0d0	
+C   Accumulate |AMP|^2 over helicities for the multi-channel weights.
+C   AMP2 is reset and normalised in SMATRIX (normalising here, for each
+C   helicity separately, gives 0/0 for vanishing helicity amplitudes).
 	DO I=1,NGRAPHS
 	AMP2(I)=AMP2(I)+AMP(I)*DCONJG(AMP(I))
-	SUM_AMP2 = SUM_AMP2 + AMP2(I)
 	ENDDO
-C 	Normalization
-	AMP2(:)=AMP2(:)/SUM_AMP2	
 
       RES = 0.D0 
 	  DO M = 1, NAMPSO

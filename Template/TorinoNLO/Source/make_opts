@@ -88,10 +88,12 @@ endif
 
 # Option lhapdf
 
+# lhapdf = path to lhapdf-config, written in the variables above by
+# bin/run_all.py for hadron beams (input/madnklo_config.txt)
 ifneq ($(lhapdf),)
 CXXFLAGS += $(shell $(lhapdf) --cppflags)
 alfas_functions=alfas_functions_lhapdf
-llhapdf+= -lLHAPDF
+llhapdf = $(shell $(lhapdf) --libs) -Wl,-rpath,$(shell $(lhapdf) --libdir) $(STDLIB)
 else
 alfas_functions=alfas_functions
 llhapdf=

@@ -65,7 +65,9 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
       pref=(8d0*pi*alphas)**2
 c
 c     possible cuts

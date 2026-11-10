@@ -77,8 +77,9 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2/2d0
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
+c
 c
 c     compute soft double-soft sector function eq. (C.72)
       call get_sig2(xs,alpha_mod,nexternal)
@@ -151,6 +152,10 @@ c     possible cuts
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c     call colour-connected born
+c     renormalisation scale for the remapped kinematics xpbb
+          call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+          alphas=alphas_current
+          pref=(8d0*pi*alphas)**2/2d0
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
           ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
           M2tmp = 2d0*Ei_ml*Ebj_ml*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
@@ -211,6 +216,10 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=(8d0*pi*alphas)**2/2d0
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,bbb)
         M2tmp = 2d0*Ei_bm*Ebj_bm*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
@@ -274,6 +283,10 @@ c           R->B mapping (a) : [imj,mjl]
             if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))goto 77
 c           call colour-connected Born matrix element for [ica,cad]=[imj,mjl]
+c     renormalisation scale for the remapped kinematics xpbb
+            call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+            alphas=alphas_current
+            pref=(8d0*pi*alphas)**2/2d0
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_mjl = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
             M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_mjl*wsbar_nlo
@@ -286,6 +299,10 @@ c           R->B mapping (b) : [imj,ljm]
             if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
             if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c           call colour-connected Born matrix element for [ica,dac]=[imj,ljm]
+c     renormalisation scale for the remapped kinematics xpbb
+            call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+            alphas=alphas_current
+            pref=(8d0*pi*alphas)**2/2d0
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
             ccBLO_imj_ljm = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
             M2tmp = -2d0*CA*Ei_jm*Ebj_ml*ccBLO_imj_ljm*wsbar_nlo

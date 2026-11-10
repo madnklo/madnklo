@@ -12,14 +12,18 @@ c     wrapper for 3/4 particle sectors; 3p sector: ijjk & ijkj, 4p sector: ijkl
       double precision x(mxdim)
       double precision KNNLO, K1, K2, K12, wgt_chan
 
+      ierr = 0
       KNNLO = 0d0
       K1 = 0d0
       K2 = 0d0
       K12 = 0d0
 
       call local_counter_NNLO_K1_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,wgt,xj,xjB,x,K1,wgt_chan,ierr)
+      if(ierr.ne.0)return
       call local_counter_NNLO_K2_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K2,wgt_chan,ierr)
+      if(ierr.ne.0)return
       call local_counter_NNLO_K12_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjB,x,K12,wgt_chan,ierr)
+      if(ierr.ne.0)return
 
 c     combination
       KNNLO = K1+K2-K12
@@ -45,6 +49,7 @@ c     local NNLO counterterm K1 for sector [%(isec)d,%(jsec)d,%(c3p)d,%(d3p)d]
       double precision KS,KHC,K1,wgt_chan%(str_defK1)s
 c
 c     initialise
+      ierr=0
       KS=0d0
       KHC=0d0
       K1=0d0
@@ -81,6 +86,7 @@ c     local NNLO counterterm K2 for sector [isec,jsec,ksec,lsec]
       double precision KSS,KSC,KCC%(str_defK2)s
 c
 c     initialise
+      ierr=0
       KSS=0d0
       KSC=0d0
       KCC=0d0
@@ -119,6 +125,7 @@ c     local NNLO counterterm for sector [isec,jsec,ksec,lsec]
       double precision KHC_SS, KHC_SC, KHC_CC%(str_defK12)s
 c
 c     initialise
+      ierr=0
       KS_SS=0d0
       KS_SC=0d0
       KS_CC=0d0

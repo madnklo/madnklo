@@ -1,105 +1,188 @@
-#*********************************************************************
-#                       MadGraph5_aMC@NLO                            *
-#                                                                    *
-#                     run_card.dat MadEvent7                          *
-#                                                                    *
-#  This file is used to set the parameters of the run.               *
-#                                                                    *
-#  Some notation/conventions:                                        *
-#                                                                    *
-#   Lines starting with a '# ' are info or comments                  *
-#                                                                    *
-#   mind the format:   value    = variable     ! comment             *
-#*********************************************************************
+#***********************************************************************
+#                    MadNkLO (Torino subtraction)                      *
+#                                                                      *
+#                           run_card.dat                               *
+#                                                                      *
+#  This file sets the parameters of the run. It is read by             *
+#  bin/run_all.py, which compiles it into Source/run_card.inc when it  *
+#  has been modified (no need to recompile by hand).                   *
+#                                                                      *
+#  Some notation/conventions:                                          *
+#                                                                      *
+#   Lines starting with a hash (#) are info or comments                *
+#                                                                      *
+#   mind the format:   value    = variable     ! comment               *
+#                                                                      *
+#   Some of the values of variables can be list. These can either be   *
+#   comma or space separated.                                          *
+#***********************************************************************
 #
-#*******************                                                 
-# Running parameters
-#*******************                                                 
-#                                                                    
-#*********************************************************************
-# Tag name for the run (one word)                                    *
-#*********************************************************************
-  %(run_tag)s     = run_tag ! name of the run 
-#*********************************************************************
-# Number of events and rnd seed                                      *
-# Warning: Do not generate more than 1M events in a single run       *
-# If you want to run Pythia, avoid more than 50k events in a run.    *
-#*********************************************************************
-  %(nevents)s = nevents ! Number of unweighted events requested 
-  %(iseed)s   = iseed   ! rnd seed (0=assigned automatically=default))
-#*********************************************************************
-# Collider type and energy                                           *
-# lpp: 0=No PDF, 1=proton, -1=antiproton, 2=photon from proton,      *
-#                                         3=photon from electron     *
-#*********************************************************************
-     %(lpp1)s        = lpp1    ! beam 1 type 
-     %(lpp2)s        = lpp2    ! beam 2 type
-     %(ebeam1)s     = ebeam1  ! beam 1 total energy in GeV
-     %(ebeam2)s     = ebeam2  ! beam 2 total energy in GeV
-#*********************************************************************
-# PDF CHOICE: this automatically fixes also alpha_s and its evol.    *
-#*********************************************************************
-     %(pdlabel)s    = pdlabel     ! PDF set                                     
-     %(lhaid)s    = lhaid     ! if pdlabel=lhapdf, this is the lhapdf number
-#*********************************************************************
-# Renormalization and factorization scales                           *
-#*********************************************************************
- %(fixed_ren_scale)s = fixed_ren_scale  ! if .true. use fixed ren scale
- %(fixed_fac_scale)s        = fixed_fac_scale  ! if .true. use fixed fac scale
- %(scale)s  = scale            ! fixed ren scale
- %(dsqrt_q2fact1)s  = dsqrt_q2fact1    ! fixed fact scale for pdf1
- %(dsqrt_q2fact2)s  = dsqrt_q2fact2    ! fixed fact scale for pdf2
- %(dynamical_scale_choice)s = dynamical_scale_choice ! Choose one of the preselected dynamical choices
-
-#*********************************************************************
-# MadEvent7 integration control                                      *
-#*********************************************************************
- %(integrator)s    = integrator ! integrator [VEGAS3, NAIVE]
- %(fo_analysis)s   = fo_analysis! fixed-order analysis (no '.py', None for no analysis)
-
-#*********************************************************************
-# handling of the helicities:
-#  0: sum over all helicities
-#  1: importance sampling over helicities (not supported by ME7)
-#*********************************************************************
-   %(nhel)s  = nhel          ! using helicities importance sampling or not.
-#
-
-#*********************************************************************
-# Standard Cuts                                                      *
-#*********************************************************************
- %(flavor_cuts)s = flavor_cuts ! function string, or keyword: 'hardcoded'
-#*********************************************************************
-# Minimum and maximum pt's (for max, -1 means no cut)                *
-#*********************************************************************
- %(ptj)s  = ptj       ! minimum pt for the jets 
- %(pta)s  = pta       ! minimum pt for the photons 
- %(ptl)s  = ptl       ! minimum pt for the charged leptons 
-#*********************************************************************
-# Maximum and minimum absolute rapidity (for max, -1 means no cut)   *
-#*********************************************************************
- %(etaj)s = etaj    ! max rap for the jets 
- %(etaa)s = etaa    ! max rap for the photons 
- %(etal)s = etal    ! max rap for the charged leptons 
-#*********************************************************************
-# Minimum and maximum DeltaR distance                                *
-#*********************************************************************
- %(drjj)s = drjj    ! min distance between jets 
- %(drll)s = drll    ! min distance between leptons 
- %(draa)s = draa    ! min distance between gammas 
- %(draj)s = draj    ! min distance between gamma and jet 
- %(drjl)s = drjl    ! min distance between jet and lepton 
- %(dral)s = dral    ! min distance between gamma and lepton 
-
-#*********************************************************************
-# maximal pdg code for quark to be considered as a light jet         *
-# (otherwise b cuts are applied)                                     *
-#*********************************************************************
- %(maxjetflavor)s = maxjetflavor    ! Maximum jet pdg code
-#*********************************************************************
-
-#*********************************************************************
-# Store info for systematics studies                                 *
-# (Not supported by ME7 yet)                                         *
-#*********************************************************************
-   %(use_syst)s  = use_syst      ! Enable systematics studies
+#***********************************************************************
+# Integration: VEGAS calls and iterations of each contribution, first  *
+# to set up the grid (_grid), then for the cross section.              *
+#***********************************************************************
+# Born
+ %(npoints_b_grid)s = npoints_B_grid ! calls to setup the B grid
+ %(niters_b_grid)s  = niters_B_grid  ! iterations to setup the B grid
+ %(npoints_b)s      = npoints_B      ! calls for the B cross section
+ %(niters_b)s       = niters_B       ! iterations for the B cross section
+# Virtual
+ %(npoints_v_grid)s = npoints_V_grid ! calls to setup the V grid
+ %(niters_v_grid)s  = niters_V_grid  ! iterations to setup the V grid
+ %(npoints_v)s      = npoints_V      ! calls for the V cross section
+ %(niters_v)s       = niters_V       ! iterations for the V cross section
+# Real: point budgets are shared among the generated sectors
+ %(npoints_r_grid)s = npoints_R_grid ! total calls to setup the R grids
+ %(niters_r_grid)s  = niters_R_grid  ! iterations to setup each R grid
+ %(npoints_r)s      = npoints_R      ! total calls for the R cross section
+ %(niters_r)s       = niters_R       ! iterations for each R sector
+# Double virtual
+ %(npoints_vv_grid)s = npoints_VV_grid ! calls to setup the VV grid
+ %(niters_vv_grid)s  = niters_VV_grid  ! iterations to setup the VV grid
+ %(npoints_vv)s      = npoints_VV      ! calls for the VV cross section
+ %(niters_vv)s       = niters_VV       ! iterations for the VV cross section
+# Real virtual: point budgets are shared among the generated sectors
+ %(npoints_rv_grid)s = npoints_RV_grid ! total calls to setup the RV grids
+ %(niters_rv_grid)s  = niters_RV_grid  ! iterations to setup each RV grid
+ %(npoints_rv)s      = npoints_RV      ! total calls for the RV cross section
+ %(niters_rv)s       = niters_RV       ! iterations for each RV sector
+# Double real: point budgets are shared among the generated sectors
+ %(npoints_rr_grid)s = npoints_RR_grid ! total calls to setup the RR grids
+ %(niters_rr_grid)s  = niters_RR_grid  ! iterations to setup each RR grid
+ %(npoints_rr)s      = npoints_RR      ! total calls for the RR cross section
+ %(niters_rr)s       = niters_RR       ! iterations for each RR sector
+#***********************************************************************
+# Random number seed. All the executables of a run use the same seed;  *
+# 0 and 1 give the same random numbers. Use different seeds for        *
+# statistically independent runs.                                      *
+#***********************************************************************
+ %(iseed)s    = iseed       ! random number seed
+#***********************************************************************
+# Fixed-order analysis: the Fortran file in Common_Files/ that fills   *
+# the histograms (routines analysis_begin, analysis_fill and           *
+# analysis_end). bin/run_all.py compiles it in the executables.        *
+#***********************************************************************
+ %(analysis)s = analysis ! analysis file in Common_Files/
+#***********************************************************************
+# Histogram bin smearing. Each histogram fill within hwu_smear bin     *
+# widths of an inner bin edge shares part of its weight with the       *
+# neighbouring bin (linear kernel, half-width hwu_smear x bin width),  *
+# so that real-emission events and counterevents falling on opposite   *
+# sides of a bin edge still cancel (no mis-binning spikes). Totals     *
+# are unchanged; distributions are smeared over hwu_smear bin widths.  *
+# 0 = no smearing; maximum 0.5.                                        *
+#***********************************************************************
+ %(hwu_smear)s = hwu_smear ! bin smearing, in units of the bin width
+#***********************************************************************
+# Real emission (R): channel decomposition. If True, the integrand of  *
+# each sector is split into channels, one per momentum mapping of the  *
+# counterterm pieces (each soft dipole, the hard-collinear piece);     *
+# each channel is integrated with its own mapping and VEGAS grid.      *
+# Channel alpha integrates rho_alpha R W - K_alpha, with rho_alpha =   *
+# K_alpha/K where |R W - K| < channel_delta |K| (near the singular     *
+# limits) and 1/(number of channels) elsewhere. The total is the same; *
+# the points of a sector are shared among its channels.                *
+#***********************************************************************
+ %(channel_decomposition)s = channel_decomposition ! True/False
+ %(channel_delta)s = channel_delta ! criterion of the channel fractions
+#***********************************************************************
+# Collider type and energy                                             *
+# lpp = 0: lepton beam, no PDF; lpp = 1 (-1): proton (antiproton).     *
+# Hadron beams: LO only for now (NLO with initial-state partons is in  *
+# progress).                                                           *
+#***********************************************************************
+ %(lpp1)s   = lpp1    ! beam 1 type (0 = no PDF)
+ %(lpp2)s   = lpp2    ! beam 2 type (0 = no PDF)
+ %(ebeam1)s   = ebeam1  ! beam 1 energy in GeV
+ %(ebeam2)s   = ebeam2  ! beam 2 energy in GeV
+#***********************************************************************
+# PDF choice, hadron beams only: always LHAPDF 6 (pdlabel = lhapdf),   *
+# set lhaid, with the path to lhapdf-config in                         *
+# input/madnklo_config.txt of the MadNkLO directory. alpha_s and its   *
+# running then come from the PDF set.                                  *
+# With lpp = 0, alpha_s(MZ) is the aS entry of the param_card.         *
+#***********************************************************************
+ %(pdlabel)s = pdlabel ! PDF set
+ %(lhaid)s  = lhaid   ! LHAPDF number of the PDF set (member 0)
+#***********************************************************************
+# Renormalisation and factorisation scales                             *
+# - fixed_ren_scale = True: muR = muR_over_ref * muR_ref_fixed         *
+# - fixed_ren_scale = False: muR = muR_over_ref * (the dynamical scale *
+#   chosen with dynamical_scale_choice), computed for each phase-space *
+#   point (and for each counterterm from its mapped momenta):          *
+#     3 = H_T/2, half the sum of the transverse masses of the          *
+#         final-state QCD partons                                      *
+#     4 = partonic centre-of-mass energy sqrt(s_hat)                   *
+#   Any other value stops the run. One value only.                     *
+# - The factorisation scale (muF), hadron beams only, is set in the    *
+#   same way (fixed_fac_scale, muF_ref_fixed, muF_over_ref), with the  *
+#   same dynamical_scale_choice.                                       *
+#***********************************************************************
+ %(fixed_ren_scale)s    = fixed_ren_scale  ! True: fixed muR, False: dynamical muR
+ %(fixed_fac_scale)s    = fixed_fac_scale  ! True: fixed muF (hadron beams only)
+ %(mur_ref_fixed)s   = muR_ref_fixed    ! fixed reference muR in GeV
+ %(muf_ref_fixed)s   = muF_ref_fixed    ! fixed reference muF in GeV (hadron beams only)
+ %(dynamical_scale_choice)s = dynamical_scale_choice ! 3 or 4 (see above), used if fixed_ren_scale = False
+ %(mur_over_ref)s  = muR_over_ref  ! muR = muR_over_ref * reference muR
+ %(muf_over_ref)s  = muF_over_ref  ! muF = muF_over_ref * reference muF (hadron beams only)
+#***********************************************************************
+# Scale variations by reweighting (no extra matrix-element calls).     *
+# With reweight_scale = True, the cross section and the histograms are *
+# also computed at muR = k * muR, for each factor k of rw_rscale (at   *
+# most 9 values; 1.0 is always included): results_*.log, results.txt  *
+# and the HwU files (same weight layout as MG5_aMC: one weight per     *
+# (muF, muR) pair of rw_fscale x rw_rscale). Without PDFs the muF      *
+# factors do not change the result; with hadron beams they are varied *
+# by PDF reweighting (LO only for now: rw_fscale = 1.0 at NLO).        *
+#***********************************************************************
+ %(rw_rscale)s = rw_rscale ! muR factors k
+ %(rw_fscale)s = rw_fscale ! muF factors (varied with hadron beams)
+ %(reweight_scale)s = reweight_scale ! True: compute the scale variations
+ %(reweight_pdf)s = reweight_PDF  ! PDF uncertainties by reweighting: not available yet
+#***********************************************************************
+# Reweighting information in LHE files: not available yet (no events) *
+#***********************************************************************
+ %(store_rwgt_info)s = store_rwgt_info ! not used yet
+#***********************************************************************
+# BW cutoff: only for processes generated with decay-chain syntax      *
+# (forced s-channel resonances), whose invariant mass is restricted to *
+# M +- bwcutoff*Gamma in the phase-space generation. Not used for the  *
+# other processes.                                                     *
+#***********************************************************************
+ %(bwcutoff)s  = bwcutoff
+#***********************************************************************
+# Cuts on the jets, applied in Common_Files/cuts.f (more specific cuts *
+# can be added there). Jet clustering is performed by FastJet. The     *
+# quark flavours clustered into jets are the massless quarks of the    *
+# model (set automatically, not a run_card parameter).                 *
+#***********************************************************************
+  %(jetalgo)s  = jetalgo   ! FastJet jet algorithm (1=kT, 0=C/A, -1=anti-kT)
+  %(jetradius)s  = jetradius ! The radius parameter for the jet algorithm
+ %(ptj)s  = ptj       ! Min jet transverse momentum
+ %(etaj)s  = etaj      ! Max jet abs(pseudo-rap) (a value .lt.0 means no cut)
+#***********************************************************************
+# Cuts on the charged leptons (e+, e-, mu+, mu-, tau+ and tau-) in the *
+# final state, applied in Common_Files/cuts.f                          *
+#***********************************************************************
+  %(ptl)s  = ptl     ! Min lepton transverse momentum
+ %(etal)s  = etal    ! Max lepton abs(pseudo-rap) (a value .lt.0 means no cut)
+  %(drll)s  = drll    ! Min distance between opposite sign lepton pairs
+  %(drll_sf)s  = drll_sf ! Min distance between opp. sign same-flavor lepton pairs
+  %(mll)s  = mll     ! Min inv. mass of all opposite sign lepton pairs
+ %(mll_sf)s  = mll_sf  ! Min inv. mass of all opp. sign same-flavor lepton pairs
+#***********************************************************************
+# Photon-isolation cuts, according to hep-ph/9801442, applied in       *
+# Common_Files/cuts.f. When ptgmin=0, all the other parameters are     *
+# ignored.                                                             *
+#***********************************************************************
+ %(ptgmin)s  = ptgmin    ! Min photon transverse momentum
+ %(etagamma)s  = etagamma  ! Max photon abs(pseudo-rap)
+  %(r0gamma)s  = R0gamma   ! Radius of isolation code
+  %(xn)s  = xn        ! n parameter of eq.(3.4) in hep-ph/9801442
+  %(epsgamma)s  = epsgamma  ! epsilon_gamma parameter of eq.(3.4) in hep-ph/9801442
+ %(isoem)s  = isoEM  ! isolate photons from EM energy (photons and leptons)
+#***********************************************************************
+# aMCfast + APPLgrid interface (PDF fits): not available yet           *
+#***********************************************************************
+ %(iappl)s = iappl ! not used yet (keep 0)
+#***********************************************************************

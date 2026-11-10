@@ -22,14 +22,12 @@ import dipole_current
 import factors_and_cuts
 import recoiler_function
 import colored_partons
-import os
 import glob
 pjoin = os.path.join
 from madgraph.iolibs.files import cp, ln, mv
 
 import madgraph.iolibs.export_v4 as export_v4
 import madgraph.iolibs.export_ME7 as export_ME7
-import madgraph.interface.madgraph_interface as interface
 #import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
 #GIOVANNI
 import stat
@@ -39,6 +37,28 @@ class MadEvent7Error(Exception):
 
 
 logger = logging.getLogger('madgraph')
+
+
+def get_user_dir():
+    """Name of the process output directory being written (set by do_output)."""
+    if not interface.user_dir_name:
+        raise MadEvent7Error('The name of the output directory is not known '
+                             '(madgraph_interface.user_dir_name is empty).')
+    return interface.user_dir_name[0]
+
+
+def glob_one(pattern, description):
+    """Return the match of a glob pattern expected to identify one path.
+    Raise a clear error if nothing matches; if several paths match, take the
+    first one in alphabetical order and warn."""
+    matches = sorted(glob.glob(pattern))
+    if not matches:
+        raise MadEvent7Error('Could not find the %s: no match for %s (cwd: %s)'
+                             % (description, pattern, os.getcwd()))
+    if len(matches) > 1:
+        logger.warning('Several matches for the %s (%s); using %s'
+                       % (description, ', '.join(matches), matches[0]))
+    return matches[0]
 
 
 def get_sector_wgt(q, p_sector):
@@ -435,8 +455,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         #gl
         all_local_counterterms_list = []
         necessary_ct_list = [] # [S_gi, S_gj, C_ij, SC_ij]
-        necessary_ct = [0] * (7*len(all_sectors))
-        i = 0
+        # counterterm objects, one list per sector, with the same slots as
+        # necessary_ct_list: necessary_ct[isector][slot]
+        necessary_ct = []
         for s in all_sectors:
             #print('s in sectors : ' + str(s))
             s['sector'].all_sector_list = all_sector_list
@@ -449,6 +470,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             if counterterms is not None:
                 s['counterterms'] = []
                 necessary_ct_list_one = [0]*4
+                necessary_ct_one = [0]*4
                 for i_ct, ct in enumerate(counterterms):
                     #print('i_ct + ct : ' + str(i_ct) + ' and ' + str(ct))
                     #print('ct : ' + str(ct))
@@ -460,18 +482,21 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         if all_legs[0].n == s['sector'].leg_numbers[0]: # should match to "i"
                             s['counterterms'].append(i_ct)
                             necessary_ct_list_one[0] =  'S_g' # 1
-                            necessary_ct[i] = ct
+                            necessary_ct_one[0] = ct
 # # # gl
                         if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                             s['counterterms'].append(i_ct)
                             necessary_ct_list_one[1] = 'S_g' # 1
-                            necessary_ct[i+1] = ct
+                            necessary_ct_one[1] = ct
 
                     if singular_structure.name()=='C':
-                        if s['sector'].all_sector_mass_list[1][-1] != 'ZERO':
-                            print(str(s['sector'].all_sector_mass_list))
-                            print(s['sector'].all_sector_mass_list[1][-1])
-                            break
+                        # Collinear counterterms only for sectors made of massless
+                        # partons: collinear limits involving massive particles are
+                        # not singular. Check the masses of *this* sector (the old
+                        # check looked at all_sector_mass_list[1] and used 'break',
+                        # which also dropped later counterterms of the sector).
+                        if any(str(mass).upper() != 'ZERO' for mass in s['sector'].masses):
+                            continue
 
                         if not singular_structure.substructures:
                             # pure-collinear CT: include if the legs match those of the sector
@@ -487,7 +512,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                     necessary_ct_list_one[2] = 'HC_gq' # 1
                                 else :
                                     necessary_ct_list_one[2] = 'HC_qqx' # 1
-                                necessary_ct[i+2] = ct
+                                necessary_ct_one[2] = ct
 #                         else:
 #                             #soft-collinear CT: include only if, on top of the previous condition,
 #                             #  the soft leg matches the first sector leg
@@ -495,21 +520,19 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 #                                singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[0]:
 #                                 s['counterterms'].append(i_ct)
 #                                 necessary_ct_list[3] = 'SC_gq'
-#                                 necessary_ct[i+3] = ct
+#                                 necessary_ct_one[3] = ct
 # # # gl
 #                             if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
 #                                 if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers) and \
 #                                     singular_structure.substructures[0].legs[0].n == s['sector'].leg_numbers[1]:
 #                                     s['counterterms'].append(i_ct)
 #                                     necessary_ct_list[3] = 'SC_gg'
-#                                     necessary_ct[i+3] = ct
+#                                     necessary_ct_one[3] = ct
 
 
                 all_local_counterterms_list.append(s['counterterms'])
                 necessary_ct_list.append(necessary_ct_list_one)
-
-            # index of necessary_ct_list
-            i += 5
+                necessary_ct.append(necessary_ct_one)
 
             # Irrelevant if this NLO example, but let me specify all of them explicitly so as to make the strucuture clear.
             if integrated_counterterms is not None:
@@ -529,7 +552,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
         # TODO: point to the right process directory
         dirmadnklo=os.getcwd()
-        dirpath = pjoin(dirmadnklo,glob.glob("%s/NLO_R_x_R_*" % interface.user_dir_name[0])[0])
+        dirpath = pjoin(dirmadnklo, glob_one("%s/NLO_R_x_R_*" % get_user_dir(),
+                                             'real-emission (NLO_R_x_R_*) directory'))
         dirpath = pjoin(dirpath, 'SubProcesses', \
                        "P%s" % defining_process.shell_string())
 #        if len(glob.glob(dirpath)) == 0:
@@ -566,7 +590,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Import Born-level PDGs from proc/SupProcesses directory
 
-        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % interface.user_dir_name[0]))
+        sys.path.append(pjoin(dirmadnklo,"%s/SubProcesses" % get_user_dir()))
         import Born_PDGs as PDGs_from_Born
 
 
@@ -621,7 +645,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # List of dirpathLO of the necessary underlying Born
         path_Born_processes = []
         # Link LO files to each real process directory
-        dirpathLO_head = pjoin(dirmadnklo,glob.glob("%s/LO_*" % interface.user_dir_name[0])[0])
+        dirpathLO_head = pjoin(dirmadnklo, glob_one("%s/LO_*" % get_user_dir(),
+                                                    'Born (LO_*) directory'))
         necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx']
 
 
@@ -691,7 +716,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             # Initialise NLO_IR_limits.f for every sector [ij]
             string = "c Collection of relevant limits for sector [%d,%d]" %(isec,jsec)
             NLO_IR_limits_tmp_path = dirmadnklo + '/tmp_fortran/tmp_files/NLO_limits/'
-            os.system('echo ' + string + ' > ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
+            # NLO_IR_limits_<i>_<j>.f is assembled in memory: header line,
+            # then the template of each needed counterterm
+            IR_limits_str = string + '\n'
 
             for j in range(0, len(necessary_ct_list[i])):
                 # if necessary_ct_list[i][j] != 0:
@@ -709,7 +736,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                        % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
-                    os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    with open(pjoin(NLO_IR_limits_tmp_path, necessary_ct_list[i][j] + '.f')) as ct_template:
+                        IR_limits_str += ct_template.read()
                     K_sector_lists['S'][(isec,)].append((isec,jsec))
                 elif j == 1:
                     continue
@@ -721,7 +749,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                    % (necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j].split("_")[0], necessary_ct_list[i][j]))
                     list_M2.append('if(ierr.eq.1)goto 999\n')
                     # Write ct template in NLO_IR_limits
-                    os.system('cat ' + NLO_IR_limits_tmp_path + '/' + necessary_ct_list[i][j] + '.f >> ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
+                    with open(pjoin(NLO_IR_limits_tmp_path, necessary_ct_list[i][j] + '.f')) as ct_template:
+                        IR_limits_str += ct_template.read()
                     K_sector_lists['C'][(isec,jsec)].append((isec,iref))
                     if (necessary_ct_list[i][1] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
                         K_sector_lists['C'][(isec,jsec)].append((jsec,iref))
@@ -734,6 +763,55 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             str_M2 = " ".join(list_M2)
             str_int_real = " ".join(list_int_real)
             replace_dict_ct['str_M2'] = str_M2
+
+            # Channel decomposition (run_card channel_decomposition, off by
+            # default): the local counterterm split into pieces, one per
+            # momentum mapping (iU,iS,iB) -- each soft dipole (isec,l,m) and
+            # the hard-collinear piece (isec,jsec,iref) on the Born of its own
+            # mapping. Used by local_counter_chan_NLO_<i>_<j> (NLO_K) and by
+            # setup_channels_<i>_<j> (NLO_Rsub).
+            chan_has_soft = necessary_ct_list[i][0] != 0
+            chan_hc = necessary_ct_list[i][2] if necessary_ct_list[i][2] != 0 else None
+            chan_soft_block = ''
+            if chan_has_soft:
+                chan_soft_block = """c     soft pieces: one per dipole (l,m), mapping (isec,l,m)
+      do m=1,nexternal-1
+         if(.not.isNLOQCDparton(m))cycle
+         if(m.eq.isec)cycle
+         do l=m+1,nexternal
+            if(.not.isNLOQCDparton(l))cycle
+            if(l.eq.isec)cycle
+            ldip=l
+            mdip=m
+            wch=0d0
+            if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.l.and.chtrip(3,ichan).eq.m)wch=1d0
+            val=M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wch,ierr)
+            if(ierr.eq.1)goto 999
+            KNLO=KNLO+val
+            KCH=KCH+wch*val
+         enddo
+      enddo
+      ldip=0
+      mdip=0
+""" % necessary_ct_list[i][0]
+            chan_hc_block = ''
+            if chan_hc:
+                chan_hc_block = """c     hard-collinear piece, on the Born of its own mapping (isec,jsec,iref)
+      call phase_space_CS_inv(isec,jsec,iref,xp,xpbhc,nexternal,leg_PDGs,xjcs,mapped_labels)
+      if(xjcs.eq.0d0)goto 999
+      call invariants_from_p(xpbhc,nexternal-1,xsbhc,ierr)
+      if(ierr.ne.0)goto 999
+      wch=0d0
+      if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.jsec.and.chtrip(3,ichan).eq.iref)wch=1d0
+      val=M2_%s(isec,jsec,iref,xs,xp,xsbhc,xpbhc,wgt,xj,nitR,1d0,wch,ierr)
+      if(ierr.eq.1)goto 999
+      KNLO=KNLO+val
+      KCH=KCH+wch*val
+""" % chan_hc
+            replace_dict_ct['chan_soft_block'] = chan_soft_block
+            replace_dict_ct['chan_hc_block'] = chan_hc_block
+            replace_dict_int_real['chan_has_soft'] = '.true.' if chan_has_soft else '.false.'
+            replace_dict_int_real['chan_has_hc'] = '.true.' if chan_hc else '.false.'
             replace_dict_int_real['str_int_real'] = str_int_real
             replace_dict_int_real['NLO_process'] =  str(defining_process.shell_string(schannel=True,
                                         forbid=True, main=False, pdg_order=False, print_id = False))
@@ -744,10 +822,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
             if necessary_ct_list[i][0] != 0 or necessary_ct_list[i][1] != 0:
                 # list of proc str permutations 'epem_ddx' for template
-                uB_proc = necessary_ct[i*5].current.shell_string_user(
+                uB_proc = necessary_ct[i][0].current.shell_string_user(
                             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
                 # list of proc str permutations '1_epem_ddx' for directory
-                uB_proc_str_1 = necessary_ct[i*5].current.shell_string_user()
+                uB_proc_str_1 = necessary_ct[i][0].current.shell_string_user()
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
 
@@ -781,9 +859,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # else:
                     #     tmp_proc = 'proc_prefix_HC_qqx'
 
-                    uB_proc = necessary_ct[i*5+2].current.shell_string_user(
+                    uB_proc = necessary_ct[i][2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-                    uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    uB_proc_str_1 = necessary_ct[i][2].current.shell_string_user()
                     flag = False
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
@@ -839,9 +917,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 # Loop over sectors with final state particles only
                 if isec > 2 and jsec > 2:
                     tmp_proc = 'proc_prefix_%s' % necessary_ct_list[i][3]
-                    uB_proc = necessary_ct[i*5+2].current.shell_string_user(
+                    uB_proc = necessary_ct[i][2].current.shell_string_user(
                                 schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-                    uB_proc_str_1 = necessary_ct[i*5+2].current.shell_string_user()
+                    uB_proc_str_1 = necessary_ct[i][2].current.shell_string_user()
                     flag = False
                     for j in range(0, len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
@@ -895,13 +973,15 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             ###
 
             overall_sector_info[i]['Born_PDGs'] = getattr(PDGs_from_Born, "leg_PDGs_%s" % overall_sector_info[i]['Born_str'])
+            # The sources of the sector (NLO_IR_limits, NLO_Rsub, driver, NLO_K,
+            # testR) go to the sub-folder sector_<isec>_<jsec> of the P* directory,
+            # where the executable is linked and run (see write_makefile_npo_file)
+            secpath = self.sector_dir(dirpath, isec, jsec)
             # write NLO_IR_limits
-            filename = pjoin(dirpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
+            filename = pjoin(secpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
             #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
-            file = open(NLO_IR_limits_tmp_path + 'IR_tmp.f').read()
-            file = file % replace_dict_limits
+            file = IR_limits_str % replace_dict_limits
             writer(filename).writelines(file)
-            os.system('rm ' + NLO_IR_limits_tmp_path + 'IR_tmp.f')
 
             ###
 
@@ -909,16 +989,16 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_int_real['jsec'] = jsec
             replace_dict_int_real['iref'] = iref
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
-            filename_int_real = pjoin(dirpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
+            filename_int_real = pjoin(secpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
             UBgraphs = overall_sector_info[i]['Born_str']
-            self.write_driver_npo_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
+            self.write_driver_npo_template(writer, secpath, dirmadnklo, i , isec, jsec, UBgraphs)
 
 
             # write NLO_K
-            filename = pjoin(dirpath, 'NLO_K_%d_%d.f' % (isec, jsec))
+            filename = pjoin(secpath, 'NLO_K_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_K_template.f")).read()
             file = file % replace_dict_ct
             writer(filename).writelines(file)
@@ -930,8 +1010,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
             # write testR
 
-            self.write_testR_template_file(writer, dirpath, dirmadnklo, defining_process,
-                                                    i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i])
+            iref_mass = model.get('particle_dict')[
+                [l.get('id') for l in leglist if l.get('number') == iref][0]]['mass']
+            self.write_testR_template_file(writer, secpath, dirmadnklo, defining_process,
+                                                    i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i],
+                                                    iref_mass)
 
         # check on overall_sector_info length
         if len(overall_sector_info) != len(all_sector_list):
@@ -976,7 +1059,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
 ######### Write all_K_sector_list
 
-        self.write_all_K_sector_list(writer,dirpath,len_sector_list,K_sector_lists)
+        max_sector_label = max(max(sector) for sector in all_sector_list)
+        self.write_all_K_sector_list(writer,dirpath,len_sector_list,
+                                     max_sector_label,K_sector_lists)
 
 ######### Write ajob_isec_jsec
 
@@ -993,9 +1078,11 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 # Links to virtual dir
 
         for i in range(0,len(Born_processes)):
-            dirpath_virtual = pjoin(dirmadnklo,glob.glob("%s/NLO_V*" % interface.user_dir_name[0])[0])
-            dirpath_virtual = glob.glob("%s/SubProcesses/*%s" % (dirpath_virtual,str(Born_processes[i])))[0]
-
+            dirpath_virtual = pjoin(dirmadnklo, glob_one("%s/NLO_V*" % get_user_dir(),
+                                                         'virtual (NLO_V*) directory'))
+            dirpath_virtual = glob_one("%s/SubProcesses/*%s" % (dirpath_virtual, str(Born_processes[i])),
+                                       'virtual subprocess directory for %s' % str(Born_processes[i]))
+            
             if not glob.glob("%s/matrix.f" % dirpath_virtual):
                 # symlink to Born ME
                 os.symlink( "%s/matrix.f" % path_Born_processes[i], "%s/matrix.f" % dirpath_virtual )
@@ -1025,16 +1112,26 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write all_sector_list include file
     #===========================================================================
 
+    def sector_dir(self, dirpath, isec, jsec):
+        """Sub-folder sector_<isec>_<jsec> of the P* directory dirpath (created
+        if needed): sources, executable and outputs of the sector."""
+        secpath = pjoin(dirpath, 'sector_%d_%d' % (isec, jsec))
+        if not os.path.isdir(secpath):
+            os.makedirs(secpath)
+        return secpath
+
     def write_all_sector_list_include(self, writer, dirpath, all_sector_list):
 
-        replace_dict = {}
-        replace_dict['len_sec_list'] = len(all_sector_list)
-        replace_dict['all_sector_list'] = str(all_sector_list).replace('[','').replace(']','').replace(' ','').replace('(','').replace(')','')
-
+        # This file is included both in fixed-form (.f) and free-form (.f90) sources
+        # (e.g. sectors2_module.f90). A single DATA statement gets a fixed-form '$'
+        # continuation line once it exceeds 72 columns, which free form rejects; one
+        # short DATA statement per sector avoids continuation lines altogether.
         file = """ \
-          integer, parameter :: lensectors = %(len_sec_list)d
-          integer all_sector_list(2,lensectors)
-          data all_sector_list/%(all_sector_list)s/""" % replace_dict
+          integer, parameter :: lensectors = %d
+          integer all_sector_list(2,lensectors)""" % len(all_sector_list)
+        for n, (ii, jj) in enumerate(all_sector_list, 1):
+            file += """
+          data all_sector_list(1,%d),all_sector_list(2,%d)/%d,%d/""" % (n, n, ii, jj)
 
         filename = pjoin(dirpath, 'all_sector_list.inc')
         writer(filename).writelines(file)
@@ -1046,7 +1143,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write K_sector_list file
     #===========================================================================
 
-    def write_all_K_sector_list(self,writer,dirpath,len_sector_list,K_sector_lists):
+    def write_all_K_sector_list(self,writer,dirpath,len_sector_list,
+                                max_sector_label,K_sector_lists):
 
         file = """ \
           integer, parameter :: len  = %d
@@ -1073,7 +1171,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             """
         if 'C' not in K_sector_lists:
             file += """ \
-            integer c_sector_list(1:1,1:1,1:1,2)
+          logical, parameter :: has_c_sectors = .false.
+          integer c_sector_list(%d:%d,%d:%d,LEN,2)
+            """ % (minl,max_sector_label,minl,max_sector_label)
+        else:
+            file += """ \
+          logical, parameter :: has_c_sectors = .true.
             """
 
         file += """ \
@@ -1121,7 +1224,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         if 'C' not in K_sector_lists:
             file += """
 !         data C (dummy)
-            DATA (C_SECTOR_LIST(1,1,1,L),L=1,2) /0,0/ \n"""
+          DATA C_SECTOR_LIST /%d*0/ \n""" % ((max_sector_label-minl+1)**2*len_sector_list*2)
 
         filename = pjoin(dirpath, 'all_K_sector_list.inc')
         writer(filename).writelines(file)
@@ -1154,7 +1257,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     #===========================================================================
 
     def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process,
-                                        i, isec, jsec, necessary_ct_list, mapping_str,mass_list):
+                                        i, isec, jsec, necessary_ct_list, mapping_str,mass_list,
+                                        iref_mass='ZERO'):
 
         replace_dict = {}
         replace_dict['isec'] = isec
@@ -1197,14 +1301,18 @@ c     collinear limit
         l=[0d0,0d0]
       call do_limit_R_%d_%d('Cij     ',e,l)
 """%(isec,jsec)
-            limit_str += """
+            # spurious collinear limits with the recoiler exist only if the
+            # partons involved are massless (otherwise they are not limits)
+            if str(iref_mass).upper() == 'ZERO':
+                limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]
         l=[0d0,0d0]
       call do_limit_R_%d_%d('Cir     ',e,l)
 """%(isec,jsec)
-            limit_str += """
+                if str(mass_list[-1]).upper() == 'ZERO':
+                    limit_str += """
 c
 c     spurious collinear limit
         e=[1d0,0d0]
@@ -1282,13 +1390,6 @@ c     spurious collinear limit
 
         return True
 
-
-
-        filename = pjoin(dirpath, 'get_UnderlyingProc_PDGs.f')
-        writer(filename).writelines(file)
-
-        return True
-
     #===========================================================================
     # write 'makefile' for real subprocesses
     #===========================================================================
@@ -1299,6 +1400,8 @@ c     spurious collinear limit
         proc_str = ''
         files_str = ''
         sector_str = ''
+        sector_rule_str = ''
+        phony_str = '.PHONY:'
         all_str = 'all: libs'
         proc_str += """PROC_FILES= get_UnderlyingProc_PDGs.o matrix_%s.o """ % defining_process.shell_string(
             schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
@@ -1330,12 +1433,24 @@ c     spurious collinear limit
             files_str += 'testR_%d_%d.o ' % (isec, jsec)
             files_str += 'NLO_K_%d_%d.o $(PROC_FILES) $(COMMON_FILES)\n' % (isec, jsec)
             all_str += ' sector_%d_%d' % (isec, jsec)
+            # The sources of the sector are in sector_<isec>_<jsec>/ (objects in
+            # $(OBJ), as the shared ones), and so is the executable; the target
+            # sector_<isec>_<jsec> (phony, as the folder has the same name) builds it.
+            sec = 'sector_%d_%d' % (isec, jsec)
+            phony_str += ' %s %s_libs' % (sec, sec)
+            sector_rule_str += """
+%%.o: %s/%%.f $(INCLUDE)
+\t$(DEFAULT_F_COMPILER) -c $(FFLAGS) $(FDEBUG) -o $(OBJ)/$@ $<
+""" % sec
             sector_str += """
-sector_%d_%d_libs: libs sector_%d_%d
+%s_libs: libs %s
 
-sector_%d_%d: $(FILES_%d_%d)
+%s: %s/%s
+
+%s/%s: $(FILES_%d_%d)
 \t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@
-""" %(isec, jsec,isec, jsec,isec, jsec,isec, jsec,isec,jsec)
+""" % (sec, sec, sec, sec, sec, sec, sec, isec, jsec, isec, jsec)
+            self.write_sector_makefile(dirpath, isec, jsec)
 
         object_str = """
 %.o: %.f $(INCLUDE)
@@ -1349,9 +1464,9 @@ sector_%d_%d: $(FILES_%d_%d)
 
 %.o: $(PATH_TO_USR_FILES)/%.cc
 \t$(DEFAULT_CPP_COMPILER) -c $(CFLAGS) $(CDEBUG) $< -o $(OBJ)/$@ $(INC)
-"""
+""" + sector_rule_str
         replace_dict['object_str'] = object_str
-        replace_dict['sector_str'] = sector_str
+        replace_dict['sector_str'] = phony_str + '\n' + sector_str
         replace_dict['all_str'] = all_str
         replace_dict['files_str'] = files_str
 
@@ -1368,6 +1483,26 @@ sector_%d_%d: $(FILES_%d_%d)
  #===========================================================================
     # write 'makefile' for real subprocesses
     #===========================================================================
+
+    def write_sector_makefile(self, dirpath, isec, jsec):
+        """makefile in sector_<isec>_<jsec>/: 'make' there builds the sector with
+        the makefile of the P* directory (where all objects are compiled)."""
+        sec = 'sector_%d_%d' % (isec, jsec)
+        with open(pjoin(self.sector_dir(dirpath, isec, jsec), 'makefile'), 'w') as f:
+            f.write("""# The sources of this sector are compiled by the makefile of the
+# P* directory (objects in ../obj-*); 'make' here (re)builds ./%s
+all:
+\t$(MAKE) -C .. %s
+
+%s:
+\t$(MAKE) -C .. %s
+
+libs:
+\t$(MAKE) -C .. libs
+
+.PHONY: all libs %s
+""" % (sec, sec, sec, sec, sec))
+        return True
 
     def write_ajob_npo_file(self, writer, dirpath, dirmadnklo, overall_sector_info):
 
@@ -1389,7 +1524,7 @@ sector_%d_%d: $(FILES_%d_%d)
             #replace_dict['jsec'] = jsec
             sec_str += 'isec=%d\n' %isec
             sec_str += 'jsec=%d\n' %jsec
-            sec_str += './sector_%d_%d 2>&1 &\n' %(isec,jsec)
+            sec_str += '(cd sector_%d_%d && ./sector_%d_%d) 2>&1 &\n' %(isec,jsec,isec,jsec)
 #             files_str += 'FILES_%d_%d= ' % (isec, jsec)
 #             files_str += 'driver_%d_%d.o ' % (isec, jsec)
 #             files_str += 'NLO_Rsub_%d_%d.o ' % (isec, jsec)

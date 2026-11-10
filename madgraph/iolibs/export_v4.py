@@ -2750,6 +2750,15 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         #gl
         self.write_leg_PDGs_file(dirpath, matrix_element.get('processes'))
 
+        # QCD power of the underlying Born (qcd_power.inc), used for the
+        # renormalisation-scale variations by reweighting
+        self.write_qcd_power_file(dirpath, matrix_element)
+
+        # Initial-state flavours of the processes of this directory and of
+        # their mirrors (initial_states.inc), for the PDF luminosities with
+        # hadron beams (pdf_lumi.f)
+        self.write_initial_states_file(dirpath, matrix_element)
+
         # Generate diagrams
         filename = pjoin(dirpath, "matrix.ps")
         plot = draw.MultiEpsDiagramDrawer(matrix_element.get('base_amplitude').\
@@ -2806,19 +2815,28 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
         common_files+=['analysis_new.f', 'HwU.f']
         common_files+=['sectors.f', 'sectors2_module.f90', 'sectors4_module.f90']
-        common_files+=['mapped_labels_common.inc', 'mapped_labels_accessors.f']
+	common_files+=['mapped_labels_common.inc', 'mapped_labels_accessors.f']
+        # renormalisation-scale setting (muR_current, alphas_current in math.inc)
+        common_files += ['ren_scale.f']
+        # PDF luminosities with hadron beams (initial_states.inc)
+        common_files += ['pdf_lumi.f']
+        # integration channels of the Born and of the virtual
+        common_files += ['born_channels.f']
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
-                                     # These links need to exist for
-                                     # - LO_XXXX directories
-                                     # - NLO_R_XXXX directories (for dummy links at NNLO_RV)
-                                     # For the NLO_XXXX we have a makefile for each Subprocess
-            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
+                                     # The process information below is needed in
+                                     # LO_XXXX directories and in NLO_R_XXXX
+                                     # directories reused by NNLO_RV.
             filename = pjoin(dirpath, 'ngraphs.inc')
             self.write_ngraphs_file(writers.FortranWriter(filename),
                            len(matrix_element.get_all_amplitudes()))
-            user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
+            # Born integration files are only valid in LO directories. Real
+            # directories receive their sector drivers, makefile and job
+            # script later from the subtraction-scheme exporter.
+            if strdirpath[-1][0] == 'L':
+                cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/ajob_template_born'),pjoin(dirpath,'ajob1'))
+                user_linkfiles = ['driver_n.f','makefile_n', 'LO_B.f']
             cp(pjoin(dirpath,'configs.inc'),pjoin(dirpath,'../../../Common_Files'))
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             for i in range(0,len(matrix_element.get('processes'))):
@@ -2875,8 +2893,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         # Copy script to combine results
 
-        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_plots.py'),pjoin(path_to_create,'Events'))
-        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect_results.py'),pjoin(path_to_create,'Events'))
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect.py'),pjoin(path_to_create,'Events'))
         cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/run_all.py'),pjoin(path_to_create,'bin'))
 
         for file in linkfiles:
@@ -3147,6 +3164,92 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         return True
 
+
+    #===========================================================================
+    # write initial_states.inc (Torino: PDF luminosities with hadron beams)
+    #===========================================================================
+    def write_initial_states_file(self, dirpath, matrix_element):
+        """Write initial_states.inc: the initial-state flavours (beam 1,
+        beam 2) of the processes of this matrix element, which share the
+        matrix element of the first one, followed by those of their mirror
+        processes (beams exchanged, matrix element evaluated with the two
+        initial momenta exchanged) if the matrix element has mirror
+        processes. Used by pdf_lumi.f with hadron beams only (lpp != 0):
+        with lepton beams the flavour factor FL_FACTOR is used instead."""
+
+        states = []
+        for proc in matrix_element.get('processes'):
+            ids = proc.get_initial_ids()
+            if len(ids) != 2:
+                return False
+            states.append((ids[0], ids[1], False))
+        if matrix_element.get('has_mirror_process'):
+            states += [(b, a, True) for (a, b, m) in list(states)]
+
+        lines = ["integer n_init_states",
+                 "parameter (n_init_states=%d)" % len(states),
+                 "integer init_states(2,n_init_states)",
+                 "logical init_mirror(n_init_states)",
+                 "logical has_mirror",
+                 "parameter (has_mirror=.%s.)" %
+                     ('true' if matrix_element.get('has_mirror_process') else 'false')]
+        for k, (a, b, m) in enumerate(states):
+            lines.append("data init_states(1,%d),init_states(2,%d)/%d,%d/" % (k+1, k+1, a, b))
+            lines.append("data init_mirror(%d)/.%s./" % (k+1, 'true' if m else 'false'))
+        writers.FortranWriter(pjoin(dirpath, 'initial_states.inc')).writelines(
+                                                         '\n'.join(lines) + '\n')
+        return True
+
+    #===========================================================================
+    # write qcd_power.inc (Torino subtraction: renormalisation-scale variations)
+    #===========================================================================
+    def write_qcd_power_file(self, dirpath, matrix_element):
+        """Write qcd_power.inc, defining born_qcd_power = b, the power of
+        alpha_s of the underlying Born matrix element: the matrix element of
+        this directory in LO_* directories, the real-emission matrix element
+        divided by one power of alpha_s in NLO_R_* directories (the NLO_V_*
+        directories link the file of the corresponding LO_* directory).
+        The scale variations are obtained by reweighting each contribution
+        with (alpha_s(k muR)/alpha_s(muR))^p, p = b (Born) or b+1 (NLO), which
+        requires all diagrams to have the same QCD order. Otherwise b = -1
+        is written, and the Fortran code stops if scale variations are
+        requested. Nothing is written for other directories."""
+
+        contrib_dir_name = os.path.basename(os.path.normpath(str(self.dir_path)))
+        if contrib_dir_name.startswith('LO'):
+            n_emissions = 0
+        elif contrib_dir_name.startswith('NLO_R'):
+            n_emissions = 1
+        else:
+            return False
+
+        model = matrix_element.get('processes')[0].get('model')
+        interaction_dict = model.get('interaction_dict')
+        qcd_orders = set()
+        for diagram in matrix_element.get('base_amplitude').get('diagrams'):
+            qcd_order = 0
+            for vertex in diagram.get('vertices'):
+                interaction = interaction_dict.get(vertex.get('id'))
+                if interaction:
+                    qcd_order += interaction.get('orders').get('QCD', 0)
+            qcd_orders.add(qcd_order)
+
+        if len(qcd_orders) == 1 and min(qcd_orders) >= n_emissions:
+            born_qcd_power = min(qcd_orders) - n_emissions
+        else:
+            born_qcd_power = -1
+            logger.warning('The diagrams of %s have different QCD orders (%s): '
+                % (matrix_element.get('processes')[0].nice_string(),
+                   ', '.join('%d' % o for o in sorted(qcd_orders))) +
+                'renormalisation-scale variations by reweighting are not '+
+                'possible for this process (set reweight_scale = False).')
+
+        text = """ \
+          integer born_qcd_power
+          parameter (born_qcd_power=%d)""" % born_qcd_power
+        writers.FortranWriter(pjoin(dirpath, 'qcd_power.inc')).writelines(text)
+
+        return True
 
     #===========================================================================
     # write the list of colored partons in the process

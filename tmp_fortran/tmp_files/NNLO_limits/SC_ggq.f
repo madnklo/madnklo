@@ -92,8 +92,8 @@ c     rearrange the flavours to always land at ggq
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     invariant quantities
       sij = xs(i,j)
@@ -145,6 +145,10 @@ c     possible cuts
          if(ierr.eq.1)goto 999
 c
 c     call colour-connected Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+         call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+         alphas=alphas_current
+         pref=-(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
          ccBLO_krj_imj = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
@@ -188,6 +192,10 @@ c     possible cuts
          if(ierr.eq.1)goto 999
 c
 c     call colour-connected Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+         call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+         alphas=alphas_current
+         pref=-(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
          ccBLO_jrk_imk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c

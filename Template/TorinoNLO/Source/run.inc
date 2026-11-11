@@ -16,6 +16,24 @@ c    Integrators parameters
       integer npoints_fo_grid,npoints_fo,niters_fo_grid,niters_fo
       common/integ_param/req_acc_fo,npoints_fo_grid,npoints_fo,
      $			niters_fo_grid,niters_fo
+      integer npoints_b_grid,niters_b_grid,npoints_b,niters_b
+      integer npoints_v_grid,niters_v_grid,npoints_v,niters_v
+      integer npoints_r_grid,niters_r_grid,npoints_r,niters_r
+      integer npoints_vv_grid,niters_vv_grid,npoints_vv,niters_vv
+      integer npoints_rv_grid,niters_rv_grid,npoints_rv,niters_rv
+      integer npoints_rr_grid,niters_rr_grid,npoints_rr,niters_rr
+      common/torino_integ_b/npoints_b_grid,niters_b_grid,
+     $                       npoints_b,niters_b
+      common/torino_integ_v/npoints_v_grid,niters_v_grid,
+     $                       npoints_v,niters_v
+      common/torino_integ_r/npoints_r_grid,niters_r_grid,
+     $                       npoints_r,niters_r
+      common/torino_integ_vv/npoints_vv_grid,niters_vv_grid,
+     $                        npoints_vv,niters_vv
+      common/torino_integ_rv/npoints_rv_grid,niters_rv_grid,
+     $                        npoints_rv,niters_rv
+      common/torino_integ_rr/npoints_rr_grid,niters_rr_grid,
+     $                        npoints_rr,niters_rr
 c
 c New stuff for scales (NLO)
 c
@@ -89,3 +107,16 @@ c    For FO run (with lhe type of analysis
 c
       double precision FO_LHE_weight_ratio
       common /FO_ANALYSIS_LHW/FO_LHE_weight_ratio
+c
+c     Histograms (HwU.f): half-width of the bin-smearing kernel, in
+c     units of the bin width (run_card hwu_smear, 0 = no smearing)
+c
+      double precision hwu_smear
+      common /to_hwu_smear/hwu_smear
+c
+c     NLO real (R) integration: channel decomposition (run_card
+c     channel_decomposition, channel_delta)
+c
+      logical channel_decomposition
+      double precision channel_delta
+      common /to_nlo_channels/channel_decomposition,channel_delta

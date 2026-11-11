@@ -46,6 +46,7 @@ c
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
+      INCLUDE 'leg_PDGs.inc'
       INCLUDE 'input.inc'
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
@@ -77,7 +78,6 @@ C      common/cnlomaplabels/iU,iS,iB,iA,iref
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
 c      DOUBLE PRECISION W_NNLO
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
-      DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NNLO_proc_str)sfl_factor
       common/%(NNLO_proc_str)sflavour_factor/%(NNLO_proc_str)sfl_factor
@@ -93,8 +93,6 @@ c      DOUBLE PRECISION W_NNLO
       logical consistency_check
       common/cconscheck/consistency_check
 
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-      SCM = (2D0*EBEAM(1))**2
 c
 c     initialise
       x=x0
@@ -151,16 +149,19 @@ c     more and more singular kinematics
          enddo
 c
 c     recompute momenta after rescaling
-         call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
+         call phase_space_npt(x,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
          if(xjac.eq.0d0.or.xjacB.eq.0d0 .or. xjacCS1 .eq. 0d0) cycle
          call invariants_from_p(p,nexternal,sNNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(pb,nexternal-1,sNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 c
 c     double real
+c     renormalisation scale for the (n+2)-body kinematics
+         call set_mur_from_momenta(p,nexternal,leg_pdgs)
+         alphas=alphas_current
          call %(NNLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
          RNNLO = ANS(0) * %(NNLO_proc_str)sfl_factor
          if(RNNLO.lt.0d0.or.abs(RNNLO).ge.huge(1d0).or.isnan(RNNLO))cycle
@@ -171,7 +172,7 @@ c
 c     counterterm
          consistency_check = .false.
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 
          lim=KNNLO
          if(test_sector_function) then

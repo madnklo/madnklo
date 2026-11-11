@@ -115,8 +115,8 @@ c     safety check
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref = -(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       call invariants_from_p(xpb,nexternal-1,xsb,ierr)
       if(ierr.eq.1)goto 999
@@ -164,6 +164,10 @@ c
           if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c         call colour-connected born
+c     renormalisation scale for the remapped kinematics xpbb
+          call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+          alphas=alphas_current
+          pref = -(8d0*pi*alphas)**2
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
           ccBLO = %(proc_prefix_Born)s_get_ccBLO(mbb,lbb)
 c
@@ -187,16 +191,19 @@ c         ,wgtpl)
 c
 c     Double sum ends here
 c
+c     apply flavour factor
+      M2_C_SS_gg = M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor
+      M2_SC_SS_gg = M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor
       M2_HC_SS_gg = M2_C_SS_gg - M2_SC_SS_gg
 c
-c     apply flavour factor
-      M2_HC_SS_gg = M2_HC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2_HC_SS_gg = M2_HC_SS_gg * %(proc_prefix_rr)s_fl_factor
+      if(test_sector_function)then
+        M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
+        M2_C_SS_gg = wc_nlo*wsbar_nlo
+        M2_SC_SS_gg = wsbar_nlo
+      endif
 c
-      if(test_sector_function) M2_HC_SS_gg = wc_nlo*wsbar_nlo-wsbar_nlo
-c
-      call ct_log('KC_SS                  ',M2_C_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
-      call ct_log('KS_C_SS                ',M2_SC_SS_gg*pref*xj*damp*extra*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)* %(proc_prefix_rr)s_fl_factor)
+      call ct_log('KC_SS                  ',M2_C_SS_gg)
+      call ct_log('KS_C_SS                ',M2_SC_SS_gg)
 c
 c     sanity check
       if(abs(M2_HC_SS_gg).ge.huge(1d0).or.isnan(M2_HC_SS_gg))then

@@ -67,7 +67,9 @@ c     possible cuts
       if(docut(xpb,nexternal-1,real_leg_pdgs,1))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpb,nexternal-1,real_leg_pdgs)
+      alphas=alphas_current
       pref=8d0*pi*alphas
 c
 c     fill mapped labels (ijr)
@@ -126,7 +128,7 @@ c     include prefactors
 c
       if(test_sector_function) M2_HC_qqx = wc_nlo*wbar_nlo
 c
-      call ct_log('KC                     ',M2_C_qqx)
+      call ct_log('KC                     ',M2_HC_qqx)
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt/nit*wgt_chan

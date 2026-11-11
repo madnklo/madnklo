@@ -22,14 +22,14 @@ c     i, j are a g-g pair while k is a q (or qb) with any flavour
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ktb(0:3),ktb2,kt(0:3),kt2
-      double precision x,y,xinit
+      double precision x,y,xinit,Cj,Ck
       double precision ans(0:NSQSO_BORN)
       double precision sij,sir,sjr,sbjk,sbjr,sbkr
       double precision zi,zj,zbj,zbk,zbki
       double precision Pij,Qij,Pb_jk,Ei_jr,Eb_jkr,Eb_kjr
       double precision alphas,alpha_qcd
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -71,9 +71,10 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.leg_PDGs(i).eq.21.and.abs(leg_PDGs(k)).le.5
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_HC_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
+      if(.not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
@@ -81,7 +82,9 @@ c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
       pref=(8d0*pi*alphas)**2
 c
 c     invariant quantities
@@ -93,10 +96,10 @@ c     invariant quantities
 c
 c     fill mapped labels
       call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(j,i,j),real_labels(k,i,j),real_leg_pdgs,born_leg_pdgs)
       jb = real_labels(j,i,j)
       kb = real_labels(k,i,j)
       rb = real_labels(r,i,j)
+      call fill_born_mapped_labels(jb,kb,real_leg_pdgs,born_leg_pdgs)
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
@@ -120,18 +123,31 @@ c
       KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
-c     (same as dropbox eq. 23) (term 2 is zero for k=q)
-      Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
-      Qij = -2d0*CA*zi*zj
-      Pb_jk = CF*(2d0*zbk/zbj+zbj)
-      Eb_jkr = sbkr/sbjk/sbjr
-      Eb_kjr = sbjr/sbjk/sbkr
-      M2tmp = Pij*Pb_jk/sbjk*BLO - 2d0*CF*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
+c     (same as dropbox eq. 23)
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
+        Qij = -2d0*CA*zi*zj
+        Pb_jk = CF*(2d0*zbk/zbj+zbj)
+        Cj = CA
+        Ck = CF
+        Eb_jkr = sbkr/sbjk/sbjr
+        Eb_kjr = 0d0
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        Pij = CF*(2d0*zj/zi+zi)
+        Qij = 0d0
+        Pb_jk = CF*(2d0*zbj/zbk+zbk)
+        Cj = CF
+        Ck = CA
+        Eb_jkr = 0d0
+        Eb_kjr = sbjr/sbjk/sbkr
+      endif
+c
+      M2tmp = Pij*Pb_jk/sbjk*BLO + 2d0*CA*Eb_kjr*Qij*(BLO+2d0*KKBLO/kt2) - 2d0*Ck*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
       M2_C_CC_ggq = M2tmp/sij
 c
 c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
       map1=real_labels(csec,i,j)
       map2=real_labels(dsec,i,j)
@@ -141,7 +157,7 @@ c
 c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
 c     (same as dropbox eq. 31)
       Ei_jr = sjr/sij/sir
-      M2_SC_CC_ggq = 2d0*CA*Ei_jr*Pb_jk/sbjk*BLO
+      M2_SC_CC_ggq = 2d0*Cj*Ei_jr*Pb_jk/sbjk*BLO
 c
 c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
@@ -150,17 +166,19 @@ c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212
       call get_wcbar_nlo(map1,map2,rb)
       M2_SC_CC_ggq=M2_SC_CC_ggq*wcbar_nlo
 c
+c     include correct multiplicity and flavour factors
+      M2_C_CC_ggq = M2_C_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
+      M2_SC_CC_ggq = M2_SC_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
       M2_HC_CC_ggq = M2_C_CC_ggq - M2_SC_CC_ggq
 c
-c     include correct multiplicity and flavour factors
-      M2_HC_CC_ggq = M2_HC_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2_HC_CC_ggq = M2_HC_CC_ggq*%(proc_prefix_rr)s_fl_factor
-      M2_HC_CC_ggq = M2_HC_CC_ggq*pref*xj*extra
+      if(test_sector_function)then
+        M2_HC_CC_ggq = wc_nlo*wcbar_nlo - wcbar_nlo
+        M2_C_CC_ggq = wc_nlo*wcbar_nlo
+        M2_SC_CC_ggq = wcbar_nlo
+      endif
 c
-      if(test_sector_function) M2_HC_CC_ggq = wc_nlo*wcbar_nlo - wcbar_nlo
-c
-      call ct_log('KC_CC                  ',M2_C_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
-      call ct_log('KS_C_CC                ',M2_SC_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      call ct_log('KC_CC                  ',M2_C_CC_ggq)
+      call ct_log('KS_C_CC                ',M2_SC_CC_ggq)
 c
 c     plot
       wgtpl=-M2_HC_CC_ggq*wgt/nit*wgt_chan

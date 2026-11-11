@@ -19,12 +19,12 @@ c     i, j is a g-g pair, k is a q (or qb)
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1),xsbb(nexternal-2,nexternal-2)
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),xpbb(0:3,nexternal-2)
-      double precision ccblo_ima_bra,ccblo_imb_arb
-      double precision sia,sib,sab,sim,sam,sbm,sbar,sbbr,sbab,zba,zbb
-      double precision Ei_am,Ei_bm,Pb_abr_ima,Pb_abr_imb
+      double precision sia,sib,sab,sim,sam,sbm,sbar,sbbr,sbab,zq
+      double precision Ei_am,Ei_bm,Pab_ima,Pab_imb,rho_ab,rho_ba
       double precision pref,extra,damp
-      double precision alphas,ans(0:NSQSO_BORN)
+      double precision alphas,ans(0:NSQSO_BORN),ccblo
       double precision alpha_qcd
+      logical flavourmatch_ijjk,flavourmatch_ijkj
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -46,7 +46,6 @@ c     external
       common/cpartindices/isec,jsec,ksec,lsec,iref
       integer asec,bsec,csec,dsec
       common/csecindices/asec,bsec,csec,dsec
-      integer map1,map2
       integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
       common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
       integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
@@ -69,17 +68,29 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
-        write(*,*) 'Flavour mismatch in M2_S_SC_ggq', leg_PDGs(i),leg_PDGs(j)
+      flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
+      if(leg_pdgs(i).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_S_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
+      sia = xs(i,a)
+      sib = xs(i,b)
+c
+      if(leg_PDGs(a).eq.21.and.abs(leg_PDGs(b)).le.6)then
+        rho_ab = rho_gq
+        rho_ba = rho_qg
+      elseif(leg_PDGs(b).eq.21.and.abs(leg_PDGs(a)).le.6)then
+        rho_ab = rho_qg
+        rho_ba = rho_gq
+      endif
 c
 c     compute soft soft-collinear sector function, (C.73) of 2212.11190
       call get_sig2(xs,alpha_mod,nexternal)
@@ -94,32 +105,42 @@ c     fill mapped labels
       call fill_real_mapped_labels(i,a,leg_pdgs,real_leg_pdgs)
       call fill_born_mapped_labels(real_labels(b,i,a),real_labels(a,i,a),real_leg_pdgs,born_leg_pdgs)
 c
+      ab = real_labels(a,i,a)
+      bb = real_labels(b,i,a)
+      rb = real_labels(r,i,a)
+      bbb = Born_labels(bb,bb,ab)
+c
 c     eikonal sum
       do m=1,nexternal
         if(.not.isnnloqcdparton(m))cycle
         if(m.eq.i.or.m.eq.a.or.m.eq.b)cycle
+c
+        sim = xs(i,m)
+        sam = xs(a,m)
+        if(sia*sim.lt.0) then
+          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sim,sia
+          goto 999
+        endif
+        Ei_am = sam/sia/sim
+c
         mb = real_labels(m,i,a)
-        ab = real_labels(a,i,a)
-        bb = real_labels(b,i,a)
-        rb = real_labels(r,i,a)
-c
-        bbb = Born_labels(bb,bb,ab)
         mbb = Born_labels(mb,bb,ab)
-c
-c       underlying born configuration is remapped
         call phase_space_cs_inv(i,m,a,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,a))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
         if(ierr.eq.1)goto 999
         sbar = xsb(ab,rb)
         sbbr = xsb(bb,rb)
         sbab = xsb(ab,bb)
-        if(sbab.lt.0d0.or.sbar.lt.0d0.or.sbbr.lt.0d0) then
-          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbab,sbar,sbbr
+        if(sbar+sbbr.lt.0d0.and.sbab.lt.0) then
+          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbar,sbbr,sbab
           goto 999
         endif
-        zba = sbar/(sbar+sbbr)
-        zbb = 1d0-zba
-        Pb_abr_ima = CF*(2d0*zbb/zba+zba)/sbab
+        if(leg_PDGs(a).eq.21.and.abs(leg_PDGs(b)).le.6)then
+          zq = sbbr/(sbar+sbbr)
+        elseif(leg_PDGs(b).eq.21.and.abs(leg_PDGs(a)).le.6)then
+          zq = sbar/(sbar+sbbr)
+        endif
+        Pab_ima = CF*(2d0*zq/(1d0-zq)+(1d0-zq))
 c
         call phase_space_cs_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_labels(:,bb,ab))
         if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
@@ -128,21 +149,17 @@ c       possible cuts
 c
 c       call wcbar
         call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-        map1=real_labels(a,i,a)
-        map2=real_labels(b,i,a)
-        call get_wcbar_nlo(map1,map2,rb)
+        call get_wcbar_nlo(ab,bb,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-        ccBLO_ima_bra = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
+        ccBLO = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
-c       invariant quantities
-        sim = xs(i,m)
-        sia = xs(i,a)
-        sam = xs(a,m)
-        Ei_am = sam/sia/sim
-c
-        M2tmp = M2tmp+CA/CF*Ei_am*Pb_abr_ima*ccBLO_ima_bra*wcbar_nlo
+        M2tmp = M2tmp+Ei_am*Pab_ima/sbab*rho_ab*ccblo*wcbar_nlo
 c
 c       plot
         wgtpl = -M2tmp*ws_nlo
@@ -165,28 +182,33 @@ c     eikonal sum
       do m=1,nexternal
         if(.not.isnnloqcdparton(m))cycle
         if(m.eq.i.or.m.eq.a.or.m.eq.b)cycle
+c
+        sim = xs(i,m)
+        sbm = xs(b,m)
+        if(sib*sim.lt.0) then
+          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sim,sib
+          goto 999
+        endif
+        Ei_bm = sbm/sib/sim
+c
         mb = real_labels(m,i,b)
-        ab = real_labels(a,i,b)
-        bb = real_labels(b,i,b)
-        rb = real_labels(r,i,b)
-c
-        bbb = Born_labels(bb,ab,bb)
         mbb = Born_labels(mb,ab,bb)
-c
-c       underlying born configuration is remapped
         call phase_space_cs_inv(i,m,b,xp,xpb,nexternal,leg_pdgs,xjcs1,real_labels(:,i,b))
         call invariants_from_p(xpb,nexternal-1,xsb,ierr)
         if(ierr.eq.1)goto 999
         sbar = xsb(ab,rb)
         sbbr = xsb(bb,rb)
         sbab = xsb(ab,bb)
-        if(sbab.lt.0d0.or.sbar.lt.0d0.or.sbbr.lt.0d0) then
-          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbab,sbar,sbbr
+        if(sbar+sbbr.lt.0d0.or.sbab.lt.0d0) then
+          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbar,sbbr,sbab
           goto 999
         endif
-        zba = sbar/(sbar+sbbr)
-        zbb = 1d0-zba
-        Pb_abr_imb = CF*(2d0*zbb/zba+zba)/sbab
+        if(leg_PDGs(a).eq.21.and.abs(leg_PDGs(b)).le.6)then
+          zq = sbbr/(sbar+sbbr)
+        elseif(leg_PDGs(b).eq.21.and.abs(leg_PDGs(a)).le.6)then
+          zq = sbar/(sbar+sbbr)
+        endif
+        Pab_imb = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbab
 c
         call phase_space_cs_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_pdgs,xjcs2,Born_labels(:,ab,bb))
         if(xjcs1.eq.0d0.or.xjcs2.eq.0d0)goto 999
@@ -195,21 +217,17 @@ c       possible cuts
 c
 c       call wcbar
         call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-        map1=real_labels(a,i,b)
-        map2=real_labels(b,i,b)
-        call get_wcbar_nlo(map1,map2,rb)
+        call get_wcbar_nlo(ab,bb,rb)
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
-        ccBLO_imb_arb = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
+        ccblo = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
-c       invariant quantities
-        sim = xs(i,m)
-        sib = xs(i,b)
-        sbm = xs(b,m)
-        Ei_bm = sbm/sib/sim
-c
-        M2tmp = M2tmp+(2d0*CF-CA)/CF*Ei_bm*Pb_abr_imb*ccBLO_imb_arb*wcbar_nlo
+        M2tmp = M2tmp+Ei_bm*Pab_imb*rho_ba*ccblo*wcbar_nlo
 c
 c       plot
         wgtpl = -M2tmp*ws_nlo

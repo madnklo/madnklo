@@ -7,6 +7,8 @@
       INCLUDE 'cuts.inc'
       INCLUDE 'colored_partons.inc'
       INCLUDE 'ngraphs.inc'
+      integer nchan,n_born_channels
+      external n_born_channels
       integer mxdim
       parameter(mxdim=30)
       integer ndim,i,j,idum
@@ -37,11 +39,16 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_b,sum_err_b
       double precision sum_err_b_a,err_b_a(N_MAX_CG)
       integer nwgt
-      character*20 weights_info(1)
+      character*80 weights_info(100)
 c
+      nfail=0
       sum_b=0d0
       sum_err_b=0d0
       res_b=0d0
@@ -53,12 +60,12 @@ c
 c     read inputs
       region=0d0
       order=0
-      idum = iseed
+      idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITBTH =  NITERS_FO_GRID
-      NCLBTH = NPOINTS_FO_GRID
-      NITB = NITERS_FO
-      NCLB = NPOINTS_FO
+      NITBTH = NITERS_B_GRID
+      NCLBTH = NPOINTS_B_GRID
+      NITB = NITERS_B
+      NCLB = NPOINTS_B
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
@@ -68,9 +75,10 @@ c     initialise physics parameters
       iu8=88
 c
 c     phase-space dimension, same for all contributions to this folder
-      ndim=3*(nexternal-2)-4
+      ndim=max(3*(nexternal-2)-4,0)
+c     plus one Bjorken x per hadron beam (same rule as gen_mom, genps.f)
       do i=1,2
-         if(ISLOQCDPARTON(i)) ndim = ndim + 1
+         if(lpp(i).ne.0) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0
@@ -78,11 +86,15 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-      nwgt=1
-      weights_info(1)='central value'
+c     renormalisation-scale variations (rw_rscale in run_card.dat):
+c     one histogram weight per scale factor
+c     LO: the PDF ratios of the muF variations are computed (LO_B.f)
+      call sv_allow_muf()
+      call sv_init()
+      call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_B.log')
-      open(unit=iu7,file='failures_B.log')
+      open(unit=iu7,file='failures_B.log',status='replace',action='write')
       open(unit=iu8 ,file='B_chan.log')
       open(unit=iu ,file='results_B.log')
       line='=================================================='
@@ -92,10 +104,13 @@ c     quickly get integration error per channel so to modulate
 c     number of points thrown per channel in the main loop
       nclBth0=max(10000,int(nclBth/5d0))
       nitBth0=max(5,int(nitBth/2d0))
+c     channels: the phase-space configurations (configs.f)
+      nchan=n_born_channels()
       sum_err_b_a=0d0
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          init=0
          doplot=.false.
+         failure_stage='probe'
          call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_b_a(ich) = err_b
@@ -103,9 +118,8 @@ c     number of points thrown per channel in the main loop
       enddo
 c
 c     main loop over channels
-      do ich=1,N_MAX_CG
+      do ich=1,nchan
          write(*,*)'Born warmup for channel',ich
-         write(iu7,*)'Failures for Born warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' BORN WARMUP, CHANNEL',ich
@@ -113,12 +127,12 @@ c     main loop over channels
          init=0
          doplot=.false.
          nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
+         failure_stage='warmup'
          call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
      &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
 c
          write(*,*)'Born for channel',ich
-         write(iu7,*)'Failures for Born, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' BORN, CHANNEL',ich
@@ -126,8 +140,10 @@ c
          init=1
          doplot=.true.
          nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
+         failure_stage='main'
          call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
      &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         call sv_add_channel()
          write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          sum_b = sum_b + res_b
@@ -142,8 +158,10 @@ c     finalise histograms and output files
       call analysis_end(1d0,'plot_B.dat')
       sum_err_b = dsqrt(sum_err_b)
       write(iu,*)' sigma B [pb]  = ',sum_b,' +-',sum_err_b
+      call sv_write_results(iu,'B',sum_b,sum_err_b)
       close(iu)
       close(iu1)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
 c
       end

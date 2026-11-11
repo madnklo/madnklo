@@ -13,19 +13,21 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,r,a,b,ierr,nit,parent_leg,map1,map2
-      integer ib,jb,kb,ab,bb,rb
-      double precision pref,M2tmp,M2_S_CC_ggq,M2_S_SC_CC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
+      integer ib,jb,kb,ab,bb,rb,parent
+      double precision pref,M2tmp,M2_S_CC_ggq,M2_S_SC_CC_ggq
+      double precision wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO_ira_jkr,BLO_irb_jkr,BLO_iba_jkr,BLO_ira_bra,BLO_irb_arb
-      double precision sia,sab,sib,sir,sbr,sar,sij,sik,sjk,sjr,skr,sbjk,sbjr,sbkr,zbj,zbk
-      double precision Ei_ar,Ei_br,Ei_jk,Ei_ab
-      double precision Pb_jkr_ira,Pb_jkr_irb,Pb_jkr_iba
+      double precision sia,sab,sib,sir,sbr,sar,sij,sik,sjk,sjr,skr
+      double precision sbjk,sbjr,sbkr,zq
+      double precision Ei_ar,Ei_br,Ei_jk,Ei_ab,rho_ab,rho_ba
+      double precision Pjk_ira,Pjk_irb,Pjk_iba
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -66,15 +68,16 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_S_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
+      if(leg_pdgs(i).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
         stop 1
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -86,6 +89,14 @@ c     invariant quantities
       sir  = xs(i,r)
       sbr  = xs(b,r)
       sar  = xs(a,r)
+c
+      if(leg_PDGs(a).eq.21.and.abs(leg_PDGs(b)).le.6)then
+        rho_ab = rho_gq
+        rho_ba = rho_qg
+      elseif(leg_PDGs(b).eq.21.and.abs(leg_PDGs(a)).le.6)then
+        rho_ab = rho_qg
+        rho_ba = rho_gq
+      endif
 c
 c     Global Eikonals
       Ei_ar = sar/sia/sir
@@ -108,31 +119,32 @@ c     mapping 1: [ira,jkr]
 c
 c     fill mapped labels
       call fill_real_mapped_labels(i,a,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(b,i,a),real_labels(a,i,a),real_leg_pdgs,born_leg_pdgs)
-c
-      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       ab = real_labels(a,i,a)
       bb = real_labels(b,i,a)
       jb = real_labels(j,i,a)
       kb = real_labels(k,i,a)
       rb = real_labels(r,i,a)
+      call fill_born_mapped_labels(jb,kb,real_leg_pdgs,born_leg_pdgs)
+c
+      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+      if(sbjk.lt.0d0.or.sbjr+sbkr.lt.0d0) then
         write(77,*)'Inaccuracy 2 in M2_S_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
-      Pb_jkr_ira = CF*(2d0*zbk/zbj+zbj)/sbjk
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        zq = sbkr/(sbjr+sbkr)
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        zq = sbjr/(sbjr+sbkr)
+      endif
+      Pjk_ira = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_labels(csec,i,a)
-      map2=real_labels(dsec,i,a)
-      call get_wcbar_nlo(map1,map2,rb)
+      call get_wcbar_nlo(ab,bb,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -142,6 +154,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_jkr = ans(0)*wcbar_nlo
 c
@@ -149,31 +165,32 @@ c     mapping 2: [irb,jkr]
 c
 c     fill mapped labels
       call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(a,i,b),real_labels(b,i,b),real_leg_pdgs,born_leg_pdgs)
-c
-      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       ab = real_labels(a,i,b)
       bb = real_labels(b,i,b)
       jb = real_labels(j,i,b)
       kb = real_labels(k,i,b)
       rb = real_labels(r,i,b)
+      call fill_born_mapped_labels(jb,kb,real_leg_pdgs,born_leg_pdgs)
+c
+      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+      if(sbjk.lt.0d0.or.sbjr+sbkr.lt.0d0) then
         write(77,*)'Inaccuracy 2 in M2_S_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
-      Pb_jkr_irb = CF*(2d0*zbk/zbj+zbj)/sbjk
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        zq = sbkr/(sbjr+sbkr)
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        zq = sbjr/(sbjr+sbkr)
+      endif
+      Pjk_irb = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_labels(csec,i,b)
-      map2=real_labels(dsec,i,b)
-      call get_wcbar_nlo(map1,map2,rb)
+      call get_wcbar_nlo(ab,bb,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ab,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -183,31 +200,39 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_jkr = ans(0)*wcbar_nlo
 c
 c     mapping 3: [iba,jkr]
-      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
+      ab = real_labels(a,i,a)
+      bb = real_labels(b,i,a)
       jb = real_labels(j,i,a)
       kb = real_labels(k,i,a)
       rb = real_labels(r,i,a)
+c
+      call phase_space_CS_inv(i,b,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+      if(sbjk.lt.0d0.or.sbjr+sbkr.lt.0d0) then
         write(77,*)'Inaccuracy 2 in M2_S_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
-      Pb_jkr_iba = CF*(2d0*zbk/zbj+zbj)/sbjk
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        zq = sbkr/(sbjr+sbkr)
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        zq = sbjr/(sbjr+sbkr)
+      endif
+      Pjk_iba = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbjk
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_labels(csec,i,a)
-      map2=real_labels(dsec,i,a)
-      call get_wcbar_nlo(map1,map2,rb)
+      call get_wcbar_nlo(ab,bb,rb)
 c
       call phase_space_CS_inv(jb,kb,rb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -217,33 +242,40 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_iba_jkr = ans(0)*wcbar_nlo
 c
-      M2_S_CC_ggq = CF*(CA/CF*Ei_ar*Pb_jkr_ira*BLO_ira_jkr+(2d0*CF-CA)/CF*Ei_br*Pb_jkr_irb*BLO_irb_jkr-(-CA/CF)*Ei_jk*Pb_jkr_iba*BLO_iba_jkr)
+      M2_S_CC_ggq = CF*(rho_ab*Ei_ar*Pjk_ira*BLO_ira_jkr+rho_ba*Ei_br*Pjk_irb*BLO_irb_jkr-rhob_gq*Ei_jk*Pjk_iba*BLO_iba_jkr)
 c
 c     building S(i)SC(i,a,b)C(i,j,k) according to eq.(18) on dropbox
 c
 c     mapping 1: [ira,bra]
-c
-      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       ab = real_labels(a,i,a)
       bb = real_labels(b,i,a)
       jb = real_labels(j,i,a)
       kb = real_labels(k,i,a)
       rb = real_labels(r,i,a)
+c
+      call phase_space_CS_inv(i,r,a,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,a))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+      if(sbjk.lt.0d0.or.sbjr+sbkr.lt.0d0) then
         write(77,*)'Inaccuracy 2 in M2_S_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
-      Pb_jkr_ira = CF*(2d0*zbk/zbj+zbj)/sbjk
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        zq = sbkr/(sbjr+sbkr)
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        zq = sbjr/(sbjr+sbkr)
+      endif
+      Pjk_ira = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbjk
 c
       call phase_space_CS_inv(bb,rb,ab,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,bb,ab))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -253,33 +285,39 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_labels(csec,i,a)
-      map2=real_labels(dsec,i,a)
-      call get_wcbar_nlo(map1,map2,rb)
+      call get_wcbar_nlo(ab,bb,rb)
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_bra = ans(0)*wcbar_nlo
 c
 c     mapping 2: [irb,arb]
-      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
-      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
-      if(ierr.eq.1)goto 999
       ab = real_labels(a,i,b)
       bb = real_labels(b,i,b)
       jb = real_labels(j,i,b)
       kb = real_labels(k,i,b)
       rb = real_labels(r,i,b)
+c
+      call phase_space_CS_inv(i,r,b,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,i,b))
+      call invariants_from_p(xpb,nexternal-1,xsb,ierr)
+      if(ierr.eq.1)goto 999
       sbjr = xsb(jb,rb)
       sbkr = xsb(kb,rb)
       sbjk = xsb(jb,kb)
-      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+      if(sbjk.lt.0d0.or.sbjr+sbkr.lt.0d0) then
         write(77,*)'Inaccuracy 2 in M2_S_HCC_ggq',sbjk,sbjr,sbkr
         goto 999
       endif
-      zbj = sbjr/(sbjr+sbkr)
-      zbk = 1d0-zbj
-      Pb_jkr_irb = CF*(2d0*zbk/zbj+zbj)/sbjk
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        zq = sbkr/(sbjr+sbkr)
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        zq = sbjr/(sbjr+sbkr)
+      endif
+      Pjk_irb = CF*(2d0*zq/(1d0-zq)+(1d0-zq))/sbjk
 c
       call phase_space_CS_inv(ab,rb,bb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ab,bb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
@@ -289,25 +327,31 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
       call get_sig2(xsb,alpha_mod_bar,nexternal-1)
-      map1=real_labels(csec,i,b)
-      map2=real_labels(dsec,i,b)
-      call get_wcbar_nlo(map1,map2,rb)
+      call get_wcbar_nlo(ab,bb,rb)
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)*wcbar_nlo
 c
-      M2_S_SC_CC_ggq = CF*(CA/CF*Ei_ar*Pb_jkr_ira*BLO_ira_bra+(2d0*CF-CA)/CF*Ei_br*Pb_jkr_irb*BLO_irb_arb)
+      M2_S_SC_CC_ggq = CF*(rho_ab*Ei_ar*Pjk_ira*BLO_ira_bra+rho_ba*Ei_br*Pjk_irb*BLO_irb_arb)
 c
 c     soft double-hardcollinear kernel, eq. (C.30) TODO: Q_ij contribution is zero for ee->jj
+      M2_S_CC_ggq = M2_S_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_SC_CC_ggq = M2_S_SC_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_HCC_ggq = M2_S_CC_ggq - M2_S_SC_CC_ggq
-      M2_S_HCC_ggq = M2_S_HCC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
-      M2_S_HCC_ggq = M2_S_HCC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
-      if(test_sector_function) M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
+      if(test_sector_function)then
+        M2_S_HCC_ggq = ws12_nlo*wcbar_nlo
+        M2_S_CC_ggq = ws12_nlo*wcbar_nlo
+        M2_S_SC_CC_ggq = ws12_nlo*wcbar_nlo
+      endif
 c
-      call ct_log('KS_CC                  ',M2_S_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
-      call ct_log('KS_SC_CC               ',M2_S_SC_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_CC                  ',M2_S_CC_ggq)
+      call ct_log('KS_SC_CC               ',M2_S_SC_CC_ggq)
 c
 c     plot
       wgtpl=+M2_S_HCC_ggq*wgt/nit*wgt_chan

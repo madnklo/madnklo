@@ -13,9 +13,9 @@
       double precision s_had
       integer iu,iu1,iu2,iu7,iu8
       common/cdim/ndim
-      double precision int_VV
+      double precision int_double_virtual
       double precision res_VV,err_VV
-      external int_VV
+      external int_double_virtual
       integer order
       logical doplot
       common/cdoplot/doplot
@@ -23,6 +23,8 @@
       character*100 line
       integer nitVVth,nclVVth,nitVV,nclVV
       integer nitVVth0,nclVVth0,nclVV0,nclVVth1,nclVV1
+      integer iseed
+      common /to_seed/iseed
       common/iterations/nitVV
 c
 c     vegas declarations
@@ -35,11 +37,16 @@ c     vegas declarations
 c
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision sum_vv,sum_err_vv
       double precision sum_err_vv_a,err_vv_a(N_MAX_CG)
       integer nwgt
       character*20 weights_info(1)
 c
+      nfail=0
       sum_vv=0d0
       sum_err_vv=0d0
       res_vv=0d0
@@ -51,16 +58,17 @@ c
 c     read inputs
       region=0d0
       order=0
+      idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
-      NITVVTH =  NITERS_FO_GRID
-      NCLVVTH = NPOINTS_FO_GRID
-      NITVV = NITERS_FO
-      NCLVV = NPOINTS_FO
-
+      NITVVTH = NITERS_VV_GRID
+      NCLVVTH = NPOINTS_VV_GRID
+      NITVV = NITERS_VV
+      NCLVV = NPOINTS_VV
 c     TODO: understand muR input fixed/dyn scale
 c
 c     initialise physics parameters
       iu1=44
+      iu2=50
       iu=55
       iu7=77
       iu8=88
@@ -76,13 +84,12 @@ c     phase-space dimension, same for all contributions to this folder
       enddo
 c
 c     initialise histograms and open output files
-c      call histo_init
-c     call analysis_begin(1,'central value')
       nwgt=1
-      weights_info(1)='central'
+      weights_info(1)='central value'
       call analysis_begin(nwgt,weights_info)
       open(unit=iu1,file='integration_VV.log')
-      open(unit=iu7,file='failures_VV.log')
+      open(unit=iu2,file='test_poles_VV.log')
+      open(unit=iu7,file='failures_VV.log',status='replace',action='write')
       open(unit=iu8 ,file='VV_chan.log')
       open(unit=iu ,file='results_VV.log')
       line='=================================================='
@@ -94,21 +101,19 @@ c     number of points thrown per channel in the main loop
       nclVVth0=max(10000,int(nclVVth/5d0))
       nitVVth0=max(5,int(nitVVth/2d0))
       sum_err_VV_a=0d0
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          init=0
          doplot=.false.
-         call vegas(region,ndim,int_VV,init,nclVVth0,nitVVth0,nprn,
+         failure_stage='probe'
+         call vegas(region,ndim,int_double_virtual,init,nclVVth0,nitVVth0,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          err_vv_a(ich) = err_vv
          sum_err_vv_a = sum_err_vv_a + err_vv_a(ich)
       enddo
 c
 c     main loop over channels
-      do i=1,N_MAX_CG
-         ich=i
+      do ich=1,N_MAX_CG
          write(*,*)'VV warmup for channel',ich
-         write(iu7,*)'Failures for VV warmup, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' VV WARMUP, CHANNEL',ich
@@ -116,12 +121,12 @@ c     main loop over channels
          init=0
          doplot=.false.
          nclVVth1=max(1000,int(nclVVth*err_vv_a(ich)/sum_err_vv_a))
-         call vegas(region,ndim,int_VV,init,nclVVth1,nitVVth,nprn,
+         failure_stage='warmup'
+         call vegas(region,ndim,int_double_virtual,init,nclVVth1,nitVVth,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV warmup: channel, itns, calls = ',ich,nitVVth,nclVVth1
 c
          write(*,*)'VV for channel',ich
-         write(iu7,*)'Failures for VV, channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
          write(iu1,*)' VV, CHANNEL',ich
@@ -129,7 +134,8 @@ c
          init=1
          doplot=.true.
          nclVV1=max(1000,int(nclVV*err_vv_a(ich)/sum_err_vv_a))
-         call vegas(region,ndim,int_VV,init,nclVV1,nitVV,nprn,
+         failure_stage='main'
+         call vegas(region,ndim,int_double_virtual,init,nclVV1,nitVV,nprn,
      &   res_vv,err_vv,chi2a,acc,xi,it,ndo,si,swgt,schi)
          write(iu8,*)'VV: channel, itns, calls = ',ich,nitVV,nclVV1
          rescale_plot_VV=dble(nitVV)/min(dble(nitVV),dble(it))
@@ -137,24 +143,18 @@ c
          sum_err_vv = sum_err_vv + err_vv**2
          write(iu8,*)' sigma VV [pb], channel',ich,' = ',
      &   res_vv,' +-',err_vv
-         write(iu8,*)
-c
          write(*,*)'...done'
       enddo
 c
 c     finalise histograms and output files
-      call analysis_end(1d0)
+      call analysis_end(1d0,'plot_VV.dat')
       sum_err_vv = dsqrt(sum_err_vv)
-c      call histo_final('plot_VV.dat',rescale_plot_VV)
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       write(iu,*)' sigma VV [pb]  = ',sum_vv,' +-',sum_err_vv
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       close(iu)
       close(iu1)
+      close(iu2)
+      if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
+      close(iu8)
 c
       end

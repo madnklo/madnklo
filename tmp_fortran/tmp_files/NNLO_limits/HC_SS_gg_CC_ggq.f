@@ -78,7 +78,9 @@ c     check flavour match
       endif
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
       pref=(8d0*pi*alphas)**2
 c
 c     invariant quantities
@@ -129,7 +131,7 @@ c     collinear double-soft double-collinear kernel, eq. (C.41) of 2212.11190v2 
 c
 c     compute collinear double-soft double-collinear sector function eq. (C.84) of 2212.11190v2
       call get_sig2(xs,alpha_mod,nexternal)
-      call get_wc_nlo(i,j,ksec,r)
+      call get_wc_nlo(i,j,k,r)
       M2_C_SS_gg_CC_ggq=M2_C_SS_gg_CC_ggq*wc_nlo
 c
 c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.11190v2 (same as dropbox eq. 33)
@@ -138,17 +140,19 @@ c     soft-collinear double-soft double-collinear kernel, eq. (C.42) of 2212.111
 c
 c     soft-collinear double-soft double-collinear sector function eq. (C.85) of 2212.11190v2 is 1
 c
+c     Including correct multiplicity factor
+      M2_C_SS_gg_CC_ggq = M2_C_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
+      M2_SC_SS_gg_CC_ggq = M2_SC_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
       M2_HC_SS_gg_CC_ggq = M2_C_SS_gg_CC_ggq - M2_SC_SS_gg_CC_ggq
 c
-c     Including correct multiplicity factor
-      M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
-      M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*%(proc_prefix_rr)s_fl_factor
-      M2_HC_SS_gg_CC_ggq = M2_HC_SS_gg_CC_ggq*pref*xj*extra
+      if(test_sector_function)then
+        M2_HC_SS_gg_CC_ggq = wc_nlo-1d0
+        M2_C_SS_gg_CC_ggq = wc_nlo
+        M2_SC_SS_gg_CC_ggq = 1d0
+      endif
 c
-      if(test_sector_function) M2_HC_SS_gg_CC_ggq = wc_nlo-1d0
-c
-      call ct_log('KC_SS_CC               ', M2_C_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
-      call ct_log('KS_C_SS_CC             ', M2_SC_SS_gg_CC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra)
+      call ct_log('KC_SS_CC               ', M2_C_SS_gg_CC_ggq)
+      call ct_log('KS_C_SS_CC             ', M2_SC_SS_gg_CC_ggq)
 c
 c     plot
       wgtpl=-M2_HC_SS_gg_CC_ggq*wgt/nit*wgt_chan

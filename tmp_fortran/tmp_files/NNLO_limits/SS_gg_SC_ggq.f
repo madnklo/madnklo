@@ -1,5 +1,5 @@
 
-      double precision function M2_SS_gg_SC_ggq(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_gg_SC_ggq(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)SC(i,j,k) kernel times WSS_SC
       use sectors4_module
       implicit none
@@ -13,13 +13,13 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,m,ierr,nit
-      integer ib,jb,kb,rb,mb,ab,bb
+      integer i,j,k,r,m,ierr,nit,itmp,jtmp,ktmp
+      integer ib,jb,kb,rb,mb
       integer jbb,kbb,rbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision ccBLO_krj_imj,ccBLO_jrk_imk
+      double precision ccBLO_krj_imj,ccBLO_jrk_imk,wss_sc_nnlo
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision sij,sik,sjk,sir,sjr,skr,sim,sjm,skm
@@ -27,6 +27,7 @@ c     S(i,j)SC(i,j,k) kernel times WSS_SC
       double precision pref,extra
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
+      logical flavourmatch_ijjk,flavourmatch_ijkj
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -62,20 +63,37 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(bsec.ne.csec) then
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_SS_gg_SC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
-        write(*,*) 'Flavour mismatch in M2_SS_gg_SC_ggq', leg_PDGs(i),leg_PDGs(j)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SS_gg_SC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_pdgs(ktmp)
         stop 1
       endif
 c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
+      endif
+c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-2d0*(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     Invariant quantities
       sij = xs(i,j)
@@ -89,34 +107,37 @@ c     Invariant quantities
 c
 c     call W double-soft soft-collinear, (C.57-C.58) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
-      call get_wss_sc_nnlo(asec,bsec,csec,dsec)
+      if(i.eq.asec)then
+        call get_wss_sc_ikl_nnlo(asec,bsec,csec,dsec)
+        wss_sc_nnlo = wss_sc_ikl_nnlo
+      elseif(i.eq.csec)then
+        call get_wss_sc_kij_nnlo(asec,bsec,csec,dsec)
+        wss_sc_nnlo = wss_sc_kij_nnlo
+      endif
 c
 c     mapping 1: [krj,imj]
 c
-      a = csec
-      b = dsec
-c
 c     fill mapped labels
-      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+c     fill mapped labels
+      call fill_real_mapped_labels(j,k,leg_pdgs,real_leg_pdgs)
+      ib = real_labels(i,j,k)
+      jb = real_labels(j,j,k)
+      kb = real_labels(k,j,k)
+      rb = real_labels(r,j,k)
+      call fill_born_mapped_labels(ib,jb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
-      ib = real_labels(i,a,b)
-      jb = real_labels(j,a,b)
-      kb = real_labels(k,a,b)
-      rb = real_labels(r,a,b)
-      bb = real_labels(b,a,b)
+      kbb = born_labels(kb,ib,jb)
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,bb)
-         mbb = born_labels(mb,ib,bb)
+         mb = real_labels(m,j,k)
+         mbb = born_labels(mb,ib,jb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
+         call phase_space_CS_inv(ib,mb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c
 c     possible cuts
@@ -125,6 +146,10 @@ c     possible cuts
          if(ierr.eq.1)goto 999
 c
 c     call colour-connected Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+         call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+         alphas=alphas_current
+         pref=-2d0*(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
          ccBLO_krj_imj = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c
@@ -149,19 +174,19 @@ c     if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
       enddo
 c
 c     mapping 2: [jrk,imk]
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,j,k))
 c
 c     eikonal double sum
       do m=1,nexternal
          if(.not.isnnloqcdparton(m))cycle
          if(m.eq.i.or.m.eq.j.or.m.eq.k)cycle
-         mb = real_labels(m,a,b)
-         kbb = born_labels(kb,ib,jb)
-         mbb = born_labels(mb,ib,jb)
+         mb = real_labels(m,j,k)
+         kbb = born_labels(kb,ib,kb)
+         mbb = born_labels(mb,ib,kb)
 c
 c     underlying Born configuration is remapped
-         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
+         call phase_space_CS_inv(ib,mb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
          if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
          if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
@@ -169,6 +194,10 @@ c     possible cuts
          if(ierr.eq.1)goto 999
 c
 c     call colour-connected Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+         call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+         alphas=alphas_current
+         pref=-2d0*(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
          ccBLO_jrk_imk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
 c

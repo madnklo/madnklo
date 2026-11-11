@@ -11,29 +11,27 @@ c     n-body NLO integrand for vegas
       INCLUDE 'nsqso_born.inc'
       INCLUDE 'nsquaredSO.inc'
       INCLUDE 'leg_PDGs.inc'
+      INCLUDE 'qcd_power.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       integer nitV
       common/niterationsv/nitV
-      double precision int_virtual,VNLO(3),INLO(3)
+      double precision int_virtual,VNLO(-2:0),INLO(-2:0)
       double precision sLO(nexternal,nexternal)
 c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: mxdim = 30
       double precision x(mxdim)
-      double precision wgt,wgts(1),wgtpl
+      double precision wgt,wgts(sv_maxwgt),wgtpl
+      double precision BLOI,dvsv
       logical doplot, docut
       common/cdoplot/doplot
       double precision p(0:3,nexternal)
       double precision xjac
-      double precision sCM
       integer fl_factor 
       common/flavour_factor/fl_factor
       double precision ans(0:1) !TODO SET CORRECTLY RANGE OF ANS 
       double precision alphas, alpha_qcd
       integer, parameter :: hel=-1
-      LOGICAL INIT
-      DATA INIT/.TRUE./
-      COMMON/INITCHECKSA/INIT
       INTEGER MATELEM_ARRAY_DIM
       REAL*8 , ALLOCATABLE :: MATELEM(:,:)
       REAL*8 SQRTS,AO2PI,TOTMASS
@@ -46,7 +44,9 @@ C     sqrt(s)= center of mass energy
       REAL*8 BLO
       integer ntested,ntest
       parameter(ntest=20)
-      save ntested
+c     number of points whose poles were tested (also read by the driver
+c     in test-only mode)
+      common/c_test_poles_v/ntested
 C     
 C     GLOBAL VARIABLES
 C     
@@ -61,61 +61,131 @@ C
       CHARACTER*20 CHOSEN_BORN_SO_INDICES(NSQSO_BORN)
       LOGICAL CHOSEN_BORN_SO_CONFIGS(NSQSO_BORN)
       COMMON/%(long_proc_prefix)sCHOSEN_BORN_SQSO/CHOSEN_BORN_SO_CONFIGS
+      integer ich
+      common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       integer iconfig,mincfig,maxcfig,invar
-
-
+      common/cfig/iconfig,mincfig,maxcfig,invar
       integer NGRAPHS2
       double precision amp2(N_MAX_CG)
       COMMON/TO_AMP2/AMP2,NGRAPHS2
-      integer ich
-      common/comich/ich
-      double precision pmass(nexternal)
+c     multi-channel weight of channel ich (born_channels.f)
+      double precision chw,born_chan_weight
+      external born_chan_weight
       INTEGER NCOLORCORRELATORS
-      PARAMETER (NCOLORCORRELATORS=4)
-C     
+      PARAMETER (NCOLORCORRELATORS=4)     
 C     Index 0 is the number of correlators to consider and the next
 C      indices are which one to consider
       INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
       REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3,0:NSQUAREDSO)
       COMMON/V_ML5_1_1_COLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
-
-      INCLUDE 'pmass.inc'
-
-
-      
+      integer last_ich
+      logical loop_arrays_initialised
+      data last_ich /-1/
+      data loop_arrays_initialised /.false./
+      save last_ich,loop_arrays_initialised
+c
+c     Allocate the integrand-owned loop work arrays once.
+      if (.not.loop_arrays_initialised) then
+         CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+         ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
+         CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+         ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
+         loop_arrays_initialised=.true.
+      endif
+c
+c     Refresh channel-dependent phase-space data only on an ich change.
+      if (ich.ne.last_ich) then
+         call initialise_born_channel()
+         last_ich=ich
+      endif
 C
 C     EXTERNAL
-C
-c     TODO: convert to partonic sCM 
-      sCM = (2d0*EBEAM(1))**2
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       xjac = Gevtopb
       int_virtual = 0d0
-      sLO = 0d0
       VNLO = 0d0
       INLO = 0d0
-C
-C     BEGIN CODE
-C
-      IF (INIT) THEN
-        INIT=.FALSE.
-        CALL %(long_proc_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-        ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
-        CALL %(long_proc_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-        ALLOCATE(PREC_FOUND(0:NSQUAREDSO_LOOP))
-!        INCLUDE 'pmass.inc'
-      ENDIF
 c
-c     phase space and invariants
-      if(sCM.le.0d0)then
-         write(*,*) 'Wrong sCM', sCM
-         stop
+      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
+      if(xjac.eq.0d0)goto 999
+      call invariants_from_p(p,nexternal,sLO,ierr)
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: V',ierr,ich,failure_stage
+         goto 999
       endif
-C     Hard coded settings for gen_mom
+c
+c     possible cuts
+      if(docut(p,nexternal,leg_pdgs,0))goto 999
+c
+c     renormalisation scale for the n-body kinematics
+c     (set_mur also updates MU_R and the couplings used by MadLoop)
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
+c
+c     call virtual
+      COLOR_CORRELATED_EVALS = 0d0
+      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+      VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
+c
+c     call counterterm
+      call int_counter_NLO(p,sLO,INLO,BLOI,ierr)
+      if(ierr.ne.0)then
+         nfail=nfail+1
+         write(77,*)'ierr failure: V',ierr,ich,failure_stage
+         goto 999
+      endif
+c
+c     test coefficients of epsilon poles
+      if(ntested.lt.ntest)then
+         ntested=ntested+1
+         write(50,*)
+         write(50,*)'Testing point # ', ntested
+         write(50,*)'Double pole V, I, sum', VNLO(-2), INLO(-2), VNLO(-2)+INLO(-2)
+         write(50,*)'Single pole V, I, sum', VNLO(-1), INLO(-1), VNLO(-1)+INLO(-1)
+         write(50,*)
+      endif
+c
+c     subtracted virtual
+      int_virtual=(VNLO(0)+INLO(0))*xjac
+c
+c     apply flavour multiplicity factor
+      int_virtual=int_virtual*fl_factor
+c
+c     Multi channeling
+      chw = born_chan_weight(ich)
+      int_virtual = int_virtual * chw
+c
+c     renormalisation-scale variations, with b = born_qcd_power:
+c     (V+I)(k muR) = r_k^(b+1) [ (V+I)(muR) + b beta0/2 alphas/(2 pi) B log(k^2) ]
+c     (the explicit infrared logarithms of V and I cancel, since their
+c     poles do; the remaining log comes from the UV renormalisation)
+      dvsv=born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*chw
+      call sv_add(int_virtual,dvsv,born_qcd_power+1)
+c
+c     plot
+      wgtpl=int_virtual*wgt
+      call sv_wgts(wgtpl,dvsv*wgt,born_qcd_power+1,wgts)
+      if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
+c
+ 999  return
+      end
+
+
+
+      subroutine initialise_born_channel()
+      implicit none
+      integer ich
+      common/comich/ich
+      integer iconfig,mincfig,maxcfig,invar
+      common/cfig/iconfig,mincfig,maxcfig,invar
+c
       iconfig = ich
+c      iconfig = 1
       mincfig = 1
       maxcfig = 1
       invar = 2
@@ -123,70 +193,6 @@ C     Hard coded settings for gen_mom
       call props_born
       call decaybw_born
       call getleshouche_born
-      call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
-
-!      call phase_space_n(x,sCM,p,nexternal,xjac)
-      if(xjac.eq.0d0) then
-         write(77,*)'Wrong jacobian in NLO_V'
-         goto 999
-      endif
-
-      call invariants_from_p(p,nexternal,sLO,ierr)
-      if(ierr.eq.1) then
-         write(77,*)'Wrong invariants in NLO_V', sLO
-         goto 999
-      endif
 c
-c     possible cuts
-      if(docut(p,nexternal,leg_pdgs,0))goto 999
-c
-c     call virtual
-      COLOR_CORRELATED_EVALS = 0d0
-      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      VNLO(1:3) = MATELEM(1:3,0)
-c
-c     call Born
-      CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-c
-c     call counterterm
-      call int_counter_NLO(p,sLO,INLO,ierr)
-      if(ierr.eq.1)goto 999
-c
-c     test coefficients of epsilon poles
-      if(ntested.lt.ntest)then
-         ntested=ntested+1
-         write(50,*)
-         write(50,*)'Testing point # ', ntested
-         write(50,*)'Double pole V, I, sum', VNLO(3), INLO(3), VNLO(3)+INLO(3)
-         write(50,*)'Single pole V, I, sum', VNLO(2), INLO(2), VNLO(2)+INLO(2)
-         write(50,*)
-      endif
-c
-c     subtracted virtual
-      int_virtual=(VNLO(1)+INLO(1))*xjac
-c
-c     apply flavour multiplicity factor
-      int_virtual=int_virtual*fl_factor
-
-
-c     Multi channeling
-
-      int_virtual = int_virtual * amp2(ich)
-      
-c
-c     plot
-      wgtpl=int_virtual*wgt
-c     if(doplot)call histo_fill(p,sLO,nexternal,leg_pdgs,wgtpl)
-      wgts=wgtpl
-      if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
-c
-c     print out current run progress
-c     999  ievt=ievt+1
-c      if(ievt.gt.nthres)then
-c         write(*,111)char(13),int(1d2*nthres/(nprodV*1d0)),' done'
-c         nthres=nthres+int(nprodV/rfactV)
-c      endif
-c 111  format(a1,i3,a6,$)
-c
- 999  return
+      return
       end

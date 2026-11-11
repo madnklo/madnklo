@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SS_GG_HCC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SS_GG_HCC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) S(i,j) C(i,j,k) * (1 - SC(i,j,k)) * WS_SS_HCC
 c     where  i, j is a g-g pair while k is a q (or qb)
       use sectors4_module
@@ -13,19 +13,19 @@ c     where  i, j is a g-g pair while k is a q (or qb)
       include 'input.inc'
       include 'run.inc'
       integer i,j,k,a,b,r,ierr,nit,parent_leg
-      integer ib,jb,kb,rb,ab,bb
+      integer ib,jb,kb,rb,ab,bb,itmp,jtmp,ktmp
       double precision pref,M2tmp,M2_S_SS_gg_CC_ggq,M2_S_SS_gg_CC_ggq_SC_ggq,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
       double precision BLO_ira_jkr,BLO_irb_jkr,BLO_iba_jkr,BLO_ira_bra,BLO_irb_arb
       double precision sia,sab,sib,sir,sbr,sar,sbbr,sbar,sbab
-      double precision Ei_ar,Ei_br,Ei_ab
+      double precision Ei_ar,Ei_br,Ei_ab,Cb
       double precision Eba_br_ira,Eba_br_irb,Eba_br_iba
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -66,16 +66,31 @@ c     check sector topology
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_S_SS_gg_HCC_ggq',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_S_SS_gg_HCC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
       endif
 c
-c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
+      endif
 c
+c     overall kernel prefix
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -102,6 +117,13 @@ c
 c     compute soft double-soft double-hardcollinear sector function, (C.75) of 2212.11190
       call get_sig2(xs,1d0,nexternal)
       call get_ws12_nlo(isec,jsec,ksec)
+c
+c     calling the correct casimir
+      if(abs(leg_PDGs(b)).eq.21)then
+        Cb = CA
+      elseif(abs(leg_PDGs(b)).le.5)then
+        Cb = CF
+      endif
 c
 c     building S(i)S(i,j)C(i,j,k) according to eq.(17) on dropbox
 c
@@ -136,6 +158,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_jkr = ans(0)
 c
@@ -171,6 +197,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_jkr = ans(0)
 c
@@ -200,10 +230,14 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_iba_jkr = ans(0)
 c
-      M2_S_SS_gg_CC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_jkr+(2d0*CF-CA)*Ei_br*Eba_br_irb*BLO_irb_jkr+CA*Ei_ab*Eba_br_iba*BLO_iba_jkr)
+      M2_S_SS_gg_CC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_jkr+(2d0*Cb-CA)*Ei_br*Eba_br_irb*BLO_irb_jkr+CA*Ei_ab*Eba_br_iba*BLO_iba_jkr)
 c
 c     building S(i)S(i,a)SC(i,a,b)C(i,j,k) according to eq.(19) on dropbox
 c     mapping 1: [ira,bra]
@@ -222,6 +256,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_ira_bra = ans(0)
 c
@@ -241,20 +279,28 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_irb_arb = ans(0)
 c
-      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*CF-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
+      M2_S_SS_gg_CC_ggq_SC_ggq = 2d0*CF*(CA*Ei_ar*Eba_br_ira*BLO_ira_bra+(2d0*Cb-CA)*Ei_br*Eba_br_irb*BLO_irb_arb)
 c
 c     soft double-soft double-hardcollinear kernel, TODO: Q_ij contribution is zero for ee->jj
+      M2_S_SS_gg_CC_ggq = M2_S_SS_gg_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
+      M2_S_SS_gg_CC_ggq_SC_ggq = M2_S_SS_gg_CC_ggq_SC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_CC_ggq - M2_S_SS_gg_CC_ggq_SC_ggq
-      M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_HCC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj
-      M2_S_SS_gg_HCC_ggq = M2_S_SS_gg_HCC_ggq*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c
-      if(test_sector_function) M2_S_SS_gg_HCC_ggq = ws12_nlo
+      if(test_sector_function)then
+        M2_S_SS_gg_HCC_ggq = ws12_nlo
+        M2_S_SS_gg_CC_ggq = ws12_nlo
+        M2_S_SS_gg_CC_ggq_SC_ggq = ws12_nlo
+      endif
 c
-      call ct_log('KS_SS_CC               ',M2_S_SS_gg_CC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
-      call ct_log('KS_SS_CC_SC            ',M2_S_SS_gg_CC_ggq_SC_ggq*pref*ws12_nlo*extra*%(proc_prefix_rr)s_fl_factor*xj*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den))
+      call ct_log('KS_SS_CC               ',M2_S_SS_gg_CC_ggq)
+      call ct_log('KS_SS_CC_SC            ',M2_S_SS_gg_CC_ggq_SC_ggq)
 c
 c     plot
       wgtpl=+M2_S_SS_gg_HCC_ggq*wgt/nit*wgt_chan

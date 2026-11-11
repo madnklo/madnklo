@@ -1,5 +1,5 @@
 
-      double precision function M2_SS_GG_SC_GGQ_CC_GGQ(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_SS_GG_SC_GGQ_CC_GGQ(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i,j)C(i,j,k)SC(i,j,k) kernel times WSS_CC_SC: i, j is a g-g pair
 c     while k is a q (or qb)
       use sectors4_module
@@ -12,19 +12,19 @@ c     while k is a q (or qb)
       include 'leg_PDGs.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,ierr,nit,parent_leg
-      integer ib,jb,kb,rb,ab,bb
+      integer i,j,k,r,ierr,nit,parent_leg
+      integer ib,jb,kb,rb,itmp,jtmp,ktmp
       integer jbb,kbb,rbb
       double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision xsbb(nexternal-2,nexternal-2)
-      double precision BLO_krj_irj,BLO_jrk_irk
+      double precision BLO_krj_irj,BLO_jrk_irk,wss_sc_cc_nnlo
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
       double precision xpbb(0:3,nexternal-2)
       double precision ans(0:NSQSO_BORN)
       double precision sij,sik,sjk,sir,sjr,skr,Ei_jr,Ei_kr,Ej_kr
       integer, parameter :: hel = - 1
-      logical flavourmatch
+      logical flavourmatch_ijjk,flavourmatch_ijkj
       double precision alphas,alpha_qcd
 c     set logical doplot
       logical doplot
@@ -53,21 +53,37 @@ c     initialise
       ierr=0
 c
 c     check sector topology
-      if(bsec.ne.csec) then
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_SS_gg_SC_ggq_CC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
-      flavourmatch = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
-      if(.not.(flavourmatch))then
-        write(*,*) 'Flavour mismatch in M2_SS_gg_SC_ggq_CC_ggq', leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in  M2_SS_gg_SC_ggq_CC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_pdgs(ktmp)
         stop 1
       endif
 c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+              i = ktmp
+              j = jtmp
+              k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+              i = itmp
+              j = ktmp
+              k = jtmp
+      else
+              i = itmp
+              j = jtmp
+              k = ktmp
+      endif
+c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
-      pref=(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
 c     invariant quantities
       sij  = xs(i,j)
@@ -90,23 +106,24 @@ c
 c     double-soft soft-collinear double-collinear sector function, (C.65-C.67) of 2212.11190
       call get_w(xs,nexternal)
       call get_sig2(xs,1d0,nexternal)
-      call get_wss_sc_cc_nnlo(asec,bsec,csec,dsec,iref)
-c
-      a = csec
-      b = dsec
+      if(i.eq.asec)then
+        call get_wss_sc_cc_ijk_nnlo(asec,bsec,csec,dsec,iref)
+        wss_sc_cc_nnlo = wss_sc_cc_ijk_nnlo
+      elseif(i.eq.csec)then
+        call get_wss_sc_cc_kij_nnlo(asec,bsec,csec,dsec,iref)
+        wss_sc_cc_nnlo = wss_sc_cc_kij_nnlo
+      endif
 c
 c     mapping 1: [krj,irj]
-      call fill_real_mapped_labels(a,b,leg_pdgs,real_leg_pdgs)
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(b,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
+      call fill_real_mapped_labels(k,j,leg_pdgs,real_leg_pdgs)
+      ib = real_labels(i,k,j)
+      jb = real_labels(j,k,j)
+      kb = real_labels(k,k,j)
+      rb = real_labels(r,k,j)
+      call fill_born_mapped_labels(ib,jb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(k,r,j,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,k,j))
 c
-      ib = real_labels(i,a,b)
-      jb = real_labels(j,a,b)
-      kb = real_labels(k,a,b)
-      rb = real_labels(r,a,b)
-      bb = real_labels(b,a,b)
-c
-      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,bb))
+      call phase_space_CS_inv(ib,rb,jb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -114,13 +131,17 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_krj_irj = ans(0)
 c
 c     mapping 2: [jrk,irk]
-      call fill_born_mapped_labels(real_labels(i,a,b),real_labels(j,a,b),real_leg_pdgs,born_leg_pdgs)
-      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,a,b))
-      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,jb))
+      call fill_born_mapped_labels(ib,kb,real_leg_pdgs,born_leg_pdgs)
+      call phase_space_CS_inv(j,r,k,xp,xpb,nexternal,leg_PDGs,xjCS1,real_labels(:,k,j))
+      call phase_space_CS_inv(ib,rb,kb,xpb,xpbb,nexternal-1,real_leg_PDGs,xjCS2,born_labels(:,ib,kb))
       if(xjCS1.eq.0d0.or.xjCS2.eq.0d0)goto 999
 c     possible cuts
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
@@ -128,6 +149,10 @@ c     possible cuts
       if(ierr.eq.1)goto 999
 c
 c     call Born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO_jrk_irk = ans(0)
 c

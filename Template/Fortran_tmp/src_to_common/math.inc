@@ -6,12 +6,30 @@ c
       real * 8 CF,CA,TR,beta0
       real * 8 gamma_g,gamma_q,phi_g,phi_q
       real * 8 gamma_hc_g,gamma_hc_q,phi_hc_g,phi_hc_q
+      real * 8 rho_gq,rho_qg,rhob_gq,rhob_qg
       real * 8 tiny0,tiny1,tiny2
       real * 8 asMZ
 c     TODO: remove all unnecessary terms
 c     number of colors
       integer Nc
       integer nloop
+c
+c     alpha_s settings, initialized by setrun.f. For runs without
+c     PDFs, asMZ is obtained from SMINPUTS 3 in param_card.dat;
+c     otherwise asMZ and nloop are matched to the selected PDF.
+      common/a_block/asMZ,nloop
+c
+c     renormalisation scale and alpha_s currently in use, set by
+c     set_mur / set_mur_from_momenta (ren_scale.f). Always set the
+c     scale for the kinematics at hand before reading them.
+      real * 8 muR_current, alphas_current
+      common/c_ren_scale/muR_current, alphas_current
+c
+c     maximum number of histogram weights: central value plus one per
+c     (muF,muR) pair of the scale variations (see sv_weights_info in
+c     ren_scale.f; at most 9 factors each, as in MG5_aMC)
+      integer sv_maxwgt
+      parameter (sv_maxwgt=82)
 c
 c     mathematical constants
       parameter (pi   =3.141592653589793238462643383279502884197d0)
@@ -22,11 +40,6 @@ c     mathematical constants
       parameter (eulergamma=0.5772156649015328606065120900824024d0)
       parameter (CF=4d0/3d0, CA=3d0, TR=1d0/2d0, Nc=3)
 c
-c     TODO: From parameters.f in local code
-c     couplings (read muR from input file in driver)
-      parameter (asMZ=0.118d0)
-      parameter (nloop=2)
-c
       parameter (beta0=(11d0*CA-4d0*TR*Nf)/3d0)
       parameter (gamma_g=beta0/2d0)
       parameter (gamma_q=CF*3d0/2d0)
@@ -36,6 +49,11 @@ c
       parameter (phi_q=CF*13d0/3d0+CF*(2d0/3d0-7d0/2d0*zeta2))
       parameter (phi_hc_g=beta0*4d0/3d0-16d0/3d0*CA)
       parameter (phi_hc_q=-CF)
+      parameter (rho_gq=CA/CF)
+      parameter (rho_qg=(2d0*CF-CA)/CF)
+      parameter (rhob_gq=-CA/CF)
+      parameter (rhob_qg=-CA/CF)
+
 c
 c     space-time dimension
       parameter (dim=4d0)

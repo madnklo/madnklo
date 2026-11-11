@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 
 import madgraph.core.base_objects as base_objects
 import madgraph.core.color_algebra as color
@@ -475,6 +476,10 @@ class ME7Exporter(object):
         # Only warn once about issues occurring during the dispatching of integrated
         # counterterms
         warned = False
+        # Integrated counterterms requiring a beam convolution are dropped silently when
+        # no initial-state parton is coloured (e.g. lepton collisions): no beam-factorization
+        # contribution exists to host them, and none is needed. They are only counted.
+        n_skipped_no_coloured_beams = 0
         for integrated_CT_properties in integrated_counterterms:
             # Extract quantities from integrated_counterterm_properties
             counterterm = integrated_CT_properties['integrated_counterterm']
@@ -557,6 +562,14 @@ class ME7Exporter(object):
 #                    "\nIt will therefore be skipped making the ensuing results unphysical and wrong.\n" +
 #                    "Available keys are:\n%s" % ('\n'.join(key_string(k) for k in routing_map)))
 #            logger.critical(msg)
+            if key not in routing_map and \
+                    (correlated_beam_convolution or torino_sub_BS or n_active_beams > 0) and \
+                    not any(self.model.get_particle(leg.get('id')).get('color') != 1
+                            for leg in counterterm.process.get('legs') if not leg.get('state')):
+                n_skipped_no_coloured_beams += 1
+                logger.debug("Skipping integrated counterterm requiring a beam convolution "+
+                             "(no coloured initial state):\n%s" % counterterm.nice_string())
+                continue
             if key not in routing_map:
                 msg = ("Could not find a contribution with key '%s'"%key_string(key)+" to host the"+
                     " integrated counterterm:\n%s\n with key:\n%s"%(counterterm.nice_string(),key_string(key))+
@@ -588,6 +601,10 @@ class ME7Exporter(object):
                 self.integrated_counterterms_refused_from_all_contribs.append(integrated_CT_properties)
                 continue
         
+        if n_skipped_no_coloured_beams > 0:
+            logger.info("%d integrated counterterm(s) requiring a beam convolution were not "%
+                        n_skipped_no_coloured_beams + "assigned, since no initial-state parton is coloured.")
+
         # Finally, the initial state collinear counterterms may be combined because the
         # BeamCurrents that implements them return the full backward evolution flavor
         # matrix, so that several initial state collinear counterterms that differ only
@@ -660,6 +677,75 @@ class ME7Exporter(object):
         # Compile all contributions
         self.contributions.apply_method_to_all_contribs('compile', log='Compiling')
 
+    def set_onshell_particle_widths_to_zero(self):
+        """If a top quark (PDG 6) appears as a stable on-shell final-state
+        particle (no decay chain), set WT = 0 in param_card.dat.
+        Example: e- ve~ > t b~.
+        """
+        from models import check_param_card as cpc
+
+        # Check whether the top quark appears as a stable final-state particle
+        TOP_PDG = 6
+        top_is_onshell = False
+        for contrib in self.contributions:
+            for defining_process, mapped_processes in contrib.get_processes_map().values():
+                for proc in [defining_process] + mapped_processes:
+                    if proc.get('decay_chains'):
+                        continue
+                    for leg in proc.get('legs'):
+                        if leg.get('state') and abs(leg.get('id')) == TOP_PDG:
+                            top_is_onshell = True
+        onshell_pdgs = set([TOP_PDG]) if top_is_onshell else set()
+
+        if not onshell_pdgs:
+            return
+
+        param_card_path = pjoin(self.export_dir, 'Cards', 'param_card.dat')
+        if not os.path.isfile(param_card_path):
+            return
+
+        param_card = cpc.ParamCard(param_card_path)
+        if not param_card.has_block('decay'):
+            return
+
+        modified = []
+        for pdg in onshell_pdgs:
+            try:
+                param = param_card['decay'].get((pdg,))
+            except Exception:
+                param = None
+            if param is not None and param.value != 0:
+                logger.info(
+                    "Setting width of particle PDG=%d to 0 in param_card "
+                    "(on-shell final-state particle, no decay chain)." % pdg)
+                param.value = 0.0
+                modified.append(pdg)
+
+        if modified:
+            param_card.write(param_card_path)
+            # Write a sentinel file so the interface can warn at run time if the
+            # user manually restores a non-zero width.
+            sentinel_path = pjoin(self.export_dir, 'Cards', 'onshell_zero_widths.dat')
+            try:
+                with open(sentinel_path, 'w') as _sf:
+                    for _pdg in modified:
+                        _sf.write('%d\n' % _pdg)
+            except Exception:
+                pass
+            # Also update the default card
+            default_path = pjoin(self.export_dir, 'Cards', 'param_card_default.dat')
+            if os.path.isfile(default_path):
+                param_card_default = cpc.ParamCard(default_path)
+                if param_card_default.has_block('decay'):
+                    for pdg in modified:
+                        try:
+                            p = param_card_default['decay'].get((pdg,))
+                        except Exception:
+                            p = None
+                        if p is not None:
+                            p.value = 0.0
+                    param_card_default.write(default_path)
+
     def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
         
@@ -671,13 +757,23 @@ class ME7Exporter(object):
 
         # Save all the global couplings to write out afterwards
         global_wanted_couplings = []
+        # Lorentz structures used by the tree-level contributions finalised so far
+        # (LO before NLO before NNLO): the real-emission directories link the
+        # lower-multiplicity matrix_*.f files for the counterterms, so their local
+        # DHELAS must also contain the HELAS routines these files call.
+        tree_lorentz = set()
         # Forward the finalize request to each contribution
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
+            is_tree = (contrib.contribution_definition.n_loops == 0 and
+                       not contrib.has_beam_factorization())
             wanted_couplings_to_add_to_global = contrib.finalize(
-                flaglist=flaglist, interface_history=interface_history)
+                flaglist=flaglist, interface_history=interface_history,
+                extra_lorentz=(list(tree_lorentz) if is_tree else None))
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
+            if is_tree and contrib.all_matrix_elements is not None:
+                tree_lorentz.update(contrib.all_matrix_elements.get_used_lorentz())
 
         # Generate the global ME7 MODEL
         if global_wanted_couplings:
@@ -703,6 +799,10 @@ class ME7Exporter(object):
 
         # Add the cards generated in MODEL to the Cards directory
         self.copy_model_resources()
+        # Zero the width of any on-shell (stable) heavy quarks appearing in the
+        # final state (e.g. top quark in e- ve~ > t b~).  An on-shell final-state
+        # particle has no decay chain and its width must be 0 for IR-safety.
+        self.set_onshell_particle_widths_to_zero()
         # Now link the Sources files within each contribution
         for contrib in self.contributions:
             contrib.make_model_symbolic_link()
@@ -1124,61 +1224,155 @@ class ME7ExporterTorino(ME7Exporter):
         # Forward the request for copying the template to each contribution
         self.contributions.apply_method_to_all_contribs('copy_template', method_args = [model])
 
-        self.copy_python_files()
+        # No Python modules in bin/internal: they served the MG5/aMC run
+        # interfaces (bin/madevent, bin/aMCatNLO), which MadNkLO outputs do not
+        # have; bin/treatcards and bin/run_all.py use the madnklo repository.
 
+    def create_run_card(self):
+        """Create the canonical NLO run card used by the Torino runtime."""
 
-    #===========================================================================
-    # copy_python_files 
-    #===========================================================================        
-    def copy_python_files(self):
-        """copy python files required for the Template"""
-
-        files_to_copy = [ \
-          pjoin('interface','amcatnlo_run_interface.py'),
-          pjoin('interface','extended_cmd.py'),
-          pjoin('interface','common_run_interface.py'),
-          pjoin('interface','coloring_logging.py'),
-          pjoin('various','misc.py'),
-          pjoin('various','shower_card.py'),
-          pjoin('various','FO_analyse_card.py'),
-          pjoin('various','histograms.py'),      
-          pjoin('various','banner.py'),          
-          pjoin('various','cluster.py'),
-          pjoin('various','systematics.py'),          
-          pjoin('various','lhe_parser.py'),
-          pjoin('madevent','sum_html.py'),
-          pjoin('madevent','gen_crossxhtml.py'),          
-          pjoin('iolibs','files.py'),
-          pjoin('iolibs','save_load_object.py'),
-          pjoin('iolibs','file_writers.py'),
-          pjoin('..','models','check_param_card.py'),
-          pjoin('__init__.py')
-        ]
-        cp(_file_path+'/interface/.mg5_logging.conf', 
-                                 self.export_dir+'/bin/internal/me5_logging.conf')
-        
-        for cp_file in files_to_copy:
-            cp(pjoin(_file_path,cp_file),
-                pjoin(self.export_dir,'bin','internal',os.path.basename(cp_file)))
-
-    def create_NLO_run_card(self):
-        """ Create the run card."""
-        
-        NLO_run_card = banner_mod.RunCardNLO()
+        run_card = banner_mod.RunCardNLO()
 
         history = ''
         processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
         proc_characteristic = {
-            'ninitial':processes[0][0].get_ninitial(), 
-            'loop_induced': len(self.contributions.get_loop_induced_contributions()), 
+            'ninitial':processes[0][0].get_ninitial(),
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()),
             'colored_pdgs': range(1,7)+[21]}
 
-        NLO_run_card.create_default_for_process(proc_characteristic, history, processes[0])
-        
-        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
-        NLO_run_card.write(pjoin(self.export_dir, 'Cards', 'NLO_run_card_default.dat'), 
-            template=pjoin(self.export_dir, 'Cards', 'NLO_run_card.dat'), python_template=True )
+        run_card.create_default_for_process(proc_characteristic, history, processes[0])
+
+        # One hadron beam (e.g. e- p): create_default_for_process sets lpp = 1
+        # for both beams as soon as one initial-state parton is coloured; a
+        # beam whose initial-state particles are all leptons has no PDF
+        if processes[0][0].get_ninitial() == 2:
+            for ibeam in (0, 1):
+                ids = set(proc['legs'][ibeam]['id'] for proc in processes[0])
+                if ids and all(11 <= abs(i) <= 16 for i in ids):
+                    run_card['lpp%d' % (ibeam+1)] = 0
+
+        # Torino runtime: fixed renormalisation and factorisation scales by
+        # default (dynamical choices are selected in ren_scale.f:get_mur)
+        run_card['fixed_ren_scale'] = True
+        run_card['fixed_fac_scale'] = True
+
+        # Quark flavours counted as jet partons (cuts.f, analysis): not a
+        # run_card parameter in MadNkLO, setrun.f sets them to the massless
+        # quarks of the model (NF in coupl.inc). Do not write it to the card
+        # (create_default_for_process sets it for hadronic initial states).
+        run_card.user_set.discard('maxjetflavor')
+
+        # Hadron beams: the PDFs always come from LHAPDF (path to
+        # lhapdf-config in input/madnklo_config.txt, read by bin/run_all.py)
+        if run_card['lpp1'] != 0 or run_card['lpp2'] != 0:
+            run_card['pdlabel'] = 'lhapdf'
+            run_card['lhaid'] = 331100   # NNPDF40_nnlo_as_01180
+
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card.dat'),
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+        run_card.write(pjoin(self.export_dir, 'Cards', 'run_card_default.dat'),
+            template=pjoin(self.export_dir, 'Cards', 'run_card.dat'), python_template=True )
+
+        # Hadron beams: link LHAPDF already at output time, so that the
+        # executables can also be built by hand (make in a P1_* directory)
+        # before bin/run_all.py is ever run
+        if run_card['lpp1'] != 0 or run_card['lpp2'] != 0:
+            self.configure_lhapdf()
+
+    def configure_lhapdf(self):
+        """Hadron beams: write 'lhapdf' (path to lhapdf-config, from
+        input/madnklo_config.txt of the MadNkLO directory) in Source/make_opts,
+        link lib/PDFsets to the LHAPDF data directory and write
+        Source/lhapdf.stamp, as bin/run_all.py does (which redoes it, with
+        more checks, whenever the setting changes). Only warns if LHAPDF is
+        not configured: bin/run_all.py then stops with the instructions."""
+
+        config = pjoin(MG5DIR, 'input', 'madnklo_config.txt')
+        default = pjoin(MG5DIR, 'input', '.madnklo_config_default.txt')
+        if not os.path.isfile(config) and os.path.isfile(default):
+            shutil.copy(default, config)
+        options = {}
+        if os.path.isfile(config):
+            for line in open(config):
+                line = line.split('#', 1)[0].strip()
+                if '=' in line:
+                    name, value = line.split('=', 1)
+                    options[name.strip().lower()] = value.strip()
+        lhapdf = os.path.expanduser(options.get('lhapdf', ''))
+        if not lhapdf or not os.path.isfile(lhapdf) or not os.access(lhapdf, os.X_OK):
+            logger.warning('Hadron beams: no valid lhapdf-config in %s (lhapdf = %s). '
+                % (config, lhapdf if lhapdf else '') + 'Set it there, then run '
+                'bin/run_all.py once before compiling by hand.')
+            return
+        lhapdf = os.path.abspath(lhapdf)
+        datadir = os.path.expanduser(options.get('lhapdf_data_path', ''))
+        if not datadir:
+            try:
+                datadir = misc.Popen([lhapdf, '--datadir'], stdout=subprocess.PIPE
+                                     ).communicate()[0].strip()
+            except Exception:
+                datadir = ''
+        if not os.path.isdir(datadir):
+            logger.warning('Hadron beams: LHAPDF data directory %s not found: '
+                'check %s, then run bin/run_all.py once.' % (datadir, config))
+            return
+        common_run_interface.CommonRunCmd.update_make_opts_full(
+            pjoin(self.export_dir, 'Source', 'make_opts'),
+            {'lhapdf': lhapdf, 'lhapdfversion': '6'})
+        link = pjoin(self.export_dir, 'lib', 'PDFsets')
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(os.path.abspath(datadir), link)
+        open(pjoin(self.export_dir, 'Source', 'lhapdf.stamp'), 'w').write(lhapdf + '\n')
+        logger.info('Hadron beams: LHAPDF from %s, PDF sets in %s' % (lhapdf, datadir))
+
+    def rename_proc_card(self):
+        """Cards/proc_card_mg5.dat -> Cards/proc_card.dat"""
+        cards = pjoin(self.export_dir, 'Cards')
+        old, new = pjoin(cards, 'proc_card_mg5.dat'), pjoin(cards, 'proc_card.dat')
+        if os.path.isfile(old):
+            if os.path.exists(new):
+                os.remove(new)
+            os.rename(old, new)
+
+    def remove_empty_contribution_bins(self):
+        """Remove <contribution>/bin/internal and <contribution>/bin when empty
+        (the output's own bin/, with treatcards and run_all.py, is untouched)."""
+        for internal in glob.glob(pjoin(self.export_dir, '*', 'bin', 'internal')):
+            for path in (internal, os.path.dirname(internal)):
+                if os.path.isdir(path) and not os.path.islink(path) \
+                                                    and not os.listdir(path):
+                    os.rmdir(path)
+
+    def get_model_maxjetflavor(self, run_card):
+        """maxjetflavor raised (never lowered) to the number of massless
+        quarks of the model (NF in coupl.inc), as aMC@NLO does at run time
+        in setcuts.f. At most 5."""
+        return max(int(run_card['maxjetflavor']), min(5, self.model.get_nflav()))
+
+    def create_ME7_run_card(self):
+        """Build the export-time ME7 configuration without writing a second card."""
+
+        run_card = banner_mod.RunCardME7()
+
+        history = ''
+        processes = [[v[0] for v in contrib.get_processes_map().values()] for contrib in self.contributions]
+        proc_characteristic = {
+            'ninitial':processes[0][0].get_ninitial(),
+            'loop_induced': len(self.contributions.get_loop_induced_contributions()),
+            'colored_pdgs': range(1,7)+[21]}
+
+        run_card.create_default_for_process(proc_characteristic, history, processes)
+        run_card['maxjetflavor'] = self.get_model_maxjetflavor(run_card)
+
+        # Run-card values normally pass through the text parser, which strips
+        # quoting used by string defaults (for example, flavor_cuts).  Since
+        # this ME7-only card is kept in memory, perform the same normalization
+        # before constructing the integrands.
+        for name, value in run_card.items():
+            if isinstance(value, str):
+                run_card[name] = value
+        return run_card
 
     def finalize(self, flaglist, interface_history):
         """Distribute and organize the finalization of all contributions. """
@@ -1191,13 +1385,23 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Save all the global couplings to write out afterwards
         global_wanted_couplings = []
+        # Lorentz structures used by the tree-level contributions finalised so far
+        # (LO before NLO before NNLO): the real-emission directories link the
+        # lower-multiplicity matrix_*.f files for the counterterms, so their local
+        # DHELAS must also contain the HELAS routines these files call.
+        tree_lorentz = set()
         # Forward the finalize request to each contribution
         for contrib in self.contributions:
             # Must clean the aloha Kernel before each aloha export for each contribution
             aloha.aloha_lib.KERNEL.clean()
+            is_tree = (contrib.contribution_definition.n_loops == 0 and
+                       not contrib.has_beam_factorization())
             wanted_couplings_to_add_to_global = contrib.finalize(
-                flaglist=flaglist, interface_history=interface_history)
+                flaglist=flaglist, interface_history=interface_history,
+                extra_lorentz=(list(tree_lorentz) if is_tree else None))
             global_wanted_couplings.extend(wanted_couplings_to_add_to_global)
+            if is_tree and contrib.all_matrix_elements is not None:
+                tree_lorentz.update(contrib.all_matrix_elements.get_used_lorentz())
 
         # Generate the global ME7 MODEL
         if global_wanted_couplings:
@@ -1218,13 +1422,24 @@ class ME7ExporterTorino(ME7Exporter):
             contrib.remove_superfluous_content()
             contrib.link_global_ME7_resources(self.export_dir)
 
-        # Create the run_card
-        # TODO: choice which run_card to use
-        self.create_NLO_run_card()
+        # Create the single canonical NLO run card.
         self.create_run_card()
+
+        # The process card (the MG5 commands that generated this output,
+        # written by each contribution's finalize as proc_card_mg5.dat) is
+        # called proc_card.dat in MadNkLO.
+        self.rename_proc_card()
+
+        # Empty bin/internal (and then empty bin) folders that the standalone
+        # exporter creates in each contribution folder: nothing uses them.
+        self.remove_empty_contribution_bins()
 
         # Add the cards generated in MODEL to the Cards directory
         self.copy_model_resources()
+        # Zero the width of any on-shell (stable) heavy quarks appearing in the
+        # final state (e.g. top quark in e- ve~ > t b~).  An on-shell final-state
+        # particle has no decay chain and its width must be 0 for IR-safety.
+        self.set_onshell_particle_widths_to_zero()
         # Now link the Sources files within each contribution
         for contrib in self.contributions:
             contrib.make_model_symbolic_link()
@@ -1268,7 +1483,7 @@ class ME7ExporterTorino(ME7Exporter):
 
         # Now generate all the integrands from the contributions exported
         all_integrands = []
-        run_card = banner_mod.RunCardME7(pjoin(self.export_dir,'Cards','run_card.dat'))
+        run_card = self.create_ME7_run_card()
 
         # We might want to recover whether prefix was used when importing the model and whether
         # the MG5 name conventions was used. But this is a detail that can easily be fixed later.
@@ -1284,6 +1499,10 @@ class ME7ExporterTorino(ME7Exporter):
 
         ME7_options = dict(self.options)
         ME7_options['me_dir'] = self.export_dir
+        # The Python integrands are only used here to identify sectors and
+        # counterterms: the Fortran code evaluates the PDFs itself, so the
+        # Python LHAPDF interface is not loaded (hadronic initial states)
+        ME7_options['skip_python_pdf'] = True
         for contrib in self.contributions:
             all_integrands.extend(
                 contrib.get_integrands(

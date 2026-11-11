@@ -43,8 +43,6 @@ c     TODO: understand x(mxdim) definition by Vegas
       double precision ptilde(0:3,nexternal-2)
       double precision xjac,xjacB,xjacCS1
       double precision xsave(3)
-      double precision sCM
-      common/cscm/sCM
       common/cxsave/xsave
       integer nitr
       common/iterations/nitr
@@ -55,6 +53,10 @@ c     TODO: understand x(mxdim) definition by Vegas
       integer, parameter :: hel=-1
       integer ich
       common/comich/ich
+      integer nfail
+      character*8 failure_stage
+      common/cfailure_count/nfail
+      common/cfailure_stage/failure_stage
       double precision  amp2(n_max_cg)
       common/to_amp2/amp2
       logical firsttime
@@ -73,16 +75,6 @@ C     call initialisation function
         firsttime=.false.
       endif
 c
-c     TODO: convert to partonic sCM
-      sCM = (2d0*EBEAM(1))**2
-      IF(SCM.LE.0D0)THEN
-        WRITE(*,*) 'Wrong sCM', SCM
-        STOP
-      ENDIF
-c
-c     TODO: muR from card
-      ALPHAS=ALPHA_QCD(ASMZ,NLOOP,SCALE)
-c
 c     initialise
       xjac = 0d0
       xjacB = 0d0
@@ -93,26 +85,32 @@ c     initialise
       WGT_CHAN=1D0
 c
 c     phase space and invariants
-      call phase_space_npt(x,sCM,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
+      call phase_space_npt(x,iU1,iS1,iB1,iA1,iU2,iS2,iB2,iA2,p,pb,ptilde,xjac,xjacB,xjacCS1)
       if(xjac*xjacB*xjacCS1.eq.0d0) then
          write(77,*) 'int_double_real: '
          write(77,*) 'Jacobians = 0 in phase space ', xjac, xjacB, xjacCS1
          goto 999
       endif
       call invariants_from_p(p,nexternal,sNNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NNLO invariants ', sNNLO
          goto 999
       endif
       call invariants_from_p(pb,nexternal-1,sNLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong NLO invariants ', sNLO
          goto 999
       endif
       call invariants_from_p(ptilde,nexternal-2,sLO,ierr)
-      if(ierr.eq.1) then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Wrong LO invariants ', sLO
          goto 999
@@ -131,6 +129,10 @@ c     test phase-space singularities of matrix elements
          ntested=ntested+1
          call test_RR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(iunit,x)
       endif
+c
+c     renormalisation scale for the (n+2)-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
 c
 c     double real
       call %(proc_prefix_rr)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
@@ -157,7 +159,9 @@ c      if(doplot)call histo_fill(p,sNNLO,nexternal,leg_pdgs,wgtpl)
 c
 c     counterterm
       call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
-      if(ierr.eq.1)then
+      if(ierr.ne.0) then
+         nfail=nfail+1
+         write(77,*)'ierr failure: RR',ierr,ich,failure_stage
          write(77,*) 'int_double_real: '
          write(77,*) 'Something wrong in the counterterm', KNNLO
          goto 999
@@ -196,6 +200,8 @@ c
       common/csecindices/asec,bsec,csec,dsec
       integer real_leg_pdgs(nexternal-1),born_leg_pdgs(nexternal-2)
       common/C_NNLO_U_PDGS/real_leg_pdgs,born_leg_pdgs
+      double precision C_i(nexternal)
+      common/ccasimirs/C_i
       include 'all_sector_list.inc'
 
 C
@@ -226,11 +232,12 @@ c     configuration files
       call props_%(str_UBorn)s
       call decaybw_%(str_UBorn)s
       call getleshouche_%(str_UBorn)s
+      call get_casimirs
 c
-c     fill underlying pdgs, labels and flavours
+c     fill underlying pdgs, labels, flavours
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-1,real_leg_pdgs)
       call get_underlying_pdgs(asec,bsec,csec,dsec,nexternal-2,Born_leg_pdgs)
-
+c
 c     initialisation for mapping-label common block
 c     initialise labels for RR mapping (iU1,iS1,iB1; iU2,iS2,iB2)
       real_pair_done=.false.
@@ -244,8 +251,8 @@ c     fill bar_indices for barred sector functions
          i1=all_sector_list(1,i)
          i2=all_sector_list(2,i)
          if(i1.eq.asec.and.i2.eq.bsec) then
-            ib3=real_labels(all_sector_list(3,i),asec,bsec)
-            ib4=real_labels(all_sector_list(4,i),asec,bsec)
+            ib3=real_labels(all_sector_list(3,i),iU1,iS1)
+            ib4=real_labels(all_sector_list(4,i),iU1,iS1)
             bar_indices(j) = ib3
             bar_indices(j+1) = ib4
          endif

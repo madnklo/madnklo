@@ -57,10 +57,11 @@ c
       double precision p(0:3,nexternal)
       double precision pb(0:3,nexternal-1)
       double precision xjac,xjacB
+      double precision sCM
+      common/cscm/sCM
       DOUBLE PRECISION ANS(0:1) !TODO SET CORRECTLY RANGE OF ANS
       DOUBLE PRECISION ALPHAS, ALPHA_QCD
       DOUBLE PRECISION WGT,WGTPL,wgt_chan
-      DOUBLE PRECISION SCM
       INTEGER, PARAMETER :: HEL=-1
       integer %(NNLO_RV_proc_str)sfl_factor
       common/%(NNLO_RV_proc_str)sflavour_factor/%(NNLO_RV_proc_str)sfl_factor
@@ -78,8 +79,6 @@ c
       integer nsquaredso_loop
       real*8 , allocatable :: prec_found(:)
 
-      ALPHAS=ALPHA_QCD(AS,NLOOP,MU_R)
-      SCM = (2D0*EBEAM(1))**2
 c
 c     initialise
       str5 ='     '
@@ -112,12 +111,14 @@ c     TODO: this rescaling is specific for (ijr) mapping; generalise
          xr(1:2)=abs(l(1:2)-x0(1:2)*lam**(e(1:2)/CSpow(1:2)))
 c
 c     recompute momenta after rescaling
-         call phase_space_npo(xr,sCM,iU,iS,iB,iA,p,pb,xjac,xjacB)
+         call phase_space_npo(xr,iU,iS,iB,iA,p,pb,xjac,xjacB)
          if(xjac.eq.0d0.or.xjacb.eq.0d0)cycle
          call invariants_from_p(p,nexternal,sNLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
          call invariants_from_p(pb,nexternal-1,sLO,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
+         sCM=sNLO(1,2)
+         if(sCM.le.0d0.or.abs(sCM-sLO(1,2))/sCM.gt.1d-8)cycle
 c
 c     real virtual
       if (inittest) then
@@ -128,6 +129,9 @@ c     real virtual
          allocate(prec_found(0:nsquaredso_loop))
       endif
 c
+c     renormalisation scale for the (n+1)-body kinematics
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
+      alphas=alphas_current
       call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
       RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       RVNNLO = RVNNLO* %(NNLO_RV_proc_str)sfl_factor
@@ -138,7 +142,7 @@ c
 c
 c     counterterm
       call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,xr,KRVNNLO,wgt_chan,ierr)
-         if(ierr.eq.1)cycle
+         if(ierr.ne.0)cycle
 
          lim=KRVNNLO
          single_real=RVNNLO*W_NLO*xjac

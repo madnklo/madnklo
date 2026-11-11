@@ -69,7 +69,9 @@ c
       if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
 c
 c     overall kernel prefix
-      alphas=alpha_QCD(asmz,nloop,scale)
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
       pref=64d0*pi**2*alphas**2
 c
 c     invariant quantities
@@ -109,7 +111,10 @@ c     include correct multiplicity and flavour factors
       M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
       M2tmp = M2tmp*%(proc_prefix_rr)s_fl_factor
       M2_SS_qqx_CC_qxqq=M2tmp*pref*xj*extra ! eq.(C.16)
+c
       if(test_sector_function) M2_SS_qqx_CC_qxqq = wss_cc_nnlo
+c
+      CALL CT_LOG('KSS_CC                 ',M2_SS_qqx_CC_qxqq)
 c
 c     plot
       wgtpl=+M2_SS_qqx_CC_qxqq*wgt/nit*wgt_chan

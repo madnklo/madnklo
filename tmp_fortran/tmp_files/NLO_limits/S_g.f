@@ -9,12 +9,14 @@ c     it returns 0 if i is not a gluon
       include 'math.inc'
       include 'damping_factors.inc'
       include 'colored_partons.inc'
-      include 'leg_PDGS.inc'
+      include 'leg_PDGs.inc'
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
+      include 'qcd_power.inc'
       integer i,l,m,lb,mb,ierr,nit
-      double precision pref,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision pref,M2tmp,wgt,wgts(sv_maxwgt),wgtpl,wgt_chan,xj,xjB,xjCS
+      double precision svpc
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
@@ -46,6 +48,11 @@ c     external
       common/c_mapped_labels/mapped_labels
       logical sig2_called
       common/c_sig2_called/sig2_called
+c     channel decomposition (run_card channel_decomposition): when
+c     ldip is nonzero, only the dipole (l,m) = (ldip,mdip) is
+c     evaluated
+      integer ldip,mdip
+      common/c_chan_dipole/ldip,mdip
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -69,9 +76,8 @@ c     call w soft
       if(.not.sig2_called)call get_sig2(xs,nexternal)
       call get_ws_nlo(isec,jsec)
 c
-c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-8d0*pi*alphas
+c     overall kernel prefix: set inside the dipole loop, where the
+c     renormalisation scale is evaluated on each dipole's mapped kinematics
 c
 c     eikonal double sum
 c      do m=1,nexternal
@@ -87,6 +93,7 @@ c            if(l.eq.m)cycle
          do l=m+1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.i)cycle
+            if(ldip.ne.0.and.(l.ne.ldip.or.m.ne.mdip))cycle
 c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
@@ -113,6 +120,11 @@ c     safety check
                goto 999
             endif
 c
+c     renormalisation scale for this dipole's mapped n-body kinematics
+            call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
+            alphas=alphas_current
+            pref=-8d0*pi*alphas
+c
 c     call colour-connected Born
             call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             lb=mapped_labels(l)
@@ -124,11 +136,16 @@ c     eikonal
             M2tmp = ccblo*M2tmp * 2d0
 c
 c     damping factors
+            if(alpha.ne.0d0.and.(pmass(l).ne.0d0.or.pmass(m).ne.0d0))then
+               write(*,*)'M2_S_g: damping (alpha) not available for'
+               write(*,*)'dipoles with massive partons: set alpha=0'
+               stop
+            endif
             if(m.gt.2.and.l.gt.2)then
                y=sil/(sil+sim+slm)
                z=sim/(sim+slm)
                damp=((1d0-y)*(1d0-z))**alpha
-            elseif(m.gt.2.and.l.le.2)then
+            elseif(m.le.2.and.l.gt.2)then
                z=sim/(sim+slm)
                x=1d0 - sil/(sim+slm)
                damp=((1d0-z)*x)**alpha
@@ -139,12 +156,18 @@ c     damping factors
             M2tmp=M2tmp*damp*xj
             M2_S_g=M2_S_g+pref*M2tmp*ws_nlo*extra
 c
+c     renormalisation-scale variations: contribution of this dipole
+c     to the integrand (-K), ~ alpha_s^(b+1) at the dipole's scale
+            svpc=-pref*M2tmp*WS_NLO*extra*wgt_chan
+            svpc=svpc*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            call sv_add(svpc,0d0,born_qcd_power+1)
+c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt*wgt_chan
             wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
-            wgts=wgtpl
-            if(doplot)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
+            call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
+            if(doplot.and.wgtpl.ne.0d0)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
          enddo
       enddo

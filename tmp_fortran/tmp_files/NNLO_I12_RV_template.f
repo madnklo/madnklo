@@ -48,10 +48,13 @@ c     DOUBLE_POLE = I12NNLO(-2)
       include 'pmass.inc'
 c
 c     initialise
-      alphas=alpha_qcd(asmz,nloop,mu_r)
-      pref=8d0*pi*alphas
-c
-c     TODO: check
+c     renormalisation scale: taken from the input (n+1)-body momenta p.
+c     TODO: once the mapping to xpb is implemented here, set the scale
+c     from xpb right before the matrix-element calls instead.
+      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix_real)s)
+      alphas=alphas_current
+      pref=alphas/(2d0*pi)
+
       iref1 = 0
       do i=1,len_iref
          iref1(iref(1,i)) = iref(2,i)

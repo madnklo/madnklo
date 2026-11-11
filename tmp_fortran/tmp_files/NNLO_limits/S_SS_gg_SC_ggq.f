@@ -1,5 +1,5 @@
 
-      double precision function M2_S_SS_gg_SC_ggq(i,j,k,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+      double precision function M2_S_SS_gg_SC_ggq(itmp,jtmp,ktmp,r,xs,xp,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
 c     S(i) S(i,k) SC(i,k,l) kernel times WS_SS_SC
       use sectors4_module
       implicit none
@@ -13,7 +13,7 @@ c     S(i) S(i,k) SC(i,k,l) kernel times WS_SS_SC
       include 'nsqso_born.inc'
       include 'input.inc'
       include 'run.inc'
-      integer i,j,k,r,a,b,m,ierr,nit
+      integer i,j,k,r,a,b,m,ierr,nit,itmp,jtmp,ktmp
       integer ib,ab,bb,rb,mb,bbb,mbb
       double precision M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjB,xjCS1,xjCS2
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1),xsbb(nexternal-2,nexternal-2)
@@ -24,6 +24,7 @@ c     S(i) S(i,k) SC(i,k,l) kernel times WS_SS_SC
       double precision pref,extra,damp
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
+      logical flavourmatch_ijjk,flavourmatch_ijkj
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
@@ -58,20 +59,37 @@ c     initialise
       damp=1d0
 c
 c     check sector topology
-      if(bsec.ne.csec) then
+      if(bsec.ne.csec.and.bsec.ne.dsec) then
         write (*,*) 'Wrong topology in M2_S_SS_gg_SC_ggq',asec,bsec,csec,dsec
         stop 1
       endif
 c
 c     check flavour match
-      if(leg_pdgs(i).eq.0 .or. leg_pdgs(i).ne.leg_pdgs(j)) then
-        write(*,*) 'Flavour mismatch in M2_S_SS_gg_SC_ggq', leg_PDGs(i),leg_PDGs(j)
+      flavourmatch_ijjk = leg_PDGs(itmp).eq.leg_PDGs(jtmp).and.abs(leg_PDGs(ktmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(ktmp)
+      flavourmatch_ijkj = leg_PDGs(itmp).eq.leg_PDGs(ktmp).and.abs(leg_PDGs(jtmp)).le.5.and.leg_PDGs(itmp).ne.leg_PDGs(jtmp)
+      if(leg_pdgs(itmp).eq.0 .or. .not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_S_SS_gg_SC_ggq',leg_PDGs(itmp),leg_PDGs(jtmp),leg_PDGs(ktmp)
         stop 1
       endif
 c
+c     rearrange the flavours to always land at ggq
+      if(abs(leg_PDGs(itmp)).le.5)then
+        i = ktmp
+        j = jtmp
+        k = itmp
+      elseif(abs(leg_PDGs(jtmp)).le.5)then
+        i = itmp
+        j = ktmp
+        k = jtmp
+      else
+        i = itmp
+        j = jtmp
+        k = ktmp
+      endif
+c
 c     overall kernel prefix
-      alphas=alpha_qcd(asmz,nloop,scale)
-      pref=-2d0*(8d0*pi*alphas)**2
+c     renormalisation scale and prefactor: set right before each matrix
+c     element below, on the remapped kinematics passed to it
 c
       a = csec
       b = dsec
@@ -108,7 +126,7 @@ c       underlying born configuration is remapped
         sbar = xsb(ab,rb)
         sbbr = xsb(bb,rb)
         if(sbab.lt.0d0.or.sbar.lt.0d0.or.sbbr.lt.0d0) then
-          write(77,*)'Inaccuracy 2 in M2_S_SC_ggq',sbab,sbar,sbbr
+          write(77,*)'Inaccuracy 2 in M2_S_SS_gg_SC_ggq',sbab,sbar,sbbr
           goto 999
         endif
         Eba_br = sbbr/sbab/sbar
@@ -119,6 +137,10 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-2d0*(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO_ima_bra = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c
@@ -142,7 +164,7 @@ c       gtpl)
       enddo
 c
 c     mapping 2: [imb,arb]
-
+c
 c     fill mapped labels
       call fill_real_mapped_labels(i,b,leg_pdgs,real_leg_pdgs)
       call fill_born_mapped_labels(real_labels(a,i,b),real_labels(b,i,b),real_leg_pdgs,born_leg_pdgs)
@@ -167,7 +189,7 @@ c       underlying born configuration is remapped
         sbar = xsb(ab,rb)
         sbbr = xsb(bb,rb)
         if(sbab.lt.0d0.or.sbar.lt.0d0.or.sbbr.lt.0d0) then
-          write(77,*)'inaccuracy 2 in m2_s_sc_ggq',sbab,sbar,sbbr
+          write(77,*)'Inaccuracy 2 in M2_S_SS_gg_SC_ggq',sbab,sbar,sbbr
           goto 999
         endif
         Eba_br = sbbr/sbab/sbar
@@ -178,6 +200,10 @@ c       possible cuts
         if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))cycle
 c
 c       call colour-connected born matrix element
+c     renormalisation scale for the remapped kinematics xpbb
+        call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+        alphas=alphas_current
+        pref=-2d0*(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO_imb_arb = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
 c

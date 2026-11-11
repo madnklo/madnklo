@@ -11,6 +11,19 @@ c     START THE CODE
 c-------------------      
 
       nloop=2 ! NLO running unless set otherwise
+c
+c     MadNkLO: with hadron beams the PDFs always come from LHAPDF, and
+c     this built-in library is only compiled when Source/make_opts has
+c     no 'lhapdf' (lepton beams), so it must never be used
+      write(*,*)'Hadron beams, but this executable was built ',
+     &     'without LHAPDF.'
+      write(*,*)'Set lhapdf (path to lhapdf-config) in ',
+     &     'input/madnklo_config.txt of the MadNkLO directory and run'
+      write(*,*)'bin/run_all.py once: it writes lhapdf in ',
+     &     'Source/make_opts, links lib/PDFsets and rebuilds the'
+      write(*,*)'libraries (after that, make and ./Born also work ',
+     &     'by hand).'
+      stop 1
 
 C
 c  MRST2002

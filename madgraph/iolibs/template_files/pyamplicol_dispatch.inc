@@ -193,7 +193,7 @@ C Snapshot inputs so later selection/reset calls cannot change an evaluation.
                IF(COUNT.EQ.0) EXIT
                CALL MNK_PYAMP_LEGACY_MANY(MNK_N,MNK_NINITIAL,MNK_PDGS,LAST_P,LAST_AS,COUNT,CA,CB,NSPIN,SAVED_LEGS(:,R),SAVED_VECTORS(:,:,R),OUTPUT)
                DO I=1,COUNT
-                  CALL %(proc_prefix)sPYAMP_REAL(OUTPUT(:,I),BORN_SCALE,VALUE)
+                  CALL %(proc_prefix)sPYAMP_REAL(OUTPUT(:,I),0D0,VALUE)
                   TABLE(INDICES(I),1)=TABLE(INDICES(I),1)+VALUE
                ENDDO
             ENDDO
@@ -210,7 +210,7 @@ C Snapshot inputs so later selection/reset calls cannot change an evaluation.
          DO R=1,NRUN
             NSPIN=SAVED_NSPIN(R)
             CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,LAST_P,LAST_AS,ID,LEN_TRIM(ID),NSPIN,SAVED_LEGS(:,R),SAVED_VECTORS(:,:,R),PAIR)
-            CALL %(proc_prefix)sPYAMP_REAL(PAIR,BORN_SCALE,VALUE)
+            CALL %(proc_prefix)sPYAMP_REAL(PAIR,0D0,VALUE)
             BORN_VALUE=BORN_VALUE+VALUE
          ENDDO
          VALUE=BORN_VALUE
@@ -245,7 +245,7 @@ C Keep complex parts until the Hermitian combination has been assembled.
                OUTPUT(:,1)=OUTPUT(:,1)+PAIR
             ENDDO
          ENDDO
-         CALL %(proc_prefix)sPYAMP_REAL(OUTPUT(:,1),BORN_SCALE,VALUE)
+         CALL %(proc_prefix)sPYAMP_REAL(OUTPUT(:,1),0D0,VALUE)
 ## }
       ELSE
          WRITE(*,*) 'pyAmpliCol: invalid dispatch mode'

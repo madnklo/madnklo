@@ -55,6 +55,11 @@
 #!  0: No time limit
 # timeout = 60
 
+#! Matrix-element provider at export time: madgraph or pyamplicol (trees and virtuals).
+#!  None preserves legacy MADNKLO_*_PROVIDER settings, otherwise defaults to madgraph.
+#!  An output --me_provider=... flag overrides this setting.
+# me_provider = None
+
 #! Pythia8 path.
 #!  Defines the path to the pythia8 installation directory (i.e. the
 #!  on containing the lib, bin and include directories) .

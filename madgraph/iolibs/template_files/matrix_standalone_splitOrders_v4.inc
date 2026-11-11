@@ -27,12 +27,15 @@ CF2PY INTENT(OUT) :: ANS
       INTEGER %(proc_prefix)sDEN
       COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
 
+%(pyamp_declarations)s
+%(pyamp_hook_declarations)s
 %(flav_factor_line)s
 
 C ----------
 C BEGIN CODE
 C ----------
 
+%(pyamp_hook_check)s
       IF (USER_ALPHAS.gt.0.0d0) THEN
  	    THIS_G = 2* DSQRT(USER_ALPHAS*PI)
  	    IF (THIS_G.ne.G) THEN
@@ -41,7 +44,11 @@ C ----------
         ENDIF
       ENDIF
 
+## if (pyamplicol_tree) {
+%(pyamp_evaluate)s
+## } else {
 	  CALL %(proc_prefix)sSMATRIXHEL_SPLITORDERS(P,HEL,ANS)
+## }
 
 	  END
       
@@ -667,7 +674,10 @@ CF2PY INTENT(IN) :: ALPHAS
 C     ROUTINE FOR F2PY to read the benchmark point.    
 C     the include file with the values of the parameters and masses 
       include "coupl.inc"
-      
+%(pyamp_get_me_declarations)s
+## if (pyamplicol_tree) {
+%(pyamp_get_me)s
+## } else {
       pi = 3.141592653589793d0
       G = 2* DSQRT(ALPHAS*pi)
       call UPDATE_AS_PARAM()
@@ -676,6 +686,7 @@ C     the include file with the values of the parameters and masses
       else
         CALL %(proc_prefix)sSMATRIX(P, ANS)
       endif
+## }
       return 
       end
 
@@ -686,6 +697,7 @@ C     ROUTINE FOR F2PY to read the benchmark point.
 CF2PY INTENT(IN) :: PATH
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found
       call setpara2(PATH)  !first call to setup the paramaters    
+%(pyamp_initialise)s
       return 
       end
 
@@ -769,12 +781,16 @@ C Index 0 is the number of correlators to consider and the next indices are whic
         INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)        
         REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:NSQAMPSO)                
         COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
-        
+
+## if (pyamplicol_tree) {
+%(pyamp_table)s
+## } else {
         DO CCI=1,NCOLORCORRELATORS
           DO J=0,NSQAMPSO
             CORRELATED_MES(CCI, J) = COLOR_CORRELATED_EVALS(CCI, J)
           ENDDO
         ENDDO
+## }
 
       END
       
@@ -866,6 +882,7 @@ C ----------
 C BEGIN CODE
 C ----------
 
+%(pyamp_add_color_guard)s
 	   IF (COLOR_CORRELATORS_TO_CONSIDER(0).ge.NCOLORCORRELATORS) THEN
 	     WRITE(*,*) 'Cannot add more color correlators to consider than there are color correlators.'
 	     STOP
@@ -908,6 +925,7 @@ C       Index 0 is the number of correlators to consider and the next indices ar
         REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:NSQAMPSO)                
         COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
         
+%(pyamp_set_color_guard)s
         NCC_TO_CONSIDER = 0
         
 C       First reset the array
@@ -971,12 +989,17 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
       INTEGER COLOR_DIPOLES(2,NCOLORCORRELATORS)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
+%(pyamp_declarations)s
+## if (pyamplicol_tree) {
+%(pyamp_color)s
+## } else {
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
             %(proc_prefix)sGET_CCBLO = COLOR_CORRELATED_EVALS(I,1)
             EXIT 
          ENDIF
       ENDDO
+## }
       RETURN
       END FUNCTION
 ## }
@@ -1006,7 +1029,10 @@ C --------------------------------------------------------------
       DATA SCVECTORS/NENTRIES*.0D0/
       INTEGER NVECTOR_TO_TRY_PER_LEG
       PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
-
+%(pyamp_declarations)s
+## if (pyamplicol_tree) {
+%(pyamp_spin)s
+## } else {
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
       DO I=1,4
@@ -1019,6 +1045,7 @@ C --------------------------------------------------------------
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
+## }
       return
       end function 
       
@@ -1068,11 +1095,13 @@ C       The integer -1000 will indicate to simply keep the original helicity pol
         DATA N_SPIN_CORR_RUNS/0/
 
       	INTEGER NEW_SPIN_CORR_RUNS(0:MAX_SPIN_CORR_RUNS,NEXTERNAL)
+%(pyamp_declarations)s
 
 C       ----------
 C       BEGIN CODE
 C       ----------
 
+%(pyamp_set_spin_guard)s
 C       Make sure the user does not try to set the spin-correlation vectors of a leg again
         IF (N_SPIN_CORR_VECTORS(LEG_INDEX).ne.0) THEN
           WRITE(*,*) 'Cannot define for a second time the spin-correlation vectors of a lef. Call the subroutine %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS() first.'
@@ -1234,3 +1263,5 @@ C
 %(color_connections_to_index)s
 
 ## }
+
+%(pyamp_helpers)s

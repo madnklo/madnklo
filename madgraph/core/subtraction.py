@@ -2550,7 +2550,8 @@ class IRSubtraction(object):
             momenta_dict[parent_number] = frozenset(child.n for child in children)
         return parent_number
 
-    def get_sectors(self, contrib_definition, process_map, counterterms=None, integrated_counterterms=None):
+    def get_sectors(self, contrib_definition, process_map, counterterms=None,
+                    integrated_counterterms=None, export_options=None):
         """ Given a particular contribution definition, its process_map and the counterterms contained, this
         uses the subtraction module to build, for each defining process, the sectors to consider (or None if the subtraction
         does not require any) as well as the list of counterterms to consider for each of them.
@@ -2583,7 +2584,8 @@ class IRSubtraction(object):
             sectors[process_key] = self.subtraction_scheme_module.sector_generator(
                 contrib_definition, defining_process,
                 None if counterterms is None else counterterms[process_key],
-                None if integrated_counterterms is None else integrated_counterterms[process_key] )
+                None if integrated_counterterms is None else integrated_counterterms[process_key],
+                export_options=export_options)
 
         return sectors
 

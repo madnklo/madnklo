@@ -48,6 +48,14 @@ C ----------
 C BEGIN CODE
 C ----------
 
+## if (pyamplicol_virtual) {
+      IF (.NOT.(USER_ALPHAS.GT.0.0D0.AND.USER_MU_R.GT.0.0D0)) THEN
+         WRITE(*,*) 'pyAmpliCol: alpha_s and mu_r must be positive'
+         STOP 1
+      ENDIF
+      CALL UPDATE_AS_PARAM2(USER_MU_R,USER_ALPHAS)
+## }
+## if (not pyamplicol_virtual) {
 	  IF (USER_ALPHAS.gt.0.0d0.and.MU_R.gt.0.0d0) THEN
 	  	THIS_G = SQRT(4.0D0*PI*USER_ALPHAS)
 	  	IF (THIS_G.ne.G.or.USER_MU_R.ne.MU_R) THEN
@@ -55,6 +63,7 @@ C ----------
 	      CALL MP_UPDATE_AS_PARAM()
 	    ENDIF
 	  ENDIF
+## }
 
       CALL %(proc_prefix)sSLOOPMATRIXHEL_THRES(P,HEL,ANS,PREC_ASKED,PREC_FOUND,RET_CODE)
 
@@ -727,6 +736,9 @@ C
 C ----------
 C BEGIN CODE
 C ----------
+## if (pyamplicol_virtual) {
+%(pyamp_virtual_hel_threshold)s
+## } else {
       USER_STAB_PREC = PREC_ASKED
 
       CALL %(proc_prefix)sSLOOPMATRIXHEL(P,HEL,ANS)
@@ -746,6 +758,7 @@ C Reset it to default value not to affect next runs
 	    PREC_FOUND(I)=ACCURACY(I)
 	  ENDDO
       RET_CODE=100*H+10*T+U
+## }
 
 	  END
 
@@ -844,6 +857,9 @@ C
 C ----------
 C BEGIN CODE
 C ----------
+## if (pyamplicol_virtual) {
+%(pyamp_virtual_threshold)s
+## } else {
       USER_STAB_PREC = PREC_ASKED
       CALL %(proc_prefix)sSLOOPMATRIX(P,ANS)
 	  IF(ALWAYS_TEST_STABILITY.AND.(H.eq.1.OR.ACCURACY(0).lt.0.0d0)) THEN
@@ -861,6 +877,7 @@ C Reset it to default value not to affect next runs
 	    PREC_FOUND(I)=ACCURACY(I)
 	  ENDDO
 	  RET_CODE=100*H+10*T+U
+## }
 
 	  END
 	  
@@ -892,6 +909,9 @@ C --------------------------------------------------------------
       double precision KT(0:3)
       double precision MATELEMS(0:3,0:NSQAMPSO)
       double precision KKVNLO(-2:0)
+## if (pyamplicol_virtual) {
+CF2PY INTENT(OUT) :: KKVNLO
+## }
       
       INCLUDE '%(proc_prefix)sspin_correlations.inc'
       INTEGER NENTRIES
@@ -899,7 +919,12 @@ C --------------------------------------------------------------
       REAL*8 SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4)
       DATA SCVECTORS/NENTRIES*.0D0/
       INTEGER NVECTOR_TO_TRY_PER_LEG
+## if (pyamplicol_virtual) {
+      PARAMETER(NVECTOR_TO_TRY_PER_LEG=1)
+## }
+## if (not pyamplicol_virtual) {
       PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
+## }
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
@@ -909,7 +934,14 @@ C --------------------------------------------------------------
 
       CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       CALL %(proc_prefix)sSLOOPMATRIX(PB,MATELEMS)
+## if (pyamplicol_virtual) {
+      KKVNLO(-2)=MATELEMS(3,0)
+      KKVNLO(-1)=MATELEMS(2,0)
+      KKVNLO(0)=MATELEMS(1,0)
+## }
+## if (not pyamplicol_virtual) {
       KKVNLO = MATELEMS(1:3,0)
+## }
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
@@ -1128,6 +1160,9 @@ C     corresponding COLOR_CORRELATED_EVALS value
       INTEGER I,J
       INTEGER LEG_A, LEG_B
       DOUBLE PRECISION CCVNLO(-2:0)
+## if (pyamplicol_virtual) {
+CF2PY INTENT(OUT) :: CCVNLO
+## }
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
       INTEGER NSQAMPSO
@@ -1138,14 +1173,26 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
       INTEGER COLOR_DIPOLES(2,NCOLORCORRELATORS)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
+## if (pyamplicol_virtual) {
+      LOGICAL MNK_VALID
+      COMMON/%(proc_prefix)sPYAMP_VALID/MNK_VALID
+      IF (.NOT.MNK_VALID) THEN
+         WRITE(*,*) 'pyAmpliCol: evaluate the virtual before its colour getter'
+         STOP 1
+      ENDIF
+## }
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
 	 do j=-2,0	 
             CCVNLO(j) = COLOR_CORRELATED_EVALS(I,1-j,1)
 	 enddo     	
-            EXIT
+            RETURN
          ENDIF
       ENDDO
+## if (pyamplicol_virtual) {
+      WRITE(*,*) 'pyAmpliCol: unknown virtual colour dipole',LEG_A,LEG_B
+      STOP 1
+## }
       RETURN
       END SUBROUTINE %(proc_prefix)sGET_CCVNLO
 

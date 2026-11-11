@@ -26,6 +26,7 @@ from madgraph.iolibs.files import cp, ln, mv
 from itertools import permutations
 
 import madgraph.iolibs.export_v4 as export_v4
+from madgraph.iolibs.pyamplicol import selected_provider
 import madgraph.iolibs.export_ME7 as export_ME7
 import madgraph.interface.madgraph_interface as interface
 import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors as sectors
@@ -592,7 +593,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             replace_dict_limits['V_long_proc_prefix'] = proc_V_pref
             file = open(NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
-            writer(filename).writelines(file)
+            writer(filename).writelines(file, context={
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
             os.system('rm ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
 
             ###
@@ -626,7 +628,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             filename = pjoin(dirpath, 'NNLO_I12_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_I12_RV_template.f")).read()
             file = file % replace_dict_limits
-            writer(filename).writelines(file)
+            writer(filename).writelines(file, context={
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
 
             # write testRV
             self.write_testRV_template_file(writer, dirpath, dirmadnklo, defining_process,
@@ -998,6 +1001,9 @@ c     spurious collinear limit
                 proc_str += ' matrix_' + born_str + '.o'
                 seen_born.add(born_str)
 
+        if selected_provider('virtual', options=self.export_options) == 'pyamplicol':
+            proc_str += '\nPYAMP_VIRTUAL_RENAMED_CORE = matrix_%s.o\n' % defining_process.shell_string(
+                schannel=True, forbid=True, main=False, pdg_order=False, print_id=False)
         replace_dict['proc_str'] = proc_str
 
         for i in range(0,len(overall_sector_info)):

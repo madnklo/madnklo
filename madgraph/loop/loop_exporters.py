@@ -691,7 +691,12 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         TIRCaching = AmplitudeReduction or n_squared_split_orders>1
         MadEventOutput = False
 
-        return {'color_correlation' : ColorCorrelation,
+        from madgraph.iolibs.pyamplicol import selected_provider
+        pyamp_virtual = selected_provider('virtual', options=self.opt) == 'pyamplicol'
+        if pyamp_virtual and self.template_dir != os.path.join(_file_path,'iolibs/template_files/loop_optimized'):
+            raise ValueError('pyAmpliCol virtual routing requires optimized standalone output')
+        return {'pyamplicol_virtual': pyamp_virtual,
+                'color_correlation' : ColorCorrelation,
                 'spin_correlation' : SpinCorrelation,
                 'LoopInduced': LoopInduced,
                 'ComputeColorFlows': ComputeColorFlows,
@@ -2556,11 +2561,21 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, SYSTEM_SPIN_CORR_VECTORS, N_SP
 
         replace_dict['loop_str'] = loop_str
 
+        from madgraph.iolibs.pyamplicol_virtual_export import virtual_code
+        replace_dict.update(virtual_code(matrix_element, self.dir_path, replace_dict,
+            color_order=(self.opt['color_correlators'] or '').count('N'),
+            spin_order=(self.opt['spin_correlators'] or '').count('N'),
+            options=self.opt))
+
         replace_dict['split_order_name_definitions'] = '\n'.join("SONAMES(%d)='%s'"%
                                (i+1,so_name) for i, so_name in enumerate(split_orders) )
         writer.writelines(file,
             context=self.get_context(matrix_element),
             replace_dictionary = replace_dict)
+
+        if replace_dict['pyamp_virtual_helpers']:
+            writer.writelines(replace_dict['pyamp_virtual_helpers'],
+                              context=self.get_context(matrix_element))
 
     def set_optimized_output_specific_replace_dict_entries(self, matrix_element):
         """ Specify the entries of the replacement dictionary which are specific

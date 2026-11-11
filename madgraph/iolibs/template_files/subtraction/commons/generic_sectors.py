@@ -29,9 +29,10 @@ class GenericSectorGenerator(object):
     """ Class responsible for generating the correct list of sectors to consider for specific processes."""
 
     def __init__(self, *args, **opts):
-        pass
+        self.export_options = opts.get('export_options') or {}
 
-    def __call__(self, contrib_definition, defining_process, counterterms=None, integrated_counterterms=None):
+    def __call__(self, contrib_definition, defining_process, counterterms=None,
+                 integrated_counterterms=None, export_options=None):
         """ Given a particular contribution definition, a particular defining process instance and the counterterms contained, this
         function must build the list of sectors to consider (or None if the subtraction
         does not require any) as well as the list of counterterms to consider for each of them.

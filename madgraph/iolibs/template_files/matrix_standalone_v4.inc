@@ -24,10 +24,15 @@ CF2PY INTENT(OUT) :: ANS
       REAL*8 THIS_G
 
       include 'coupl.inc'
+      INTEGER %(proc_prefix)sDEN
+      COMMON/%(proc_prefix)sIDEN/%(proc_prefix)sDEN
+%(pyamp_declarations)s
+%(pyamp_hook_declarations)s
 
 C ----------
 C BEGIN CODE
 C ----------
+%(pyamp_hook_check)s
       IF (USER_ALPHAS.gt.0.0d0) THEN
  	    THIS_G = 2* DSQRT(USER_ALPHAS*PI)
  	    IF (THIS_G.ne.G) THEN
@@ -36,8 +41,12 @@ C ----------
         ENDIF
       ENDIF
  
+## if (pyamplicol_tree) {
+%(pyamp_evaluate)s
+## } else {
 	  CALL %(proc_prefix)sSMATRIXHEL(P,HEL,TMPBUFF)
 	  ANS(0) = TMPBUFF
+## }
 
 	  END
       
@@ -530,7 +539,10 @@ CF2PY INTENT(IN) :: ALPHAS
 C     ROUTINE FOR F2PY to read the benchmark point.    
 C     the include file with the values of the parameters and masses 
       include "coupl.inc"
-      
+%(pyamp_get_me_declarations)s
+## if (pyamplicol_tree) {
+%(pyamp_get_me)s
+## } else {
       pi = 3.141592653589793d0
       G = 2* DSQRT(ALPHAS*pi)
       call UPDATE_AS_PARAM()
@@ -539,6 +551,7 @@ C     the include file with the values of the parameters and masses
       else
         CALL %(proc_prefix)sSMATRIX(P, ANS)
       endif
+## }
       return 
       end
 
@@ -549,6 +562,7 @@ C     ROUTINE FOR F2PY to read the benchmark point.
 CF2PY INTENT(IN) :: PATH 
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
       CALL SETPARA2(path)
+%(pyamp_initialise)s
       return 
       end      
 

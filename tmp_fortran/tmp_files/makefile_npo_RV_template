@@ -131,6 +131,10 @@ USR_FILES=alphaS.o kinematics.o sectors2_module.o analysis.o HwU.o cuts.o config
 
 %(files_str)s
 
+ifneq ($(wildcard ../../BornProvider/*.json ../../VirtualProvider/*.json),)
+include ../../../Common_Files/pyamplicol.mk
+endif
+
 %(all_str)s
 
 %(sector_str)s

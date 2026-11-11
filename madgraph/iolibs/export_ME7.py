@@ -80,7 +80,8 @@ class ME7Exporter(object):
         # Already initialize the exporter of each contribution
         for contrib in self.contributions:
             contrib.initialize_exporter(
-                cmd_interface, noclean, group_subprocesses=group_subprocesses)
+                cmd_interface, noclean, group_subprocesses=group_subprocesses,
+                export_options=self.export_options)
 
         # During the export of a bunch of contributions, store the integrated
         # counterterms that did not find a host contribution, so as to check, *after*

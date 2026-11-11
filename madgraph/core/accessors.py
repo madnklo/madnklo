@@ -1599,13 +1599,14 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         
         # Before the whole synchronization make sure that the current MadLoop resource path
         # is correctly propagated to fortran.
-        if self.madloop_resources_path:
+        native_virtual = self.has_function('get_pyamp_provider')
+        if self.madloop_resources_path and not native_virtual:
             self.f2py_module.initialise_madloop_path(pjoin(self.root_path, self.madloop_resources_path))
         
         ret_value = super(F2PYMEAccessorMadLoop, self).synchronize(ME7_options, from_init=from_init,**opts)
         
         # Never do anything when called from the __init__ function
-        if from_init or not ME7_options or refresh_filters=='never':
+        if native_virtual or from_init or not ME7_options or refresh_filters=='never':
             return ret_value
 
         # (Re-)generate the Helicity (and loop) filters if needed.        
@@ -1675,9 +1676,13 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         
         return func(*args, **opts)
 
-    # Disable stdout for this function so as not to be flooded by MadLoop
-    @ME7_interface.wrap_with_ME7RunEnvironment(silence=True, accessor_optimization=False, loggers = [])     
     def __call__(self, PS_point, alpha_s, mu_r, **opts):
+        # Native failures terminate in Fortran/C++; keep their diagnostics visible.
+        with ME7_interface.ME7RunEnvironment(silence=not self.has_function('get_pyamp_provider'),
+                                             accessor_optimization=False, loggers=[]):
+            return self._evaluate(PS_point,alpha_s,mu_r,**opts)
+
+    def _evaluate(self, PS_point, alpha_s, mu_r, **opts):
         """ Actually performs the f2py call.
         """
 
@@ -1697,8 +1702,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
                           'required_accuracy' : required_accuracy}
 
         # We can only recycle results where color correlations are either not specified or only one is specified.
-        if new_opts['color_correlation'] is None or \
-                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0]):
+        native_virtual = self.has_function('get_pyamp_provider')
+        if not native_virtual and (new_opts['color_correlation'] is None or \
+                len(new_opts['color_correlation'])==1 and all(cc>0 for cc in new_opts['color_correlation'][0])):
             result_key = dict(new_opts)
             result_key['color_correlation'] = None if not new_opts['color_correlation'] else new_opts['color_correlation'][0]
             
@@ -1739,7 +1745,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts)
         
-        ME_result = self.cache.add_result(**this_call_key)
+        # Generated pyAmpliCol calls synchronize all model parameters. Do not
+        # recycle the legacy cache, whose key contains only alpha_s and mu_r.
+        ME_result = MEResult() if native_virtual else self.cache.add_result(**this_call_key)
         for output_data in output_datas:
             ME_result.add_result(output_data[1], **output_data[0])
         

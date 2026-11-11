@@ -78,6 +78,10 @@ PROC_FILES = matrix.o configs.o props.o decayBW.o leshouche.o
 
 FILES = driver_n.o $(PROC_FILES) $(COMMON_FILES) $(USR_FILES)
 
+ifneq ($(wildcard ../../BornProvider/*.json ../../VirtualProvider/*.json),)
+include ../../../Common_Files/pyamplicol.mk
+endif
+
 all: libs Born
 
 Born: $(FILES)

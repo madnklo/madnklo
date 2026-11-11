@@ -475,6 +475,7 @@ class HelpToCmd(cmd.HelpCmd):
         logger.info("      -d: specify other MG/ME directory")
         logger.info("      -noclean: no cleaning performed in \"path\".")
         logger.info("      -nojpeg: no jpeg diagrams will be generated.")
+        logger.info("      --me_provider=madgraph|pyamplicol: select the export's tree and virtual provider.")
         logger.info("      -name: the postfix of the main file in pythia8 mode.")
         logger.info("   Examples:",'$MG:color:GREEN')
         logger.info("       output",'$MG:color:GREEN')
@@ -1442,6 +1443,8 @@ This will take effect only in a NEW terminal
             if args[1] not in ['False', 'True', 'Auto']:
                 raise self.InvalidCmd('%s needs argument False, True or Auto' % \
                                       args[0])
+        if args[0] == 'me_provider' and args[1] not in ['None', 'madgraph', 'pyamplicol']:
+            raise self.InvalidCmd('me_provider must be None, madgraph or pyamplicol')
         if args[0] in ['ignore_six_quark_processes']:
             if args[1] not in self._multiparticles.keys() and args[1] != 'False':
                 raise self.InvalidCmd('ignore_six_quark_processes needs ' + \
@@ -2417,6 +2420,9 @@ class CompleteForCmd(cmd.CompleteCmd):
                         possible_options_full = ['-f', '-noclean', '-nojpeg']):
         "Complete the output command"
 
+        provider_options = ['--me_provider=madgraph', '--me_provider=pyamplicol']
+        possible_options = list(possible_options) + provider_options
+        possible_options_full = list(possible_options_full) + provider_options
         possible_format = self._export_formats
         #don't propose directory use by MG_ME
         forbidden_names = ['MadGraphII', 'Template', 'pythia-pgs', 'CVS',
@@ -2526,6 +2532,8 @@ class CompleteForCmd(cmd.CompleteCmd):
                 return self.list_completion(text, ['unitary', 'Feynman', 'default'])
             elif args[1] == 'OLP':
                 return self.list_completion(text, MadGraphCmd._OLP_supported)
+            elif args[1] == 'me_provider':
+                return self.list_completion(text, ['madgraph', 'pyamplicol', 'None', 'default'])
             elif args[1] == 'output_dependencies':
                 return self.list_completion(text, 
                                      MadGraphCmd._output_dependencies_supported)
@@ -2828,6 +2836,7 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
     # The three options categories are treated on a different footage when a
     # set/save configuration occur. current value are kept in self.options
     options_configuration = {
+        'me_provider': None,
         'pythia8_path': './HEPTools/pythia8',
         'hwpp_path': './herwigPP',
         'thepeg_path': './thepeg',
@@ -3248,6 +3257,11 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
             if key == 'postpone_model':
                 if value not in ['False','off']:
                      output_options['postpone_model'] = True
+
+            elif key == 'me_provider':
+                if value not in ('madgraph', 'pyamplicol'):
+                    raise InvalidCmd('--me_provider must be madgraph or pyamplicol')
+                output_options[key] = value
         
             elif key in ['color_correlators','spin_correlators']:
                 if value == 'None':
@@ -3290,6 +3304,12 @@ class MadGraphCmd(HelpToCmd, CheckValidForCmd, CompleteForCmd, CmdExtended):
             else:
                 raise InvalidCmd("Unrecognized option for command output: %s"%key)
 
+        from madgraph.iolibs.pyamplicol import resolve_providers
+        try:
+            output_options['me_providers'] = resolve_providers(
+                output_options.get('me_provider', self.options.get('me_provider')))
+        except ValueError as error:
+            raise InvalidCmd(str(error))
         return new_args, output_options
         
     # Add a process to the existing multiprocess definition
@@ -8127,7 +8147,7 @@ in the MG5aMC option 'samurai' (instead of leaving it to its default 'auto')."""
             else:
                 # First look at options which should be put in MG5DIR/input
                 for key, default in self.options_configuration.items():
-                    if self.options_configuration[key] != self.options[key] and not self.options_configuration[key] is None:
+                    if default != self.options[key] and (default is not None or key == 'me_provider'):
                         to_define[key] = self.options[key]
     
                 if not '--auto' in args:

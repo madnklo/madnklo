@@ -29,6 +29,7 @@ from madgraph.iolibs.files import cp, ln, mv
 from itertools import permutations
 
 import madgraph.iolibs.export_v4 as export_v4
+from madgraph.iolibs.pyamplicol import selected_provider
 import madgraph.iolibs.export_ME7 as export_ME7
 import madgraph.interface.madgraph_interface as interface
 import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors as sectors
@@ -2007,7 +2008,8 @@ c       %s
                 filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
             file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
-            writer(filename).writelines(file)
+            writer(filename).writelines(file, context={
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
             # TODO: maybe safer to not remove this command
             os.system('rm ' + NNLO_IR_limits_tmp_path + 'IR_tmp.f')
 

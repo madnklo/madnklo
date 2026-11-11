@@ -310,20 +310,24 @@ class Contribution(object):
                 "\nsince this directory already exists.")
         self.export_dir = export_dir
 
-    def initialize_exporter(self, cmd_interface, noclean, group_subprocesses=True):
+    def initialize_exporter(self, cmd_interface, noclean, group_subprocesses=True,
+                            export_options=None):
         """ Initialize the exporter that will be associated to that particular contribution.
         noclean specifies what to do in case the output directory already exists and group_subprocesses
         whether the exporter should attempt to group identical subprocesses.
         """
 
         self.set_export_dir(cmd_interface._export_dir)
+        options = dict(self.additional_exporter_options)
+        if export_options and 'me_providers' in export_options:
+            options['me_providers'] = export_options['me_providers']
         self.exporter = export_v4.ExportV4Factory(
             cmd_interface, noclean, output_type=self.output_type,
             group_subprocesses=group_subprocesses,
             curr_amps=self.amplitudes,
             export_dir=self.export_dir,
             format=self.format,
-            additional_options=self.additional_exporter_options)
+            additional_options=options)
 
     def copy_template(self, model):
         """Copy the template structure for that contribution.
@@ -1848,6 +1852,7 @@ The resulting output must therefore be used for debugging only as it will not yi
             self.contribution_definition,
             process_map,
             counterterms=relevant_counterterms,
+            export_options=self.exporter.opt,
         )
 
         return [
@@ -1999,6 +2004,7 @@ class Contribution_V(Contribution):
                 self.contribution_definition,
                 process_map,
                 integrated_counterterms=relevant_counterterms,
+                export_options=self.exporter.opt,
             )
 
         return [ ME7_integrands.ME7Integrand(model, run_card,
@@ -2543,7 +2549,8 @@ class Contribution_RV(Contribution_R, Contribution_V):
                 self.contribution_definition,
                 process_map,
                 counterterms=relevant_counterterms,
-                integrated_counterterms=relevant_integrated_counterterms
+                integrated_counterterms=relevant_integrated_counterterms,
+                export_options=self.exporter.opt,
             )
 
         return [ ME7_integrands.ME7Integrand(model, run_card,

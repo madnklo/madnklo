@@ -156,6 +156,9 @@ class ProcessExporterFortran(VirtualExporter):
         self.opt = dict(self.default_opt)
         if opt:
             self.opt.update(opt)
+        if 'me_providers' not in self.opt:
+            from madgraph.iolibs.pyamplicol import resolve_providers
+            self.opt['me_providers'] = resolve_providers(self.opt.get('me_provider'))
 
         #place holder to pass information to the run_interface
         self.proc_characteristic = banner_mod.ProcCharacteristic()
@@ -2325,8 +2328,19 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # create a single makefile to compile all the subprocesses
         text = '''\n# For python linking (require f2py part of numpy)\nifeq ($(origin MENUM),undefined)\n  MENUM=2\nendif\n'''
         deppython = ''
+        from madgraph.iolibs.pyamplicol import selected_provider
+        pyamplicol = selected_provider(options=self.opt) == 'pyamplicol'
         for Pdir in os.listdir(pjoin(self.dir_path,'SubProcesses')):
             if os.path.isdir(pjoin(self.dir_path, 'SubProcesses', Pdir)):
+                if pyamplicol:
+                    makefile = pjoin(self.dir_path,'SubProcesses',Pdir,'makefile')
+                    if os.path.isfile(makefile):
+                        include = '\ninclude ../../../Common_Files/pyamplicol.mk\n'
+                        with open(makefile) as stream:
+                            present = include in stream.read()
+                        if not present:
+                            with open(makefile,'a') as stream:
+                                stream.write(include)
                 text += '%(0)s/matrix$(MENUM)py.so:\n\tcd %(0)s;make matrix$(MENUM)py.so\n'% {'0': Pdir}
                 deppython += ' %(0)s/matrix$(MENUM)py.so ' % {'0': Pdir}
 
@@ -2807,6 +2821,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['analysis_new.f', 'HwU.f']
         common_files+=['sectors.f', 'sectors2_module.f90', 'sectors4_module.f90']
         common_files+=['mapped_labels_common.inc', 'mapped_labels_accessors.f']
+        from madgraph.iolibs.pyamplicol import selected_provider
+        if selected_provider(options=self.opt) == 'pyamplicol':
+            common_files+=['pyamplicol_loader.cc', 'pyamplicol.mk']
 
         #user_linkfiles = ['cuts.f','analysis.f','alphaS.f','hbook.f','kinematics.f','hbook.inc','jets.inc']
         if strdirpath[-1][0] == 'L' or strdirpath[-1][0:5] == 'NLO_R':
@@ -3773,6 +3790,12 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         # Append an extra subroutine to matrix_*.f file when generating in group_subproc = True;
         # in this case a P* directory collects more that one subprocess and one needs a '%sME_ACCESSOR_HOOK'
         # for each of them
+        from madgraph.iolibs.pyamplicol import provider_code
+        replace_dict.update(provider_code(matrix_element, self.dir_path,
+                            proc_prefix, replace_dict['nSqAmpSplitOrders'],
+                            color_order=(self.opt['color_correlators'] or '').count('N'),
+                            spin_order=(self.opt['spin_correlators'] or '').count('N'),
+                            options=self.opt))
         extra_proc_ME = []
         extra_proc_CCBLO = []
         extra_proc_KKBLO = []
@@ -3899,6 +3922,27 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
                 matrix_template = "matrix_standalone_splitOrders_v4.inc"
 
         replace_dict['template_file'] = pjoin(_file_path, 'iolibs', 'template_files', matrix_template)
+        if replace_dict['pyamp_evaluate'] and matrix_template not in (
+                'matrix_standalone_v4.inc', 'matrix_standalone_splitOrders_v4.inc'):
+            raise MadGraph5Error('pyAmpliCol Born provider is not supported by %s' % matrix_template)
+        if replace_dict['pyamp_evaluate'] and matrix_template == 'matrix_standalone_v4.inc' and (
+                tree_context['color_correlation'] or tree_context['spin_correlation']):
+            raise MadGraph5Error('pyAmpliCol spin/colour correlations require the split-order standalone template')
+        if matrix_template == 'matrix_standalone_splitOrders_v4.inc':
+            from madgraph.iolibs.pyamplicol import correlation_code
+            replace_dict.update(correlation_code(replace_dict,matrix_element.get_denominator_factor()))
+            if replace_dict['pyamp_evaluate'] and tree_context['pyamp_quadruple_color']:
+                for item in (extra_proc or []):
+                    if item == proc_prefix:
+                        continue
+                    replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_QUADBLO(A,B,C,D)
+      IMPLICIT NONE
+      INTEGER A,B,C,D
+      DOUBLE PRECISION %sGET_QUADBLO
+      %sGET_QUADBLO=%sGET_QUADBLO(A,B,C,D)
+      END
+''' % (item,proc_prefix,item,proc_prefix)
         replace_dict['template_file2'] = pjoin(_file_path, \
                                    'iolibs/template_files/split_orders_helping_functions.inc')
         if write and writer:
@@ -4002,7 +4046,10 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
         # tree-level MEs are part of a MadLoop output where these global resources are already present.
         # This is why, in this case, this function is overloaded in the MadLoop exporter so as to always
         # set 'spin_correlation_general_resources' to False.
-        return {'color_correlation': (not self.opt['color_correlators'] is None),
+        from madgraph.iolibs.pyamplicol import selected_provider
+        return {'pyamplicol_tree': selected_provider(options=self.opt) == 'pyamplicol',
+                'color_correlation': (not self.opt['color_correlators'] is None),
+                'pyamp_quadruple_color': (self.opt['color_correlators'] or '').count('N') >= 2,
                 'spin_correlation': (not self.opt['spin_correlators'] is None),
                 'spin_correlation_general_resources': (not self.opt['spin_correlators'] is None)
                  }
@@ -8192,7 +8239,10 @@ def ExportV4Factory(cmd, noclean, output_type='default', group_subprocesses=True
       'cluster_local_path': opt['cluster_local_path'],
       'color_correlators' : opt['color_correlators'],
       'spin_correlators' : opt['spin_correlators'],
+      'me_provider': opt.get('me_provider'),
       }
+    if 'me_providers' in opt:
+        MadLoop_SA_options['me_providers'] = opt['me_providers']
 
     if output_type.startswith('madloop'):
         import madgraph.loop.loop_exporters as loop_exporters

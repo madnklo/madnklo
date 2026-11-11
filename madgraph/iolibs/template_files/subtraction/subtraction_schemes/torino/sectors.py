@@ -262,7 +262,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         super(SectorGenerator, self).__init__(*args, **opts)
 
 
-    def __call__(self, contrib_definition, defining_process, counterterms=None, integrated_counterterms=None):
+    def __call__(self, contrib_definition, defining_process, counterterms=None,
+                 integrated_counterterms=None, export_options=None):
         """ Given a particular contribution definition, a particular defining process instance and the counterterms contained, this
         function must build the list of sectors to consider (or None if the subtraction
         does not require any) as well as the list of counterterms to consider for each of them.
@@ -293,12 +294,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             pass
         elif str_contrib[0] == 'NNLO' and str_contrib[1] == 'RR':
             import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RR as sectors_for_RR
-            all_sectors = sectors_for_RR.SectorGeneratorRR().write_RR_templates(
+            all_sectors = sectors_for_RR.SectorGeneratorRR(export_options=export_options).write_RR_templates(
                                 contrib_definition, defining_process, counterterms, integrated_counterterms)
             return
         elif str_contrib[0] == 'NNLO' and str_contrib[1] == 'RV':
             import madgraph.iolibs.template_files.subtraction.subtraction_schemes.torino.sectors_for_RV as sectors_for_RV
-            all_sectors = sectors_for_RV.SectorGeneratorRV().write_RV_templates(
+            all_sectors = sectors_for_RV.SectorGeneratorRV(export_options=export_options).write_RV_templates(
                                 contrib_definition, defining_process, counterterms, integrated_counterterms)
             return
 

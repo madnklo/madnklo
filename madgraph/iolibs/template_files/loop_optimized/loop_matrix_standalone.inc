@@ -2,6 +2,7 @@ C --=========================================--
 C   Main subroutine
 C --=========================================--
 
+## if (not pyamplicol_virtual) {
 	  SUBROUTINE %(proc_prefix)sSLOOPMATRIX(P_USER,ANS)
 C  
 %(info_lines)s
@@ -1983,6 +1984,8 @@ CALL %(proc_prefix)sSET_COLLIER_GLOBAL_CACHE(.FALSE.)
 ## }
 
       END
+
+## }
 
       SUBROUTINE %(proc_prefix)sCLEAR_CACHES()
 C

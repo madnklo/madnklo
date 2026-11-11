@@ -1,9 +1,12 @@
 """Python 2 export support for ordinary native pyAmpliCol virtuals."""
 import json
+import logging
 import os
 from fractions import Fraction
 
 from madgraph.iolibs.pyamplicol import selected_provider
+
+logger = logging.getLogger('madgraph.export_v4')
 
 
 def color_data(matrix_element, process, order):
@@ -42,9 +45,14 @@ def virtual_code(matrix_element, directory, replacements, color_order=0, spin_or
     if selected_provider('virtual', options=options) != 'pyamplicol':
         return empty
     process = matrix_element.get('processes')[0]
+    if process.get('n_loops') == 2:
+        # TODO: replace the legacy VV placeholder with genuine two-loop inputs.
+        logger.warning('pyAmpliCol does not provide two-loop VV amplitudes; '
+                       'retaining the legacy VV placeholder. '
+                       'This is not a physical NNLO VV prediction.')
+        return empty
     if process.get('n_loops') != 1:
-        raise ValueError('pyAmpliCol supports one-loop virtuals, not two-loop VV; '
-                         'regenerate with --ignore_contributions=VV')
+        raise ValueError('pyAmpliCol virtual routing requires one-loop amplitudes')
     if not process.get('has_born'):
         raise ValueError('pyAmpliCol virtuals require Born-one-loop interference')
     if process.get('perturbation_couplings') != ['QCD'] or replacements['nSquaredSO'] != 1:

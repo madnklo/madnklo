@@ -133,6 +133,10 @@ USR_FILES = cuts.o $(ANALYSIS).o alphaS.o HwU.o kinematics.o configs.o props.o d
 
 FILES = driver_vv.o $(PROCESS) $(COMMON_FILES) $(PROC_FILES) $(USR_FILES)
 
+ifneq ($(wildcard ../../BornProvider/*.json ../../VirtualProvider/*.json),)
+include ../../../Common_Files/pyamplicol.mk
+endif
+
 all: libs virtual
 
 %(virtual_str)s

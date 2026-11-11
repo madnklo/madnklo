@@ -692,7 +692,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         MadEventOutput = False
 
         from madgraph.iolibs.pyamplicol import selected_provider
-        pyamp_virtual = selected_provider('virtual', options=self.opt) == 'pyamplicol'
+        pyamp_virtual = (selected_provider('virtual', options=self.opt) == 'pyamplicol'
+                         and matrix_element.get('processes')[0].get('n_loops') == 1)
         if pyamp_virtual and self.template_dir != os.path.join(_file_path,'iolibs/template_files/loop_optimized'):
             raise ValueError('pyAmpliCol virtual routing requires optimized standalone output')
         return {'pyamplicol_virtual': pyamp_virtual,

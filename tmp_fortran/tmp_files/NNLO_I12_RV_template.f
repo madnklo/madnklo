@@ -110,6 +110,8 @@ c
                if(f.eq.i.or.f.eq.e) cycle
 c
                if(size(leg_pdgs).le.5) then
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
                  quadblo = 2d0 * Cf**2 * blo
                else
                  write(77,*)'ee -> >2j is not implemented yet'
@@ -123,6 +125,8 @@ c
              if(e.eq.i.or.e.eq.d) cycle
 c
              if(size(leg_pdgs).le.5) then
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
                quadblo = 2d0 * Cf**2 * blo
              else
                write(77,*)'ee -> >2j is not implemented yet'
@@ -142,6 +146,8 @@ c
              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
 c
              if(size(leg_pdgs).le.5) then
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
                quadblo = 2d0 * Cf**2 * blo
              else
                write(77,*)'ee -> >2j is not implemented yet'

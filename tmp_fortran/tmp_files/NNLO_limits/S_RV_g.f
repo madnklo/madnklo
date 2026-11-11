@@ -179,6 +179,8 @@ c
 c     call triple-colour-connected Born
                qb=mapped_labels(q,i,m)
 c               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+c     TODO(hardcoded-ME): replace the zero tripole placeholder with
+c     a mapped getter or establish its vanishing for supported channels.
                TRIBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
 c
 c     eikonals

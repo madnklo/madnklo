@@ -109,6 +109,8 @@ c     TODO: improve ktmuktnuBmunu / kt^2
 c     call Born and spin-correlated Born
 c      call %(proc_prefix_HC_RV_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = 0d0 !ANS(0)
+c     TODO(hardcoded-ME): replace the zero spin-correlated Born
+c     placeholder with the mapped GET_KKBLO call.
       KKBLO = 0d0 !%(proc_prefix_HC_RV_gg)s_GET_KKBLO(parent_leg,xpb,kt)
 c     call Virtual and spin-correlated Virtual
 c      call %(proc_prefix_HC_RV_gg)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)

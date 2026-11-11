@@ -147,6 +147,8 @@ c
                if(.NOT.ISLOQCDPARTON(K)) cycle
                do l=1,nexternal
                   if(.NOT.ISLOQCDPARTON(L)) cycle
+c     TODO(hardcoded-ME): replace this process-specific factorization
+c     with the genuine quadruple-colour Born getter.
                   B4(i,j,k,l) = 2d0*BC(I,J)*BC(K,L)/Born ! Test for this specific process
                enddo
             enddo

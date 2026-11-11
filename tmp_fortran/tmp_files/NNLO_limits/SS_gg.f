@@ -40,6 +40,7 @@ c     external
       external get_color_dipole_index
       integer, parameter :: HEL = - 1
       double precision   %(proc_prefix_Born)s_GET_CCBLO
+      double precision   %(proc_prefix_Born)s_GET_QUADBLO
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
 c      integer (proc_prefix_S_g)s_den
@@ -168,14 +169,19 @@ c     renormalisation scale for the remapped kinematics xpbb
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
           BLO = ANS(0)
 c
-c     TODO: call quadruple born B[icd,jcd]_{cdcd}
-c     QUADBLO_mlml = 0d0
+## if (pyamplicol) {
+          QUADBLO_mlml = %(proc_prefix_Born)s_GET_QUADBLO(mbb,lbb,mbb,lbb)
+## } else {
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
+          QUADBLO_mlml = 2d0*CF**2*BLO
+## }
 c
 c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory
 c     (c,d) -> (m,l) (verified)
           M2tmp = -2d0*CA*CCBLO*(((sim*sjl+sil*sjm)/((sim+sjm)*(sil+sjl))-sim*sjm/(sim+sjm)**2-sil*sjl/(sil+sjl)**2)/sij**2-2d0*slm/(sij*(sim+sjm)*(sil+sjl))+slm*(sim*sjl+sil*sjm-sij*slm)/(sij*sim*sjl*sil*sjm)*(1d0-1d0/2d0*(sim*sjl+sil*sjm)/((sim+sjm)*(sil+sjl))))
-          M2tmp = M2tmp + 2d0*(slm/sim/sil)*(slm/sjm/sjl)*2d0*CF**2*BLO
+          M2tmp = M2tmp + 2d0*(slm/sim/sil)*(slm/sjm/sjl)*QUADBLO_mlml
 c     Including correct multiplicity factor
           M2tmp = M2tmp*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)
 c

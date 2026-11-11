@@ -399,18 +399,20 @@ c     Sum over (e) ---> (t)
                stm = xs(t,m)
                sbtm = xsb_lm(tb,mb)
 c
-!     for 2jets, we can hard code B_{edcd} = B_{eded}
-!     since we have 3 different partons for RV in the final state,
-!     and e != i,d
-c
                call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ans)
+## if (pyamplicol) {
+               quadblo_tmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
+## } else {
                if(size(leg_pdgs).le.5) then
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
                  quadblo_tmlm = 2d0 * Cf**2 * ans(0)
                else
                  write(77,*)'ee -> >2j is not implemented yet'
                  goto 999
                  !quadblo_tmlm = %(proc_prefix_S_RV_g)s_get_quadblo(tb,mb,lb,mb)
                endif
+## }
                delta_s(-1) = delta_s(-1)-EIK0*dlog(stm/sbtm)*QUADBLO_tmlm
                delta_s(0) = delta_s(0) + eik0*1d0/2d0*dlog(stm/sbtm)**2*quadblo_tmlm
             enddo
@@ -438,13 +440,19 @@ c     renormalisation scale for the remapped kinematics xpb_lm
                   alphas=alphas_current
                   pref=-8d0*pi*alphas
                   call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
+## if (pyamplicol) {
+                  quadblo_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
+## } else {
                   if(size(leg_pdgs).le.5) then
                      write(77,*)'ee -> >2j is not implemented yet'
                      goto 999
                      !quadblo_pqlm = %(proc_prefix_S_RV_g)s_get_quadblo(pb,qb,lb,mb)
                   endif
 c
+c     TODO(hardcoded-ME): replace the zero placeholder with the
+c     mapped quadruple-colour Born getter.
                   quadblo_pqlm = 0d0 ! TODO: adapt
+## }
                   delta_s(-1) = delta_s(-1)-eik0*1d0/2d0*dlog(spq/sbpq)*quadblo_pqlm
                   delta_s(0) = delta_s(0) + eik0*1d0/4d0*dlog(spq/sbpq)**2*quadblo_pqlm
 c

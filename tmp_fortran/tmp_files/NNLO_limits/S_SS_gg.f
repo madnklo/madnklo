@@ -21,7 +21,7 @@ c     S(i) S(i,j) kernel times sector function
       double precision sjm,sij,sim,sml,sil,sbm,sib
       double precision sbml,sbjm,sbjl,sbbm,sbjb
       double precision Ei_jm,Ei_ml,Ei_bm,Ebj_ml,Ebj_bm
-      double precision BLO,ccBLO,ccBLO_imj_mjl,ccBLO_imj_ljm
+      double precision BLO,ccBLO,quadBLO,ccBLO_imj_mjl,ccBLO_imj_ljm
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1),xpbb(0:3,nexternal-2)
       double precision alphas,ans(0:NSQSO_BORN)
       double precision alpha_qcd
@@ -38,6 +38,7 @@ c     external
       external get_color_dipole_index
       integer, parameter :: HEL = - 1
       double precision   %(proc_prefix_Born)s_GET_CCBLO
+      double precision   %(proc_prefix_Born)s_GET_QUADBLO
       integer %(proc_prefix_rr)s_den
       common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
 c      integer (proc_prefix_S_g)s_den
@@ -158,7 +159,14 @@ c     renormalisation scale for the remapped kinematics xpbb
           pref=(8d0*pi*alphas)**2/2d0
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
           ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
-          M2tmp = 2d0*Ei_ml*Ebj_ml*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
+## if (pyamplicol) {
+          quadBLO = %(proc_prefix_Born)s_GET_QUADBLO(mbb,lbb,mbb,lbb)
+## } else {
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
+          quadBLO = 2d0*CF**2*ans(0)
+## }
+          M2tmp = 2d0*Ei_ml*Ebj_ml*(quadBLO+CA*ccBLO)*wsbar_nlo
           M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c     plot
@@ -222,7 +230,14 @@ c     renormalisation scale for the remapped kinematics xpbb
         pref=(8d0*pi*alphas)**2/2d0
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
         ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,bbb)
-        M2tmp = 2d0*Ei_bm*Ebj_bm*(2d0*CF**2*ans(0)+CA*ccBLO)*wsbar_nlo
+## if (pyamplicol) {
+        quadBLO = %(proc_prefix_Born)s_GET_QUADBLO(bbb,mbb,bbb,mbb)
+## } else {
+c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
+c     the mapped quadruple-colour Born getter.
+        quadBLO = 2d0*CF**2*ans(0)
+## }
+        M2tmp = 2d0*Ei_bm*Ebj_bm*(quadBLO+CA*ccBLO)*wsbar_nlo
         M2_S_SS_gg = M2_S_SS_gg + M2tmp
 c
 c       plot

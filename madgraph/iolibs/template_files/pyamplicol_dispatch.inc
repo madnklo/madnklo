@@ -43,17 +43,18 @@ C Native provider wrappers keep the public selected-state Fortran interface.
       SUBROUTINE %(proc_prefix)sPYAMP_SPIN(LEG,P,KT,VALUE)
       IMPLICIT NONE
       INTEGER LEG,LEGS(1)
-      REAL*8 P(0:3,%(nexternal)d),KT(0:3),VALUE,AS,ANS(0:1),SCALE
+      REAL*8 P(0:3,%(nexternal)d),KT(0:3),VALUE,AS,ANS(0:1)
       REAL*8 CC(%(pyamp_ncorr)d,0:1),PAIR(2)
       COMPLEX*16 VECTOR(0:3,1)
       CHARACTER*4 ID
 %(pyamp_declarations)s
-      CALL %(proc_prefix)sPYAMP_DISPATCH(3,P,-1,AS,ANS,CC,0,0,0,0,SCALE)
+      CALL %(proc_prefix)sPYAMP_DISPATCH(3,P,-1,AS,ANS,CC,0,0,0,0,VALUE)
       LEGS(1)=LEG
       VECTOR(:,1)=DCMPLX(KT,0D0)
       ID='born'
       CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,AS,ID,4,1,LEGS,VECTOR,PAIR)
-      CALL %(proc_prefix)sPYAMP_REAL(PAIR,SCALE,VALUE)
+C Check reality against this contraction, not a previous Born magnitude.
+      CALL %(proc_prefix)sPYAMP_REAL(PAIR,0D0,VALUE)
       END
 
       SUBROUTINE %(proc_prefix)sPYAMP_DISPATCH(MODE,P,HEL,AS,ANS,CC,A,B,C,D,VALUE)
@@ -215,7 +216,6 @@ C Snapshot inputs so later selection/reset calls cannot change an evaluation.
          VALUE=BORN_VALUE
       ELSE IF(MODE.EQ.3) THEN
          AS=LAST_AS
-         VALUE=BORN_SCALE
 ## if (pyamp_quadruple_color) {
       ELSE IF(MODE.EQ.4) THEN
          IF(MIN(A,B,C,D).LT.1.OR.MAX(A,B,C,D).GT.NEXTERNAL) THEN

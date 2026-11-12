@@ -43,7 +43,7 @@ C     sqrt(s)= center of mass energy
       INTEGER RETURNCODE, UNITS, TENS, HUNDREDS
       INTEGER NSQUAREDSO_LOOP
       REAL*8 , ALLOCATABLE :: PREC_FOUND(:)
-      REAL*8 BLO
+      REAL*8 BLO, pref, mu2
       integer ntested,ntest
       parameter(ntest=20)
       save ntested
@@ -133,14 +133,39 @@ C     possible cuts
       IF(DOCUT(P,NEXTERNAL,LEG_PDGS,0))GOTO 999
 C     
 C     renormalisation scale for the n-body kinematics
-      call set_mur_from_momenta(p,nexternal,leg_pdgs)
-      alphas=alphas_current
-C
+      CALL SET_MUR_FROM_MOMENTA(P,NEXTERNAL,LEG_PDGS)
+      ALPHAS=ALPHAS_CURRENT
+      MU2=MUR_CURRENT**2
+      PREF=(ALPHAS/(2D0*PI))**2
+
+      
+C     
 C     call virtual
 c      COLOR_CORRELATED_EVALS = 0D0
 c      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND
 c     $ ,RETURNCODE)
-c      VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
+c     VVNNLO(-4:0) = [(MATELEM(I,0), I=5,1,-1)]
+
+c     Check poles
+
+
+      VVNNLO(-4) = 2d0*CF**2
+      VVNNLO(-3) = CF*(23d0/4d0*3d0-nf/2d0-1d0)
+      VVNNLO(-2) = 2d0*CF*((401d0/24d0-13d0*pi**2/8d0)+(-41d0/8d0+7d0/12d0*pi**2)/3d0-nf/9d0-(11d0*3d0-2d0*nf)/6d0*dlog(mu2/SLO(3,4)))
+c     Log factors multiplied times the higher-order poles already included for the single pole
+      VVNNLO(-1) = CF**2*(2d0*dlog(mu2/SLO(3,4))**3+9d0*dlog(mu2/SLO(3,4))**2+(25d0-7d0*pi**2/3d0)*dlog(mu2/SLO(3,4))+189d0/8d0-3d0*pi**2-6d0*zeta3)+CF*CA*(-(67d0/18d0-pi**2/6d0)*dlog(mu2/SLO(3,4))-961d0/216d0-11d0*pi**2/24d0+13d0/2d0*zeta3)+CF*nf*(5d0/9d0*dlog(mu2/SLO(3,4))+65d0/108d0+pi**2/12d0)
+      VVNNLO(-2) = VVNNLO(-2) + VVNNLO(-4)*2d0*dlog(mu2/SLO(3,4))**2+VVNNLO(-3)*2d0*dlog(mu2/SLO(3,4))
+      VVNNLO(-3) = VVNNLO(-3)+VVNNLO(-4)*2d0*dlog(mu2/SLO(3,4))
+
+
+c     Call Born
+      call ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
+      BLO = ANS(0)
+      VVNNLO(-4) = VVNNLO(-4)*BLO*pref
+      VVNNLO(-3) = VVNNLO(-3)*BLO*pref
+      VVNNLO(-2) = VVNNLO(-2)*BLO*pref
+      VVNNLO(-1) = VVNNLO(-1)*BLO*pref
+
       DO I=-4,0
          IF(ABS(VVNNLO(I)).GE.HUGE(1D0).OR.ISNAN(VVNNLO(I)))THEN
             WRITE(77,*) 'int_VV: '

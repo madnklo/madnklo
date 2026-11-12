@@ -1074,6 +1074,10 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         linkfiles = ['colored_partons.inc', 'include']
         for file in linkfiles:
             os.symlink(dirpathBorn + '/%s' % file, os.getcwd() + '/%s' % file)
+        # QCD power of the Born (renormalisation-scale variations of V+I)
+        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B' and \
+                                os.path.exists(pjoin(dirpathBorn, 'qcd_power.inc')):
+            os.symlink(dirpathBorn + '/qcd_power.inc', os.getcwd() + '/qcd_power.inc')
 
         owd = os.getcwd()
         os.chdir(dirpathBorn)
@@ -1120,7 +1124,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if((self.dir_path).split('/')[-1][0:11]== 'NNLO_VV_x_B'):
             user_linkfiles = ['driver_vv.f']
         else:
-            user_linkfiles = ['driver_v.f','NLO_V_sub.f','NNLO_RV_sub.f','rv_mapped_labels_accessors.f','rv_mapped_labels_common.inc']
+            user_linkfiles = ['driver_v.f','NNLO_RV_sub.f','rv_mapped_labels_accessors.f','rv_mapped_labels_common.inc']
         for file in user_linkfiles:
             cp(pjoin(self.dir_path,'../../Template/Fortran_tmp/src_to_common/%s' % file), cwd)
             

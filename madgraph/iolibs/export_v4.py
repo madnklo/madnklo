@@ -3965,6 +3965,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         if write and writer:
             writers.FortranWriter(pjoin(os.path.dirname(writer.name),'nsqso_born.inc')
+                    extra_proc_KKBLO.extend([
+                        'SUBROUTINE %sRESET_SPIN_CORRELATION_VECTORS()\n' % item,
+                        'IMPLICIT NONE\n',
+                        'CALL %sRESET_SPIN_CORRELATION_VECTORS()\n' % proc_prefix,
+                        'END\n\n'])
              ).writelines(
                 """INTEGER NSQSO_BORN
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
@@ -4058,6 +4063,42 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
                 # If no writer was defined, we of course foregoe this step.
                 check_sa_writer=writers.FortranWriter(
                     pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
+            if replace_dict['pyamp_evaluate'] and tree_context['color_correlation']:
+                for item in (extra_proc or []):
+                    if item == proc_prefix:
+                        continue
+                    replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_DCCBLO(P,ALPHAS,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER LEG_A,LEG_B
+      REAL*8 P(0:3,%d),ALPHAS
+      DOUBLE PRECISION %sGET_DCCBLO
+      %sGET_DCCBLO=%sGET_DCCBLO(P,ALPHAS,LEG_A,LEG_B)
+      END
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
+            if (replace_dict['pyamp_evaluate'] and tree_context['color_correlation']
+                    and tree_context['spin_correlation']):
+                for item in (extra_proc or []):
+                    if item == proc_prefix:
+                        continue
+                    replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_KKCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER PARENT_LEG,LEG_A,LEG_B
+      REAL*8 P(0:3,%d),ALPHAS,KT(0:3)
+      DOUBLE PRECISION %sGET_KKCCBLO
+      %sGET_KKCCBLO=%sGET_KKCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      END
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
+                    replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_KKDCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER PARENT_LEG,LEG_A,LEG_B
+      REAL*8 P(0:3,%d),ALPHAS,KT(0:3)
+      DOUBLE PRECISION %sGET_KKDCCBLO
+      %sGET_KKDCCBLO=%sGET_KKDCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      END
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
                 self.write_check_sa_splitOrders(squared_orders,split_orders,
                   nexternal,ninitial,proc_prefix,check_sa_writer, replace_dict)
 

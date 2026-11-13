@@ -1,4 +1,76 @@
 C Native provider wrappers keep the public selected-state Fortran interface.
+## if (color_correlation) {
+C Symmetric colour insertion: d_ABC on LEG_A, ordinary T on LEG_B.
+C Both public getters take a complete point and do not read saved Born state.
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_DCCBLO(P,ALPHAS,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER LEG_A,LEG_B,LEGS(1)
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,PAIR(2),SCALE
+      COMPLEX*16 VECTOR(0:3,1)
+      LEGS=0
+      VECTOR=DCMPLX(0D0,0D0)
+      CALL %(proc_prefix)sPYAMP_SYMMETRIC(P,ALPHAS,LEG_A,LEG_B,0,LEGS,VECTOR,PAIR,SCALE)
+      CALL %(proc_prefix)sPYAMP_REAL(PAIR,SCALE,%(proc_prefix)sGET_DCCBLO)
+      END
+
+      SUBROUTINE %(proc_prefix)sPYAMP_SYMMETRIC(P,ALPHAS,LEG_A,LEG_B,NSPIN,LEGS,VECTOR,PAIR,SCALE)
+      IMPLICIT NONE
+      INTEGER LEG_A,LEG_B,NSPIN,LEGS(MAX(1,NSPIN))
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,PAIR(2),SCALE,QUARK(2),ANTIQUARK(2)
+      COMPLEX*16 VECTOR(0:3,MAX(1,NSPIN))
+      CHARACTER*64 ID
+%(pyamp_declarations)s
+      IF(MIN(LEG_A,LEG_B).LT.1.OR.MAX(LEG_A,LEG_B).GT.MNK_N) THEN
+         WRITE(*,*) 'pyAmpliCol: invalid symmetric colour legs'
+         STOP 1
+      ENDIF
+      WRITE(ID,'(A,I0,A,I0)') 'Dq_',LEG_A,'_',LEG_B
+      CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,ALPHAS,ID,LEN_TRIM(ID),NSPIN,LEGS,VECTOR,QUARK)
+      WRITE(ID,'(A,I0,A,I0)') 'Dqb_',LEG_A,'_',LEG_B
+      CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,ALPHAS,ID,LEN_TRIM(ID),NSPIN,LEGS,VECTOR,ANTIQUARK)
+C S^dagger (T_q - T_qbar) S = TR*d, with TR=1/2. Keep complex
+C components until the final difference; SCALE belongs to this point only.
+      PAIR=2D0*(QUARK-ANTIQUARK)
+      SCALE=2D0*(ABS(QUARK(1))+ABS(ANTIQUARK(1)))
+      IF(ANY(PAIR.NE.PAIR).OR.ANY(ABS(PAIR).GT.HUGE(1D0)).OR.SCALE.GT.HUGE(1D0)) THEN
+         WRITE(*,*) 'pyAmpliCol: nonfinite symmetric colour result'
+         STOP 1
+      ENDIF
+      END
+## }
+
+## if (color_correlation and spin_correlation) {
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKDCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER PARENT_LEG,LEG_A,LEG_B,LEGS(1)
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,KT(0:3),PAIR(2),SCALE
+      COMPLEX*16 VECTOR(0:3,1)
+      LEGS(1)=PARENT_LEG
+      VECTOR(:,1)=DCMPLX(KT,0D0)
+      CALL %(proc_prefix)sPYAMP_SYMMETRIC(P,ALPHAS,LEG_A,LEG_B,1,LEGS,VECTOR,PAIR,SCALE)
+      CALL %(proc_prefix)sPYAMP_REAL(PAIR,SCALE,%(proc_prefix)sGET_KKDCCBLO)
+      END
+
+C Explicit joint spin-dipole contraction; no Born hook or setters required.
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
+      IMPLICIT NONE
+      INTEGER PARENT_LEG,LEG_A,LEG_B,LEGS(1)
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,KT(0:3),PAIR(2)
+      COMPLEX*16 VECTOR(0:3,1)
+      CHARACTER*64 ID
+%(pyamp_declarations)s
+      IF(MIN(LEG_A,LEG_B).LT.1.OR.MAX(LEG_A,LEG_B).GT.MNK_N) THEN
+         WRITE(*,*) 'pyAmpliCol: invalid joint spin-colour legs'
+         STOP 1
+      ENDIF
+      LEGS(1)=PARENT_LEG
+      VECTOR(:,1)=DCMPLX(KT,0D0)
+      WRITE(ID,'(A,I0,A,I0)') 'T_',LEG_A,'_',LEG_B
+      CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,ALPHAS,ID,LEN_TRIM(ID),1,LEGS,VECTOR,PAIR)
+      CALL %(proc_prefix)sPYAMP_REAL(PAIR,0D0,%(proc_prefix)sGET_KKCCBLO)
+      END
+## }
+
 ## if (pyamp_quadruple_color) {
       DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_QUADBLO(A,B,C,D)
       IMPLICIT NONE

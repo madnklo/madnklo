@@ -142,6 +142,17 @@ class Sector(generic_sectors.GenericSector):
         self.leg_numbers = leg_numbers
 
 
+    @staticmethod
+    def read_limits_template(directory):
+        """Append the shared gluon-parent kernel only when a wrapper needs it."""
+        with open(pjoin(directory, 'IR_tmp.f')) as stream:
+            source = stream.read()
+        if ('m2_hc_sc_gluon(' in source.lower() and
+                'function m2_hc_sc_gluon(' not in source.lower()):
+            with open(pjoin(directory, 'HC_SC_gluon.f')) as stream:
+                source += '\n' + stream.read()
+        return source
+
     def __call__(self, PS_point, PDGs, counterterm_index=-1, input_mapping_index=-1, sector_type=0):
         """ Given a kinematic configuration (PS_point is a *dict* here) and flavors of external states, returns the sector weight (float)
         from this sector function.

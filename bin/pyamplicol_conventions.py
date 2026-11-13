@@ -87,6 +87,32 @@ def validate_correlator(record, request):
     return bra
 
 
+def symmetric_dipole(record, adjoint, spectator):
+    """Two physical requests whose difference / TR gives d_ABC T_spectator.
+
+    For S[g -> q qbar] = t^g and TR=1/2,
+    S^dagger (T_q^a - T_qbar^a) S = TR d^a. The adjoint role is
+    directed: it is not interchangeable with the ordinary spectator charge.
+    Representations, including incoming quarks, are all-outgoing.
+    """
+    active = outgoing_representations(record)
+    if (not _integer(adjoint) or active.get(adjoint) != 8 or
+            not _integer(spectator) or spectator not in active):
+        raise ValueError('Symmetric dipole requires an adjoint root and a coloured spectator')
+    split = dict(kind='split-gluon', parent=adjoint, quark=-1, antiquark=-2)
+    emit = dict(kind='emit-gluon', emitter=spectator, emitted=-3)
+    # A self insertion must emit from the original leg before retiring it.
+    ket = [emit, split] if adjoint == spectator else [split, emit]
+    requests = []
+    for name, daughter in (('Dq', -1), ('Dqb', -2)):
+        request = dict(id='%s_%d_%d' % (name, adjoint, spectator),
+                       bra=[dict(split), dict(kind='emit-gluon', emitter=daughter, emitted=-3)],
+                       ket=[dict(step) for step in ket])
+        validate_correlator(record, request)
+        requests.append(request)
+    return requests
+
+
 class UnorientableDipoleProduct(ValueError):
     """An ordered product cannot be represented by a single emission pair."""
 

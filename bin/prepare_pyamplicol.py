@@ -15,7 +15,8 @@ import copy
 from fractions import Fraction
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pyamplicol_conventions import dipole_product, outgoing_representations, validate_correlator
+from pyamplicol_conventions import (dipole_product, outgoing_representations,
+                                   symmetric_dipole, validate_correlator)
 
 
 def prepare_model(source, root, python2, *, include_loops=False):
@@ -101,6 +102,16 @@ def quadruple_color_requests(record):
     pairs = list(itertools.combinations_with_replacement(color_legs(record), 2))
     return [dipole_product(record, (first, second))
             for first in pairs for second in pairs]
+
+
+def symmetric_color_requests(record, color_order, diagnostic=False):
+    """NNLO Born observables only, unless explicitly requested for diagnostics."""
+    if color_order < 2 and not diagnostic:
+        return []
+    active = outgoing_representations(record)
+    return [request for adjoint in sorted(active) if active[adjoint] == 8
+            for spectator in sorted(active)
+            for request in symmetric_dipole(record, adjoint, spectator)]
 
 
 def planned_catalogue(record, declarations):
@@ -310,6 +321,11 @@ def prepare(args):
         if color_order >= 2:
             operators += CorrelatorConfig.from_json_dict(dict(
                 color_correlations=quadruple_color_requests(record))).color_correlations
+        symmetric = symmetric_color_requests(record, color_order,
+                                              getattr(args, 'symmetric_color', False))
+        if symmetric:
+            operators += CorrelatorConfig.from_json_dict(dict(
+                color_correlations=symmetric)).color_correlations
         if record['key'] in extra:
             operators += extra[record['key']].color_correlations
         spins = tuple(group for size in range(1,min(spin_order,len(gluons))+1)
@@ -345,6 +361,8 @@ def prepare(args):
         print('Generating', record['process'], flush=True)
         print('  correlations: colour %d, spin %d, legacy %d' %
               (color_order, spin_order, legacy_order), flush=True)
+        if symmetric:
+            print('  symmetric d_ABC insertions:', len(symmetric)//2, flush=True)
         declaration_json = declarations.to_json_dict() if correlated else None
         sidecar = root/(record['key']+'.correlators.json')
         record_file = root/(record['key']+'.record.json')
@@ -419,6 +437,8 @@ def main():
                         help='Compile optional Symbolica-free binary128 current/amplitude companions')
     parser.add_argument('--color-requests', type=Path,
                         help='Additional per-process pyAmpliCol colour declarations (JSON)')
+    parser.add_argument('--symmetric-color', action='store_true',
+                        help='Diagnostic d_ABC correlators (automatic for NNLO Born requirements)')
     parser.add_argument('--color-order', type=int, choices=(0,1,2),
                         help='Diagnostic minimum colour order (default: contribution requirements)')
     parser.add_argument('--spin-order', type=int, choices=(0,1,2),

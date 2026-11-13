@@ -2006,7 +2006,7 @@ c       %s
                 filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, jsec, ksec))
             elif label == 'ijkj':
                 filename = pjoin(dirpath, 'NNLO_IR_limits_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
-            file = open(NNLO_IR_limits_tmp_path + 'IR_tmp.f').read()
+            file = self.read_limits_template(NNLO_IR_limits_tmp_path)
             file = file % replace_dict_limits
             writer(filename).writelines(file, context={
                 'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})

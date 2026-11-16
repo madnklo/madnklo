@@ -3953,6 +3953,11 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     extra_proc_KKBLO.append('RETURN\n')
                     extra_proc_KKBLO.append('END FUNCTION\n')
                     extra_proc_KKBLO.append('\n')
+                    extra_proc_KKBLO.extend([
+                        'SUBROUTINE %sRESET_SPIN_CORRELATION_VECTORS()\n' % item,
+                        'IMPLICIT NONE\n',
+                        'CALL %sRESET_SPIN_CORRELATION_VECTORS()\n' % proc_prefix,
+                        'END\n\n'])
 
 
         extra_proc_ME_str = " ".join(extra_proc_ME)
@@ -3965,11 +3970,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         if write and writer:
             writers.FortranWriter(pjoin(os.path.dirname(writer.name),'nsqso_born.inc')
-                    extra_proc_KKBLO.extend([
-                        'SUBROUTINE %sRESET_SPIN_CORRELATION_VECTORS()\n' % item,
-                        'IMPLICIT NONE\n',
-                        'CALL %sRESET_SPIN_CORRELATION_VECTORS()\n' % proc_prefix,
-                        'END\n\n'])
              ).writelines(
                 """INTEGER NSQSO_BORN
                    PARAMETER (NSQSO_BORN=%d)"""%replace_dict['nSqAmpSplitOrders'])
@@ -4039,6 +4039,19 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
         if matrix_template == 'matrix_standalone_splitOrders_v4.inc':
             from madgraph.iolibs.pyamplicol import correlation_code
             replace_dict.update(correlation_code(replace_dict,matrix_element.get_denominator_factor()))
+            if replace_dict['pyamp_evaluate'] and tree_context['spin_correlation']:
+                for item in (extra_proc or []):
+                    if item == proc_prefix:
+                        continue
+                    replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_KKKKBLO(P,ALPHAS,LEG_A,KT_A,LEG_B,KT_B)
+      IMPLICIT NONE
+      INTEGER LEG_A,LEG_B
+      REAL*8 P(0:3,%d),ALPHAS,KT_A(0:3),KT_B(0:3)
+      DOUBLE PRECISION %sGET_KKKKBLO
+      %sGET_KKKKBLO=%sGET_KKKKBLO(P,ALPHAS,LEG_A,KT_A,LEG_B,KT_B)
+      END
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
             if replace_dict['pyamp_evaluate'] and tree_context['pyamp_quadruple_color']:
                 for item in (extra_proc or []):
                     if item == proc_prefix:
@@ -4051,18 +4064,6 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
       %sGET_QUADBLO=%sGET_QUADBLO(A,B,C,D)
       END
 ''' % (item,proc_prefix,item,proc_prefix)
-        replace_dict['template_file2'] = pjoin(_file_path, \
-                                   'iolibs/template_files/split_orders_helping_functions.inc')
-        if write and writer:
-
-            if len(split_orders)>0:
-                # For convenience we also write the driver check_sa_splitOrders.f
-                # that explicitely writes out the contribution from each squared order.
-                # The original driver still works and is compiled with 'make' while
-                # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
-                # If no writer was defined, we of course foregoe this step.
-                check_sa_writer=writers.FortranWriter(
-                    pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
             if replace_dict['pyamp_evaluate'] and tree_context['color_correlation']:
                 for item in (extra_proc or []):
                     if item == proc_prefix:
@@ -4099,6 +4100,18 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
       %sGET_KKDCCBLO=%sGET_KKDCCBLO(P,ALPHAS,PARENT_LEG,KT,LEG_A,LEG_B)
       END
 ''' % (item,nexternal,proc_prefix,item,proc_prefix)
+        replace_dict['template_file2'] = pjoin(_file_path, \
+                                   'iolibs/template_files/split_orders_helping_functions.inc')
+        if write and writer:
+
+            if len(split_orders)>0:
+                # For convenience we also write the driver check_sa_splitOrders.f
+                # that explicitely writes out the contribution from each squared order.
+                # The original driver still works and is compiled with 'make' while
+                # the splitOrders one is compiled with 'make check_sa_born_splitOrders'
+                # If no writer was defined, we of course foregoe this step.
+                check_sa_writer=writers.FortranWriter(
+                    pjoin(os.path.dirname(writer.name),'check_sa_born_splitOrders.f'))
                 self.write_check_sa_splitOrders(squared_orders,split_orders,
                   nexternal,ninitial,proc_prefix,check_sa_writer, replace_dict)
 

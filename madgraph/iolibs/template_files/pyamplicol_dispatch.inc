@@ -1,4 +1,24 @@
 C Native provider wrappers keep the public selected-state Fortran interface.
+## if (spin_correlation) {
+C Two rank-one spin contractions, with no saved Born or selection state.
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKKKBLO(P,ALPHAS,LEG_A,KT_A,LEG_B,KT_B)
+      IMPLICIT NONE
+      INTEGER LEG_A,LEG_B,LEGS(2)
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,KT_A(0:3),KT_B(0:3),PAIR(2)
+      COMPLEX*16 VECTOR(0:3,2)
+%(pyamp_declarations)s
+      IF(MIN(LEG_A,LEG_B).LT.1.OR.MAX(LEG_A,LEG_B).GT.MNK_N.OR.LEG_A.EQ.LEG_B) THEN
+         WRITE(*,*) 'pyAmpliCol: invalid double-spin legs'
+         STOP 1
+      ENDIF
+      LEGS=(/LEG_A,LEG_B/)
+      VECTOR(:,1)=DCMPLX(KT_A,0D0)
+      VECTOR(:,2)=DCMPLX(KT_B,0D0)
+      CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,ALPHAS,'born',4,2,LEGS,VECTOR,PAIR)
+      CALL %(proc_prefix)sPYAMP_REAL(PAIR,0D0,%(proc_prefix)sGET_KKKKBLO)
+      END
+## }
+
 ## if (color_correlation) {
 C Symmetric colour insertion: d_ABC on LEG_A, ordinary T on LEG_B.
 C Both public getters take a complete point and do not read saved Born state.

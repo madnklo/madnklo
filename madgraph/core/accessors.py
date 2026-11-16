@@ -1295,6 +1295,9 @@ class F2PYMEAccessor(VirtualMEAccessor):
             if not self.spin_correlations or len(new_opts['spin_correlation']) > self.spin_correlations.count('N'):
                 raise MadGraph5Error("%sLO spin-correlations not supported in accessor:\n%s."%(
                                                     'N'*len(new_opts['spin_correlation']) , self.nice_string() ) )
+            if any(complex(component).imag != 0 for _,vectors in new_opts['spin_correlation']
+                   for vector in vectors for component in vector):
+                raise MadGraph5Error('The legacy f2py spin setter accepts real vectors only; use the complex native API')
 
         if new_opts['color_correlation']:
             # First attempt to map the color correlations specified by the use to their
@@ -1413,21 +1416,32 @@ class F2PYMEAccessor(VirtualMEAccessor):
             self.get_function('initialise')(pjoin(self.root_path, self.slha_card_path))
             self.module_initialized = True
         
-        # Setup Matrix Element code variables for the user-defined options
-        self.setup_ME(new_opts)
-
-        # Actual call to the matrix element
-        main_output = self.call_tree_ME(
-            self.get_function('me_accessor_hook'),
-            PS_point,
-            (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
-            alpha_s)
+        spins = new_opts['spin_correlation'] or ()
+        explicit_double_spin = (len(spins) == 2 and all(vectors for _,vectors in spins)
+            and not new_opts['color_correlation']
+            and not new_opts['hel_config'] and self.has_function('get_kkkkblo'))
+        if explicit_double_spin:
+            # The setter API sums all vector combinations on the two legs.
+            (leg_a, vectors_a), (leg_b, vectors_b) = spins
+            value = sum(self.call_tree_ME(self.get_function('get_kkkkblo'),
+                PS_point, alpha_s, leg_a, [complex(c).real for c in vector_a],
+                leg_b, [complex(c).real for c in vector_b])
+                for vector_a in vectors_a for vector_b in vectors_b)
+            main_output = [value, value]
+        else:
+            self.setup_ME(new_opts)
+            main_output = self.call_tree_ME(
+                self.get_function('me_accessor_hook'),
+                PS_point,
+                (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+                alpha_s)
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
         output_datas = self.gather_output_datas(main_output, new_opts, return_all_res)
 
        # Make sure to clean up specification of various properties for that particular call
-        self.clean_ME_settings(new_opts)
+        if not explicit_double_spin:
+            self.clean_ME_settings(new_opts)
 
         if is_cache_active:
             ME_result = self.cache.add_result(**this_call_key)

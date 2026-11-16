@@ -41,6 +41,16 @@ c     (sv_vegas_*), with the same statistical treatment as the central
 c     value; the grid is adapted on the central value only. Index 0 of
 c     the accumulators is the central value rebuilt from the sv_add
 c     contributions, which is checked against the vegas result.
+c
+c     Factorisation-scale variations (rw_fscale, hadron beams), muF ->
+c     k*muF, also by reweighting:
+c       B, V+I, R, local CTs : PDF ratios f(k*muF)/f(muF) of each term,
+c                              at its own momentum fractions and muF
+c                              (sv_set_muf_ratios; lumi_npo for R, K)
+c       J + C (virtual)      : recomputed at k*muF (PDFs and the
+c                              log(muF) of the PDF counterterm), passed
+c                              with sv_add_muf / sv_wgts_muf
+c     and, at each muF, the muR variations above.
 c=======================================================================
       module scale_var_module
       implicit none
@@ -53,7 +63,7 @@ c     muF factors (rw_fscale) and dynamical-scale label. They lay out
 c     the histogram weights as MG5_aMC does; without PDFs (lepton
 c     beams) muF does not enter and the weights with the same muR
 c     coincide. With hadron beams, in the executables that call
-c     sv_allow_muf before sv_init (LO for now), the muF factors are
+c     sv_allow_muf before sv_init (B, V and R), the muF factors are
 c     also varied (PDF reweighting): sv_nv = sv_nf muF factors in the
 c     integrals, otherwise sv_nv = 1 (only muR)
       integer sv_nf,sv_dyn,sv_nv
@@ -314,8 +324,8 @@ c     variations are switched on if reweight_scale is true (as in
 c     MG5_aMC). The muR factors (rw_rscale) are always varied. The muF
 c     factors (rw_fscale) lay out the histogram weights exactly as
 c     MG5_aMC does; they are also varied (PDF reweighting) with hadron
-c     beams in the executables that called sv_allow_muf (LO), and must
-c     be 1 with hadron beams elsewhere (no PDFs: muF does not enter).
+c     beams in the executables that called sv_allow_muf (B, V, R), and
+c     must be 1 with hadron beams elsewhere (NNLO for now).
       use scale_var_module
       implicit none
       include 'run.inc'
@@ -352,8 +362,9 @@ c     sets dynamical_scale_choice = -2 when both scales are fixed
             endif
             sv_facf(k)=scalevarF(k)
 c           hadron beams: the muF variations (PDF reweighting) are only
-c           implemented where sv_allow_muf was called (LO); elsewhere
-c           stop rather than give weights that do not depend on muF
+c           implemented where sv_allow_muf was called (B, V, R);
+c           elsewhere stop rather than give weights that do not depend
+c           on muF
             if((lpp(1).ne.0.or.lpp(2).ne.0).and.(.not.sv_muf_ok).and.
      &           abs(scalevarF(k)-1d0).gt.1d-12)then
                write(*,*)'sv_init: muF variations (rw_fscale) are not ',
@@ -499,30 +510,47 @@ c     normalisation of the vegas integrand, proportional to alpha_s^npow
 c     at the scale last set by set_mur (call it after the set_mur for
 c     the kinematics of v). dv is the coefficient of log(k^2) in the
 c     explicit muR dependence of v at fixed alpha_s: 0, except for V+I.
+c     The values at the muF factors are v and dv times the PDF ratios
+c     of sv_set_muf_ratios.
+      use scale_var_module
+      implicit none
+      double precision v,dv,vf(sv_max),dvf(sv_max)
+      integer npow,ii
+c
+      if(sv_n.eq.0)return
+      do ii=1,sv_nv
+         vf(ii)=v*sv_rf(ii)
+         dvf(ii)=dv*sv_rf(ii)
+      enddo
+      call sv_add_muf(v,dv,vf,dvf,npow)
+c
+      return
+      end
+
+
+      subroutine sv_add_muf(v,dv,vf,dvf,npow)
+c     As sv_add, for a contribution whose value at the factorisation
+c     scale sv_facf(ii)*muF is not a PDF ratio times v (the J + C
+c     convolution of the virtual, with log(muF) inside): v, dv central
+c     values; vf(ii), dvf(ii) the same at sv_facf(ii)*muF, ii = 1..sv_nv
+c     (sv_get_muf_factors).
       use scale_var_module
       implicit none
       include 'coupl.inc'
       include 'math.inc'
-      double precision v,dv
+      double precision v,dv,vf(*),dvf(*),r
       integer npow,k,ii
 c
       if(sv_n.eq.0)return
       call sv_check_power(npow)
       sv_pt(0)=sv_pt(0)+v
-      if(sv_nv.eq.1)then
-         do k=1,sv_n
-            sv_pt(k)=sv_pt(k)+(sv_as(k)/alphas_current)**npow*
-     &           (v+dv*2d0*log(sv_fac(k)))*sv_rf(1)
-         enddo
-      else
+      do k=1,sv_n
+         r=(sv_as(k)/alphas_current)**npow
          do ii=1,sv_nv
-            do k=1,sv_n
-               sv_pt((ii-1)*sv_n+k)=sv_pt((ii-1)*sv_n+k)
-     &              +(sv_as(k)/alphas_current)**npow*
-     &              (v+dv*2d0*log(sv_fac(k)))*sv_rf(ii)
-            enddo
+            sv_pt((ii-1)*sv_n+k)=sv_pt((ii-1)*sv_n+k)
+     &           +r*(vf(ii)+dvf(ii)*2d0*log(sv_fac(k)))
          enddo
-      endif
+      enddo
 c
       return
       end
@@ -534,18 +562,41 @@ c     sv_add), in the layout of sv_weights_info: wgts(1) = w, then the
 c     value at the scale sv_fac(jj)*muR for each (muF_ii, muR_jj) pair
       use scale_var_module
       implicit none
+      double precision w,dw,wgts(*),wf(sv_max),dwf(sv_max)
+      integer npow,ii
+c
+      wgts(1)=w
+      if(sv_n.eq.0)return
+      do ii=1,sv_nv
+         wf(ii)=w*sv_rf(ii)
+         dwf(ii)=dw*sv_rf(ii)
+      enddo
+      call sv_wgts_muf(w,dw,wf,dwf,npow,wgts)
+c
+      return
+      end
+
+
+      subroutine sv_wgts_muf(w,dw,wf,dwf,npow,wgts)
+c     As sv_wgts, with the values wf(ii), dwf(ii) at sv_facf(ii)*muF
+c     (as in sv_add_muf). Without muF variations in the integrals
+c     (sv_nv = 1: lepton beams) the weights with the same muR coincide.
+      use scale_var_module
+      implicit none
       include 'coupl.inc'
       include 'math.inc'
-      double precision w,dw,wgts(*),wk
-      integer npow,ii,jj
+      double precision w,dw,wf(*),dwf(*),wgts(*),r
+      integer npow,ii,jj,iv
 c
       wgts(1)=w
       if(sv_n.eq.0)return
       call sv_check_power(npow)
       do jj=1,sv_n
-         wk=(sv_as(jj)/alphas_current)**npow*(w+dw*2d0*log(sv_fac(jj)))
+         r=(sv_as(jj)/alphas_current)**npow
          do ii=1,sv_nf
-            wgts(1+(ii-1)*sv_n+jj)=wk*sv_rf(min(ii,sv_nv))
+            iv=min(ii,sv_nv)
+            wgts(1+(ii-1)*sv_n+jj)=
+     &           r*(wf(iv)+dwf(iv)*2d0*log(sv_fac(jj)))
          enddo
       enddo
 c

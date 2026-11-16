@@ -30,6 +30,8 @@ c
       subroutine do_limit_R_%(isec)d_%(jsec)d(limstr,e,l)
       use sectors2_module
       implicit none
+      double precision fl_factor_npo
+      external fl_factor_npo
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
       INCLUDE 'nexternal.inc'
@@ -43,7 +45,13 @@ c
       integer isec,jsec,ksec,lsec,iref
       common/csecindices/isec,jsec,ksec,lsec,iref
       parameter(maxitn=12)
-      double precision x0(3*nexternal-10),xr(3*nexternal-10)
+c     phase-space variables: ndim of the driver (3*nexternal-10, plus
+c     one per hadron beam)
+      integer mxdim
+      parameter(mxdim=30)
+      integer ndim
+      common/cdim/ndim
+      double precision x0(mxdim),xr(mxdim)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision KS,KC,KSC,KNLO
@@ -89,7 +97,8 @@ c     fails the cuts, the counterterms vanish in the limit (and so
 c     does R in the integrand, which is cut on the n+1 kinematics):
 c     redraw, at most maxtry times (one Born point + docut each)
       do itry=1,maxtry
-         do i=1,3*nexternal-10
+         x0=0d0
+         do i=1,ndim
             x0(i)=ran2(33+10*i)
          enddo
          call phase_space_npo(x0,iU,iS,iB,iA,p,pb,xjac,xjacB)
@@ -131,7 +140,7 @@ c     renormalisation scale for the (n+1)-body kinematics
 c
 c     real
          call %(NLO_proc_str)sME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
-         RNLO = ANS(0) * %(NLO_proc_str)sfl_factor
+         RNLO = ANS(0) * fl_factor_npo(%(NLO_proc_str)sfl_factor)
          if(RNLO.lt.0d0.or.abs(RNLO).ge.huge(1d0).or.isnan(RNLO))cycle
          call get_sig2(snlo,nexternal)
          CALL GET_W_NLO(%(isec)d,%(jsec)d)

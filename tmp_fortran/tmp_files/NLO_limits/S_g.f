@@ -4,6 +4,8 @@ c     single-soft limit S_(i) * Wsoft
 c     it returns 0 if i is not a gluon
       use sectors2_module
       implicit none
+      double precision fl_factor_npo
+      external fl_factor_npo
       include 'nexternal.inc'
       include 'coupl.inc'
       include 'math.inc'
@@ -14,19 +16,26 @@ c     it returns 0 if i is not a gluon
       include 'input.inc'
       include 'run.inc'
       include 'qcd_power.inc'
-      integer i,l,m,lb,mb,ierr,nit
+      integer i,l,m,lb,mb,ierr,nit,ke,kr,imap,nmap
       double precision pref,M2tmp,wgt,wgts(sv_maxwgt),wgtpl,wgt_chan,xj,xjB,xjCS
       double precision svpc
       double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
       double precision BLO,ccBLO,extra
       double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
-      double precision sil,sim,slm,ml2,mm2,y,z,x,damp
+      double precision sil,sim,slm,ml2,mm2,y,z,x,damp,wmap,lum
+      double precision lumi_npo
+      external lumi_npo
 c     set logical doplot
       logical doplot
       common/cdoplot/doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+c     channel decomposition: chan_nocut = .true. while the pieces are
+c     evaluated for the channel fractions, without the cuts on the
+c     mapped Born (local_counter_chan)
+      logical chan_nocut
+      common/c_chan_nocut/chan_nocut
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
 c     external
@@ -50,9 +59,13 @@ c     external
       common/c_sig2_called/sig2_called
 c     channel decomposition (run_card channel_decomposition): when
 c     ldip is nonzero, only the dipole (l,m) = (ldip,mdip) is
-c     evaluated
+c     evaluated; when kedip is nonzero too, only its mapping with
+c     emitter kedip (for the dipole between the two initial-state
+c     partons, which has two mappings)
       integer ldip,mdip
       common/c_chan_dipole/ldip,mdip
+      integer kedip
+      common/c_chan_dipmap/kedip
       double precision pmass(nexternal)
       include 'pmass.inc'
 c
@@ -95,17 +108,47 @@ c            if(l.eq.m)cycle
             if(l.eq.i)cycle
             if(ldip.ne.0.and.(l.ne.ldip.or.m.ne.mdip))cycle
 c
+c     mappings of the dipole (2209.09123, eq. (eq:SiRdef)): (i,l,m),
+c     with emitter l > m and recoiler m. For the dipole between the
+c     two initial-state partons, both mappings (i,l,m) and (i,m,l), i.e.
+c     the rescaling of either beam, each with the partial fraction of the
+c     eikonal that is collinear-singular along its rescaled beam ke:
+c       s_lm/(s_il s_im) = sum over ke = l,m of
+c                          s_lm/(s_i,ke (s_il+s_im))
+c     (wmap = s_i,kr/(s_il+s_im)). The collinear limit i || ke is then
+c     evaluated on the Born of the right beam (with the average of the
+c     two mappings, half of it was on the Born of the other beam, boosted
+c     by ln x: not integrable bin by bin in rapidity distributions). On
+c     the FII radiative phase space the measure is symmetric in v and
+c     1-v (s_i,ke = (1-x) v sbar, s_i,kr = (1-x)(1-v) sbar), so each
+c     piece integrates to half of the eikonal: the integrated
+c     counterterms I^II and J^II of 2209.09123 are unchanged (note
+c     nlo_isr_phase0_map.md, Sec. 13.21)
+            nmap=1
+            if(l.le.2)nmap=2
+            wmap=1d0
+            do imap=1,nmap
+            if(imap.eq.1)then
+               ke=l
+               kr=m
+            else
+               ke=m
+               kr=l
+            endif
+            if(nmap.eq.2)wmap=xs(i,kr)/(xs(i,l)+xs(i,m))
+            if(ldip.ne.0.and.kedip.ne.0.and.ke.ne.kedip)cycle
+c
 c     phase-space mapping according to l and m, at fixed radiation
 c     phase-space point: the singular kernel is in the same point
 c     as the single-real, ensuring numerical stability, while the
 c     underlying Born configuration is remapped
-            call phase_space_CS_inv(i,l,m,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels)
+            call phase_space_CS_inv(i,ke,kr,xp,xpb,nexternal,leg_PDGs,xjCS,mapped_labels)
             if(xjCS.eq.0d0)goto 999
             call invariants_from_p(xpb,nexternal-1,xsb,ierr)
             if(ierr.eq.1)goto 999
 c
 c     possible cuts
-            if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))cycle
+            if(.not.chan_nocut.and.docut(xpb,nexternal-1,underlying_leg_pdgs,0))cycle
 c
 c     invariant quantities
             sil=xs(i,l)
@@ -153,27 +196,32 @@ c     damping factors
                x=1d0 - (sil+sim)/slm
                damp=x**alpha
             endif
-            M2tmp=M2tmp*damp*xj
+            M2tmp=M2tmp*damp*xj*wmap
+c
+c     parton luminosity (hadron beams), at the scale of this mapping
+            lum=lumi_npo(xpb,nexternal-1,underlying_leg_pdgs)
+            M2tmp=M2tmp*lum
             M2_S_g=M2_S_g+pref*M2tmp*ws_nlo*extra
 c
 c     renormalisation-scale variations: contribution of this dipole
 c     to the integrand (-K), ~ alpha_s^(b+1) at the dipole's scale
             svpc=-pref*M2tmp*WS_NLO*extra*wgt_chan
-            svpc=svpc*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            svpc=svpc*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*fl_factor_npo(%(proc_prefix_real)s_fl_factor)
             call sv_add(svpc,0d0,born_qcd_power+1)
 c
 c     plot
             wgtpl=-pref*M2tmp*WS_NLO*extra*wgt*wgt_chan
-            wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
+            wgtpl = wgtpl*dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*fl_factor_npo(%(proc_prefix_real)s_fl_factor)
 c     if(doplot)call histo_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgtpl)
             call sv_wgts(wgtpl,0d0,born_qcd_power+1,wgts)
             if(doplot.and.wgtpl.ne.0d0)call analysis_fill(xpb,xsb,nexternal-1,underlying_leg_pdgs,wgts)
 c
+            enddo
          enddo
       enddo
 c
 c     apply flavour factor
-      M2_S_g = M2_S_g *dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)* %(proc_prefix_real)s_fl_factor
+      M2_S_g = M2_S_g *dble(%(proc_prefix_S_g)s_den)/dble(%(proc_prefix_real)s_den)*fl_factor_npo(%(proc_prefix_real)s_fl_factor)
 c
 c     sanity check
       if(abs(M2_S_g).ge.huge(1d0).or.isnan(M2_S_g))then

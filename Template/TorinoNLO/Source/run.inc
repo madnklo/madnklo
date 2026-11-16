@@ -26,6 +26,10 @@ c    Integrators parameters
      $                       npoints_b,niters_b
       common/torino_integ_v/npoints_v_grid,niters_v_grid,
      $                       npoints_v,niters_v
+c     integrated counterterms of the virtual (I + J + C): number of their
+c     phase-space points per loop point (1: integrated with the loop)
+      integer n_vc_folds
+      common/torino_integ_vc/n_vc_folds
       common/torino_integ_r/npoints_r_grid,niters_r_grid,
      $                       npoints_r,niters_r
       common/torino_integ_vv/npoints_vv_grid,niters_vv_grid,

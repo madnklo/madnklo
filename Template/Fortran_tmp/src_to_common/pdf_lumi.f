@@ -101,10 +101,35 @@ c       flavour).
 c     If the bound is 0 (no masses nor cuts), tau_min = 0 and genps.f
 c     keeps the flat sampling in tau (GENCMS), with a warning.
       implicit none
+      integer npart,pdgs(npart)
+      call set_tau_min_opt(npart,pdgs,.true.)
+      return
+      end
+
+
+      subroutine set_tau_min_npo(npart,pdgs)
+c     Lower bound tau_min for the real emission, whose phase space is
+c     generated from a Born one (gen_real_phase_space.f) with the
+c     flavours pdgs of the real emission: only the bounds that hold
+c     for every Born configuration obtained from a real one by the
+c     momentum mappings, i.e. the masses and the invariant mass of the
+c     lepton pairs (unchanged by the mappings). Transverse-momentum
+c     cuts change under the mappings and are not used.
+      implicit none
+      integer npart,pdgs(npart)
+      call set_tau_min_opt(npart,pdgs,.false.)
+      return
+      end
+
+
+      subroutine set_tau_min_opt(npart,pdgs,with_pt)
+c     set_tau_min (with_pt = .true.) and set_tau_min_npo (.false.)
+      implicit none
       include 'nexternal.inc'
       include 'run.inc'
       include 'cuts.inc'
       integer npart,pdgs(npart)
+      logical with_pt
       integer i,j,id
       double precision rs,pt0,shmin,stot,mb(2),pb(2)
       double precision tau_min
@@ -141,6 +166,7 @@ c
          elseif(id.eq.22)then
             pt0=max(ptgmin,0d0)
          endif
+         if(.not.with_pt)pt0=0d0
          rs=rs+sqrt(pmass(i)**2+pt0**2)
       enddo
       shmin=rs**2
@@ -168,6 +194,133 @@ c
          write(*,*)'WARNING: hadron beams, but no lower bound on ',
      &        'shat from masses and cuts: x1 x2 sampled uniformly'
       endif
+c
+      return
+      end
+
+
+      double precision function lumi_npo(p,npart,pdgs)
+c     Parton luminosity of the real-emission integrand (R and each
+c     local counterterm K, 2209.09123, Sec. 2): the PDFs are evaluated
+c     at the momentum fractions xbk_npo of the initial-state partons of
+c     the (n+1)-body kinematics (labels 1,2 of the real emission, set
+c     by phase_space_npo), and at the factorisation scale of the
+c     momenta p (the real ones for R, the mapped Born ones of each
+c     counterterm, as for the renormalisation scale). imirror_npo gives
+c     the orientation of the event being evaluated (NLO_Rsub_template):
+c       0: no PDFs (lepton beams, limit tests), lumi_npo = 1;
+c       1: parton 1 from beam 1, processes of this directory;
+c       2: parton 1 from beam 2, mirror processes.
+c     Factorisation-scale variations: the ratios lum(k*muF)/lum(muF)
+c     for the factors k of sv_get_muf_factors are passed to
+c     sv_set_muf_ratios, for the sv_add and sv_wgts of the term that
+c     called lumi_npo (R and K have no explicit log(muF)).
+      implicit none
+      include 'run.inc'
+      integer npart,pdgs(npart)
+      double precision p(0:3,npart)
+      double precision muf
+      double precision get_muf,lumi_npo_at
+      external get_muf,lumi_npo_at
+      integer nvf,ii
+      double precision facf(100),rf(100)
+      integer imirror_npo
+      common/c_imirror_npo/imirror_npo
+c
+      lumi_npo=1d0
+      call sv_get_muf_factors(nvf,facf)
+      if(imirror_npo.eq.0)then
+         if(nvf.gt.0)then
+            rf=1d0
+            call sv_set_muf_ratios(rf)
+         endif
+         return
+      endif
+      if(imirror_npo.ne.1.and.imirror_npo.ne.2)then
+         write(*,*)'lumi_npo: wrong imirror_npo',imirror_npo
+         stop 1
+      endif
+      muf=get_muf(p,npart,pdgs)
+      lumi_npo=lumi_npo_at(muf)
+      if(nvf.gt.0)then
+         do ii=1,nvf
+            rf(ii)=1d0
+            if(lumi_npo.ne.0d0)rf(ii)=lumi_npo_at(facf(ii)*muf)/lumi_npo
+         enddo
+         call sv_set_muf_ratios(rf)
+      endif
+c
+      return
+      end
+
+
+      double precision function lumi_npo_at(muf)
+c     lumi_npo at the factorisation scale muf, for the orientation
+c     imirror_npo = 1, 2 of the event
+      implicit none
+      double precision muf
+      double precision pdf_lumi
+      external pdf_lumi
+      integer imirror_npo
+      common/c_imirror_npo/imirror_npo
+      double precision xbk_npo(2),xbk_bar(2)
+      common/c_xbk_mapped/xbk_npo,xbk_bar
+c
+      if(imirror_npo.eq.1)then
+         lumi_npo_at=pdf_lumi(xbk_npo(1),xbk_npo(2),muf,1)
+      else
+         lumi_npo_at=pdf_lumi(xbk_npo(2),xbk_npo(1),muf,2)
+      endif
+c
+      return
+      end
+
+
+      subroutine reflect_z(p,npart)
+c     Reflection z -> -z of the momenta p (mirror orientation of a
+c     real-emission event, see NLO_Rsub_template)
+      implicit none
+      integer npart,i
+      double precision p(0:3,npart)
+      do i=1,npart
+         p(3,i)=-p(3,i)
+      enddo
+      return
+      end
+
+
+      double precision function pdf_beam(ib,id,x,muf)
+c     PDF of flavour id (incoming parton) in beam ib at momentum fraction
+c     x and scale muf (antiprotons, lpp = -1: charge-conjugated proton
+c     PDFs); 0 for x >= 1 or x <= 0
+      implicit none
+      include 'run.inc'
+      integer ib,id
+      double precision x,muf
+      double precision pdg2pdf
+      external pdg2pdf
+c
+      pdf_beam=0d0
+      if(x.le.0d0.or.x.ge.1d0)return
+      pdf_beam=pdg2pdf(abs(lpp(ib)),sign(1,lpp(ib))*id,x,muf)
+c
+      return
+      end
+
+
+      double precision function fl_factor_npo(fl)
+c     Flavour factor of the real emission and of its local counterterms.
+c     With lepton beams, the processes grouped in a directory (same
+c     matrix element) are counted by the integer factor fl of the
+c     matrix element; with hadron beams they are summed in the parton
+c     luminosity (lumi_npo), and the factor is 1 (as in LO_B.f and in
+c     the virtual)
+      implicit none
+      include 'run.inc'
+      integer fl
+c
+      fl_factor_npo=dble(fl)
+      if(lpp(1).ne.0.or.lpp(2).ne.0)fl_factor_npo=1d0
 c
       return
       end

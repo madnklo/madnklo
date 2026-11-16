@@ -95,6 +95,6 @@ clean:
 
 libs:
 	mkdir -p $(OBJ)
-	cd ../../Source/DHELAS; make; cd -
-	cd ../../../Source; make ; cd -
+	cd ../../Source/DHELAS && make
+	cd ../../../Source && make
 

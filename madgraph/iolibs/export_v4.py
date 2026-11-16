@@ -2866,6 +2866,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/mapped_labels_common.inc'),dirpath)
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/mapped_labels_accessors.f'),dirpath)
+            # phase_space_npo (gen_real_phase_space.f) includes the label cache
+            # of the real-virtual
+            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/rv_mapped_labels_common.inc'),dirpath)
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
             #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
             #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni

@@ -1,0 +1,198 @@
+
+      double precision function M2_HC_CC_gqqx(i,j,k,r,xs,xp,xsb,xpb,xsbb,xpbb,wgt,xj,xjb,nit,extra,wgt_chan,ierr)
+c     C(i,j) C(i,j,k) * Wcollinear-doublecollinear - S(i) C(i,j) C(i,j,k) * Wsoftcollinear-doublecollinear
+c     j, k are a q-qb pair while i is a g
+      use sectors4_module
+      implicit none
+      include 'nexternal.inc'
+      include 'coupl.inc'
+      include 'math.inc'
+      include 'nsqso_born.inc'
+      include 'mapped_labels_common.inc'
+      include 'leg_PDGs.inc'
+      include 'input.inc'
+      include 'run.inc'
+      integer i,j,k,r,ierr,nit
+      integer jb,kb,rb
+      double precision pref,M2_C_CC_gqqx,M2_SC_CC_gqqx,M2tmp,wgt,wgts(1),wgtpl,wgt_chan,xj,xjb,extra
+      double precision xs(nexternal,nexternal),xsb(nexternal-1,nexternal-1)
+      double precision xsbb(nexternal-2,nexternal-2)
+      double precision BLO,KKBLO
+      double precision dot
+      double precision xp(0:3,nexternal),xpb(0:3,nexternal-1)
+      double precision xpbb(0:3,nexternal-2)
+      double precision ktb(0:3),ktb2,kt(0:3),kt2
+      double precision x,y,xinit,Cj,Ck
+      double precision ans(0:NSQSO_BORN)
+      double precision sij,sir,sjr,sbjk,sbjr,sbkr
+      double precision zi,zj,zbj,zbk,zbki
+      double precision Pij,Qij,Pb_jk,Ei_jr,Eb_jkr,Eb_kjr
+      double precision alphas,alpha_qcd
+      integer, parameter :: hel = - 1
+      logical flavourmatch_ijjk,flavourmatch_ijkj
+c     set logical doplot
+      logical doplot
+      common/cdoplot/doplot
+      double precision sCM
+      common/cscm/sCM
+      logical docut
+      double precision %(proc_prefix_Born)s_GET_KKBLO
+      integer %(proc_prefix_rr)s_fl_factor
+      common/%(proc_prefix_rr)s_flavour_factor/%(proc_prefix_rr)s_fl_factor
+      integer %(proc_prefix_rr)s_den
+      common/%(proc_prefix_rr)s_iden/%(proc_prefix_rr)s_den
+      integer %(proc_prefix_Born)s_den
+      common/%(proc_prefix_Born)s_iden/%(proc_prefix_Born)s_den
+      integer isec,jsec,ksec,lsec,iref
+      common/cpartindices/isec,jsec,ksec,lsec,iref
+      integer asec,bsec,csec,dsec
+      common/csecindices/asec,bsec,csec,dsec
+      integer map1,map2,parent_leg
+      integer real_leg_pdgs(nexternal-1),Born_leg_pdgs(nexternal-2)
+      common/c_NNLO_U_PDGs/real_leg_pdgs,Born_leg_pdgs
+      integer real_mapped_labels(nexternal),Born_mapped_labels(nexternal-1)
+      common/c_NNLO_mapped_labels/real_mapped_labels,Born_mapped_labels
+      logical test_sector_function
+      common/ctestsecfun/test_sector_function
+      logical consistency_check
+      common/cconscheck/consistency_check
+c
+c     initialise
+      M2_HC_CC_gqqx=0d0
+      M2_C_CC_gqqx=0d0
+      M2_SC_CC_gqqx=0d0
+      M2tmp=0d0
+      ierr=0
+c
+c     check sector topology
+      if(bsec.ne.csec .and. bsec.ne.dsec) then
+        write (*,*) 'Wrong topology in M2_HC_CC_gqqx',asec,bsec,csec,dsec
+        stop 1
+      endif
+c
+c     check flavour match
+      flavourmatch_ijjk = leg_PDGs(i).eq.leg_PDGs(j).and.abs(leg_PDGs(k)).le.5.and.leg_PDGs(i).ne.leg_PDGs(k)
+      flavourmatch_ijkj = leg_PDGs(i).eq.leg_PDGs(k).and.abs(leg_PDGs(j)).le.5.and.leg_PDGs(i).ne.leg_PDGs(j)
+      if(.not.(flavourmatch_ijjk.or.flavourmatch_ijkj)) then
+        write(*,*) 'Flavour mismatch in M2_SC_gqqx',leg_PDGs(i),leg_PDGs(j),leg_PDGs(k)
+        stop 1
+      endif
+c
+c     possible cuts
+      if(docut(xpbb,nexternal-2,Born_leg_pdgs,0))return
+c
+c     overall kernel prefix
+c     renormalisation scale for the (mapped) kinematics of the matrix element
+      call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
+      alphas=alphas_current
+      pref=(8d0*pi*alphas)**2
+c
+c     invariant quantities
+      sij  = xs(i,j)
+      sir  = xs(i,r)
+      sjr  = xs(j,r)
+      zi   = sir/(sir+sjr)
+      zj   = 1d0-zi
+c
+c     fill mapped labels
+      call fill_real_mapped_labels(i,j,leg_pdgs,real_leg_pdgs)
+      jb = real_labels(j,i,j)
+      kb = real_labels(k,i,j)
+      rb = real_labels(r,i,j)
+      call fill_born_mapped_labels(jb,kb,real_leg_pdgs,born_leg_pdgs)
+      sbjr = xsb(jb,rb)
+      sbkr = xsb(kb,rb)
+      sbjk = xsb(jb,kb)
+      if(sbjk.lt.0d0.or.sbjr.lt.0d0.or.sbkr.lt.0d0) then
+        write(77,*)'Inaccuracy 2 in M2_HC_CC_gqqx',sbjk,sbjr,sbkr
+        goto 999
+      endif
+      zbj = sbjr/(sbjr+sbkr)
+      zbk = 1d0-zbj
+      parent_leg = born_labels(kb,jb,kb)
+c
+      kt(:) = zj*xp(:,i) - zi*xp(:,j) -(zj-zi)*sij/(sir+sjr)*xp(:,r)
+      kt2 = dot(kt,kt)
+      ktb(:) = zbk*xpb(:,jb) - zbj*xpb(:,kb) + (zbk-zbj)*sbjk/(sbjr+sbkr)*xpb(:,rb)
+      ktb2 = dot(ktb,ktb)
+c
+c     call Born matrix element
+      call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+      BLO = ans(0)
+c
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
+c
+c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
+c     (same as dropbox eq. 23)
+      if(leg_PDGs(j).eq.21.and.abs(leg_PDGs(k)).le.6)then
+        Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)
+        Qij = -2d0*CA*zi*zj
+        Pb_jk = CF*(2d0*zbk/zbj+zbj)
+        Cj = CA
+        Ck = CF
+        Eb_jkr = sbkr/sbjk/sbjr
+        Eb_kjr = 0d0
+      elseif(leg_PDGs(k).eq.21.and.abs(leg_PDGs(j)).le.6)then
+        Pij = CF*(2d0*zj/zi+zi)
+        Qij = 0d0
+        Pb_jk = CF*(2d0*zbj/zbk+zbk)
+        Cj = CF
+        Ck = CA
+        Eb_jkr = 0d0
+        Eb_kjr = sbjr/sbjk/sbkr
+      endif
+c
+      M2tmp = Pij*Pb_jk/sbjk*BLO + 2d0*CA*Eb_kjr*Qij*(BLO+2d0*KKBLO/kt2) - 2d0*Ck*Eb_jkr*Qij*(-1d0+2d0*dot(kt,ktb)**2/kt2/ktb2)*BLO
+      M2_C_CC_gqqx = M2tmp/sij
+c
+c     compute collinear double-collinear sector function eq. (C.82) of 2212.11190v2
+      call get_sig2(xs,alpha_mod,nexternal)
+      call get_wc_nlo(i,j,k,r)
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
+      call get_wcbar_nlo(map1,map2,rb)
+      M2_C_CC_gqqx=M2_C_CC_gqqx*wc_nlo*wcbar_nlo
+c
+c     soft-collinear double-collinear kernel, eq. (C.40) of 2212.11190v2
+c     (same as dropbox eq. 31)
+      Ei_jr = sjr/sij/sir
+      M2_SC_CC_gqqx = 2d0*Cj*Ei_jr*Pb_jk/sbjk*BLO
+c
+c     compute soft-collinear double-collinear sector function eq. (C.83) of 2212.11190v2
+      call get_sig2(xsb,alpha_mod_bar,nexternal-1)
+      map1=real_labels(csec,i,j)
+      map2=real_labels(dsec,i,j)
+      call get_wcbar_nlo(map1,map2,rb)
+      M2_SC_CC_gqqx=M2_SC_CC_gqqx*wcbar_nlo
+c
+c     include correct multiplicity and flavour factors
+      M2_C_CC_gqqx = M2_C_CC_gqqx*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
+      M2_SC_CC_gqqx = M2_SC_CC_gqqx*dble(%(proc_prefix_Born)s_den)/dble(%(proc_prefix_rr)s_den)*%(proc_prefix_rr)s_fl_factor*pref*xj*extra
+      M2_HC_CC_gqqx = M2_C_CC_gqqx - M2_SC_CC_gqqx
+c
+      if(test_sector_function)then
+        M2_HC_CC_gqqx = wc_nlo*wcbar_nlo - wcbar_nlo
+        M2_C_CC_gqqx = wc_nlo*wcbar_nlo
+        M2_SC_CC_gqqx = wcbar_nlo
+      endif
+c
+      call ct_log('KC_CC                  ',M2_C_CC_gqqx)
+      call ct_log('KS_C_CC                ',M2_SC_CC_gqqx)
+c
+c     plot
+      wgtpl=-M2_HC_CC_gqqx*wgt/nit*wgt_chan
+      wgts=wgtpl
+c      if(doplot)call histo_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgtpl)
+      if(doplot)call analysis_fill(xpbb,xsbb,nexternal-2,Born_leg_pdgs,wgts)
+c
+c     sanity check
+      if(abs(M2_HC_CC_gqqx).ge.huge(1d0).or.isnan(M2_HC_CC_gqqx))then
+         write(77,*)'Exception caught in M2_HC_CC_gqqx',M2_HC_CC_gqqx
+         goto 999
+      endif
+c
+      return
+ 999  ierr=1
+      return
+      end

@@ -348,6 +348,22 @@ def lhapdf_set_name(datadirs, lhaid):
     return None, None
 
 
+def check_beam_energies(labels):
+    """The real emission with two hadron beams evaluates the mirror processes
+    by reflecting the events (z -> -z, NLO_Rsub_template.f): this needs equal
+    beam energies. Stop before compiling if they differ (the executables
+    would stop at their first phase-space point)."""
+    if "R" not in labels:
+        return
+    lpp = [int(float(run_card_value(f"lpp{i}", "0"))) for i in (1, 2)]
+    ebeam = [float(run_card_value(f"ebeam{i}", "0")) for i in (1, 2)]
+    if lpp[0] != 0 and lpp[1] != 0 and ebeam[0] != ebeam[1]:
+        sys.exit(f"run_card.dat: ebeam1 = {ebeam[0]}, ebeam2 = {ebeam[1]}: uneven beam "
+                 "energies are not supported yet in the real emission with two hadron "
+                 "beams (the mirror processes are evaluated by reflecting the events, "
+                 "z -> -z, which needs ebeam1 = ebeam2)")
+
+
 def setup_lhapdf():
     lpp = [int(float(run_card_value(f"lpp{i}", "0"))) for i in (1, 2)]
     hadrons = any(l != 0 for l in lpp)
@@ -558,12 +574,48 @@ def save_manifest(manifest):
     os.replace(tmp, path)
 
 
+# Integrated counterterms of the virtual (VC = I + J + C): when n_VC_folds > 1
+# in the run_card, the virtual executable of each NLO_V P1_* directory is run
+# twice, as 'virtual' (loop only, results_V.log) and as 'virtual --counterterms'
+# (I + J + C only, with n_VC_folds times the calls, results_VC.log); both are
+# part of the contribution V, which collect.py sums.
+VC_TASK = "virtual --counterterms"
+N_VC_FOLDS_RE = re.compile(r"^\s*N_VC_FOLDS\s*=\s*(\d+)", re.IGNORECASE | re.MULTILINE)
+
+
+def vc_split():
+    """True if I + J + C are integrated separately (n_VC_folds > 1 in
+    Source/run_card.inc)."""
+    try:
+        with open(run_card_include()) as f:
+            m = N_VC_FOLDS_RE.search(f.read())
+    except IOError:
+        return False
+    return bool(m) and int(m.group(1)) > 1
+
+
+def vc_extra_tasks(label, p, exe):
+    """Extra executables run for exe of the P1_* directory p (see VC_TASK)."""
+    if label == "V" and exe == "virtual" and vc_split():
+        return [VC_TASK]
+    return []
+
+
+def log_name(exe):
+    """log_<executable>.txt, with the arguments in the name ('virtual
+    --counterterms' -> log_virtual_counterterms.txt)."""
+    return "log_" + "_".join(exe.replace("-", " ").split()) + ".txt"
+
+
 def output_tag(exe):
-    """'Born' -> 'B', 'virtual' -> 'V', 'sector_3_4' -> 'R_3_4'"""
+    """'Born' -> 'B', 'virtual' -> 'V', 'virtual --counterterms' -> 'VC',
+    'sector_3_4' -> 'R_3_4'"""
     if exe == "Born":
         return "B"
     if exe == "virtual":
         return "V"
+    if exe == VC_TASK:
+        return "VC"
     if exe.startswith("sector_"):
         return "R_" + exe[len("sector_"):]
     raise ValueError(f"unknown executable '{exe}'")
@@ -578,7 +630,7 @@ def run_executable(task):
     p, exe = task
     p = exe_dir(p, exe)
     start = time.time() - 1.0  # tolerance for the file-system time resolution
-    run(f"./{exe}", p, os.path.join(p, f"log_{exe}.txt"))
+    run(f"./{exe}", p, os.path.join(p, log_name(exe)))
     tag = output_tag(exe)
     results = os.path.join(p, f"results_{tag}.log")
     if not (os.path.isfile(results) and os.path.getmtime(results) >= start):
@@ -613,11 +665,13 @@ def timed_call(fn, item):
 RUN_ORDER = ("V", "R", "B")
 
 
-def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_done=None):
+def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_done=None,
+             extra_tasks=None):
     """Build and run the executables of the contributions labels (see above).
     run_fn((p, exe)) runs one executable; exe_filter(exe) selects the
     executables (default all); label_done(label, state) is called when all
-    the tasks of a contribution are over. Returns {label: state}, state =
+    the tasks of a contribution are over; extra_tasks(label, p, exe) gives
+    more executables to run after exe (see VC_TASK). Returns {label: state}, state =
     {"tasks": [(p, exe), ...], "results": {(p, exe): result}, "failed": [names]}."""
     order = sorted(labels, key=RUN_ORDER.index)
     paths = {}
@@ -637,6 +691,8 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
     for label in order:
         tasks = [(p, exe) for p in paths[label] for exe in (make_targets_without_libs(p) or [])
                  if exe_filter is None or exe_filter(exe)]
+        if extra_tasks is not None:
+            tasks = [(p, e) for p, exe in tasks for e in [exe] + extra_tasks(label, p, exe)]
         state[label] = {"tasks": tasks, "results": {}, "failed": [],
                         "left": len(paths[label]) + len(tasks)}
     n_tasks = sum(len(state[label]["tasks"]) for label in order)
@@ -738,7 +794,7 @@ def run_mode(labels, n, compile_jobs, sequential):
         print(f"=== Running {' + '.join(NAMES[label] for label in group)}"
               + (" (in parallel)" if len(group) > 1 else "") + " ===")
         state = schedule(group, n, compile_jobs, run_executable, "done",
-                         label_done=record_contribution)
+                         label_done=record_contribution, extra_tasks=vc_extra_tasks)
         failed += [label for label in group if state.get(label, {}).get("failed")]
         if failed:
             break
@@ -1154,6 +1210,7 @@ if __name__ == "__main__":
     update_run_card_include()
     update_analysis()
     setup_lhapdf()
+    check_beam_energies(MODES[args.mode])
 
     try:
         if args.test_only:

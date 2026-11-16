@@ -3486,6 +3486,9 @@ class RunCardNLO(RunCard):
         self.add_param('niters_v_grid', 10, include=True)
         self.add_param('npoints_v', 10000, include=True)
         self.add_param('niters_v', 10, include=True)
+        # integrated counterterms of the virtual (I + J + C): number of their
+        # phase-space points per loop point (1: integrated with the loop)
+        self.add_param('n_vc_folds', 1, include=True)
         self.add_param('npoints_r_grid', 5000, include=True)
         self.add_param('niters_r_grid', 10, include=True)
         self.add_param('npoints_r', 10000, include=True)

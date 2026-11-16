@@ -43,6 +43,13 @@ c     input check
          stop
       endif
 c
+c     recoiler in the initial state: FFI or FII mappings (below)
+      if(iB.le.2)then
+         call phase_space_CS_initial(xx,iU,iS,iB,iA,p,pbar,npart,xjac,
+     &        mapped_labels)
+         return
+      endif
+c
 c     iA (reference four-vector for definition of the azimuth)
 c     must be != iB, iU, iS;
 c      call get_mapped_labels_reduced(npart,iU,iS,mapped_labels)
@@ -201,8 +208,7 @@ c
 c     Build n momenta pbar from n+1 momenta p
 c     iU is the unresolved parton associated
 c     with the soft singularity
-c
-c     TODO: add mappings for initial state
+c     (recoiler iB in the initial state: phase_space_CS_initial_inv)
 c
       implicit none
       include 'nexternal.inc'
@@ -220,6 +226,13 @@ c
 c
 c     initialise
       xjac=0d0
+c
+c     recoiler in the initial state: FFI or FII mappings
+      if(iB.le.2)then
+         call phase_space_CS_initial_inv(iU,iS,iB,p,pbar,npart,xjac,
+     &        mapped_labels)
+         return
+      endif
 c     
 c     auxiliary quantities
       mS2=pmass(iS)**2
@@ -331,3 +344,350 @@ c      mapped_labels(i1)=mapped_labels(i2)
 c
 c      return
 c      end
+
+
+c=======================================================================
+c     Phase-space mappings with initial-state partons
+c     (2209.09123, App. B; notation (abc) = (iU,iS,iB) = (emitted,
+c     emitter, recoiler), all massless):
+c
+c     FFI: iS final, iB initial
+c          kbar_S = k_U + k_S - (1-x) k_B ,   kbar_B = x k_B
+c          x = (s_UB + s_SB - s_US)/(s_UB + s_SB)
+c          z = s_UB/(s_UB + s_SB)
+c          radiative measure  sbar/(16 pi^2) dx dz dphi/(2 pi),
+c          sbar = 2 kbar_S.k_B = s_UB + s_SB
+c
+c     FII: iS initial, iB initial
+c          kbar_S = x k_S ,   kbar_B = k_B ,
+c          final states (other than iU) Lorentz-transformed from
+c          K = k_S + k_B - k_U  to  Kbar = x k_S + k_B
+c          x = (s_SB - s_US - s_UB)/s_SB
+c          v = s_US/(s_US + s_UB)
+c          radiative measure  sbar (1-x)/(16 pi^2) dx dv dphi/(2 pi),
+c          sbar = s_SB
+c
+c     The initial-state parton rescaled by the mapping (iB for FFI, iS
+c     for FII) has momentum fraction xbk_npo = xbk_bar/x in the real
+c     kinematics, so that, at fixed Born, x ranges in [xbk_bar,1]. The
+c     hadronic weight is then (Born weight of gen_mom) x (radiative
+c     measure), with the PDF of the rescaled beam evaluated at the real
+c     momentum fraction, and no further factor 1/x.
+c
+c     The momentum fractions of the real kinematics (xbk_npo) and of
+c     the mapped Born kinematics (xbk_bar) are passed in the common
+c     block c_xbk_mapped:
+c       phase_space_CS     sets xbk_npo from the Born fractions xbk
+c                          (run.inc) of gen_mom;
+c       phase_space_CS_inv sets xbk_bar from xbk_npo.
+c=======================================================================
+      subroutine phase_space_CS_initial(xx,iU,iS,iB,iA,p,pbar,npart,
+     &     xjac,mapped_labels)
+c     Build n+1 momenta p from n momenta pbar (lab frame), for a
+c     recoiler iB in the initial state: FFI (iS final) or FII (iS
+c     initial). Integration variables:
+c       xx(1) = z (FFI; z/z+ with a massive emitter) or v (FII),
+c       xx(2) = (1-x)/(1-xbk_bar), i.e. xx(2) -> 0 is the x -> 1 limit,
+c       xx(3) = phi/(2 pi), azimuth around the emitter-recoiler axis,
+c               measured from the reference momentum pbar(iA).
+c     The momentum fractions xbk_npo(a) of the initial-state partons
+c     a = 1,2 (labels of the real emission) are set by phase_space_npo
+c     to the Born ones; here that of the rescaled parton is divided by x.
+c     The Born labels of the two initial-state partons may be exchanged
+c     (mapped_labels(1) = 2): see get_mapped_labels_initial (imap.f).
+      implicit none
+      include 'nexternal.inc'
+      include 'coupl.inc'
+      include 'math.inc'
+      include 'run.inc'
+      integer npart,iU,iS,iB,iA,j,ibeam,ierr
+      integer mapped_labels(npart)
+      double precision xx(3),p(0:3,npart),pbar(0:3,npart-1),xjac
+      double precision xCS,zCS,vCS,phCS,xmin,sbar,kt2
+      double precision pbS(0:3),pbB(0:3),pA(0:3),kB(0:3),kS(0:3)
+      double precision kt(0:3),K(0:3),Kbar(0:3)
+      double precision mS2,zp,P2,bet,PP(0:3),nS(0:3)
+      double precision dot
+      double precision xbk_npo(2),xbk_bar(2)
+      common/c_xbk_mapped/xbk_npo,xbk_bar
+      double precision pmass(nexternal)
+      include 'pmass.inc'
+c
+c     initialise
+      xjac=0d0
+      p=0d0
+c
+c     massless emitted parton and initial-state partons; the final-state
+c     emitter of FFI can be massive (MadNkLO paper with massive
+c     particles, App. A.3: FmI mapping)
+      if(pmass(iU).ne.0d0.or.(iS.le.2.and.pmass(iS).ne.0d0))then
+         write(*,*)'phase_space_CS_initial: massive emitted parton ',
+     &        'or initial-state emitter not implemented',iU,iS,iB
+         stop
+      endif
+c
+c     Born momenta of emitter, recoiler and reference
+      pbS(:)=pbar(:,mapped_labels(iS))
+      pbB(:)=pbar(:,mapped_labels(iB))
+      pA(:) =pbar(:,mapped_labels(iA))
+c
+c     initial-state parton rescaled by the mapping, and the minimum x
+      if(iS.le.2)then
+         ibeam=iS
+      else
+         ibeam=iB
+      endif
+      if(mapped_labels(ibeam).gt.2)then
+         write(*,*)'phase_space_CS_initial: initial-state label ',ibeam,
+     &        ' mapped to ',mapped_labels(ibeam)
+         stop
+      endif
+      xmin=xbk_npo(ibeam)
+      if(xmin.le.0d0.or.xmin.ge.1d0)goto 999
+c
+c     x from xx(2): flat in [xmin,1]
+      xCS=1d0-(1d0-xmin)*xx(2)
+      xjac=1d0-xmin
+      if(xCS.ge.1d0.or.xCS.le.0d0)goto 999
+      phCS=2d0*pi*xx(3)
+c
+      if(iS.gt.2)then
+c
+c     FFI: emitter iS final, recoiler iB initial
+         mS2=pmass(iS)**2
+         kB(:)=pbB(:)/xCS
+         sbar=2d0*dot(pbS,kB)
+         if(mS2.eq.0d0)then
+c        massless emitter: z = s_Uk/sbar in [0,1]
+         zCS=xx(1)
+         if(zCS.le.0d0.or.zCS.ge.1d0)goto 999
+         kt2=zCS*(1d0-zCS)*(1d0-xCS)*sbar
+         call get_transverse_vector(pbS,kB,pA,kt2,phCS,kt,ierr)
+         if(ierr.ne.0)goto 999
+         p(:,iU)=zCS*pbS(:)+(1d0-zCS)*(1d0-xCS)*kB(:)+kt(:)
+         p(:,iS)=(1d0-zCS)*pbS(:)+zCS*(1d0-xCS)*kB(:)-kt(:)
+         else
+c        massive emitter (App. A.3): z = s_Uk/sbar in [0,z+], with
+c        z+ = sbar(1-x)/(sbar(1-x)+m^2); P = k_U + k_S = pbS + (1-x) kB,
+c        light-like n = P - P^2/sbar kB, and
+c        k_U = z n + beta kB + kt, beta = (1-x) - z P^2/sbar,
+c        so that s_Uk = z sbar, s_US = (1-x) sbar, k_S^2 = m^2
+         zp=sbar*(1d0-xCS)/(sbar*(1d0-xCS)+mS2)
+         zCS=zp*xx(1)
+         xjac=xjac*zp
+         if(zCS.le.0d0.or.zCS.ge.zp)goto 999
+         PP(:)=pbS(:)+(1d0-xCS)*kB(:)
+         P2=mS2+(1d0-xCS)*sbar
+         nS(:)=PP(:)-P2/sbar*kB(:)
+         bet=(1d0-xCS)-zCS*P2/sbar
+         kt2=zCS*bet*sbar
+         call get_transverse_vector(nS,kB,pA,kt2,phCS,kt,ierr)
+         if(ierr.ne.0)goto 999
+         p(:,iU)=zCS*nS(:)+bet*kB(:)+kt(:)
+         p(:,iS)=PP(:)-p(:,iU)
+         endif
+         p(:,iB)=kB(:)
+         do j=1,npart
+            if(j.eq.iU.or.j.eq.iS.or.j.eq.iB)cycle
+            p(:,j)=pbar(:,mapped_labels(j))
+         enddo
+c        radiative measure
+         xjac=xjac*sbar/(16d0*pi**2)
+      else
+c
+c     FII: emitter iS initial, recoiler iB initial
+         vCS=xx(1)
+         if(vCS.le.0d0.or.vCS.ge.1d0)goto 999
+         kS(:)=pbS(:)/xCS
+         sbar=2d0*dot(kS,pbB)
+         kt2=(1d0-xCS)**2*vCS*(1d0-vCS)*sbar
+         call get_transverse_vector(kS,pbB,pA,kt2,phCS,kt,ierr)
+         if(ierr.ne.0)goto 999
+         p(:,iU)=(1d0-xCS)*(1d0-vCS)*kS(:)+(1d0-xCS)*vCS*pbB(:)+kt(:)
+         p(:,iS)=kS(:)
+         p(:,iB)=pbB(:)
+c        final-state momenta: Lorentz transformation Kbar -> K
+         Kbar(:)=pbS(:)+pbB(:)
+         K(:)=kS(:)+pbB(:)-p(:,iU)
+         do j=1,npart
+            if(j.eq.iU.or.j.eq.iS.or.j.eq.iB)cycle
+            call lorentz_KbartoK(K,Kbar,pbar(0,mapped_labels(j)),
+     &           p(0,j))
+         enddo
+c        radiative measure
+         xjac=xjac*sbar*(1d0-xCS)/(16d0*pi**2)
+      endif
+c
+c     momentum fraction of the rescaled beam in the real kinematics
+      xbk_npo(ibeam)=xmin/xCS
+c
+c     consistency check
+      do j=1,npart
+         if(p(0,j).lt.0d0)then
+            write(77,*)'Inaccuracy 1 in phase_space_CS_initial',j,
+     &           p(0,j),npart
+            goto 999
+         endif
+      enddo
+c
+      return
+ 999  xjac=0d0
+      return
+      end
+
+
+      subroutine phase_space_CS_initial_inv(iU,iS,iB,p,pbar,npart,xjac,
+     &     mapped_labels)
+c     Build n momenta pbar from n+1 momenta p, for a recoiler iB in
+c     the initial state: FFI (iS final) or FII (iS initial). Returns
+c     in xjac the radiative measure factor (sbar/(16 pi^2) for FFI,
+c     sbar (1-x)/(16 pi^2) for FII), and sets xbk_bar, the momentum
+c     fractions of the mapped Born kinematics.
+      implicit none
+      include 'nexternal.inc'
+      include 'coupl.inc'
+      include 'math.inc'
+      integer npart,iU,iS,iB,j,ibeam
+      integer mapped_labels(npart)
+      double precision p(0:3,npart),pbar(0:3,npart-1),xjac
+      double precision sUS,sUB,sSB,xCS,K(0:3),Kbar(0:3)
+      double precision dot
+      double precision xbk_npo(2),xbk_bar(2)
+      common/c_xbk_mapped/xbk_npo,xbk_bar
+c
+c     initialise
+      xjac=0d0
+      xbk_bar(1)=xbk_npo(1)
+      xbk_bar(2)=xbk_npo(2)
+c
+      sUS=2d0*dot(p(0,iU),p(0,iS))
+      sUB=2d0*dot(p(0,iU),p(0,iB))
+      sSB=2d0*dot(p(0,iS),p(0,iB))
+c
+      if(iS.gt.2)then
+c
+c     FFI: emitter iS final, recoiler iB initial
+         ibeam=iB
+         if(sUB+sSB.le.0d0)goto 999
+         xCS=(sUB+sSB-sUS)/(sUB+sSB)
+         if(xCS.le.0d0.or.xCS.gt.1d0)goto 999
+         pbar(:,mapped_labels(iS))=p(:,iU)+p(:,iS)-(1d0-xCS)*p(:,iB)
+         pbar(:,mapped_labels(iB))=xCS*p(:,iB)
+         do j=1,npart
+            if(j.eq.iU.or.j.eq.iS.or.j.eq.iB)cycle
+            pbar(:,mapped_labels(j))=p(:,j)
+         enddo
+         xjac=(sUB+sSB)/(16d0*pi**2)
+      else
+c
+c     FII: emitter iS initial, recoiler iB initial
+         ibeam=iS
+         if(sSB.le.0d0)goto 999
+         xCS=(sSB-sUS-sUB)/sSB
+         if(xCS.le.0d0.or.xCS.gt.1d0)goto 999
+         pbar(:,mapped_labels(iS))=xCS*p(:,iS)
+         pbar(:,mapped_labels(iB))=p(:,iB)
+c        final-state momenta: Lorentz transformation K -> Kbar
+         K(:)=p(:,iS)+p(:,iB)-p(:,iU)
+         Kbar(:)=xCS*p(:,iS)+p(:,iB)
+         do j=1,npart
+            if(j.eq.iU.or.j.eq.iS.or.j.eq.iB)cycle
+            call lorentz_KbartoK(Kbar,K,p(0,j),pbar(0,mapped_labels(j)))
+         enddo
+         xjac=sSB*(1d0-xCS)/(16d0*pi**2)
+      endif
+c
+c     momentum fraction of the rescaled beam in the mapped Born
+      xbk_bar(ibeam)=xbk_npo(ibeam)*xCS
+c
+      return
+ 999  xjac=0d0
+      return
+      end
+
+
+      subroutine get_transverse_vector(pb,pc,pref,kt2,phi,kt,ierr)
+c     Space-like vector kt orthogonal to the massless momenta pb and
+c     pc, with kt.kt = -kt2 and azimuth phi around the pb-pc axis,
+c     measured from the component of pref orthogonal to pb and pc
+c     (e1); e2 completes the basis (e2^mu = eps^{mu nu rho sigma}
+c     pb_nu pc_rho e1_sigma, normalised).
+      implicit none
+      integer ierr,mu
+      double precision pb(0:3),pc(0:3),pref(0:3),kt2,phi,kt(0:3)
+      double precision e1(0:3),e2(0:3),e2up(0:3),pbpc,n1,n2
+      double precision dot
+c
+      ierr=0
+      pbpc=dot(pb,pc)
+      if(pbpc.le.0d0.or.kt2.lt.0d0)goto 999
+c
+c     e1: pref minus its components along pb and pc
+      e1(:)=pref(:)-dot(pref,pc)/pbpc*pb(:)-dot(pref,pb)/pbpc*pc(:)
+      n1=-dot(e1,e1)
+      if(n1.le.0d0)goto 999
+      e1(:)=e1(:)/sqrt(n1)
+c
+c     e2^mu = eps^{mu nu rho sigma} pb_nu pc_rho e1_sigma (eps^{0123}=1)
+      call levi_civita_contract(pb,pc,e1,e2up)
+      do mu=0,3
+         e2(mu)=e2up(mu)
+      enddo
+      n2=-dot(e2,e2)
+      if(n2.le.0d0)goto 999
+      e2(:)=e2(:)/sqrt(n2)
+c
+      kt(:)=sqrt(kt2)*(cos(phi)*e1(:)+sin(phi)*e2(:))
+      return
+ 999  ierr=1
+      return
+      end
+
+
+      subroutine levi_civita_contract(a,b,c,r)
+c     r^mu = eps^{mu nu rho sigma} a_nu b_rho c_sigma, with eps^{0123}=1
+c     and lower indices a_nu = g_{nu nu} a^nu (metric +,-,-,-)
+      implicit none
+      double precision a(0:3),b(0:3),c(0:3),r(0:3)
+      double precision al(0:3),bl(0:3),cl(0:3)
+      integer i
+      double precision g(0:3)
+      data g/1d0,-1d0,-1d0,-1d0/
+      do i=0,3
+         al(i)=g(i)*a(i)
+         bl(i)=g(i)*b(i)
+         cl(i)=g(i)*c(i)
+      enddo
+      r(0)= al(1)*(bl(2)*cl(3)-bl(3)*cl(2))
+     &     -al(2)*(bl(1)*cl(3)-bl(3)*cl(1))
+     &     +al(3)*(bl(1)*cl(2)-bl(2)*cl(1))
+      r(1)=-al(0)*(bl(2)*cl(3)-bl(3)*cl(2))
+     &     +al(2)*(bl(0)*cl(3)-bl(3)*cl(0))
+     &     -al(3)*(bl(0)*cl(2)-bl(2)*cl(0))
+      r(2)= al(0)*(bl(1)*cl(3)-bl(3)*cl(1))
+     &     -al(1)*(bl(0)*cl(3)-bl(3)*cl(0))
+     &     +al(3)*(bl(0)*cl(1)-bl(1)*cl(0))
+      r(3)=-al(0)*(bl(1)*cl(2)-bl(2)*cl(1))
+     &     +al(1)*(bl(0)*cl(2)-bl(2)*cl(0))
+     &     -al(2)*(bl(0)*cl(1)-bl(1)*cl(0))
+      return
+      end
+
+
+      subroutine lorentz_KbartoK(K,Kbar,pin,pout)
+c     Lorentz transformation that maps Kbar onto K (K.K = Kbar.Kbar):
+c     pout = pin - 2 pin.(K+Kbar)/(K+Kbar)^2 (K+Kbar)
+c                + 2 pin.Kbar/Kbar^2 K
+c     (initial-initial mapping of 2209.09123, App. B; with K and Kbar
+c     exchanged it is the inverse transformation)
+      implicit none
+      double precision K(0:3),Kbar(0:3),pin(0:3),pout(0:3)
+      double precision KpKb(0:3),tmp(0:3)
+      double precision dot
+c
+      KpKb(:)=K(:)+Kbar(:)
+      tmp(:)=pin(:)-2d0*dot(pin,KpKb)/dot(KpKb,KpKb)*KpKb(:)
+     &     +2d0*dot(pin,Kbar)/dot(Kbar,Kbar)*K(:)
+      pout(:)=tmp(:)
+      return
+      end

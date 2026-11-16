@@ -61,6 +61,12 @@ def glob_one(pattern, description):
     return matches[0]
 
 
+def is_FII_mapping(mapping):
+    """True if the sector mapping (abc) is FII: emitter b and recoiler c
+    both in the initial state"""
+    return mapping is not None and mapping[1] <= 2 and mapping[2] <= 2
+
+
 def get_sector_wgt(q, p_sector):
     """ the sector function sigma_ij of the Torino paper (eq. 2.13-2.14)
      without the normalisation.
@@ -484,7 +490,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             necessary_ct_list_one[0] =  'S_g' # 1
                             necessary_ct_one[0] = ct
 # # # gl
-                        if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
+                        # j can be soft only if it is a final-state gluon
+                        if s['sector'].id[0] == 21 and s['sector'].id[1] == 21 \
+                                and s['sector'].leg_numbers[1] > 2:
                             s['counterterms'].append(i_ct)
                             necessary_ct_list_one[1] = 'S_g' # 1
                             necessary_ct_one[1] = ct
@@ -502,7 +510,14 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                             # pure-collinear CT: include if the legs match those of the sector
                             if sorted([l.n for l in all_legs]) == sorted(s['sector'].leg_numbers):
                                 s['counterterms'].append(i_ct)
-                                if s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
+                                if s['sector'].leg_numbers[1] <= 2:
+                                    # initial-state splitting, j initial and i final:
+                                    # HC_I<j>F<i>, with <j>,<i> = q (quark or
+                                    # antiquark) or g (2209.09123, eq. (eq:CijRdef))
+                                    qg = lambda pdg: 'g' if pdg == 21 else 'q'
+                                    necessary_ct_list_one[2] = 'HC_I%sF%s' % (
+                                        qg(s['sector'].id[1]), qg(s['sector'].id[0]))
+                                elif s['sector'].id[0] == 21 and s['sector'].id[1] == 21:
                                     necessary_ct_list_one[2] = 'HC_gg' # 1
                                     #necessary_ct_list_one[3] = 'SC_gg' # 1
                                 elif s['sector'].id[0] == 21 and s['sector'].id[1] != 21:
@@ -635,7 +650,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         # This ensures even SC_gg / SC_gq (soft-collinear) terms have dummy entries.
         # They will be overwritten later when actual process names are found.
         # ------------------------------------------------------------------------------
-        necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx']
+        necessary_default_ct_list = ['S_g', 'HC_gg', 'HC_gq', 'HC_qqx',
+                                     'HC_IqFg', 'HC_IgFg', 'HC_IgFq', 'HC_IqFq']
         for ct in necessary_default_ct_list:
             replace_dict_limits['proc_prefix_%s' % ct] = 'dummy'
         # ------------------------------------------------------------------------------
@@ -701,16 +717,33 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             sector_info['iref'] = iref
 
 
-            # default mapping for final-state collinear kernels (abc) == (ijr)
-            mapping = [('isec', isec), ('jsec', jsec), ('iref', iref)]
+            # Phase-space mapping (abc) of the sector, the one of its
+            # hard-collinear counterterm (2209.09123, eq. (eq:CijRdef)):
+            #   j final                 : (ijr), FFF or FFI (r initial)
+            #   j initial, r initial    : (ijr), FII
+            #   j initial, r final      : (irj), FFI
+            if jsec <= 2 and iref > 2:
+                mapping = [('isec', isec), ('iref', iref), ('jsec', jsec)]
+            else:
+                mapping = [('isec', isec), ('jsec', jsec), ('iref', iref)]
             sector_info['mapping'] = [mapping[0][1], mapping[1][1], mapping[2][1]]
+
+            # Reference momentum iA for the azimuth of the radiation: the first
+            # initial-state particle by default; with initial-state partons in
+            # the mapping it would be collinear to the emitter or the recoiler,
+            # so take the first final-state particle outside the mapping
+            iA = 1
+            if min(sector_info['mapping']) <= 2:
+                iA = min(l.get('number') for l in leglist if l.get('state') and
+                         l.get('number') not in sector_info['mapping'])
 
             #specify (abc) mapping choice
             mapping_str = """ \
                 iU = %s
                 iS = %s
-                iA = 1 ! default azimuth for NLO
-            """ % (mapping[0][0], mapping[1][0])
+                iB = %s
+                iA = %d ! reference for the azimuth of the radiation
+            """ % (mapping[0][0], mapping[1][0], mapping[2][0], iA)
             overall_sector_info.append(sector_info)
 
             # Initialise NLO_IR_limits.f for every sector [ij]
@@ -752,7 +785,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     with open(pjoin(NLO_IR_limits_tmp_path, necessary_ct_list[i][j] + '.f')) as ct_template:
                         IR_limits_str += ct_template.read()
                     K_sector_lists['C'][(isec,jsec)].append((isec,iref))
-                    if (necessary_ct_list[i][1] !=  0):  # This effectively means: if gg sector, then add sigma(jsec,iref) for Wc,ij sector function
+                    # gg sector with j final: add sigma(jsec,iref) for the Wc,ij
+                    # sector function (with j initial there is no sector (j,i),
+                    # since only final-state partons can be soft, and Wc = 1)
+                    if (necessary_ct_list[i][1] !=  0) and jsec > 2:
                         K_sector_lists['C'][(isec,jsec)].append((jsec,iref))
 
 
@@ -774,40 +810,58 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             chan_hc = necessary_ct_list[i][2] if necessary_ct_list[i][2] != 0 else None
             chan_soft_block = ''
             if chan_has_soft:
-                chan_soft_block = """c     soft pieces: one per dipole (l,m), mapping (isec,l,m)
+                chan_soft_block = """c     soft pieces: one per dipole (l,m) and mapping (isec,ke,kr):
+c     (isec,l,m), and for the dipole between the two initial-state
+c     partons (l = 2, m = 1) its two partial fractions, on (isec,2,1)
+c     and (isec,1,2) (see M2_S_g)
       do m=1,nexternal-1
          if(.not.isNLOQCDparton(m))cycle
          if(m.eq.isec)cycle
          do l=m+1,nexternal
             if(.not.isNLOQCDparton(l))cycle
             if(l.eq.isec)cycle
-            ldip=l
-            mdip=m
-            wch=0d0
-            if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.l.and.chtrip(3,ichan).eq.m)wch=1d0
-            val=M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wch,ierr)
-            if(ierr.eq.1)goto 999
-            KNLO=KNLO+val
-            KCH=KCH+wch*val
+            nmap=1
+            if(l.le.2)nmap=2
+            do imap=1,nmap
+               ke=l
+               kr=m
+               if(imap.eq.2)then
+                  ke=m
+                  kr=l
+               endif
+               ldip=l
+               mdip=m
+               kedip=ke
+               wsel=0d0
+               if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.ke.and.chtrip(3,ichan).eq.kr)wsel=1d0
+               wch=wsel*wfill
+               val=M2_%s(isec,xs,xp,wgt,xj,xjB,nitR,1d0,wch,ierr)
+               if(ierr.eq.1)goto 999
+               KT(ipass)=KT(ipass)+val
+               KC(ipass)=KC(ipass)+wsel*val
+            enddo
          enddo
       enddo
       ldip=0
       mdip=0
+      kedip=0
 """ % necessary_ct_list[i][0]
             chan_hc_block = ''
             if chan_hc:
-                chan_hc_block = """c     hard-collinear piece, on the Born of its own mapping (isec,jsec,iref)
-      call phase_space_CS_inv(isec,jsec,iref,xp,xpbhc,nexternal,leg_PDGs,xjcs,mapped_labels)
+                abc = (mapping[0][0], mapping[1][0], mapping[2][0])
+                chan_hc_block = """c     hard-collinear piece, on the Born of its own mapping (%s,%s,%s)
+      call phase_space_CS_inv(%s,%s,%s,xp,xpbhc,nexternal,leg_PDGs,xjcs,mapped_labels)
       if(xjcs.eq.0d0)goto 999
       call invariants_from_p(xpbhc,nexternal-1,xsbhc,ierr)
       if(ierr.ne.0)goto 999
-      wch=0d0
-      if(chtrip(1,ichan).eq.isec.and.chtrip(2,ichan).eq.jsec.and.chtrip(3,ichan).eq.iref)wch=1d0
+      wsel=0d0
+      if(chtrip(1,ichan).eq.%s.and.chtrip(2,ichan).eq.%s.and.chtrip(3,ichan).eq.%s)wsel=1d0
+      wch=wsel*wfill
       val=M2_%s(isec,jsec,iref,xs,xp,xsbhc,xpbhc,wgt,xj,nitR,1d0,wch,ierr)
       if(ierr.eq.1)goto 999
-      KNLO=KNLO+val
-      KCH=KCH+wch*val
-""" % chan_hc
+      KT(ipass)=KT(ipass)+val
+      KC(ipass)=KC(ipass)+wsel*val
+""" % (abc + abc + abc + (chan_hc,))
             replace_dict_ct['chan_soft_block'] = chan_soft_block
             replace_dict_ct['chan_hc_block'] = chan_hc_block
             replace_dict_int_real['chan_has_soft'] = '.true.' if chan_has_soft else '.false.'
@@ -822,10 +876,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             #if necessary_ct_list[i*5] == 1 or necessary_ct_list[i*5+1] == 1:
             if necessary_ct_list[i][0] != 0 or necessary_ct_list[i][1] != 0:
                 # list of proc str permutations 'epem_ddx' for template
-                uB_proc = necessary_ct[i][0].current.shell_string_user(
-                            schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-                # list of proc str permutations '1_epem_ddx' for directory
-                uB_proc_str_1 = necessary_ct[i][0].current.shell_string_user()
+                # (and the same with the two initial states exchanged, used
+                # if the Born exists only in that order, see Born_candidates)
+                uB_proc, uB_proc_str_1 = self.Born_candidates(necessary_ct[i][0].current)
                 for j in range(0,len(uB_proc)):
                     dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
 
@@ -846,8 +899,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                         overall_sector_info[i]['Born_str'] = extra_uB_proc
 
             if necessary_ct_list[i][2] != 0 : #== 1:
-                # Loop over sectors with final state particles only
-                if isec > 2 and jsec > 2:
+                # final- and initial-state splittings
+                if True:
                     tmp_proc = 'proc_prefix_%s' % necessary_ct_list[i][2]
                     # # g > g + g
                     # if id_isec == 21 and id_jsec == 21:
@@ -859,9 +912,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                     # else:
                     #     tmp_proc = 'proc_prefix_HC_qqx'
 
-                    uB_proc = necessary_ct[i][2].current.shell_string_user(
-                                schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-                    uB_proc_str_1 = necessary_ct[i][2].current.shell_string_user()
+                    uB_proc, uB_proc_str_1 = self.Born_candidates(necessary_ct[i][2].current)
                     flag = False
                     for j in range(0,len(uB_proc)):
                         dirpathLO = pjoin(dirpathLO_head, 'SubProcesses', "P%s" % uB_proc_str_1[j])
@@ -905,6 +956,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                     overall_sector_info[i]['alt_Born_str'] = "_".join(tmp_extra_uB_proc)
                                     overall_sector_info[i]['alt_Born_path'] = pjoin(dirpathLO_head, 'SubProcesses', "P%s"
                                                                                     % "_".join(['1',overall_sector_info[i]['alt_Born_str']]))
+                                    # the flavour replacement above is the e+e- grouping (s as d,
+                                    # c as u); in general, the Born directory is the one that
+                                    # groups the Born process (it has its leg_PDGs_<Born>.inc)
+                                    if not os.path.exists(overall_sector_info[i]['alt_Born_path']):
+                                        overall_sector_info[i]['alt_Born_str'], overall_sector_info[i]['alt_Born_path'] = \
+                                            self.find_grouped_Born(dirpathLO_head, extra_uB_proc)
                                     #print(overall_sector_info[i]['alt_Born_str'])
                                     #print(overall_sector_info[i]['alt_Born_path'])
 
@@ -963,6 +1020,12 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                                     overall_sector_info[i]['alt_Born_str'] = "_".join(tmp_extra_uB_proc)
                                     overall_sector_info[i]['alt_Born_path'] = pjoin(dirpathLO_head, 'SubProcesses', "P%s"
                                                                                     % "_".join(['1',overall_sector_info[i]['alt_Born_str']]))
+                                    # the flavour replacement above is the e+e- grouping (s as d,
+                                    # c as u); in general, the Born directory is the one that
+                                    # groups the Born process (it has its leg_PDGs_<Born>.inc)
+                                    if not os.path.exists(overall_sector_info[i]['alt_Born_path']):
+                                        overall_sector_info[i]['alt_Born_str'], overall_sector_info[i]['alt_Born_path'] = \
+                                            self.find_grouped_Born(dirpathLO_head, extra_uB_proc)
                                     #print(overall_sector_info[i]['alt_Born_str'])
                                     #print(overall_sector_info[i]['alt_Born_path'])
 
@@ -1014,7 +1077,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 [l.get('id') for l in leglist if l.get('number') == iref][0]]['mass']
             self.write_testR_template_file(writer, secpath, dirmadnklo, defining_process,
                                                     i, isec, jsec, necessary_ct_list, mapping_str,all_sector_mass_list[i],
-                                                    iref_mass)
+                                                    iref_mass, sector_info['mapping'])
 
         # check on overall_sector_info length
         if len(overall_sector_info) != len(all_sector_list):
@@ -1042,10 +1105,10 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
                 Born_recoiler = v_rec[j][1]
                 if mapped_labels[parent_leg-1] == Born_parent and mapped_labels[info['iref']-1] == Born_recoiler:
                     if mapped_flavours[info['iref']-1] != info['Born_PDGs'][Born_recoiler-1]:
-                        raise MadEvent7Error('Recoiler flavours from (n+1) mapping (irec = (%d,%d))    \
-                                            and n virtual contribution (irec = (%d,%d)) do not match!'
-                                            ) % (info['iref'], mapped_flavours[info['iref']-1],
-                                                    Born_recoiler, info['Born_PDGs'][Born_recoiler-1])
+                        raise MadEvent7Error('Recoiler flavours from (n+1) mapping (irec = (%d,%d)) '
+                                             'and n virtual contribution (irec = (%d,%d)) do not match!'
+                                             % (info['iref'], mapped_flavours[info['iref']-1],
+                                                Born_recoiler, info['Born_PDGs'][Born_recoiler-1]))
 
 
 ######### Write get_Born_PDGs.f
@@ -1112,6 +1175,44 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
     # write all_sector_list include file
     #===========================================================================
 
+    def Born_candidates(self, Born_process):
+        """Shell strings of the underlying Born process of a counterterm,
+        for the template ('ddx_epem') and for the directory ('1_ddx_epem'),
+        one per permutation of the final state. They are followed by the
+        same strings with the two initial-state partons exchanged: after
+        an initial-state splitting the Born may exist only in that order
+        (e.g. d~ d > e+ e- for g d > e+ e- d, generated as d d~ > e+ e-
+        with its mirror). Then the labels of the two initial states are
+        exchanged by the flavour matching of get_mapped_labels (imap.f),
+        and the Born momenta are built in that order."""
+        opts = dict(schannel=True, forbid=True, main=False, pdg_order=False, print_id=False)
+        uB_proc = list(Born_process.shell_string_user(**opts))
+        uB_proc_str_1 = list(Born_process.shell_string_user())
+        legs = Born_process.get('legs')
+        if len(legs) > 1 and not legs[0].get('state') and not legs[1].get('state') \
+                and legs[0].get('id') != legs[1].get('id'):
+            swapped = copy.copy(Born_process)
+            swapped_legs = copy.copy(legs)
+            swapped_legs[0], swapped_legs[1] = legs[1], legs[0]
+            swapped['legs'] = swapped_legs
+            uB_proc += swapped.shell_string_user(**opts)
+            uB_proc_str_1 += swapped.shell_string_user()
+        return uB_proc, uB_proc_str_1
+
+
+    def find_grouped_Born(self, dirpathLO_head, Born_str):
+        """Born directory P<n>_<main> of the LO contribution that groups the
+        Born process Born_str (it contains leg_PDGs_<Born_str>.inc), and its
+        main process <main>, whose matrix_<main>.f has the accessor of
+        Born_str too"""
+        found = glob.glob(pjoin(dirpathLO_head, 'SubProcesses', 'P*', 'leg_PDGs_%s.inc' % Born_str))
+        if len(found) != 1:
+            raise MadEvent7Error('No (or more than one) Born directory with process %s: %s' % (Born_str, found))
+        path = os.path.dirname(found[0])
+        main = os.path.basename(path).split('_', 1)[1]
+        return main, path
+
+
     def sector_dir(self, dirpath, isec, jsec):
         """Sub-folder sector_<isec>_<jsec> of the P* directory dirpath (created
         if needed): sources, executable and outputs of the sector."""
@@ -1151,7 +1252,7 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
           integer l
           """ % (len_sector_list)
 
-        minl = 3  # start from final state
+        minl = 1  # also initial-state partons (sectors (i,j) with j initial)
         for type, entries in K_sector_lists.items():
 
             maxl = max(max(key) for key in entries.keys())
@@ -1258,19 +1359,22 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
 
     def write_testR_template_file(self, writer, dirpath, dirmadnklo, defining_process,
                                         i, isec, jsec, necessary_ct_list, mapping_str,mass_list,
-                                        iref_mass='ZERO'):
+                                        iref_mass='ZERO', mapping=None):
 
         replace_dict = {}
         replace_dict['isec'] = isec
         replace_dict['jsec'] = jsec
 
         limit_str = ''
+        # FII mapping (j and r initial): x(1) = v, x(2) = (1-x)/(1-xbar),
+        # and i is soft for x -> 1 alone (2209.09123, App. B)
+        is_FII = is_FII_mapping(mapping)
         if necessary_ct_list[i][0] != 0 : #Si limit
             limit_str += """
 c
 c     soft limit"""
 
-            if mass_list[-1] != 'ZERO':
+            if mass_list[-1] != 'ZERO' or is_FII:
                 limit_str += """
       e=[0d0,1d0]
       l=[0d0,0d0]
@@ -1320,8 +1424,31 @@ c     spurious collinear limit
       call do_limit_R_%d_%d('Cjr     ',e,l)
 """%(isec,jsec)
         elif isec > 2 and jsec <= 2:
-            limit_str += """Collinear limits still to be specified in sectors.py """
-            raise MadEvent7Error('Collinear limits still to be specified in sectors.py. ')
+            # initial-state sectors (2209.09123, App. B)
+            #   FII (ijr), r initial: x(1) = v, x(2) = (1-x)/(1-xbar)
+            #     i // j: v -> 0;  i // r: v -> 1
+            #   FFI (irj), r final:   x(1) = z, x(2) = (1-x)/(1-xbar)
+            #     i // j: z -> 0;  i // r: x -> 1
+            if is_FII:
+                e_l_Cij, e_l_Cir = ('[1d0,0d0]', '[0d0,0d0]'), ('[1d0,0d0]', '[1d0,0d0]')
+            else:
+                e_l_Cij, e_l_Cir = ('[1d0,0d0]', '[0d0,0d0]'), ('[0d0,1d0]', '[0d0,0d0]')
+            if necessary_ct_list[i][2] != 0 : #Cij
+                limit_str += """
+c
+c     collinear limit
+        e=%s
+        l=%s
+      call do_limit_R_%d_%d('Cij     ',e,l)
+""" % (e_l_Cij + (isec,jsec))
+            if str(iref_mass).upper() == 'ZERO':
+                limit_str += """
+c
+c     spurious collinear limit
+        e=%s
+        l=%s
+      call do_limit_R_%d_%d('Cir     ',e,l)
+""" % (e_l_Cir + (isec,jsec))
 
         replace_dict['limit_str'] = limit_str
         replace_dict['NLO_proc_str'] = str(defining_process.shell_string(schannel=True,
@@ -1412,6 +1539,13 @@ c     spurious collinear limit
             if item.get('path_to_Born') and born_str not in seen_born:
                 proc_str += ' matrix_' + born_str + '.o'
                 seen_born.add(born_str)
+        # Borns grouped in the directory of another process (alt_Born_str,
+        # whose matrix_<alt>.f also has the accessor of the grouped Born)
+        for item in overall_sector_info:
+            alt_str = item['alt_Born_str']
+            if not item.get('path_to_Born') and alt_str and alt_str not in seen_born:
+                proc_str += ' matrix_' + alt_str + '.o'
+                seen_born.add(alt_str)
 
         replace_dict['proc_str'] = proc_str
 
@@ -1448,7 +1582,7 @@ c     spurious collinear limit
 %s: %s/%s
 
 %s/%s: $(FILES_%d_%d)
-\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(LIBSC) -o $@
+\t$(DEFAULT_F_COMPILER) $(patsubst %%,$(OBJ)/%%,$(FILES_%d_%d)) $(LIBS) $(llhapdf) $(LIBSC) -o $@
 """ % (sec, sec, sec, sec, sec, sec, sec, isec, jsec, isec, jsec)
             self.write_sector_makefile(dirpath, isec, jsec)
 

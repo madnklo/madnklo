@@ -1256,10 +1256,14 @@ class Contribution(object):
             # Create the corresponding BeamCurrents
             all_beam_currents = []
                         
-            beam_one_type = contrib.contribution_definition.beam_factorization['beam_one']['beam_type']
-            beam_two_type = contrib.contribution_definition.beam_factorization['beam_two']['beam_type']
-            beam_one_PDGs = contrib.contribution_definition.beam_factorization['beam_one']['beam_PDGs']
-            beam_two_PDGs = contrib.contribution_definition.beam_factorization['beam_two']['beam_PDGs']
+            # (a beam without factorization, e.g. the lepton of e- p, is None:
+            #  no beam current is created for it below)
+            beam_one = contrib.contribution_definition.beam_factorization['beam_one']
+            beam_two = contrib.contribution_definition.beam_factorization['beam_two']
+            beam_one_type = beam_one['beam_type'] if beam_one else None
+            beam_two_type = beam_two['beam_type'] if beam_two else None
+            beam_one_PDGs = beam_one['beam_PDGs'] if beam_one else None
+            beam_two_PDGs = beam_two['beam_PDGs'] if beam_two else None
             # The double for-loop below creates all compatible assignments of n_loop to the beam
             # factorization currents applied to the first and second beam. So (2,1),(1,2) at N^3LO for instance
             # In principle it would also be possible here to further differentiate P^(0) x P^(0) from P^(1), but

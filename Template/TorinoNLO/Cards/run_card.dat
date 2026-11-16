@@ -31,6 +31,11 @@
  %(niters_v_grid)s  = niters_V_grid  ! iterations to setup the V grid
  %(npoints_v)s      = npoints_V      ! calls for the V cross section
  %(niters_v)s       = niters_V       ! iterations for the V cross section
+# Integrated counterterms of the virtual (VC = I + J + C, cheap: no loop):
+# n_VC_folds phase-space points per loop point. 1: integrated together
+# with the loop; > 1: integrated separately, with n_VC_folds times the
+# calls of V (grid and cross section) and the same iterations
+ %(n_vc_folds)s = n_VC_folds ! I + J + C points per loop point
 # Real: point budgets are shared among the generated sectors
  %(npoints_r_grid)s = npoints_R_grid ! total calls to setup the R grids
  %(niters_r_grid)s  = niters_R_grid  ! iterations to setup each R grid
@@ -88,8 +93,8 @@
 #***********************************************************************
 # Collider type and energy                                             *
 # lpp = 0: lepton beam, no PDF; lpp = 1 (-1): proton (antiproton).     *
-# Hadron beams: LO only for now (NLO with initial-state partons is in  *
-# progress).                                                           *
+# Hadron beams: LO and NLO (initial-state radiation, massless and      *
+# massive final states); PDFs from LHAPDF (pdlabel below).             *
 #***********************************************************************
  %(lpp1)s   = lpp1    ! beam 1 type (0 = no PDF)
  %(lpp2)s   = lpp2    ! beam 2 type (0 = no PDF)
@@ -133,7 +138,7 @@
 # and the HwU files (same weight layout as MG5_aMC: one weight per     *
 # (muF, muR) pair of rw_fscale x rw_rscale). Without PDFs the muF      *
 # factors do not change the result; with hadron beams they are varied *
-# by PDF reweighting (LO only for now: rw_fscale = 1.0 at NLO).        *
+# by PDF reweighting, at LO and NLO (NNLO: rw_fscale = 1.0 for now).   *
 #***********************************************************************
  %(rw_rscale)s = rw_rscale ! muR factors k
  %(rw_fscale)s = rw_fscale ! muF factors (varied with hadron beams)

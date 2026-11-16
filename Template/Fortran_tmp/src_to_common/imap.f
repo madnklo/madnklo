@@ -3,6 +3,8 @@ c     assigns labels and flavours of particles after a mapping (a,b,y)
 c     that clusters partons (a,b) in an npart-body final state
 c     inputs : npart,a,b,pdgs,underlying_pdgs
 c     outputs: mapped_labels,mapped_flavours,mapped_indices_shuff
+c     With one of a, b in the initial state (initial-state splitting),
+c     see get_mapped_labels_initial below.
       implicit none
       integer npart,a,b,i,jj,i1,i2
       integer pdgs(npart),mapped_labels(npart),target_flav(npart)
@@ -19,6 +21,13 @@ c     initialise
       i2=max(a,b)
       mapped_labels(:)=0
       target_flav(:)=pdgs(:)
+c
+c     initial-state splitting
+      if(i1.le.2)then
+         call get_mapped_labels_initial(npart,i1,i2,pdgs,
+     &        underlying_pdgs,mapped_labels)
+         return
+      endif
 c
 c     preliminary checks
       if(i1.lt.3.or.i2.gt.npart)then
@@ -110,6 +119,10 @@ c
 
 
       subroutine get_iref(npart,i,j,mapped_labels,iref_r)
+c     recoiler iref_r of the (n+1)-body sector (i,j): the parton whose
+c     Born label is the recoiler, in virtual_recoilers.inc, of the Born
+c     parent of i and j (one entry (parent, recoiler) per Born parton,
+c     initial-state ones included)
       implicit none
       integer npart,i,j,mapped_labels(npart)
       integer ii,iref_v,iref_r
@@ -120,12 +133,85 @@ c
          write(*,*)i,j,mapped_labels(i),mapped_labels(j)
          stop
       endif
-      do ii=3,npart-1
-         if(iref(1,ii-2).eq.mapped_labels(i))iref_v=iref(2,ii-2)
+      iref_v=0
+      do ii=1,len_iref
+         if(iref(1,ii).eq.mapped_labels(i))iref_v=iref(2,ii)
       enddo
-      do ii=3,npart
+      iref_r=0
+      do ii=1,npart
+         if(ii.eq.i.or.ii.eq.j)cycle
          if(mapped_labels(ii).eq.iref_v)iref_r=ii
       enddo
+      if(iref_v.eq.0.or.iref_r.eq.0)then
+         write(*,*)'No recoiler found in get_iref',i,j,iref_v,iref_r
+         stop
+      endif
+c
+      return
+      end
+
+
+      subroutine get_mapped_labels_initial(npart,a,b,pdgs,
+     &     underlying_pdgs,mapped_labels)
+c     Labels of the Born (npart-1)-body kinematics for an initial-state
+c     splitting: a = 1 or 2 is the initial-state parton j, b > 2 the
+c     final-state parton i, removed. The parent [ij] takes the place of
+c     j in the initial state, with flavour (2209.09123, Sec. 2)
+c        j = q, i = g  ->  q          j = g, i = g  ->  g
+c        j = g, i = q  ->  qbar       j = q, i = q  ->  g
+c     (pdgs of initial-state partons as incoming particles). The other
+c     partons are matched to the Born ones by flavour, in order,
+c     initial-state ones to the Born initial states and final-state ones
+c     to the Born final states. The Born may have the two initial states
+c     in the other order (sectors.py, Born_candidates): the matching by
+c     flavour then exchanges their labels.
+      implicit none
+      integer npart,a,b,i,jj
+      integer pdgs(npart),mapped_labels(npart),target_flav(npart)
+      integer underlying_pdgs(npart-1)
+      logical assigned(npart-1)
+c
+      if(a.lt.1.or.a.gt.2.or.b.le.2.or.b.gt.npart)then
+         write(*,*)'wrong a, b in get_mapped_labels_initial',a,b
+         stop
+      endif
+      target_flav(:)=pdgs(:)
+      if(abs(pdgs(a)).le.6.and.pdgs(b).eq.21)then
+         target_flav(a)=pdgs(a)
+      elseif(pdgs(a).eq.21.and.pdgs(b).eq.21)then
+         target_flav(a)=21
+      elseif(pdgs(a).eq.21.and.abs(pdgs(b)).le.6)then
+         target_flav(a)=-pdgs(b)
+      elseif(abs(pdgs(a)).le.6.and.pdgs(b).eq.pdgs(a))then
+         target_flav(a)=21
+      else
+         write(*,*)'inconsistent pair in get_mapped_labels_initial'
+         write(*,*)a,b,pdgs(a),pdgs(b)
+         stop
+      endif
+c
+      mapped_labels(:)=0
+      assigned=.false.
+      do i=1,npart
+         if(i.eq.b)cycle
+         do jj=1,npart-1
+            if((i.le.2).neqv.(jj.le.2))cycle
+            if(underlying_pdgs(jj).eq.target_flav(i).and.
+     &           .not.assigned(jj))then
+               assigned(jj)=.true.
+               mapped_labels(i)=jj
+               exit
+            endif
+         enddo
+      enddo
+      mapped_labels(b)=mapped_labels(a)
+c
+c     check
+      if(any(.not.assigned))then
+         write(*,*)'Something went wrong in mapped_labels_initial'
+         write(*,*)pdgs,underlying_pdgs
+         stop
+      endif
 c
       return
       end
@@ -272,3 +358,20 @@ c$$$      mapped_labels(:) = aux_labels(:)
 c$$$      
 c$$$      return
 c$$$      end
+
+
+      integer function nspincol(pdg)
+c     number of spin and colour states of a massless QCD parton, over
+c     which the matrix elements are averaged for an initial-state one
+      implicit none
+      integer pdg
+      if(pdg.eq.21)then
+         nspincol=2*8
+      elseif(abs(pdg).ge.1.and.abs(pdg).le.6)then
+         nspincol=2*3
+      else
+         write(*,*)'nspincol: not a QCD parton',pdg
+         stop 1
+      endif
+      return
+      end

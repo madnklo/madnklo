@@ -333,7 +333,8 @@ def without_details(lines):
 # ---------------------------------------------------------------------------
 # histograms (madgraph/various/histograms.py)
 HISTOGRAMS = os.path.join(OUTPUT_DIR, "..", "madgraph", "various", "histograms.py")
-PLOT_GLOBS = {"B": "seed_*_plot_B.dat", "V": "seed_*_plot_V.dat", "R": "seed_*_plot_R_*_*.dat"}
+# V: also seed_*_plot_VC.dat, the I + J + C integrated separately (npoints_VC > 0)
+PLOT_GLOBS = {"B": "seed_*_plot_B.dat", "V": "seed_*_plot_V*.dat", "R": "seed_*_plot_R_*_*.dat"}
 
 
 def run_command(cmd, log):

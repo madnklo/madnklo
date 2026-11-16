@@ -3,6 +3,8 @@
 c     collinear limit C_(ia,ib) * Wcollinear
       use sectors2_module
       implicit none
+      double precision fl_factor_npo
+      external fl_factor_npo
       include 'nexternal.inc'
       include 'coupl.inc'
       include 'math.inc'
@@ -22,6 +24,8 @@ c     collinear limit C_(ia,ib) * Wcollinear
       double precision ans(0:nsqso_born)
       integer, parameter :: hel = - 1
       double precision alphas,alpha_qcd
+      double precision lumi_npo
+      external lumi_npo
       double precision %(proc_prefix_HC_qqx)s_GET_KKBLO
 c     set logical doplot
       logical doplot
@@ -29,6 +33,11 @@ c     set logical doplot
       double precision sCM
       common/cscm/sCM
       logical docut
+c     channel decomposition: chan_nocut = .true. while the pieces are
+c     evaluated for the channel fractions, without the cuts on the
+c     mapped Born (local_counter_chan)
+      logical chan_nocut
+      common/c_chan_nocut/chan_nocut
       integer %(proc_prefix_real)s_fl_factor
       common/%(proc_prefix_real)s_flavour_factor/%(proc_prefix_real)s_fl_factor
       integer %(proc_prefix_real)s_den
@@ -61,7 +70,7 @@ c     checks
       endif
 c
 c     possible cuts
-      if(docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
+      if(.not.chan_nocut.and.docut(xpb,nexternal-1,underlying_leg_pdgs,0))return
 c
 c     overall kernel prefix
 c     renormalisation scale for the mapped n-body kinematics
@@ -116,7 +125,11 @@ c     account for different damping factors according to recoiler position (ir)
       endif
       M2_HC_qqx = M2_C_qqx
 c     include prefactors
-      M2_HC_qqx = M2_HC_qqx *dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor*damp*pref/sab*xj*extra
+      M2_HC_qqx = M2_HC_qqx *dble(%(proc_prefix_HC_qqx)s_den)/dble(%(proc_prefix_real)s_den)*fl_factor_npo(%(proc_prefix_real)s_fl_factor)*damp*pref/sab*xj*extra
+c
+c     parton luminosity (hadron beams), at the scale of the mapped
+c     kinematics
+      M2_HC_qqx = M2_HC_qqx*lumi_npo(xpb,nexternal-1,underlying_leg_pdgs)
 c
 c     plot
       wgtpl=-M2_HC_qqx*wgt*wgt_chan

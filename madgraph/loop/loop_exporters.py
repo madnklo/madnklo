@@ -1072,6 +1072,11 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
         if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B' and \
                                 os.path.exists(pjoin(dirpathBorn, 'qcd_power.inc')):
             os.symlink(dirpathBorn + '/qcd_power.inc', os.getcwd() + '/qcd_power.inc')
+        # initial-state flavours and mirror processes of the Born (PDFs with
+        # hadron beams, pdf_lumi.f): the same processes as the Born directory
+        if (self.dir_path).split('/')[-1][0:9] == 'NLO_V_x_B' and \
+                                os.path.exists(pjoin(dirpathBorn, 'initial_states.inc')):
+            os.symlink(dirpathBorn + '/initial_states.inc', os.getcwd() + '/initial_states.inc')
 
         owd = os.getcwd()
         os.chdir(dirpathBorn)
@@ -1199,7 +1204,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
 """
         virtual_str = """
 virtual: $(FILES)
-\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) -o $@
+\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) $(llhapdf) -o $@
 """
         replace_dict['object_str'] = object_str
         replace_dict['virtual_str'] = virtual_str
@@ -1310,7 +1315,7 @@ virtual: $(FILES)
 """
         virtual_str = """
 virtual: $(FILES)
-\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) -o $@
+\t$(DEFAULT_F_COMPILER) $(patsubst %,$(OBJ)/%,$(FILES)) $(LIBS) $(LIBSC) $(LINKLIBS) $(llhapdf) -o $@
 """
         replace_dict['object_str'] = object_str
         replace_dict['virtual_str'] = virtual_str

@@ -12,6 +12,7 @@ c     n-body NLO integrand for vegas
       INCLUDE 'nsquaredSO.inc'
       INCLUDE 'leg_PDGs.inc'
       INCLUDE 'qcd_power.inc'
+      INCLUDE 'initial_states.inc'
       integer ndim,ierr,ievt,nthres,i
       save ievt,nthres
       integer nitV
@@ -87,6 +88,40 @@ C      indices are which one to consider
       data last_ich /-1/
       data loop_arrays_initialised /.false./
       save last_ich,loop_arrays_initialised
+c     hadron beams (lpp != 0): PDFs at the Born momentum fractions and
+c     mirror processes, as in LO_B.f (pdf_lumi.f)
+      logical hadrons,firsttime
+      data firsttime/.true./
+      save hadrons,firsttime
+      double precision pm(0:3,nexternal),sLOm(nexternal,nexternal)
+      double precision VNLOm(-2:0),INLOm(-2:0),BLOIm
+      double precision muf,lum,lumm
+c     factorisation-scale variations (rw_fscale): nvf factors facf (0:
+c     none), luminosities, J + C (index 0: central muF), V+I+J+C and
+c     the coefficient of the muR log at each muF (at most sv_max = 10
+c     factors, ren_scale.f)
+      integer nfmax
+      parameter (nfmax=10)
+      integer nvf,ii
+      double precision facf(nfmax),lumf(nfmax),lummf(nfmax)
+      double precision conv(0:nfmax),convm(0:nfmax)
+      double precision vf(nfmax),dvf(nfmax),VIp,VIm
+c     number of vegas variables: the last one is x of J(x) + C(x)
+      integer ndimv
+      common/cdim/ndimv
+c     integrand (driver_v.f): vmode = 0 loop + I + J + C, 1 loop only,
+c     2 I + J + C only; floop, fct = 1 or 0 select the two parts
+      integer vmode
+      common/c_vmode/vmode
+      double precision floop,fct
+      double precision get_muf,pdf_lumi,pdf_swap_initial
+      external get_muf,pdf_lumi,pdf_swap_initial
+c
+      if(firsttime)then
+         hadrons=(lpp(1).ne.0.or.lpp(2).ne.0)
+         if(hadrons)call set_tau_min(nexternal,leg_pdgs)
+         firsttime=.false.
+      endif
 c
 c     Allocate the integrand-owned loop work arrays once.
       if (.not.loop_arrays_initialised) then
@@ -105,6 +140,10 @@ c     Refresh channel-dependent phase-space data only on an ich change.
 C
 C     EXTERNAL
 c     initialise
+      floop=1d0
+      if(vmode.eq.2)floop=0d0
+      fct=1d0
+      if(vmode.eq.1)fct=0d0
       xjac = Gevtopb
       int_virtual = 0d0
       VNLO = 0d0
@@ -127,10 +166,12 @@ c     (set_mur also updates MU_R and the couplings used by MadLoop)
       call set_mur_from_momenta(p,nexternal,leg_pdgs)
       alphas=alphas_current
 c
-c     call virtual
-      COLOR_CORRELATED_EVALS = 0d0
-      CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
-      VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
+c     call virtual (not for I + J + C only)
+      if(vmode.ne.2)then
+         COLOR_CORRELATED_EVALS = 0d0
+         CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+         VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
+      endif
 c
 c     call counterterm
       call int_counter_NLO(p,sLO,INLO,BLOI,ierr)
@@ -140,8 +181,8 @@ c     call counterterm
          goto 999
       endif
 c
-c     test coefficients of epsilon poles
-      if(ntested.lt.ntest)then
+c     test coefficients of epsilon poles (needs the loop)
+      if(ntested.lt.ntest.and.vmode.ne.2)then
          ntested=ntested+1
          write(50,*)
          write(50,*)'Testing point # ', ntested
@@ -151,10 +192,73 @@ c     test coefficients of epsilon poles
       endif
 c
 c     subtracted virtual
-      int_virtual=(VNLO(0)+INLO(0))*xjac
+      if(.not.hadrons)then
+         int_virtual=(floop*VNLO(0)+fct*INLO(0))*xjac
 c
 c     apply flavour multiplicity factor
-      int_virtual=int_virtual*fl_factor
+         int_virtual=int_virtual*fl_factor
+      else
+c     hadron beams: sum over the processes of this directory of
+c     f_a(x1) f_b(x2) (V+I)_ab(p), plus the mirror processes, with V+I
+c     evaluated with the initial momenta exchanged
+         muf=get_muf(p,nexternal,leg_pdgs)
+         lum=pdf_lumi(xbk(1),xbk(2),muf,1)
+         lumm=0d0
+         BLOIm=0d0
+         VNLOm=0d0
+         INLOm=0d0
+         if(has_mirror)then
+            lumm=pdf_lumi(xbk(1),xbk(2),muf,2)*pdf_swap_initial(p,pm,nexternal)
+            call invariants_from_p(pm,nexternal,sLOm,ierr)
+            if(ierr.ne.0)goto 999
+            if(vmode.ne.2)then
+               COLOR_CORRELATED_EVALS = 0d0
+               CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(pm,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+               VNLOm(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
+            endif
+            call int_counter_NLO(pm,sLOm,INLOm,BLOIm,ierr)
+            if(ierr.ne.0)then
+               nfail=nfail+1
+               write(77,*)'ierr failure: V (mirror)',ierr,ich,failure_stage
+               goto 999
+            endif
+         endif
+         VIp=floop*VNLO(0)+fct*INLO(0)
+         VIm=floop*VNLOm(0)+fct*INLOm(0)
+         int_virtual=(VIp*lum+VIm*lumm)*xjac
+c     factorisation-scale variations: luminosities at facf(ii)*muF
+         call sv_get_muf_factors(nvf,facf)
+         do ii=1,nvf
+            lumf(ii)=pdf_lumi(xbk(1),xbk(2),facf(ii)*muf,1)
+            lummf(ii)=0d0
+            if(has_mirror)lummf(ii)=pdf_lumi(xbk(1),xbk(2),facf(ii)*muf,2)
+            vf(ii)=(VIp*lumf(ii)+VIm*lummf(ii))*xjac
+         enddo
+c     x-dependent contribution J(x) + C(x) (2209.09123, eq. sigNLOsub),
+c     with the PDFs inside (int_convolution_NLO, NLO_I_template.f);
+c     ~ alpha_s^(b+1), without explicit log(muR) (they cancel between
+c     its soft terms by colour conservation). It depends on muF also
+c     through log(muF) (PDF counterterm): computed at each facf(ii)*muF
+         if(vmode.ne.1)then
+            call int_convolution_NLO(p,sLO,1,x(ndimv),nvf,facf,conv,ierr)
+            if(ierr.ne.0)goto 999
+            convm=0d0
+            if(has_mirror)then
+               call int_convolution_NLO(pm,sLOm,2,x(ndimv),nvf,facf,convm,ierr)
+               if(ierr.ne.0)goto 999
+            endif
+            int_virtual=int_virtual+(conv(0)+convm(0))*xjac
+            do ii=1,nvf
+               vf(ii)=vf(ii)+(conv(ii)+convm(ii))*xjac
+            enddo
+         endif
+c        renormalisation-scale variations below: the Born summed in the
+c        same way (at each muF)
+         do ii=1,nvf
+            dvf(ii)=BLOI*lumf(ii)+BLOIm*lummf(ii)
+         enddo
+         BLOI=BLOI*lum+BLOIm*lumm
+      endif
 c
 c     Multi channeling
       chw = born_chan_weight(ich)
@@ -163,13 +267,33 @@ c
 c     renormalisation-scale variations, with b = born_qcd_power:
 c     (V+I)(k muR) = r_k^(b+1) [ (V+I)(muR) + b beta0/2 alphas/(2 pi) B log(k^2) ]
 c     (the explicit infrared logarithms of V and I cancel, since their
-c     poles do; the remaining log comes from the UV renormalisation)
-      dvsv=born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*chw
-      call sv_add(int_virtual,dvsv,born_qcd_power+1)
+c     poles do; the remaining log comes from the UV renormalisation, so
+c     it goes with the loop: floop = 0 for I + J + C only)
+c     With hadron beams, the same at each factorisation scale facf(ii)*muF
+c     (vf, dvf).
+      if(.not.hadrons)then
+         dvsv=floop*born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*fl_factor*chw
+         call sv_add(int_virtual,dvsv,born_qcd_power+1)
+      else
+         dvsv=floop*born_qcd_power*beta0/2d0*alphas/(2d0*pi)*BLOI*xjac*chw
+         do ii=1,nvf
+            vf(ii)=vf(ii)*chw
+            dvf(ii)=floop*born_qcd_power*beta0/2d0*alphas/(2d0*pi)*dvf(ii)*xjac*chw
+         enddo
+         call sv_add_muf(int_virtual,dvsv,vf,dvf,born_qcd_power+1)
+      endif
 c
 c     plot
       wgtpl=int_virtual*wgt
-      call sv_wgts(wgtpl,dvsv*wgt,born_qcd_power+1,wgts)
+      if(.not.hadrons)then
+         call sv_wgts(wgtpl,dvsv*wgt,born_qcd_power+1,wgts)
+      else
+         do ii=1,nvf
+            vf(ii)=vf(ii)*wgt
+            dvf(ii)=dvf(ii)*wgt
+         enddo
+         call sv_wgts_muf(wgtpl,dvsv*wgt,vf,dvf,born_qcd_power+1,wgts)
+      endif
       if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
 c
  999  return

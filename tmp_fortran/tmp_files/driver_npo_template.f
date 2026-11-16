@@ -6,6 +6,7 @@
       INCLUDE 'run.inc'
       INCLUDE 'cuts.inc'
       include 'colored_partons.inc'
+      include 'leg_PDGs.inc'
       INCLUDE 'ngraphs_%(UBgraphs)s.inc'
       integer mxdim
       parameter(mxdim=30)
@@ -72,6 +73,8 @@ c
 c
       call SETPARA('param_card.dat')
       call SETRUN('run_card.dat')
+c     hadron beams: lower bound on x1 x2 of the Born generation
+      if(lpp(1).ne.0.or.lpp(2).ne.0)call set_tau_min_npo(nexternal,leg_pdgs)
 c
 c     read inputs
       region=0d0
@@ -91,10 +94,12 @@ c     initialise physics parameters and set sector parametrisation
       iu8=88
       iu9=99
 c
-c     phase-space dimension, same for all contributions to this folder
+c     phase-space dimension, same for all contributions to this folder:
+c     one more variable per hadron beam (momentum fractions, as in
+c     gen_mom and driver_n.f)
       ndim=3*(nexternal-2)-4
       do i=1,2
-         if(ISNLOQCDPARTON(i)) ndim = ndim + 1
+         if(lpp(i).ne.0) ndim = ndim + 1
       enddo
       do i=1,ndim
          region(i)=0d0
@@ -135,8 +140,11 @@ c        (testR_i_j.log), without integration
 c
 c     initialise histograms and open output files
 c      call histo_init
-c     renormalisation-scale variations (rw_rscale in run_card.dat):
-c     one histogram weight per scale factor
+c     scale variations (rw_rscale, rw_fscale in run_card.dat): one
+c     histogram weight per (muF,muR) pair; with hadron beams, muF is
+c     varied by PDF reweighting:
+c     R and the counterterms set their PDF ratios in lumi_npo
+      call sv_allow_muf()
       call sv_init()
       call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)

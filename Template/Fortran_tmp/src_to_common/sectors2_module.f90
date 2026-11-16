@@ -54,6 +54,21 @@ contains
        enddo
     enddo
 
+    ! Initial-state partons j = 1,2 (2209.09123, eq. (sfunNLO)): with
+    ! q = k_1 + k_2, s_qj = s_12 and e_j = 1, so that
+    ! sigma_ij = (1/(e_i w_ij))**alpha = (s_12/s_ij)**alpha, for i final.
+    ! sigma_ji = 0, since only final-state partons can be soft.
+    ! (Only used when the sector lists contain initial-state partons:
+    ! sectors (i,j) with j initial, and the collinear sector functions
+    ! WC with an initial-state recoiler.)
+    do i=3,n_ext
+       do j=1,2
+          if (xs_mod(i,j)*xs_mod(1,2).ne.0d0) then
+             sig2(i,j)=(xs_mod(1,2)/xs_mod(i,j))**alpha_mod
+          endif
+       enddo
+    enddo
+
     ! A new phase-space point requires new normalization denominators.
     sigma_nlo=0d0
     sigma_nlo_valid=.false.
@@ -83,7 +98,7 @@ contains
        if (allocated(sigma_coll_valid)) deallocate(sigma_coll_valid)
 
        allocate(xs_mod(n_ext_in,n_ext_in))
-       allocate(sig2(3:n_ext_in,3:n_ext_in))
+       allocate(sig2(1:n_ext_in,1:n_ext_in))
        allocate(sigma_soft(1:n_ext_in))
        allocate(sigma_coll(1:n_ext_in,1:n_ext_in))
        allocate(sigma_soft_valid(1:n_ext_in))

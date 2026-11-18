@@ -1,0 +1,293 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,frame=single,
+        language=Fortran,keepspaces=true}
+
+\newcommand{\kb}{\bar k}
+\newcommand{\Nc}{\mathcal N}
+\newcommand{\E}{\mathcal E}
+
+\title{Rapidity distributions and the initial--initial soft dipole:\\
+       partial fractioning of the eikonal in MadNkLO}
+\author{MadNkLO internal note}
+\date{15 November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+In the local analytic sector subtraction with initial-state radiation, as
+implemented in MadNkLO, the soft dipole between the two incoming partons was
+split equally between the two initial--initial momentum mappings (rescaling of
+either beam). In the collinear limit along one beam, half of the
+collinear-singular part of the soft counterterm was then evaluated on a Born
+configuration that is longitudinally boosted, by $\ln z$, relative to the
+correct one. Inclusive cross sections and boost-invariant observables were
+unaffected, but each bin of a rapidity distribution received a
+non-integrable $1/s_{1i}$ term that cancels only between bins, which showed up
+as very large Monte Carlo errors. We replace the equal split by a
+partial-fraction decomposition of the eikonal, each fraction carrying the
+collinear singularity of one beam and being evaluated on the mapping that
+rescales that beam. The soft and collinear limits and the integrated
+counterterms are unchanged. We report the validation on $pp\to e^+e^-$,
+$pp\to Zj$ and $pp\to t\bar t$.
+\end{abstract}
+
+\section{Setup and the soft counterterm before the fix}
+
+We consider the real emission of a gluon $i$ in a process with incoming partons
+$1,2$, and set $s_{ab}=2\,k_a\cdot k_b$. Up to the overall normalisation and
+colour conventions, which play no role here, the soft counterterm is a sum over
+dipoles $\{l,m\}$ of eikonal factors times colour-correlated Born matrix
+elements, each evaluated on a mapped Born configuration $\kb^{(i,l,m)}$:
+\begin{equation}
+  K_S^{(i)} \;=\; -\Nc \sum_{\{l,m\}} \E^{(i)}_{lm}\,
+  B_{lm}\big(\kb^{(i,l,m)}\big),
+  \qquad
+  \E^{(i)}_{lm} = \frac{s_{lm}}{s_{il}\,s_{im}} .
+  \label{eq:KS}
+\end{equation}
+For the dipole between the two incoming partons, the mapping $(i,a,b)$ with
+emitter $a$ and spectator $b$ is the initial--initial one:
+\begin{equation}
+  x = \frac{s_{12}-s_{1i}-s_{2i}}{s_{12}},\qquad
+  \kb_a = x\,k_a,\qquad \kb_b = k_b,\qquad
+  \kb_j = \Lambda\,k_j \ \ (j\neq 1,2,i),
+  \label{eq:FII}
+\end{equation}
+where $\Lambda$ is the Lorentz transformation taking
+$K=k_1+k_2-k_i$ into $\bar K = \kb_1+\kb_2$. Both mappings give
+$\bar K^2 = K^2 = x\,s_{12}$.
+
+Decision D1 of the implementation was to average over the two beams:
+\begin{equation}
+  \E^{(i)}_{12}\,B_{12} \;\longrightarrow\;
+  \frac12\,\E^{(i)}_{12}\Big[B_{12}\big(\kb^{(i,1,2)}\big)
+                            + B_{12}\big(\kb^{(i,2,1)}\big)\Big].
+  \label{eq:D1}
+\end{equation}
+
+\section{What goes wrong}
+
+\paragraph{Collinear limit along beam 1.}
+Take $k_i \to (1-z)\,k_1$ with $s_{1i}\to 0$ at fixed $z$. Then
+$s_{2i}\to(1-z)\,s_{12}$, $x\to z$, and the eikonal is collinear singular:
+\begin{equation}
+  \E^{(i)}_{12} \;\to\; \frac{1}{(1-z)\,s_{1i}} .
+\end{equation}
+The two mapped Born configurations behave differently:
+\begin{itemize}
+\item mapping $(i,1,2)$: $\bar K \to z\,k_1 + k_2 = K$. This is the correct
+      collinear Born, the same one on which the hard-collinear counterterm and
+      its soft-collinear subtraction are evaluated;
+\item mapping $(i,2,1)$: $\bar K \to k_1 + z\,k_2$. It has the same invariant
+      mass $z\,s_{12}$, but it is related to the correct one by a longitudinal
+      boost of rapidity
+      \begin{equation}
+        \Delta y = y\big(\kb^{(i,2,1)}\big) - y\big(\kb^{(i,1,2)}\big) = -\ln z .
+      \end{equation}
+\end{itemize}
+The same holds for the other dipoles containing parton 1: the final--initial
+and initial--final mappings give the correct collinear Born for both emitter
+and spectator, so the issue is confined to the initial--initial dipole.
+
+\paragraph{The leftover.}
+Let $F$ be the observable, for instance the indicator function of a histogram
+bin. In the limit $i\parallel 1$ the soft-collinear term removes
+$\E_{12}B_{12}$ evaluated on the correct Born. With
+eq.~\eqref{eq:D1}, what remains of the initial--initial dipole in the
+subtracted integrand $R\,F(k) - K\,F(\kb)$ is
+\begin{equation}
+  \Delta \;\propto\; \frac{1}{2}\,\frac{1}{(1-z)\,s_{1i}}\;
+  B_{12}\big(\kb^{(i,1,2)}\big)\,
+  \Big[F\big(\kb^{(i,2,1)}\big) - F\big(\kb^{(i,1,2)}\big)\Big].
+  \label{eq:leftover}
+\end{equation}
+The two Born configurations are related by a longitudinal boost, so all their
+invariants coincide and the matrix element $B_{12}$ is the same in both
+terms. The difference comes only from the observable.
+
+\paragraph{Consequences.}
+\begin{enumerate}
+\item The IR-limit tests (\texttt{testR}) compare $R$ and $K$ without the
+      observable. There the bracket in eq.~\eqref{eq:leftover} vanishes, so
+      all limits pass.
+\item For observables invariant under longitudinal boosts ($m_{ll}$, $p_T$,
+      rapidity differences), $F$ is the same in both terms and $\Delta=0$.
+\item Inclusively, $\sum_{\rm bins}F=1$ for both configurations: the bracket
+      cancels in the sum over bins and total cross sections are correct.
+\item Bin by bin in $y$ or $\eta$, the bracket is nonzero at fixed $z<1$, and
+      the radiative integral contains $\int ds_{1i}/s_{1i}$. It diverges
+      logarithmically. The $z$ integral is harmless, since the bracket vanishes
+      like $\ln z\sim(1-z)$ as $z\to1$. In Monte Carlo the divergence shows up
+      as an infinite-variance integrand: in the Drell--Yan run, per-bin errors
+      of about $30$\,pb/unit on values of about $20$\,pb/unit in $y_{ll}$ and
+      $\eta(e^-)$, while $m_{ll}$ and $p_T$ were clean.
+\end{enumerate}
+Neither the channel decomposition nor the damping factors help: the former
+does not change where the counterterm pieces are filled, and $x^\alpha$ does not
+vanish at finite $x$.
+
+\paragraph{The single mapping of the paper.}
+Using only $(i,2,1)$ for the initial--initial dipole, without D1, is correct
+for $i\parallel2$. For $i\parallel1$, however, it puts the whole collinear
+singularity on the boosted Born: the factor $\frac12$ in
+eq.~\eqref{eq:leftover} becomes $1$. It is numerically worse
+(table~\ref{tab:ppee}).
+
+\section{The fix: partial fractions}
+
+Decompose the eikonal into two fractions, each collinear singular along one
+beam only:
+\begin{equation}
+  \E^{(i)}_{12} = \frac{s_{12}}{s_{1i}\,s_{2i}} = P_1 + P_2,
+  \qquad
+  P_a = \frac{s_{12}}{s_{ai}\,\big(s_{1i}+s_{2i}\big)} ,
+  \label{eq:pf}
+\end{equation}
+and evaluate each on the mapping that rescales its own beam:
+\begin{equation}
+  \E^{(i)}_{12}\,B_{12} \;\longrightarrow\;
+  P_1\,B_{12}\big(\kb^{(i,1,2)}\big) + P_2\,B_{12}\big(\kb^{(i,2,1)}\big).
+  \label{eq:new}
+\end{equation}
+
+\paragraph{Limits.}
+\begin{itemize}
+\item $i\parallel1$: $P_1\to 1/[(1-z)s_{1i}]$ carries the full singularity on
+      the correct Born, while $P_2\to 1/[(1-z)^2 s_{12}]$ is finite. The leftover is
+      integrable bin by bin.
+\item $i\parallel2$: the same, with $1\leftrightarrow2$.
+\item $i$ soft: $x\to1$, both mapped configurations tend to the Born
+      configuration, and $P_1+P_2=\E_{12}$. The soft limit is unchanged.
+\end{itemize}
+At a generic point, however, $K$ does change, because the two fractions
+multiply different Born configurations. The singular limits are unchanged; the
+values reached in the spurious limits (finite there) and the integrals of
+single sectors change.
+
+\paragraph{The integrated counterterm is unchanged.}
+On the radiative phase space of mapping $(i,a,b)$, define $v$ by
+\begin{equation}
+  s_{ai} = (1-x)\,v\,s_{12},\qquad s_{bi}=(1-x)(1-v)\,s_{12},
+\end{equation}
+so that $\tilde v = s_{ai}/s_{12} = (1-x)\,v$ is the usual Catani--Seymour
+variable. The $d$-dimensional measure is
+\begin{equation}
+  d\Phi_{\rm rad} \;\propto\; dx\;dv\;d\phi\,\sin^{-2\epsilon}\!\phi\;
+  \big[(1-x)^2\,v(1-v)\big]^{-\epsilon}\,(1-x),
+\end{equation}
+which is symmetric under $v\leftrightarrow1-v$. In these variables
+\begin{equation}
+  P_a = \frac{1}{(1-x)^2\,s_{12}}\,\frac1v,
+  \qquad
+  \frac12\,\E_{12} = \frac{1}{(1-x)^2\,s_{12}}\,
+  \frac{1}{2}\Big[\frac1v + \frac1{1-v}\Big].
+\end{equation}
+The mapped Born, the flux, the damping factor $x^\alpha$ and, after summing over
+sectors with $\sum_j W_{ij}=1$, the whole integrand except the eikonal depend
+on $x$ only. By the $v\leftrightarrow1-v$ symmetry of the measure,
+\begin{equation}
+  \int_0^1 dv\,\big[v(1-v)\big]^{-\epsilon}\,\frac1v
+  \;=\;
+  \int_0^1 dv\,\big[v(1-v)\big]^{-\epsilon}\,
+  \frac12\Big[\frac1v+\frac1{1-v}\Big]
+  \;=\; \frac{\Gamma(-\epsilon)\,\Gamma(1-\epsilon)}{\Gamma(1-2\epsilon)} ,
+\end{equation}
+so $\int P_a = \int\frac12\E_{12}$ exactly, for each beam. Each beam still
+receives half of the integrated initial--initial soft dipole, which is what D1
+was for, and the integrated counterterms $I^{\rm II}$ and $J^{\rm II}$
+(2209.09123) are unchanged. Only the template of the local counterterm needs
+to change.
+
+\paragraph{Massive final states.}
+The initial--initial dipole is between massless beams in $pp\to t\bar t$ as
+well. The massive final-state dipoles and their mappings are not affected.
+
+\section{Implementation}
+
+In \texttt{tmp\_fortran/tmp\_files/NLO\_limits/S\_g.f}, the loop over the
+dipoles $m<l$ uses the mapping $(i,k_e,k_r)$ with emitter $k_e$ and recoiler
+$k_r$. For the initial--initial dipole ($l\le2$) both mappings are used, with
+weight $w = s_{i k_r}/(s_{il}+s_{im})$, since
+$\E_{lm}\,w = P_{k_e}$:
+\begin{lstlisting}
+            nmap=1
+            if(l.le.2)nmap=2
+            wmap=1d0
+            do imap=1,nmap
+            if(imap.eq.1)then
+               ke=l
+               kr=m
+            else
+               ke=m
+               kr=l
+            endif
+            if(nmap.eq.2)wmap=xs(i,kr)/(xs(i,l)+xs(i,m))
+            ...
+            M2tmp=M2tmp*damp*xj*wmap
+\end{lstlisting}
+Before the fix the weight was \texttt{wmap=1d0/dble(nmap)}, i.e.\ $\frac12$.
+
+\section{Validation}
+
+All runs are in the cloud copy, with processes regenerated from the new
+template, default statistics and the same random seed.
+
+\paragraph{$pp\to e^+e^-$.}
+\texttt{testR} passes in all sectors. Table~\ref{tab:ppee} compares the median
+per-bin Monte Carlo error of the real-emission contribution.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+ & D1 (average) & single $(i,2,1)$ & partial fractions \\
+\midrule
+$\sigma_R$ [pb]                    & 128.3644 & 128.3457 & 128.3656 \\
+median error, $y_{ll}$ bins        & 33.9     & 54.7     & 1.52 \\
+median error, $\eta(e^-)$ bins     & 36.1     & 45.2     & 4.07 \\
+$m_{ll}$, $p_{T,ll}$               & \multicolumn{3}{c}{unchanged} \\
+\bottomrule
+\end{tabular}
+\caption{$pp\to e^+e^-$, real-emission contribution: total and median per-bin
+error of the distributions, for the three choices of the initial--initial
+soft dipole.}
+\label{tab:ppee}
+\end{table}
+
+\paragraph{$pp\to Zj$.}
+\texttt{testR}: 79 sectors OK and 3 flagged, none of them a problem.
+\begin{itemize}
+\item $gd\to Zgd$ and $gu\to Zgu$, sector 4\_5, spurious limit $C_{jr}$
+      flagged as ``grows $\times84$'' (old template: $\times3.0$). On all 20
+      test events $K$ converges: the relative change in the last step is below
+      $10^{-4}$, and $|K|$ at small $\lambda$ is at most $1.03$ times its
+      value at large $\lambda$. It converges to a different finite value
+      (worst event: $0.310$ instead of $0.209$). The flag is an artefact of the
+      growth measure, which divides by $K$ at $\lambda=10^{-2}$, where $K$
+      happens to pass close to zero.
+\item $d\bar u\to Zd\bar u$, sector 4\_1, $C_{ij}$ at $1.1\times10^{-3}$
+      against a tolerance of $10^{-3}$. This process has no gluon, so the
+      sector contains no soft-gluon code and is unaffected by the change.
+\end{itemize}
+Real-emission integral: $-9242\pm167$\,pb with partial fractions, and
+$-9293\pm176$\,pb with the old weight restored in the 24 sectors that contain
+an initial--initial soft gluon. The other 58 sectors are bit-identical. Per
+process the totals agree (pulls $-0.50$, $-1.02$, $+0.73$, $+1.74$, $+0.54$,
+$-0.91$, so $\chi^2=5.97$ for 6 processes), with errors of the same size. Single sectors may
+differ, since only the sum over sectors carries the invariant soft integral.
+
+\paragraph{$pp\to t\bar t$.}
+The regenerated process differs from the previous one only in the soft block
+of the 8 sectors with an initial--initial dipole. \texttt{testR} passes 12/12.
+$\sigma_R = -79.510\pm0.288$\,pb with partial fractions, against
+$-79.516\pm0.290$\,pb before. The 4 unaffected sectors are bit-identical and
+the per-process pulls are at most $0.02$.
+
+\end{document}

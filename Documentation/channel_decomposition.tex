@@ -1,0 +1,358 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,frame=single,
+        language=Fortran,keepspaces=true}
+
+\newcommand{\kb}{\bar k}
+\newcommand{\Nch}{N_{\rm ch}}
+\newcommand{\nc}{{\rm nc}}
+
+\title{Channel decomposition of the NLO real-emission integrand in MadNkLO}
+\author{MadNkLO internal note}
+\date{15 November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+In each sector of the local analytic sector subtraction, the subtracted real
+integrand $RW-K$ is integrated with a single phase-space mapping, the one of
+the sector. The counterterm $K$, however, is a sum of pieces evaluated on
+different mapped Born configurations. We describe an optional multi-channel
+integration, switched on by \texttt{channel\_decomposition} in the run card,
+in which $K$ is split by momentum mapping and the real matrix element is
+shared among the channels with fractions computed from the counterterm. Each
+channel is integrated with its own mapping and its own VEGAS grid. The sum over
+channels is the original integrand at every phase-space point, both for the
+total and for the histogram fills. We describe the construction, the
+treatment of Born-level cuts (fractions computed from the uncut counterterm),
+the extension to initial-state partons, and the validation for $e^+e^-\to$
+jets, $pp\to e^+e^-$ and $pp\to Zj$.
+\end{abstract}
+
+\section{Motivation}
+
+In sector $(i,j)$ the NLO real contribution to an observable $F$ is
+\begin{equation}
+  \sigma_{ij}[F] = \int d\Phi_{n+1}\,
+  \Big[ R\,W_{ij}\,F(k) - \sum_{\rm pieces\ p} K_p\,F\big(\kb^{(p)}\big)\Big],
+  \label{eq:sector}
+\end{equation}
+where $W_{ij}$ is the sector function and each counterterm piece $K_p$ is
+evaluated on its own mapped Born configuration $\kb^{(p)}$. The cuts on
+$\kb^{(p)}$ are included in $K_p$. By default the whole sector is integrated
+with the mapping of the sector, $(i_U,i_S,i_B)$, which flattens the
+singularities of $R\,W_{ij}$ in the limits of the sector.
+
+The pieces of $K$ built with other mappings depend on Born configurations
+$\kb^{(p)}$ that are not the integration variables. Cuts and bin edges on
+these configurations are then not aligned with the VEGAS grid, and pieces
+that cancel against $R\,W_{ij}$ in the integral can fill different bins at
+nearby points. The channel decomposition is a standard multi-channel approach to this: each
+piece is integrated with the mapping that generates its own Born
+configuration.
+
+\section{Construction}
+
+\subsection{Channels}
+For sector $(i,j)$, the set $\mathcal A_{ij}$ of channels is the set of
+distinct momentum mappings $\alpha=(i_U,i_S,i_B)$ used by the counterterm:
+\begin{itemize}
+\item the soft dipoles $(i,l,m)$, with $l>m$ coloured and different from $i$
+      (one mapping per dipole);
+\item for the dipole between the two incoming partons, both initial--initial
+      mappings $(i,1,2)$ and $(i,2,1)$, one channel each
+      (sect.~\ref{sec:isr});
+\item the hard-collinear piece $C_{ij}(1-S_i)$, including its soft-collinear
+      subtraction, on the mapping of the sector $(i_U,i_S,i_B)$.
+\end{itemize}
+Mappings that occur more than once are listed once. For example, the
+hard-collinear mapping often coincides with one of the soft dipoles. We write
+\begin{equation}
+  K = \sum_{\alpha\in\mathcal A_{ij}} K_\alpha ,
+\end{equation}
+where $K_\alpha$ is the sum of the pieces with mapping $\alpha$, with their cuts.
+$K^\nc_\alpha$ denotes the same pieces with the cuts on their mapped Born
+removed, and $K^\nc=\sum_\alpha K^\nc_\alpha$.
+
+\subsection{Channel integrands}
+Channel $\alpha$ integrates
+\begin{equation}
+  I_\alpha = \rho_\alpha\,R\,W_{ij} - K_\alpha ,
+  \qquad
+  \sum_{\alpha} \rho_\alpha = 1
+  \;\;\Longrightarrow\;\;
+  \sum_\alpha I_\alpha = R\,W_{ij} - K
+  \label{eq:Ialpha}
+\end{equation}
+at every phase-space point. The integration uses the forward mapping
+$\alpha$: a Born configuration $\kb^{(\alpha)}$ and three radiation variables
+generate $k$, with the Jacobian of mapping $\alpha$. The channel fractions are
+\begin{equation}
+  \rho_\alpha =
+  \begin{cases}
+    K^\nc_\alpha / K^\nc
+      & \text{if } \big|R\,W_{ij} - K^\nc\big| < \delta\,\big|K^\nc\big| ,\\[4pt]
+    1/\Nch & \text{otherwise},
+  \end{cases}
+  \label{eq:rho}
+\end{equation}
+where $\delta$ is \texttt{channel\_delta} (default $1$) and $\Nch$ is the number
+of channels of the sector.
+
+\paragraph{Why these fractions.}
+Near any singular limit the uncut counterterm reproduces the singular
+behaviour of the real, $R\,W_{ij}\to K^\nc$, whatever the cuts. The criterion is
+then satisfied and
+\begin{equation}
+  I_\alpha = \frac{K^\nc_\alpha}{K^\nc}\big(R\,W_{ij}-K^\nc\big)
+           + \big(K^\nc_\alpha - K_\alpha\big).
+  \label{eq:Ilimit}
+\end{equation}
+The first term is the subtracted real times a fraction that stays finite in
+the limit, so it is integrable channel by channel. The second term is nonzero only where a cut on
+$\kb^{(\alpha)}$ fails. It is the same Born-cut mismatch that exists without
+channels, now shared among the channels in the same way as the singular part
+of the real, which is the property that matters (sect.~\ref{sec:cuts}).
+Hence the singular part of $R\,W_{ij}$ is distributed among the channels
+exactly like the counterterm pieces that cancel it, and each channel is
+integrable on its own.
+
+Away from the limits any partition of unity is allowed. The ratio
+$K_\alpha/K$ is not used there because the pieces have different signs:
+where they cancel, $K\to0$ and the ratio would be unbounded. The fractions
+$\rho_\alpha$ in eq.~\eqref{eq:rho} can lie outside $[0,1]$; only their sum
+matters.
+
+\paragraph{Luminosity.}
+With hadron beams, the luminosity of $R$ and of every piece is taken at the
+momentum fractions of the real-emission point, which phase\_space\_npo sets
+for each channel. The fractions therefore form a partition of unity in each
+beam orientation separately.
+
+\subsection{Histograms and scale variations}
+In channel $\alpha$:
+\begin{itemize}
+\item $\rho_\alpha R\,W_{ij}$ fills the histograms at the real-emission point
+      $k$;
+\item each piece of $K_\alpha$ fills at its own Born configuration
+      $\kb^{(\alpha)}$.
+\end{itemize}
+The scale-variation weights get the same factors: $\alpha_s$ at the
+real-emission or Born scale, and the PDF ratios of the $\mu_F$ variations of
+each luminosity. Summed over channels, the fills are those of
+eq.~\eqref{eq:sector}, point by point.
+
+\subsection{Integration}
+For each sector:
+\begin{enumerate}
+\item The warm-ups of all channels run first, with $N_{\rm grid}/\Nch$ calls
+      each, and each channel's VEGAS grid is saved.
+\item The $N$ calls of the main run are shared among the channels in
+      proportion to the warm-up errors, with a minimum of $N/(10\Nch)$ per
+      channel.
+\item The results, histograms and scale variations of the channels are
+      summed. The channels are independent runs, so their errors are added
+      in quadrature.
+\end{enumerate}
+The total number of calls per sector is the same as without channels. The only
+extra cost is that $K$ is evaluated twice (sect.~\ref{sec:cuts}).
+
+\section{Born-level cuts: fractions from the uncut counterterm}
+\label{sec:cuts}
+
+The first implementation used $K_\alpha/K$, with cuts, both in the
+fractions and in the criterion. In $pp\to Zj$ (jet cut on the Born) the
+channel totals then scattered far beyond their quoted errors, with isolated
+spikes in the VEGAS iterations of the channels other than the hard-collinear
+one. A per-point dump located the offending points at the cut boundary. There
+the real passes the jet cut while every mapped Born fails, or the other way
+round, for example $K=0$ with $R$ up to $10^{7}$ at $s_{41}/\hat s\sim10^{-5}$
+($4\parallel1$). At these points:
+\begin{itemize}
+\item the criterion fails and $\rho_\alpha=1/\Nch$;
+\item a fraction $(\Nch-1)/\Nch$ of a collinear-singular real goes to channels
+      whose mapping does not flatten the $4\parallel1$ singularity;
+\item their weights grow like $1/s_{41}$ on a thin region along the cut
+      boundary that extends into the collinear limit. The integral is finite
+      but the variance is not.
+\end{itemize}
+Without channels the same real is integrated entirely with the sector
+mapping, which flattens it.
+
+The fix computes the fractions and the criterion from the pieces without the
+cuts on their mapped Born, as in eq.~\eqref{eq:rho}, while the cuts stay in
+$K_\alpha$ in the integrand. Near every limit $R\,W_{ij}\to K^\nc$ whatever the
+cuts, so the real is always shared like the counterterm structure that matches
+its singularities. In practice the counterterm routine evaluates the pieces
+twice: first with \texttt{chan\_nocut} set, with no fills and no scale
+variations, giving $K^\nc$ and $K^\nc_\alpha$; then with cuts, giving $K$ and
+$K_\alpha$. The fractions are therefore inclusive over the Born-level cuts, for
+final- and initial-state radiation alike.
+
+\section{Initial-state partons}
+\label{sec:isr}
+
+\begin{enumerate}
+\item \textbf{Initial--initial soft dipole.} It has two mappings, $(i,1,2)$
+      and $(i,2,1)$ (rescaling of beam 1 or beam 2), each a channel of its
+      own. Since the partial-fraction change of 14 November 2026 (separate
+      note), the pieces are
+      \begin{equation}
+        P_a\,B_{12}\big(\kb^{(i,a,b)}\big),
+        \qquad P_a = \frac{s_{12}}{s_{ai}\,(s_{1i}+s_{2i})},
+      \end{equation}
+      so each initial--initial channel carries only the collinear singularity
+      along the beam its mapping rescales. Before that change each channel
+      carried $\frac12\,s_{12}/(s_{1i}s_{2i})$. In the code the mapping is
+      selected by the emitter \texttt{kedip} in \texttt{M2\_S\_g}.
+\item \textbf{Hard-collinear channel.} It uses the mapping of the sector,
+      $(i_U,i_S,i_B)$, as set by \texttt{initialise\_sector}. For $j$ initial
+      and the reference parton $r$ final, this is $(i,r,j)$, not
+      $(i,j,r)$. For $j$ initial the hard-collinear channel always merges with
+      a soft channel.
+\item \textbf{Reference momentum of the azimuth, per channel.} The sector's
+      reference can be one of the channel's labels. Each channel therefore
+      gets its own, with the rule of the generator: label 1 if no
+      initial-state parton is in the mapping, otherwise the smallest
+      final-state label not in the mapping.
+\end{enumerate}
+The forward initial--initial and final--initial mappings already existed for
+arbitrary labels; nothing else changes.
+
+\section{Implementation}
+
+\begin{itemize}
+\item \textbf{Run card:} \texttt{channel\_decomposition} (default
+      \texttt{False}) and \texttt{channel\_delta} (default $1$). The run stops
+      if $\delta\le0$ while the flag is on.
+\item \texttt{NLO\_Rsub\_template.f}:
+      \texttt{setup\_channels} lists the channels (\texttt{chtrip}) and their
+      azimuthal references (\texttt{chref}). \texttt{int\_real} applies the
+      channel mapping, computes $\rho_\alpha$ from \texttt{KNC} and
+      \texttt{KCHNC}, and fills $\rho_\alpha R W$. At the first 20 points it
+      checks that the pieces add up to $K$ and writes the result to
+      \texttt{testR\_<i>\_<j>.log}.
+\item \texttt{NLO\_K\_template.f}: \texttt{local\_counter\_chan} evaluates the
+      pieces in two passes and returns $K$, $K_\alpha$, $K^\nc$, $K^\nc_\alpha$.
+\item \texttt{NLO\_limits/S\_g.f} and the seven \texttt{HC\_*.f} files:
+      dipole and mapping selectors (\texttt{ldip}, \texttt{mdip},
+      \texttt{kedip}), the \texttt{chan\_nocut} switch, and no fills at zero
+      weight.
+\item \texttt{driver\_npo\_template.f}: the channel loop (warm-ups, sharing of
+      the calls, sums).
+\item \texttt{sectors.py}: the soft and hard-collinear blocks of
+      \texttt{local\_counter\_chan}, and \texttt{has\_soft}/\texttt{has\_hc}.
+\end{itemize}
+With the flag off, the sequence of operations is unchanged: results and
+histograms are bit-identical to the code before the change.
+
+The core of \texttt{int\_real} with the flag on:
+\begin{lstlisting}
+      if(KNC.ne.0d0.and.abs(int_real_no_cnt-KNC).lt.channel_delta*abs(KNC))then
+         rho=KCHNC/KNC
+      else
+         rho=1d0/dble(nchan)
+      endif
+      ...  fill rho*int_real_no_cnt at the real-emission point
+      int_real_orient=(rho*int_real_no_cnt-KCH)*wgt_chan
+\end{lstlisting}
+
+\section{Validation}
+
+\paragraph{General checks.}
+\begin{itemize}
+\item In every sector tested ($e^+e^-\to3,4$ jets, $pp\to e^+e^-$,
+      $pp\to Zj$), the pieces add up to $K$ to machine precision
+      ($\le2.2\times10^{-16}$).
+\item \textbf{Coverage.} Each channel mapping reproduces the integral of a
+      smooth test function computed with the sector mapping, within
+      $1.5\sigma$:
+      \begin{itemize}
+      \item $e^+e^-\to4$ jets, sector 3\_6, test function $W$ times the
+            Jacobian: 7 channels;
+      \item $gu\to Zgu$, test function $RW$ times the luminosity, the
+            Jacobian and $\prod s_{ij}/\hat s$;
+      \item $u\bar u\to Zgg$, all sectors, test function $W$ times the
+            luminosity and the Jacobian (sector 4\_5: $14195\pm31$ with the
+            sector mapping, $14244\pm63$, $14191\pm66$, $14200\pm68$,
+            $14167\pm59$ with the four channel mappings).
+      \end{itemize}
+\item With the flag off, all runs are bit-identical to the old code.
+\end{itemize}
+
+\paragraph{Final-state radiation, equal calls per sector.}
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+sector & flag off & flag on & difference \\
+\midrule
+$e^+e^-\to4j$, 3\_6 (10 seeds) & $-2.70(23)\times10^{-3}$ & $-2.39(9)\times10^{-3}$ & $1.3\sigma$\\
+$e^+e^-\to3j$, 3\_4 (6 seeds)  & $-6.9(4.7)\times10^{-4}$ & $-6.0(4.9)\times10^{-4}$ & $0.1\sigma$\\
+$e^+e^-\to3j$, 3\_5 (6 seeds)  & $-5.30(25)\times10^{-3}$ & $-5.28(28)\times10^{-3}$ & $0.1\sigma$\\
+\bottomrule
+\end{tabular}
+\caption{Sector totals with the channel decomposition off and on.}
+\end{table}
+
+In $e^+e^-\to4$ jets the channels reduce the spread over seeds from
+$7.4\times10^{-4}$ (sector 3\_6) and $7.0\times10^{-4}$ (sector 3\_4) to
+$2.7\times10^{-4}$ and $1.0\times10^{-4}$. Without channels the spread is
+about twice the quoted error, a sign of heavy tails; with channels it matches
+the quoted error. In $e^+e^-\to3$ jets the precision is the same. Distribution
+means agree ($\chi^2$/bin of on$-$off between 0.4 and 1.6).
+
+With damping factors ($\alpha=2$), $e^+e^-\to jj$ at 1\,TeV gives
+$V+R = 0.019915(79)$ with the flag off and $0.019995$ with it on (after the
+fix of sect.~\ref{sec:cuts}), against the exact
+$\frac{\alpha_s}{\pi}\sigma_B = 0.019977$.
+
+\paragraph{Initial-state radiation.}
+\begin{itemize}
+\item $pp\to e^+e^-$: the $q\bar q\to e^+e^-g$ sectors have two channels (the
+      two initial--initial mappings) and the $qg$ sectors one. Sector means
+      agree within $1.3\sigma$; total $R$ is $128.544$ with the flag on against
+      $128.526$ with it off. Since no Born cut ever fails here, the uncut
+      fractions are bit-identical to the cut ones.
+\item $gu\to Zgu$ alone, after the fix of sect.~\ref{sec:cuts}
+      ($40\mathrm{k}+80\mathrm{k}$ calls, 2 seeds): pulls on$-$off at most
+      $1.9\sigma$; per-channel VEGAS $\chi^2/{\rm dof}$ between 0.5 and 2, with
+      no spikes left. Channel errors are 1.2--2 times larger than without
+      channels in this subprocess.
+\item Full $pp\to Zj$ (82 sectors, user's Mac, seed 0):
+      \begin{itemize}
+      \item total $R$: $-932.7\pm20.4$ (off) against $-925.5\pm23.9$ (on),
+            $+0.2\sigma$;
+      \item sector pulls: mean $+0.07$, rms $1.01$;
+      \item median ratio of the errors, on/off: $1.00$.
+      \end{itemize}
+      The largest pulls ($+4.4$, $+3.0$ in $u\bar u\to Zgg$ sectors 4\_5 and
+      5\_4) are in final-state sectors with initial-state partons. They have
+      the same sign as in the cloud runs, and the coverage test of these
+      sectors is complete. We attribute them to the VEGAS bias of low
+      statistics per channel (6 sectors $\times$ 4 channels sharing the calls of
+      one subprocess); a second seed would settle it.
+\end{itemize}
+
+\section{Status and open points}
+\begin{itemize}
+\item The decomposition is off by default. It is exact by construction, but
+      its effect on precision depends on the process: a clear gain in
+      $e^+e^-\to4$ jets, neutral in $e^+e^-\to3$ jets and $pp\to Zj$
+      overall, and somewhat worse in single initial-state subprocesses.
+\item The ISR tests predate the partial-fraction change of the
+      initial--initial soft dipole. The pieces still add up to $K$ by
+      construction, but the run with the flag on has not been repeated since.
+\item Not tested: massive emitters or recoilers in the channel mappings
+      ($pp\to t\bar t$).
+\item Possible improvements: smoother cuts, to reduce the residual cut-boundary
+      variance; a better sharing of the calls among channels.
+\end{itemize}
+
+\end{document}

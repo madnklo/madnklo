@@ -1,0 +1,622 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,xcolor,hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black}
+
+\newcommand{\bbC}[1]{\bar{\mathbf C}_{#1}}
+\newcommand{\bbS}[1]{\bar{\mathbf S}_{#1}}
+\newcommand{\bbSC}[1]{\bar{\mathbf{SC}}_{#1}}
+\newcommand{\bbHC}[1]{\bar{\mathbf{HC}}_{#1}}
+\newcommand{\RR}{RR}
+\newcommand{\W}[1]{\mathcal W_{#1}}
+\newcommand{\bW}[1]{\bar{\mathcal W}_{#1}}
+\newcommand{\jb}{\bar k_{j}}
+\newcommand{\kb}{\bar k_{k}}
+\newcommand{\jh}{\hat k_{j}}
+\newcommand{\kh}{\hat k_{k}}
+\newcommand{\lh}{\hat k_{l}}
+\newcommand{\E}[3]{\mathcal E^{(#1)}_{#2#3}}
+\newcommand{\eps}{\epsilon}
+\newcommand{\Norms}{\mathcal N_1^{\,2}}
+\newcommand{\sqL}{\sqrt{\lambda}}
+
+\title{The $\bbC{ijkl}$ limit with four final-state partons:\\
+mutual-recoil mappings for $e^+e^-\to jj$ at NNLO}
+\author{Notes for P.~Torrielli --- MadNkLO project}
+\date{17 November 2026 (v2)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Ref.~[2212.11190] and the note \texttt{K1\_K2\_K12.tex} define the
+$\bbC{ijkl}$ family of counterterms, and the related $K^{(1)}$ and $K^{(12)}$ terms of the
+$(ijkl)$ topology, with a common recoiler $r\neq i,j,k,l$. This needs at least five
+final-state partons, whereas $e^+e^-\to jj$ at NNLO has four.
+We propose two mappings:
+\begin{itemize}
+\item for $K^{(2)}$, the pair $(ij)$ recoils against the on-shell parent $\kb$ of $(kl)$, and $(kl)$ recoils against the
+on-shell parent $\jb$ of $(ij)$;
+\item for $K^{(1)}$, the pair $(ij)$ recoils against the $(kl)$ system, i.e.\ along $\kb$.
+\end{itemize}
+The $K^{(2)}$ map is symmetric under all eight index permutations and factorises the
+phase space exactly. The $K^{(1)}$ map composed with the $K^{(12)}$ map reproduces it
+exactly, so that, as with the common recoiler of the paper, $K^{(2)}-K^{(12)}$ for the
+$\bbC{ijkl}$ family differs only in the sector functions. The integrated counterterms are
+given in closed form. Appendix~\ref{app:l} keeps track of the simpler alternative,
+with recoiler $l$ in $K^{(1)}$.
+\end{abstract}
+
+\tableofcontents
+
+%======================================================================
+\section{Notation and the problem}
+\label{sec:problem}
+
+\paragraph{Notation.}
+All partons are massless and in the final state. $Q=k_i+k_j+k_k+k_l$ and $s=Q^2$.
+For $e^+e^-\to jj$, $Q$ is the $e^+e^-$ momentum; more generally it is the total
+momentum of the four partons. We use
+\begin{equation}
+s_{ab}=2\,k_a\!\cdot k_b,\qquad
+s_{[ab]c}=s_{ac}+s_{bc}=2\,(k_a+k_b)\!\cdot k_c,
+\end{equation}
+including the case where $k_c$ is a mapped momentum, e.g.\ $s_{[ij]\kb}=2(k_i+k_j)\cdot\kb$.
+The Källén function is
+\begin{equation}
+\lambda(a,b,c)=a^2+b^2+c^2-2ab-2ac-2bc ,
+\qquad
+\lambda\equiv\lambda(s,s_{ij},s_{kl}) \ \text{(unless arguments are shown)}.
+\end{equation}
+$\sqrt{\lambda(s,s_{ij},s_{kl})}/(2\sqrt s)$ is the size of the three-momentum of $k_i+k_j$
+(and of $k_k+k_l$) in the rest frame of $Q$, and $\lambda\ge0$ in the physical region.
+The \emph{span} of two four-vectors, ${\rm span}(a,b)=\{\alpha a+\beta b:\ \alpha,\beta\in\mathbb R\}$,
+is the two-dimensional plane of their linear combinations.
+
+\paragraph{The problem.}
+In the $(ijkl)$ topology, \texttt{K1\_K2\_K12.tex} defines (eq.~\texttt{bCijkl RR W})
+\begin{equation}
+\bbC{ijkl}\,\RR\,\W{ijkl}
+\equiv
+\Norms\,\frac{P^{\mu\nu}_{ij(r)}}{s_{ij}}\,\frac{P^{\rho\sigma}_{kl(r)}}{s_{kl}}\,
+\bar B^{(ijr,klr)}_{\mu\nu\rho\sigma}\,\W{ijkl(r)}^{\bbC{ijkl}},
+\qquad r\neq i,j,k,l.
+\label{eq:paper}
+\end{equation}
+The five-particle mapping $(ijr,klr)$ of the paper (eqs.~\texttt{fivepart1,2}) is the same as
+the Catani--Seymour (CS) map $(ijr)$ followed by $(kl\bar r)$. Since the second step uses
+$s_{kl}/s_{[kl]r}$, which does not change when $k_r$ is rescaled, the order of the steps does
+not matter. The same $r$ also appears in:
+\begin{itemize}
+\item the overlaps $\bbS{ik}\bbC{ijkl}$, $\bbSC{ikl}\bbC{ijkl}$, $\bbSC{kij}\bbC{ijkl}$ (through
+$\E{i}{j}{r}$, $\E{k}{l}{r}$), and the sector-function limits (through $w_{ir},w_{kr}$);
+\item the $K^{(12)}$ terms $\bbC{ij}\bbC{ijkl}$, $\bbC{ij}\bbSC{kij}\bbC{ijkl}$,
+$\bbS{i}\bbC{ij}\bbC{ijkl}$, $\bbS{i}\bbC{ij}\bbSC{kij}\bbC{ijkl}$;
+\item the $K^{(1)}$ term $\bbC{ij}\,\RR\,\W{ijkl}$ (eq.~\texttt{bCij RR W}).
+\end{itemize}
+With the common $r$, the $(ijr)$ step of $K^{(12)}$ leaves $k,l$ untouched and only rescales $k_r$.
+Hence $\bar P^{(ijr)}_{kl(r)}=P_{kl(r)}$ identically, and $K^{(2)}-K^{(12)}$ for the $\bbC{ijkl}$ family
+differs only in the sector functions. The construction below reproduces this property with
+four partons.
+
+The other $K^{(2)}$ limits of the $(ijkl)$ topology need no change:
+$\bbS{ik}$ uses dipoles among the other partons, $\bbSC{ikl}$ uses $r_{ikl}=j$, and
+$\bbSC{kij}$ uses $r_{kij}=l$.
+
+%======================================================================
+\section{The $K^{(2)}$ mapping: mutual recoil}
+\label{sec:map}
+
+\subsection{Definition}
+We look for two massless momenta $\jb,\kb$ (the Born momenta) with $\jb+\kb=Q$ such that
+$(ij)$ recoils against $\kb$ and $(kl)$ recoils against $\jb$:
+\begin{equation}
+\jb\in{\rm span}(k_i+k_j,\ \kb),\qquad
+\kb\in{\rm span}(k_k+k_l,\ \jb).
+\end{equation}
+This is the CS notion of recoil. In the CS map $(ijr)$ the parent is
+$k_i+k_j-\frac{y}{1-y}k_r\in{\rm span}(k_i+k_j,k_r)$: the pair keeps its momentum and borrows
+only along the recoiler direction. Given $\jb+\kb=Q$, the second condition follows from the
+first. All four vectors then lie in the plane ${\rm span}(k_i+k_j,Q)$. The two light-like
+directions in that plane with $\jb+\kb=Q$ are unique: in the rest frame of $Q$, $\jb$ and $\kb$
+are back-to-back, with $\jb$ along $\vec k_i+\vec k_j$. Explicitly,
+\begin{equation}
+\boxed{\;\begin{aligned}
+\jb&=\frac{s}{\sqL}\,(k_i+k_j)+\frac12\Big(1-\frac{s+s_{ij}-s_{kl}}{\sqL}\Big)Q,\\
+\kb&=\frac{s}{\sqL}\,(k_k+k_l)+\frac12\Big(1-\frac{s+s_{kl}-s_{ij}}{\sqL}\Big)Q
+=Q-\jb.
+\end{aligned}\;}
+\label{eq:map}
+\end{equation}
+\textit{Checks.} We use $2(k_i+k_j)\cdot Q=s+s_{ij}-s_{kl}$ and
+$\lambda=(s+s_{ij}-s_{kl})^2-4ss_{ij}$. Then
+\begin{equation}
+\jb^{\,2}=\frac{s}{4\lambda}\Big[4ss_{ij}-(s+s_{ij}-s_{kl})^2+\lambda\Big]=0,\qquad
+2\jb\cdot Q=s\ \Rightarrow\ \kb^{\,2}=0 .
+\end{equation}
+Rewriting $\jb=\big[\frac{s}{\sqL}(k_i+k_j)+\beta\,\kb\big]/(1-\beta)$, with
+$\beta=\frac12\big(1-\frac{s+s_{ij}-s_{kl}}{\sqL}\big)\le0$, shows the recoil explicitly.
+Near the collinear limits $\beta\simeq-s_{ij}/s$, i.e.\ $\jb\simeq k_i+k_j-\frac{s_{ij}}{s}\kb$,
+which is the CS form. Useful invariants:
+\begin{equation}
+s_{\jb\kb}=s,\qquad
+s_{[ij]\jb}=\frac{s+s_{ij}-s_{kl}-\sqL}{2},\qquad
+s_{[ij]\kb}=\frac{s+s_{ij}-s_{kl}+\sqL}{2},
+\end{equation}
+and the same with $(ij)\leftrightarrow(kl)$, $\jb\leftrightarrow\kb$.
+
+\subsection{Properties}
+\begin{itemize}
+\item \textbf{Symmetry.} Eq.~\eqref{eq:map} depends only on $k_i+k_j$, $k_k+k_l$ and $Q$.
+All eight permutations ($ijkl$, $ijlk$, $jikl$, $jilk$, $klij$, $klji$, $lkij$, $lkji$) give the
+same Born $\{\jb,\kb\}$, up to the exchange $\jb\leftrightarrow\kb$ when $(ij)\leftrightarrow(kl)$.
+\item \textbf{$\bbC{ijkl}$ limit} ($s_{ij},s_{kl}\to0$): $\sqL=s-s_{ij}-s_{kl}+\mathcal O(s_{ij}s_{kl}/s)$, so that
+$\jb=k_i+k_j+\mathcal O(s_{ij},s_{kl})$ and $\kb=k_k+k_l+\mathcal O(s_{ij},s_{kl})$.
+\item \textbf{$\bbC{ij}$ limit} ($s_{ij}\to0$, $s_{kl}$ fixed): $\sqL\to s-s_{kl}$, so that
+\begin{equation}
+\jb\to\frac{k_i+k_j}{1-y},\qquad \kb\to k_k+k_l-\frac{y}{1-y}(k_i+k_j),\qquad y=\frac{s_{kl}}{s}.
+\end{equation}
+This is exactly the CS map $(k\,l\,[ij])$, whose spectator is the parent of $(ij)$; for that map
+$y=s_{kl}/(s_{kl}+s_{[kl][ij]})=s_{kl}/s$. Corrections are $\mathcal O(s_{ij})$.
+\item \textbf{Soft limits} ($k_i$, $k_k$, or both soft): the map is smooth and reduces to the
+corresponding CS maps, e.g.\ $(k\,l\,j)$ for $k_i$ soft.
+\item The only non-smooth point is $\lambda=0$, where the direction of $\vec k_i+\vec k_j$ in the
+$Q$ frame is undefined. This is a hard configuration; $\jb,\kb$ stay bounded and the
+phase-space weight vanishes there as $\lambda^{1/2-\eps}$.
+\end{itemize}
+
+\subsection{Collinear variables and transverse vectors}
+Following App.~\texttt{app:collkernels} of the note, $\kb$ is the reference vector for $(ij)$ and
+$\jb$ the reference vector for $(kl)$:
+\begin{align}
+x_i&=\frac{s_{i\kb}}{s_{[ij]\kb}},\qquad
+\tilde k_{ij}=x_i k_j-x_jk_i-(1-2x_j)\frac{s_{ij}}{s_{[ij]\kb}}\,\kb,\\
+x_k&=\frac{s_{k\jb}}{s_{[kl]\jb}},\qquad
+\tilde k_{kl}=x_k k_l-x_lk_k-(1-2x_l)\frac{s_{kl}}{s_{[kl]\jb}}\,\jb .
+\end{align}
+For any reference vector, $\tilde k_{ij}\cdot\kb=0$ and $\tilde k_{ij}\cdot(k_i+k_j)=0$.
+Since ${\rm span}(k_i+k_j,\kb)={\rm span}(\jb,\kb)\ni Q$, we have
+\begin{equation}
+\tilde k_{ij}\cdot\jb=\tilde k_{ij}\cdot\kb=\tilde k_{ij}\cdot Q=0,
+\qquad\text{and likewise for }\tilde k_{kl}.
+\end{equation}
+Both transverse vectors are orthogonal to the whole Born, so the spin-correlated contractions
+with $\bar B_{\mu\nu\rho\sigma}(\jb,\kb)$ are exactly gauge invariant.
+In the rest frame of $k_i+k_j$, $\kb$ points along the boost axis to the $Q$ frame and
+$x_i=\tfrac12(1-\cos\theta^*)$, where $\theta^*$ is the angle between $\vec k_i$ and $\vec{\bar k}_k$ in that frame.
+Hence $x_i$ is the polar variable of the decay $k_i+k_j\to k_i,k_j$ (Section~\ref{sec:ps}).
+
+%======================================================================
+\section{The $K^{(1)}$ mapping: $(ij)$ recoiling against $\kb$}
+\label{sec:M1}
+
+\subsection{Definition}
+$K^{(1)}$ maps four partons to three, keeping $k$ and $l$ resolved. Requiring again
+$\jh\in{\rm span}(k_i+k_j,\kb)$, the massless parent $\jh$ is parallel to $\jb$. Momentum is
+balanced by the $(kl)$ system as a whole: $\kh+\lh=Q-\jh$, with
+$(\kh+\lh)^2=s_{kl}$. This gives $2\jh\cdot Q=s-s_{kl}$ and
+\begin{equation}
+\boxed{\;\begin{aligned}
+\jh&=\Big(1-\frac{s_{kl}}{s}\Big)\jb,\qquad
+\xi=\frac{s-s_{ij}+s_{kl}+\sqL}{2s},\\
+\hat k_a&=k_a+(\xi-1)\frac{s_{a\kb}}{s}\,\jb+\Big(\frac1\xi-1\Big)\frac{s_{a\jb}}{s}\,\kb,
+\qquad a=k,l.
+\end{aligned}\;}
+\label{eq:M1}
+\end{equation}
+The transformation of $k_k,k_l$ is the boost along the $\vec{\bar k}_j$ axis (in the $Q$ frame)
+that takes $k_k+k_l$ into $Q-\jh$. It rescales the component along $\jb$ by $\xi$, rescales
+the component along $\kb$ by $1/\xi$, and leaves the components orthogonal to $\jb,\kb$ untouched.
+The value of $\xi$ follows from $s_{(\kh+\lh)\kb}=s_{kl}$, using
+$(s-s_{ij}+s_{kl})^2-\lambda=4ss_{kl}$; it stays finite for $s_{kl}\to0$.
+
+\subsection{Properties}
+\begin{itemize}
+\item \textbf{Composition with $K^{(12)}$.} On $\{\jh,\kh,\lh\}$, $\bar{\mathbf C}_{kl}$ can only
+recoil against $\jh$. For the CS map $(\hat k\,\hat l\,\hat j)$ one has
+$y=s_{kl}/(s_{kl}+s_{[\hat k\hat l]\hat j})=s_{kl}/s$. Its spectator becomes
+$\jh/(1-y)=\jb$ and its parent $Q-\jb=\kb$:
+\begin{equation}
+\boxed{\ \text{map }\eqref{eq:M1}\ \text{followed by CS }(\hat k\,\hat l\,\hat j)\ =\ \text{map }\eqref{eq:map}\ \text{exactly.}\ }
+\end{equation}
+This is the four-parton analogue of $(ijr,klr)=(ijr)$ followed by $(kl\bar r)$.
+\item \textbf{Invariance of the $(kl)$ ingredients.} The boost preserves $s_{kl}$, scales
+$s_{k\jb}$ and $s_{l\jb}$ by the same factor, and does not touch the transverse plane. Therefore, with
+reference $\jh$ on the hatted momenta and $\jb$ on the original ones,
+\begin{equation}
+\hat x_k=x_k,\qquad \tilde k_{\hat k\hat l}=\tilde k_{kl},\qquad
+\frac{\hat P_{kl(\hat j)}}{\hat s_{kl}}=\frac{P_{kl(\jb)}}{s_{kl}},\qquad
+\mathcal E^{(\hat k)}_{\hat l\hat j}=\E{k}{l}{\jb}
+\qquad\text{exactly.}
+\end{equation}
+\item \textbf{Limits.} For $s_{ij}\to0$ (and for $k_i$ soft): $\xi\to1$ and $\jh\to k_i+k_j$, i.e.\ the map
+becomes the identity. For $k_k$ soft, $\kh$ stays soft, since the boost is bounded.
+This is unlike the CS map $(ijk)$, see Appendix~\ref{app:l}.
+\item \textbf{Symmetric in $k\leftrightarrow l$.} The sectors $\W{ijkl}$ and $\W{ijlk}$ use the same map;
+no sector-dependent choice of recoiler is needed.
+\end{itemize}
+
+%======================================================================
+\section{Local counterterms}
+\label{sec:local}
+
+\subsection{$K^{(2)}$: the $\bbC{ijkl}$ family}
+With $\bar B\equiv \bar B(\jb,\kb)$ from Eq.~\eqref{eq:map} in all four terms:
+\begin{align}
+\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv
+\Norms\,\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}\frac{P^{\rho\sigma}_{kl(\jb)}}{s_{kl}}\,
+\bar B_{\mu\nu\rho\sigma}\;\W{ijkl}^{\bbC{ijkl}},
+\label{eq:Cijkl}\\
+\bbS{ik}\,\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv
+4\Norms\,C_{f_j}C_{f_l}\,\E{i}{j}{\kb}\,\E{k}{l}{\jb}\,\bar B\;
+\W{ijkl}^{\bbS{ik}\bbC{ijkl}},
+\\
+\bbSC{ikl}\,\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv
+2\Norms\,C_{f_j}\,\E{i}{j}{\kb}\,\frac{P^{\rho\sigma}_{kl(\jb)}}{s_{kl}}\,\bar B_{\rho\sigma}\;
+\W{ijkl}^{\bbSC{ikl}\bbC{ijkl}},
+\\
+\bbSC{kij}\,\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv
+2\Norms\,C_{f_l}\,\E{k}{l}{\jb}\,\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}\,\bar B_{\mu\nu}\;
+\W{ijkl}^{\bbSC{kij}\bbC{ijkl}}.
+\end{align}
+Compared with the note: $\bar B^{(ijr,klr)}\to\bar B(\jb,\kb)$; $r\to\kb$ in every $(ij)$ and $i$-soft object;
+$r\to\jb$ in every $(kl)$ and $k$-soft object.
+$\E{i}{j}{\kb}=x_j/(x_is_{ij})$ is the soft-$i$ limit of $P_{ij(\kb)}/s_{ij}$ at the same mapping,
+which is smooth for soft $k_i$ or $k_k$. The soft overlaps are therefore exact soft limits of
+Eq.~\eqref{eq:Cijkl}, apart from the sector functions. When all sector functions are summed,
+the combination $\bbC{ijkl}(1+\bbS{ik}-\bbSC{ikl}-\bbSC{kij})$ of $K^{(2)}$ factorises into two
+hard-collinear kernels (written for $k_i,k_k$ gluons; for $g\to gg$ both soft subtractions per pair):
+\begin{equation}
+\bbHC{ijkl}\,\RR=\Norms\,
+\Big[\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}+2C_{f_j}\E{i}{j}{\kb}\,g^{\mu\nu}\Big]
+\Big[\frac{P^{\rho\sigma}_{kl(\jb)}}{s_{kl}}+2C_{f_l}\E{k}{l}{\jb}\,g^{\rho\sigma}\Big]
+\bar B_{\mu\nu\rho\sigma}.
+\end{equation}
+
+\subsection{$K^{(1)}$: $\bbC{ij}\,\RR\,\W{ijkl}$}
+With the hatted momenta of Eq.~\eqref{eq:M1} and $\hat R\equiv R(\jh,\kh,\lh)$:
+\begin{align}
+\bbC{ij}\,\RR\,\W{ijkl}&\equiv
+\mathcal N_1\,\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}\,\hat R_{\mu\nu}\,
+\hat{\mathcal W}_{kl}\,\W{{\rm c},ij(\kb)}^{(\alpha)},
+\\
+\bbS{i}\bbC{ij}\,\RR\,\W{ijkl}&\equiv \mathcal N_1\,2C_{f_j}\E{i}{j}{\kb}\,\hat R\,\hat{\mathcal W}_{kl},
+\end{align}
+where $\hat{\mathcal W}_{kl}$ is the NLO sector function evaluated on $\{\jh,\kh,\lh\}$ and
+$\W{{\rm c},ij(\kb)}^{(\alpha)}=x_j^\alpha/(x_i^\alpha+x_j^\alpha)$, with $x_i$ as in Section~\ref{sec:map}.
+The reference only needs to be a vector along $\kb$, since $x_i$ and $\tilde k_{ij}$ do not depend on its normalisation.
+$\bbS{i}$ itself keeps the CS dipole maps $(icd)$ of the paper; $\bbC{ij}\bbS{i}$ and
+$\bbS{i}\bbC{ij}$ agree at leading power as usual.
+
+\subsection{$K^{(12)}$}
+$K^{(12)}$ applies the NLO-type limits to $\hat R$ on $\{\jh,\kh,\lh\}$, with the map
+$(\hat k\,\hat l\,\hat j)$. By the composition property, its Born is $\bar B(\jb,\kb)$:
+\begin{align}
+\bbC{ij}\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv\Norms\,\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}\,
+\frac{\hat P^{\rho\sigma}_{kl(\hat j)}}{\hat s_{kl}}\,
+\bar B_{\mu\nu\rho\sigma}(\jb,\kb)\,
+\W{{\rm c},ij(\kb)}^{(\alpha)}\,\hat{\mathcal W}_{{\rm c},kl(\hat j)},\\
+\bbC{ij}\bbSC{kij}\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv 2\Norms\,C_{f_l}\,\frac{P^{\mu\nu}_{ij(\kb)}}{s_{ij}}\,
+\mathcal E^{(\hat k)}_{\hat l\hat j}\,\bar B_{\mu\nu}(\jb,\kb)\,
+\W{{\rm c},ij(\kb)}^{(\alpha)},
+\end{align}
+and the $\bbS{i}$ versions are obtained with $P_{ij(\kb)}/s_{ij}\to2C_{f_j}\E{i}{j}{\kb}$.
+By the invariance properties of Section~\ref{sec:M1}, $\hat P_{kl(\hat j)}/\hat s_{kl}=P_{kl(\jb)}/s_{kl}$ and
+$\mathcal E^{(\hat k)}_{\hat l\hat j}=\E{k}{l}{\jb}$. So every $K^{(12)}$ term of the
+$\bbC{ijkl}$ family has \emph{exactly} the kernel and Born of the corresponding $K^{(2)}$ term:
+\begin{equation}
+\boxed{\ K^{(2)}-K^{(12)}\big|_{\bbC{ijkl}\ \text{family}}\ \propto\
+\text{(kernel)}\times\bar B(\jb,\kb)\times\big[\W{}^{(2)}-\W{}^{(12)}\big],\ }
+\end{equation}
+exactly as with the common recoiler of the paper.
+
+\subsection{Consistency}
+Within $\W{ijkl}$:
+\begin{enumerate}
+\item $\bbC{ijkl}(\RR-K^{(2)})\to0$: by construction.
+\item $\bbC{ijkl}(K^{(1)}-K^{(12)})\to0$: this is the NLO structure on $\{\jh,\kh,\lh\}$.
+\item $\bbC{ij}(K^{(2)}-K^{(12)})\to0$ and the soft limits: reduced to sector functions,
+which match at leading power as in the paper (Section~\ref{sec:sectors}).
+\item The $\bbC{ijkl}$ limits of $\bbS{ik}\RR$, $\bbSC{ikl}\RR$ ($r=j$) and $\bbSC{kij}\RR$ ($r=l$)
+reproduce the overlaps at leading power: their CS maps are collinear-safe and reduce to
+Eq.~\eqref{eq:map} in the corresponding limits.
+\end{enumerate}
+
+%======================================================================
+\section{Sector functions}
+\label{sec:sectors}
+Replace the common $r$ by the Born parent of the \emph{other} pair:
+$w_{ir},w_{jr}\to w_{i\kb},w_{j\kb}$ and $w_{kr},w_{lr}\to w_{k\jb},w_{l\jb}$.
+For instance,
+\begin{equation}
+\W{ijkl}^{\bbC{ijkl}}
+\equiv
+\frac{\dfrac{\sigma_{ijkl}}{w_{i\kb}w_{k\jb}}}
+{\dfrac{\sigma_{ijkl}+\sigma_{klij}}{w_{i\kb}w_{k\jb}}
++\dfrac{\sigma_{ijlk}+\sigma_{lkij}}{w_{i\kb}w_{l\jb}}
++\dfrac{\sigma_{jikl}+\sigma_{klji}}{w_{j\kb}w_{k\jb}}
++\dfrac{\sigma_{jilk}+\sigma_{lkji}}{w_{j\kb}w_{l\jb}}},
+\end{equation}
+and analogously in $\W{}^{\bbSC{ikl}\bbC{ijkl}}$ and $\W{}^{\bbSC{kij}\bbC{ijkl}}$ (note eqs.~\texttt{bSCiklCijkl Wijkl},
+\texttt{bSCkijCijkl Wijkl}). The rule is covariant under the eight permutations, so
+$\sum_\pi\W{\pi}^{\bbC{ijkl}}=1$ exactly. Since the kernel and Born of Eq.~\eqref{eq:Cijkl} are the
+same for all eight permutations, $\sum_\pi\bbC{\pi}\RR\W{\pi}$ contains no sector function.
+In the $\bbC{ijkl}$ limit $w_{i\kb}\to w_{j\kb}$ and $w_{k\jb}\to w_{l\jb}$, so the limit of the true
+sector functions is recovered. In the $\bbC{ij}$ limit the factors $\W{{\rm c},ij(\kb)}^{(\alpha)}$ and
+$\hat{\mathcal W}_{{\rm c},kl(\hat j)}=x_l^\alpha/(x_k^\alpha+x_l^\alpha)$ are matched at leading power,
+as in the paper. The latter is exactly invariant under the boost.
+
+%======================================================================
+\section{Phase space and integrated counterterms}
+\label{sec:ps}
+
+\subsection{Two-body phase space}
+In $d=4-2\eps$, for a massive momentum $P$ decaying into two massless partons with polar variable
+$x\in[0,1]$ (relative to a fixed axis in the rest frame of $P$):
+\begin{equation}
+d\Phi_2(P;a,b)=\frac{(4\pi^2)^{\eps}}{16\pi^2}\,(P^2)^{-\eps}\,[x(1-x)]^{-\eps}\,dx\,d\Omega_{d-2},
+\qquad \int d\Phi_2=\frac{(4\pi)^\eps}{8\pi}\,(P^2)^{-\eps}\,\frac{\Gamma(1-\eps)}{\Gamma(2-2\eps)} .
+\end{equation}
+For the decay of $Q$ into two particles with masses $m_1^2,m_2^2$, the phase space depends on the
+masses only through the factor $\big[\lambda(s,m_1^2,m_2^2)/s^2\big]^{\frac12-\eps}$.
+
+\subsection{$K^{(2)}$: exact factorisation}
+Since $\jb$ is parallel to $\vec k_i+\vec k_j$ in the $Q$ frame,
+\begin{equation}
+\boxed{\;d\Phi_4=d\Phi_2(Q;\jb,\kb)\,
+\frac{ds_{ij}\,ds_{kl}}{(2\pi)^2}\Big(\frac{\lambda}{s^2}\Big)^{\frac12-\eps}
+d\Phi_2(k_i+k_j;k_i,k_j)\,d\Phi_2(k_k+k_l;k_k,k_l),\;}
+\end{equation}
+with $\sqrt{s_{ij}}+\sqrt{s_{kl}}\le\sqrt s$. The polar variables are $x_i$ and $x_k$ of
+Section~\ref{sec:map}. At fixed Born the two azimuths are independent and uniform in the
+$(d-2)$-dimensional space orthogonal to $\jb,\kb$. Hence the spin-correlated parts of
+$P_{ij}$ and $P_{kl}$ average to zero separately and in the product, \emph{exactly}.
+
+\paragraph{Radial integral.} For $\delta=1-\eps$:
+\begin{equation}
+\boxed{\;
+F(a,b)\equiv\int\!\!\int_{\sqrt u+\sqrt v\le1}\!du\,dv\;u^{a-1}v^{b-1}\lambda(1,u,v)^{\delta-\frac12}
+=\frac{\Gamma(2\delta)}{\Gamma(\delta)}\,
+\frac{\Gamma(a)\Gamma(a+\delta)\,\Gamma(b)\Gamma(b+\delta)}{\Gamma(a+b+\delta)\,\Gamma(a+b+2\delta)}.\;}
+\label{eq:F}
+\end{equation}
+\textit{Derivation.} The massless $m$-body volume is
+$V_m(s)\propto\Gamma(\delta)^m s^{(m-1)\delta-1}/[\Gamma((m-1)\delta)\Gamma(m\delta)]$. Inserting it in the
+recursion $V_{m_1+m_2}=\int\frac{ds_1ds_2}{(2\pi)^2}V_{m_1}(s_1)V_{m_2}(s_2)V_2(s;s_1,s_2)$ gives
+Eq.~\eqref{eq:F} for $a=(m_1-1)\delta$, $b=(m_2-1)\delta$. Analytic continuation (Carlson)
+extends it to all $a,b$. \textit{Check:} numerical integration at three values of $\delta$ and four
+$(a,b)$ pairs, agreement to $10^{-8}$.
+
+With $u=s_{ij}/s$, $v=s_{kl}/s$, the $\bbC{ijkl}$ family needs $a=b=-\eps$. Compared with the square of
+the CS radial integral $B(-\eps,2-2\eps)=\int_0^1du\,u^{-1-\eps}(1-u)^{1-2\eps}$:
+\begin{align}
+\frac{F(-\eps,-\eps)}{B(-\eps,2-2\eps)^2}
+&=1+(1-2\zeta_2)\,\eps^2+(6-10\zeta_3)\,\eps^3+(28-2\zeta_2-14\zeta_2^2)\,\eps^4+\mathcal O(\eps^5),\\
+\eps^2F(-\eps,-\eps)&=1+2\eps+(8-6\zeta_2)\eps^2+(32-12\zeta_2-22\zeta_3)\eps^3+\mathcal O(\eps^4)
+\end{align}
+(coefficients from PSLQ at 25 digits).
+
+\paragraph{Integrated $\bbHC{ijkl}$.} Summing over the eight permutations:
+\begin{equation}
+\int d\Phi_{\rm rad}\,\bbHC{ijkl}\,\RR
+=\Norms\,\frac{s^{-2\eps}}{(2\pi)^2}\Big[\frac{(4\pi)^\eps}{8\pi\,\Gamma(1-\eps)}\Big]^2
+F(-\eps,-\eps)\;\hat J^{ij}_{\rm hc}(\eps)\,\hat J^{kl}_{\rm hc}(\eps)\;\bar B(\jb,\kb),
+\label{eq:intCijkl}
+\end{equation}
+\begin{equation}
+\hat J^{ab}_{\rm hc}(\eps)=\int_0^1\!dx\,[x(1-x)]^{-\eps}\Big[P_{ab}(x)-\text{soft subtraction(s)}\Big],
+\end{equation}
+with $P_{ab}$ the spin-averaged $d$-dimensional kernel. The $\hat J_{\rm hc}$ are the same $x$-integrals as
+in the NLO $J_{\rm hc}$, and the result depends only on $s$.
+
+\subsection{$K^{(1)}$: exact factorisation}
+Since $\jh$ is parallel to $\vec k_i+\vec k_j$ and the $(kl)$ system is only boosted,
+\begin{equation}
+\boxed{\;d\Phi_4=d\Phi_3(\jh,\kh,\lh)\,\frac{ds_{ij}}{2\pi}
+\Big(\frac{\lambda(s,s_{ij},s_{kl})}{(s-s_{kl})^2}\Big)^{\frac12-\eps}d\Phi_2(k_i+k_j;k_i,k_j),\;}
+\end{equation}
+with $\sqrt{s_{ij}}\le\sqrt s-\sqrt{s_{kl}}$ and polar variable $x_i$. In this formula $s_{kl}$ is the
+invariant mass of the three-parton configuration, $s_{\hat k\hat l}=s_{kl}$.
+At fixed $\{\jh,\kh,\lh\}$, $\langle\tilde k_{ij}^\mu\tilde k_{ij}^\nu\rangle$ is proportional to the metric in the
+space orthogonal to $\jb,\kb$. The extra terms contain $\jh^\mu$ and vanish against
+$\hat R_{\mu\nu}$ by gauge invariance, so the spin correlations integrate to zero.
+
+\paragraph{Integrated $\bbHC{ij}$ in $\W{ijkl}$.}
+\begin{equation}
+\int d\Phi_{\rm rad}\,\bbHC{ij}\,\RR\,\W{ijkl}
+=\mathcal N_1\,\frac{s^{-\eps}}{2\pi}\,\frac{(4\pi)^\eps}{8\pi\,\Gamma(1-\eps)}\,
+\mathcal R\Big(\frac{s_{kl}}{s};\eps\Big)\,\hat J^{ij}_{\rm hc}(\eps)\;\hat R\,\hat{\mathcal W}_{kl},
+\end{equation}
+\begin{equation}
+\mathcal R(v;\eps)=\int_0^{(1-\sqrt v)^2}\!\!du\;u^{-1-\eps}
+\Big[\frac{\lambda(1,u,v)}{(1-v)^2}\Big]^{\frac12-\eps}
+=-\frac1\eps-1+\frac{v}{1-v}\ln v+2\ln(1-v)+\mathcal O(\eps).
+\label{eq:Rv}
+\end{equation}
+\textit{Derivation of the $\eps^0$ term.} Write $\mathcal R=-(1-\sqrt v)^{-2\eps}/\eps+\int_0^{(1-\sqrt v)^2}\frac{du}{u}\big[\frac{\sqrt{\lambda(1,u,v)}}{1-v}-1\big]+\mathcal O(\eps)$.
+The integral is elementary, since $\lambda(1,u,v)=[(1+\sqrt v)^2-u][(1-\sqrt v)^2-u]$, and equals
+$-1+\frac{v}{1-v}\ln v+2\ln(1+\sqrt v)$.
+\textit{Checks:} for $v\to0$, $\mathcal R\to B(-\eps,2-2\eps)=-1/\eps-1+\mathcal O(\eps)$, the CS result.
+Numerical integration at $v=0.05,0.3,0.7$ and $\eps=\pm10^{-4}$ leaves a residual that is odd in $\eps$.
+
+Compared with a CS recoiler, the only new feature is the dependence on $s_{kl}/s$ through
+$\mathcal R$. This enters $I^{(1)}$ in the RV line, which is integrated numerically. Only the pole and
+$\eps^0$ terms of $\mathcal R$ are needed there, since $\hat J^{ij}_{\rm hc}$ is finite.
+
+\paragraph{Integrated $K^{(12)}$.} After integrating over the radiation of $(ij)$, the $K^{(12)}$ terms
+give $\mathcal R(s_{kl}/s;\eps)\,\hat J^{ij}_{\rm hc}$ times the NLO-type $\bar{\mathbf C}_{kl}$ counterterm on
+$\{\jh,\kh,\lh\}$. Integrating further over the $(kl)$ radiation with the CS measure, which contains
+$(1-s_{kl}/s)^{1-2\eps}$, the two measure factors combine into
+$[\lambda(s,s_{ij},s_{kl})/s^2]^{\frac12-\eps}$. The result is again Eq.~\eqref{eq:F}, so the
+double-virtual side contains only the $\Gamma$-functions of Eq.~\eqref{eq:intCijkl}.
+
+%======================================================================
+\section{The literal nested alternative in $K^{(2)}$}
+\label{sec:nested}
+One could also use the nested CS map $(i\,j\,l)$ followed by $(k\,\tilde l\,\tilde j)$ in $K^{(2)}$.
+\begin{itemize}
+\item Locally it is fine: it reproduces $\bbC{ijkl}$, and it is close to the $K^{(12)}$ of
+Appendix~\ref{app:l} (Table~\ref{tab:K2K12}).
+\item However, the eight permutations give four different maps:
+$\{ijkl,jikl\}$, $\{ijlk,jilk\}$, $\{klij,lkij\}$, $\{klji,lkji\}$.
+The sector-function sum rule then applies only within each class, and the class weights are
+non-trivial functions of the $e$'s and $w$'s. The $\bbC{ijkl}$ family would have to be integrated
+sector by sector with sector functions, which is not analytic.
+\end{itemize}
+
+%======================================================================
+\section{Numerical checks}
+\label{sec:checks}
+Python, $d=4$, $\sqrt s=1$. Configurations are generated by inverting Eq.~\eqref{eq:map}: we choose
+the Born direction, $s_{ij}$, $s_{kl}$, and the decay angles in the rest frames of $k_i+k_j$ and $k_k+k_l$.
+
+\paragraph{$K^{(2)}$ map.} Momentum conservation, $\jb^{\,2}$, $\kb^{\,2}$, alignment of $\jb$ with
+$\vec k_i+\vec k_j$, invariance under the permutations, and
+$\tilde k_{ij}\cdot\{\jb,\kb,Q\}$, $\tilde k_{kl}\cdot\{\jb,\kb\}$ all hold at the $10^{-16}$ level.
+
+\begin{table}[h]\centering
+\begin{tabular}{cc}\toprule
+$s_{ij}$ & $\max|\jb-\jb^{\,\rm CS(kl[ij])}|$\\\midrule
+$10^{-2}$ & $6.4\times10^{-3}$\\
+$10^{-4}$ & $6.4\times10^{-5}$\\
+$10^{-6}$ & $6.4\times10^{-7}$\\
+$10^{-8}$ & $6.5\times10^{-9}$\\\bottomrule
+\end{tabular}
+\qquad
+\begin{tabular}{cc}\toprule
+$t$ ($s_{ij}=0.5\,t^2$, $s_{kl}=1.3\,t^2$) & $\max|\jb-(k_i+k_j)|$\\\midrule
+$10^{-1}$ & $8.4\times10^{-3}$\\
+$10^{-2}$ & $8.3\times10^{-5}$\\
+$10^{-3}$ & $8.3\times10^{-7}$\\\bottomrule
+\end{tabular}
+\caption{Left: $\bbC{ij}$ limit at $s_{kl}=0.12$, reduction to the CS map $(k\,l\,[ij])$.
+Right: $\bbC{ijkl}$ limit.}
+\end{table}
+
+\paragraph{$K^{(1)}$ map.} The closed form of Eq.~\eqref{eq:M1} agrees with an explicit boost along the
+$\vec{\bar k}_j$ axis to $10^{-15}$. At random points, momentum conservation, $\jh^{\,2}$,
+$(\kh+\lh)^2-s_{kl}$, the composition with CS $(\hat k\,\hat l\,\hat j)$ versus Eq.~\eqref{eq:map}, and the
+equalities $\hat x_l=x_l$, $\tilde k_{\hat k\hat l}=\tilde k_{kl}$, $\hat s_{kl}=s_{kl}$,
+$\mathcal E^{(\hat k)}_{\hat l\hat j}=\E{k}{l}{\jb}$ all hold at the $10^{-15}$--$10^{-16}$ level.
+For a soft $k_k$:
+\begin{center}
+\begin{tabular}{ccc}\toprule
+$E_k$ & $E_{\hat k}$ (Eq.~\eqref{eq:M1}) & $E_{\tilde k}$ (CS $(ijk)$)\\\midrule
+$3.0\times10^{-2}$ & $3.0\times10^{-2}$ & $0.131$\\
+$3.0\times10^{-3}$ & $3.0\times10^{-3}$ & $0.103$\\
+$3.0\times10^{-4}$ & $3.0\times10^{-4}$ & $0.100$\\\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Soft limit within the $K^{(2)}$ family.} With $k_i$ soft at fixed angle
+($\theta_{ij}\simeq103^\circ$), the relative difference between $\bbC{ijkl}$ and $\bbSC{ikl}\bbC{ijkl}$
+at the same mapping is $6.3\times10^{-4}$, $6.1\times10^{-6}$, $6.1\times10^{-8}$, $6.1\times10^{-10}$
+for $E_i=3.8\times10^{-2},\dots,3.8\times10^{-5}$, i.e.\ it scales as $E_i^2$.
+
+\paragraph{Phase space.} Expectation values over the four-body phase space with $4\times10^5$ points,
+RAMBO versus the factorised measure of Section~\ref{sec:ps} (weight $\sqrt{\lambda}$ in $d=4$):
+\begin{center}
+\begin{tabular}{lccc}\toprule
+& RAMBO & factorised & pull\\\midrule
+$\langle s_{ij}\rangle$ & $0.16689(24)$ & $0.16685(55)$ & $+0.06$\\
+$\langle s_{kl}\rangle$ & $0.16652(24)$ & $0.16687(56)$ & $-0.59$\\
+$\langle s_{ij}s_{kl}\rangle$ & $0.01667(2)$ & $0.01670(5)$ & $-0.40$\\
+$\langle s_{ik}s_{jl}\rangle$ & $0.01665(2)$ & $0.01660(6)$ & $+0.84$\\
+$\langle s_{ij}^2\rangle$ & $0.05008(13)$ & $0.04998(28)$ & $+0.34$\\
+$\langle s_{ik}/s_{[ij]k}\rangle$ & $0.49997(46)$ & $0.49867(123)$ & $+1.00$\\\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Radial integrals.} Eq.~\eqref{eq:F} and Eq.~\eqref{eq:Rv} are checked as described above.
+
+%======================================================================
+\section{Summary and code impact}
+\begin{itemize}
+\item $K^{(2)}$: the mutual-recoil map of Eq.~\eqref{eq:map}, with references $\kb$ for $(ij)$ and $\jb$ for $(kl)$
+in kernels, eikonals and sector functions.
+\item $K^{(1)}$ in the $(ijkl)$ sectors: $(ij)$ recoils against $\kb$, i.e.\ the $(kl)$ system
+(Eq.~\eqref{eq:M1}). $K^{(12)}$ then uses the CS map $(\hat k\,\hat l\,\hat j)$.
+\item With these choices $K^{(2)}-K^{(12)}$ differs only in the sector functions, exactly as in the paper.
+The integrated $\bbHC{ijkl}$ is given by Eq.~\eqref{eq:intCijkl}. The integrated $K^{(1)}$ contains
+$\mathcal R(s_{kl}/s;\eps)$ of Eq.~\eqref{eq:Rv}.
+\item Valid for any Born with two coloured final-state partons and a colourless initial state.
+Not applicable to initial-state radiation.
+\item MadNkLO: one routine for Eq.~\eqref{eq:map} (the $\bbC{ijkl}$ family: \texttt{CC\_gqgq} and its overlaps) and one for
+Eq.~\eqref{eq:M1} (used by $K^{(1)}$ and $K^{(12)}$ in the $ijkl$ sectors, replacing the hard-coded \texttt{iref = 1}).
+\item Still open: normalisation in the paper's conventions ($\mathcal N_1$, $\varsigma_{n+2}/\varsigma_n$) and
+comparison with the corresponding $I^{(2)}$ entry; $\mathcal O(\eps)$ term of $\mathcal R$ if needed;
+limit tests with the full $\RR$ of $e^+e^-\to q\bar qgg$, including spin correlations.
+\end{itemize}
+
+%======================================================================
+\appendix
+\section{Alternative: recoiler $l$ in $K^{(1)}$}
+\label{app:l}
+
+This is the simpler alternative. It keeps CS maps everywhere in $K^{(1)}$ and $K^{(12)}$,
+at the price of a leading-power-only matching of $K^{(2)}$ and $K^{(12)}$.
+
+\subsection{Why $l$ and not $k$}
+The singular limits of $\RR\,\W{ijkl}$ are $\bbS{i}$, $\bbC{ij}$, $\bbS{ik}$, $\bbC{ijkl}$, $\bbSC{ikl}$, $\bbSC{kij}$.
+Parton $k$ can become soft, whereas $l$ never does ($\W{ijkl}$ is suppressed when $k_l$ is soft).
+In the CS map $(ijk)$, $1-y=s_{[ij]k}/(s_{ij}+s_{[ij]k})$ vanishes like $E_k$ when $k_k$ is soft, so
+$\tilde k_k=k_k/(1-y)$ stays hard (table in Section~\ref{sec:checks}). The mapped configuration then
+contains no soft gluon, and the singularity of $\RR$ in the $\bbSC{kij}$ region is not reproduced.
+Hence $r=l$ in $\W{ijkl}$ and $r=k$ in $\W{ijlk}$: the recoiler depends on the sector.
+
+\subsection{Definitions}
+\begin{align}
+\bbC{ij}\,\RR\,\W{ijkl}&\equiv
+\mathcal N_1\,\frac{P^{\mu\nu}_{ij(l)}}{s_{ij}}\,\bar R^{(ijl)}_{\mu\nu}\,
+\bW{kl}^{(ijl)}\,\W{{\rm c},ij(l)}^{(\alpha)},\\
+\bbS{i}\bbC{ij}\,\RR\,\W{ijkl}&\equiv \mathcal N_1\,2C_{f_j}\E{i}{j}{l}\,\bar R^{(ijl)}\,\bW{kl}^{(ijl)},\\
+\bbC{ij}\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv\Norms\,\frac{P^{\mu\nu}_{ij(l)}}{s_{ij}}\,
+\frac{\bar P^{(ijl)\,\rho\sigma}_{kl(\tilde j)}}{\bar s^{(ijl)}_{kl}}\,
+\bar B^{(ijl;\,k\tilde l\tilde j)}_{\mu\nu\rho\sigma}\,
+\W{{\rm c},ij(l)}^{(\alpha)}\,\bW{{\rm c},kl(\tilde j)}^{(ijl)},\\
+\bbC{ij}\bbSC{kij}\bbC{ijkl}\,\RR\,\W{ijkl}
+&\equiv 2\Norms\,C_{f_l}\,\frac{P^{\mu\nu}_{ij(l)}}{s_{ij}}\,
+\bar{\mathcal E}^{(k)(ijl)}_{\tilde l\tilde j}\,\bar B^{(ijl;\,k\tilde l\tilde j)}_{\mu\nu}\,
+\W{{\rm c},ij(l)}^{(\alpha)},
+\end{align}
+plus the $\bbS{i}$ versions. Here $\tilde j,\tilde l$ denote the momenta after the CS map $(ijl)$, and
+$\bar B^{(ijl;\,k\tilde l\tilde j)}$ is the Born after the further CS map $(k\,\tilde l\,\tilde j)$.
+$K^{(2)}$ is unchanged (Section~\ref{sec:local}).
+
+\subsection{Consistency and cost}
+In the $\bbC{ij}$ limit, $(ijl)$ tends to the identity and Eq.~\eqref{eq:map} tends to CS $(k\,l\,[ij])$, so the
+two Borns coincide. However, $x_i$ with reference $l$ and $x_i$ with reference $\kb$ differ at
+$\mathcal O(\sqrt{s_{ij}})$, linearly in the transverse momentum. Therefore $K^{(2)}-K^{(12)}$ is not
+reduced to sector functions: the remainder is $\mathcal O(s_{ij}^{-1/2})$ pointwise and
+$\mathcal O(s_{ij}^0)$ after the azimuthal average. It is integrable, but its variance diverges
+logarithmically under flat sampling in $s_{ij}$.
+\begin{table}[h]\centering
+\begin{tabular}{ccccc}\toprule
+& \multicolumn{2}{c}{recoiler $l$} & \multicolumn{2}{c}{recoiler $k$}\\
+$\sqrt{s_{ij}}$ & pointwise & azimuthal average & pointwise & azimuthal average\\\midrule
+$10^{-1}$ & $+5.7\times10^{-2}$ & $-9.9\times10^{-3}$ & $-5.0\times10^{-2}$ & $+6.3\times10^{-2}$\\
+$10^{-2}$ & $+6.6\times10^{-3}$ & $-9.5\times10^{-5}$ & $-1.1\times10^{-2}$ & $+6.5\times10^{-4}$\\
+$10^{-3}$ & $+6.7\times10^{-4}$ & $-9.5\times10^{-7}$ & $-1.1\times10^{-3}$ & $+6.5\times10^{-6}$\\\midrule
+\multicolumn{5}{l}{nested map of Section~\ref{sec:nested} used in $K^{(2)}$, recoiler $l$: \quad
+$3.0\times10^{-3}$, $3.1\times10^{-5}$, $3.1\times10^{-7}$}\\\bottomrule
+\end{tabular}
+\caption{$\bbC{ij}$ limit at fixed $s_{kl}=0.15$: relative difference $(K^{(2)}-K^{(12)})/K^{(2)}$ for the
+$\bbC{ijkl}$ term, with $i=g$, $j=q$, $k=g$, $l=\bar q$ (only $q\to qg$, no spin correlations), toy Born
+$1+\cos^2\theta_{\jb}$, and the azimuth of $k_i$ in the rest frame of $k_i+k_j$ (64 points). The recoiler-$k$ column
+tests only the $\bbC{ij}$ matching; recoiler $k$ is excluded by the soft-$k$ argument.
+With the map of Eq.~\eqref{eq:M1} this difference is zero (up to sector functions) by construction.}
+\label{tab:K2K12}
+\end{table}
+
+The advantage of recoiler $l$ is that the integrated $K^{(1)}$ is the standard CS
+$J^{ijl}_{\rm hc}$, which contains only $\Gamma$-functions and $s_{[ij]l}^{-\eps}$, instead of
+$\mathcal R(s_{kl}/s;\eps)$. Both options give Eq.~\eqref{eq:intCijkl} for the integrated $K^{(2)}$.
+
+\end{document}

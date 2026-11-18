@@ -76,6 +76,7 @@ c     call initialisation function
 c
 c     initialise
       int_real_virtual_%(isec)d_%(jsec)d=0d0
+      int_rv_i1 = 0d0
       WGT_CHAN=1d0
 c
 c     phase-space tests (for double pole, single pole, finite part)

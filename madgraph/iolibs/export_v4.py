@@ -2812,7 +2812,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         common_files+=['invarients.f','transpole.f']
         common_files+=['dsample.f','myamp.f','ranmar.f','idenparts.f']
         common_files+=['fastjetfortran_core.cc','fastjetfortran_full.cc','fjcore.cc','fjcore.hh']
-        common_files+=['gen_phase_space.f','gen_double_real_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
+        common_files+=['gen_phase_space.f','gen_real_phase_space.f','imap.f','vegas.f']
+        common_files+=['gen_double_real_phase_space.f','gen_realvirt_phase_space.f']
         common_files+=['analysis_new.f', 'HwU.f']
         common_files+=['sectors.f', 'sectors2_module.f90', 'sectors4_module.f90']
 	common_files+=['mapped_labels_common.inc', 'mapped_labels_accessors.f']
@@ -2866,9 +2867,6 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/genps.inc'),dirpath)
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/mapped_labels_common.inc'),dirpath)
             cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/mapped_labels_accessors.f'),dirpath)
-            # phase_space_npo (gen_real_phase_space.f) includes the label cache
-            # of the real-virtual
-            cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/rv_mapped_labels_common.inc'),dirpath)
             os.symlink(dirpath + '/../../../Cards/damping_factors.inc',dirpath+'/include/damping_factors.inc')
             #os.symlink(dirpath + '/../../../Common_files/ngraphs.inc',dirpath+'/include/ngraphs.inc') #giovanni
             #os.remove(pjoin(dirpath,'ngraphs.inc')) #giovanni
@@ -8713,6 +8711,3 @@ class ProcessExporterFortranMWGroup(ProcessExporterFortranMW):
         writer.writelines(all_lines)
 
         return True
-
-
-

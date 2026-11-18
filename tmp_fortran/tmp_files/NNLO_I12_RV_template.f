@@ -143,7 +143,11 @@ c
              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
              call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
              blo = ans(0)
+## if (pyamplicol) {
+             ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,cb,db)
+## } else {
              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
+## }
 c
              if(size(leg_pdgs).le.5) then
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
@@ -162,7 +166,11 @@ c
           if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
           call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
           blo = ans(0)
+## if (pyamplicol) {
+          ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,cb,db)
+## } else {
           ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
+## }
 c
           call get_Js(snlo(i,c), JsIC)
           call get_Js(snlo(i,d), JsID)
@@ -216,7 +224,11 @@ c
               call phase_space_CS_inv(i,c,d,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
               if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
               call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
+## if (pyamplicol) {
+              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,cb,db)
+## } else {
               ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
+## }
               call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
               Is = Is - JhcKKRpp * Ei_cd * ccblo
             enddo
@@ -227,7 +239,11 @@ c     TODO: needs rpp in initial state for 2jets
             call phase_space_CS_inv(i,c,r,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
             if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 11
             call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
+## if (pyamplicol) {
+            ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,cb,rb)
+## } else {
             ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,rb)
+## }
             call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
             Is = Is - JhcKKRpp * 2d0 * Ei_cr * ccblo
 c
@@ -237,7 +253,11 @@ c     TODO: needs rpp in initial state for 2jets
             if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
             call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
             blo = ans(0)
+## if (pyamplicol) {
+            ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,cb,kb)
+## } else {
             ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,kb)
+## }
             call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
             Is = Is - JhcKKRpp * 2d0 * Ei_ck * ccblo
          enddo
@@ -287,7 +307,11 @@ c
         if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 20
         call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
         blo = ans(0)
+## if (pyamplicol) {
+        ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,jb,cb)
+## } else {
         ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(jb,cb)
+## }
         call get_Js(snlo(i,c),JsIC)
         Ic = Ic + rho_ij_l * JsIC * ccblo
         Isc = Isc + Ca * JsIC * ccblo
@@ -300,7 +324,11 @@ c
         if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
         call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
         blo = ans(0)
+## if (pyamplicol) {
+        ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(pb,alphas,jb,cb)
+## } else {
         ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(jb,cb)
+## }
         call get_Js(snlo(j,c), JsJC)
         Ic = Ic + rho_ji_l * JsJC * ccblo
         Isc = Isc + (2d0*C_l(j)-Ca) * JsJC * ccblo

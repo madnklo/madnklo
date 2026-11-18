@@ -123,7 +123,11 @@ c     Colour-linked-Born contribution
          do j=1,nexternal
             if(.not.ISLOQCDPARTON(j))cycle
             if(j.eq.i)cycle
+## if (pyamplicol) {
+            CCBLO = GET_CCBLO(P,alphas,i,j)
+## } else {
             CCBLO = GET_CCBLO(i,j)
+## }
             if(pmass(i).eq.0d0.and.pmass(j).eq.0d0)then
                INLO(0) = INLO(0) + ccBLO*log(sLO(i,j)/muR_current**2)*(2d0-log(sLO(i,j)/muR_current**2)/2d0)
                INLO(-1) = INLO(-1) + ccBLO*log(sLO(i,j)/muR_current**2)

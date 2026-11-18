@@ -159,7 +159,11 @@ c     renormalisation scale for the remapped kinematics xpbb
             alphas=alphas_current
             pref=32d0*pi**2*alphas**2
           call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+## if (pyamplicol) {
+          ccBLO = %(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,mbb,lbb)
+## } else {
           ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
+## }
 c
 c     call Born matrix element
 c     renormalisation scale for the remapped kinematics xpbb
@@ -170,7 +174,7 @@ c     renormalisation scale for the remapped kinematics xpbb
           BLO = ANS(0)
 c
 ## if (pyamplicol) {
-          QUADBLO_mlml = %(proc_prefix_Born)s_GET_QUADBLO(mbb,lbb,mbb,lbb)
+          QUADBLO_mlml = %(proc_prefix_Born)s_GET_QUADBLO(xpbb,alphas,mbb,lbb,mbb,lbb)
 ## } else {
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
 c     the mapped quadruple-colour Born getter.

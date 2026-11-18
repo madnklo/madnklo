@@ -52,9 +52,9 @@ def color_amplitudes(matrix_element):
 def provider_code(matrix_element, directory, prefix, n_squared_orders,
                   color_order=0, spin_order=0, options=None):
     result = dict((name, '') for name in (
-        'pyamp_declarations', 'pyamp_evaluate', 'pyamp_color', 'pyamp_spin',
-        'pyamp_table', 'pyamp_helpers', 'pyamp_hook_declarations', 'pyamp_hook_check',
-        'pyamp_get_me_declarations', 'pyamp_get_me', 'pyamp_initialise',
+        'pyamp_declarations', 'pyamp_evaluate', 'pyamp_helpers',
+        'pyamp_hook_declarations', 'pyamp_hook_check',
+        'pyamp_get_me_declarations', 'pyamp_get_me',
         'pyamp_set_color_guard', 'pyamp_add_color_guard', 'pyamp_set_spin_guard'))
     if selected_provider(options=options) == 'madgraph':
         return result
@@ -134,12 +134,6 @@ def provider_code(matrix_element, directory, prefix, n_squared_orders,
       %sDEN=%d
       CALL MNK_PYAMP_EVAL(MNK_N,MNK_NINITIAL,MNK_PDGS,P,USER_ALPHAS,HEL,NSQAMPSO,ANS)
 ''' % (prefix, matrix_element.get_denominator_factor())
-    result['pyamp_color'] = '''
-      CALL MNK_PYAMP_COLOR(MNK_N,MNK_NINITIAL,MNK_PDGS,LEG_A,LEG_B,%sGET_CCBLO)
-''' % prefix
-    result['pyamp_spin'] = '''
-      CALL MNK_PYAMP_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,PB,PARENT_LEG,KT,%sGET_KKBLO)
-''' % prefix
     return result
 
 
@@ -158,14 +152,6 @@ def correlation_code(replacements, denominator):
       %sDEN=%s
       CALL %sPYAMP_EVALUATE(P,HEL,USER_ALPHAS,ANS)
 ''' % (prefix,denominator,prefix),
-            'pyamp_table': '      CALL %sPYAMP_TABLE(CORRELATED_MES)\n'%prefix,
-            'pyamp_color': '''
-      CALL %sPYAMP_DIPOLE(LEG_A,LEG_B,%sGET_CCBLO)
-''' % (prefix,prefix),
-            'pyamp_spin': '''
-      CALL %sPYAMP_SPIN(PARENT_LEG,PB,KT,%sGET_KKBLO)
-''' % (prefix,prefix),
-            'pyamp_initialise':'      CALL %sPYAMP_RESET()\n'%prefix,
             'pyamp_set_color_guard': '''
       IF(FIRST_CONNECTION.NE.0) THEN
          IF(FIRST_CONNECTION.LT.-1.OR.FIRST_CONNECTION.GT.NCOLORCONNECTIONS.OR.SECOND_CONNECTION.LT.-1.OR.SECOND_CONNECTION.EQ.0.OR.SECOND_CONNECTION.GT.NCOLORCONNECTIONS) THEN

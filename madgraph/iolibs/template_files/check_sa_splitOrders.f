@@ -229,7 +229,11 @@ c
       WRITE(*,*) "Color-correlated evaluations "
       WRITE(*,*) "-----------------------------"
       WRITE(*,*) ""
+## if (pyamplicol_tree) {
+      CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME_AT_POINT(P,-1,G**2/(16D0*DATAN(1D0)),COLOR_CORRELATED_EVALS)
+## } else {
       CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(COLOR_CORRELATED_EVALS)
+## }
       
       DO I_ORDER=1,CC_PERT_ORDER
           WRITE(*,*) ''

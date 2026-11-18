@@ -3902,6 +3902,9 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
         extra_proc_ME = []
         extra_proc_CCBLO = []
         extra_proc_KKBLO = []
+        native_tree = self.get_tree_context()['pyamplicol_tree']
+        cc_args = 'P,ALPHAS,LEG_A,LEG_B' if native_tree else 'LEG_A,LEG_B'
+        kk_args = 'PB,ALPHAS,PARENT_LEG,KT' if native_tree else 'PARENT_LEG,PB,KT'
         if extra_proc:
             for item in extra_proc:
                 if item != proc_prefix:
@@ -3928,19 +3931,23 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     extra_proc_ME.append('END\n')
                     extra_proc_ME.append('\n')
 
-                    extra_proc_CCBLO.append('DOUBLE PRECISION FUNCTION %sGET_CCBLO(LEG_A,LEG_B)\n' % item)
+                    extra_proc_CCBLO.append('DOUBLE PRECISION FUNCTION %sGET_CCBLO(%s)\n' % (item,cc_args))
                     extra_proc_CCBLO.append('IMPLICIT NONE\n')
+                    if native_tree:
+                        extra_proc_CCBLO.append('DOUBLE PRECISION P(0:3,%d),ALPHAS\n' % nexternal)
                     extra_proc_CCBLO.append('INTEGER LEG_A, LEG_B\n')
                     extra_proc_CCBLO.append('DOUBLE PRECISION %sGET_CCBLO\n' % proc_prefix)
                     extra_proc_CCBLO.append('\n')
-                    extra_proc_CCBLO.append('%sGET_CCBLO = %sGET_CCBLO(LEG_A,LEG_B)\n' % (item, proc_prefix))
+                    extra_proc_CCBLO.append('%sGET_CCBLO = %sGET_CCBLO(%s)\n' % (item,proc_prefix,cc_args))
                     extra_proc_CCBLO.append('\n')
                     extra_proc_CCBLO.append('RETURN\n')
                     extra_proc_CCBLO.append('END FUNCTION\n')
                     extra_proc_CCBLO.append('\n')
 
-                    extra_proc_KKBLO.append('DOUBLE PRECISION FUNCTION %sGET_KKBLO(PARENT_LEG,PB,KT)\n' % item)
+                    extra_proc_KKBLO.append('DOUBLE PRECISION FUNCTION %sGET_KKBLO(%s)\n' % (item,kk_args))
                     extra_proc_KKBLO.append('IMPLICIT NONE\n')
+                    if native_tree:
+                        extra_proc_KKBLO.append('DOUBLE PRECISION ALPHAS\n')
                     extra_proc_KKBLO.append('INTEGER    NEXTERNAL\n')
                     extra_proc_KKBLO.append('PARAMETER (NEXTERNAL=%d)\n' % nexternal)
                     extra_proc_KKBLO.append('INTEGER PARENT_LEG\n')
@@ -3948,7 +3955,7 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
                     extra_proc_KKBLO.append('DOUBLE PRECISION KT(0:3)\n')
                     extra_proc_KKBLO.append('DOUBLE PRECISION %sGET_KKBLO\n' % proc_prefix)
                     extra_proc_KKBLO.append('\n')
-                    extra_proc_KKBLO.append('%sGET_KKBLO = %sGET_KKBLO(PARENT_LEG,PB,KT)\n' % (item, proc_prefix))
+                    extra_proc_KKBLO.append('%sGET_KKBLO = %sGET_KKBLO(%s)\n' % (item,proc_prefix,kk_args))
                     extra_proc_KKBLO.append('\n')
                     extra_proc_KKBLO.append('RETURN\n')
                     extra_proc_KKBLO.append('END FUNCTION\n')
@@ -4057,13 +4064,14 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
                     if item == proc_prefix:
                         continue
                     replace_dict['pyamp_helpers'] += '''
-      DOUBLE PRECISION FUNCTION %sGET_QUADBLO(A,B,C,D)
+      DOUBLE PRECISION FUNCTION %sGET_QUADBLO(P,ALPHAS,A,B,C,D)
       IMPLICIT NONE
       INTEGER A,B,C,D
+      DOUBLE PRECISION P(0:3,%d),ALPHAS
       DOUBLE PRECISION %sGET_QUADBLO
-      %sGET_QUADBLO=%sGET_QUADBLO(A,B,C,D)
+      %sGET_QUADBLO=%sGET_QUADBLO(P,ALPHAS,A,B,C,D)
       END
-''' % (item,proc_prefix,item,proc_prefix)
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
             if replace_dict['pyamp_evaluate'] and tree_context['color_correlation']:
                 for item in (extra_proc or []):
                     if item == proc_prefix:

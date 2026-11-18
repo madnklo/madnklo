@@ -135,7 +135,11 @@ c     renormalisation scale for the remapped kinematics xpbb
             alphas=alphas_current
             pref=32d0*pi**2*alphas**2
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,lbb,mbb)
+## } else {
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(lbb,mbb)
+## }
 c
 c     eikonal
 c     See file K2_I2_G_v2.pdf in the DropBox directory

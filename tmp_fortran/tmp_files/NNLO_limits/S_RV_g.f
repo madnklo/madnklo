@@ -81,6 +81,7 @@ c     checks
          stop
       endif
 c
+## if (not pyamplicol_virtual) {
       if (v_init) then
         v_init=.false.
         call %(V_long_proc_prefix)sget_answer_dimension(v_matelem_array_dim)
@@ -88,6 +89,7 @@ c
         call %(V_long_proc_prefix)sget_nsqso_loop(v_nsquaredso_loop)
         allocate(v_prec_found(0:v_nsquaredso_loop))
       endif
+## }
 c
 c     call W soft
       call get_ws_nlo(isec,jsec)
@@ -145,15 +147,23 @@ c     renormalisation scale for the remapped kinematics xpb
             alphas=alphas_current
             pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(xpb,alphas,mb,lb)
+## } else {
             ccBLO = %(proc_prefix_S_RV_g)s_GET_CCBLO(mb,lb)
+## }
 c     renormalisation scale for the remapped kinematics xpb
             call set_mur_from_momenta(xpb,nexternal-1,underlying_leg_pdgs)
             alphas=alphas_current
             pref=-8d0*pi*alphas
+## if (pyamplicol_virtual) {
+            call %(V_long_proc_prefix)sGET_CCVNLO(xpb,alphas,muR_current,mb,lb,ccvnlo)
+## } else {
             call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
             VNLO(-2:0) = [(V_MATELEM(i,0), i=3,1,-1)]
             call %(V_long_proc_prefix)sget_ccvnlo(mb,lb,ccvnlo)
             color_correlated_evals = 0d0
+## }
 c
 c     eikonals
             EIK0     =  SLM/(SIL*SIM) - ML2/SIL**2 - MM2/SIM**2
@@ -386,7 +396,11 @@ c     renormalisation scale for the remapped kinematics xpb_lm
             alphas=alphas_current
             pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ans)
+## if (pyamplicol) {
+            ccBLO_lm =%(proc_prefix_S_RV_g)s_GET_CCBLO(xpb_lm,alphas,lb,mb)
+## } else {
             ccBLO_lm =%(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+## }
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) goto 778
 c
             delta_s(-2) = delta_s(-2) + eik0*2d0*C_l*ccBLO_lm
@@ -403,7 +417,7 @@ c     Sum over (e) ---> (t)
 c
                call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ans)
 ## if (pyamplicol) {
-               quadblo_tmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(tb,mb,lb,mb)
+               quadblo_tmlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(xpb_lm,alphas,tb,mb,lb,mb)
 ## } else {
                if(size(leg_pdgs).le.5) then
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
@@ -443,7 +457,7 @@ c     renormalisation scale for the remapped kinematics xpb_lm
                   pref=-8d0*pi*alphas
                   call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_lm,hel,alphas,ANS)
 ## if (pyamplicol) {
-                  quadblo_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(pb,qb,lb,mb)
+                  quadblo_pqlm = %(proc_prefix_S_RV_g)s_GET_QUADBLO(xpb_lm,alphas,pb,qb,lb,mb)
 ## } else {
                   if(size(leg_pdgs).le.5) then
                      write(77,*)'ee -> >2j is not implemented yet'
@@ -480,7 +494,11 @@ c     renormalisation scale for the remapped kinematics xpb_ml
             alphas=alphas_current
             pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_ml,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(xpb_ml,alphas,lb,mb)
+## } else {
             ccBLO_ml = %(proc_prefix_S_RV_g)s_GET_CCBLO(lb,mb)
+## }
             if(docut(xpb_lm,nexternal-1,underlying_leg_pdgs,0)) cycle
 c
             delta_s(-2) = delta_s(-2) - EIK0*2d0*C_l*ccBLO_ml
@@ -531,7 +549,11 @@ c     renormalisation scale for the remapped kinematics xpb_kr
             alphas=alphas_current
             pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_kr,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO_kr =%(proc_prefix_S_RV_g)s_GET_CCBLO(xpb_kr,alphas,kb,rb)
+## } else {
             ccBLO_kr =%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
+## }
 c
             kb=mapped_labels(k,i,k)
             rb=mapped_labels(iref,i,k)
@@ -540,7 +562,11 @@ c     renormalisation scale for the remapped kinematics xpb_kr
             alphas=alphas_current
             pref=-8d0*pi*alphas
             call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb_rk,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(xpb_rk,alphas,rb,kb)
+## } else {
             ccBLO_rk = %(proc_prefix_S_RV_g)s_GET_CCBLO(rb,kb)
+## }
 c     eikonals
             eik_kr =  skr/(sik*sir)
             if(docut(xpb_kr,nexternal-1,underlying_leg_pdgs,0)) goto 779

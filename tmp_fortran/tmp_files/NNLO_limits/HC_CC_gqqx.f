@@ -120,7 +120,11 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ans(0)
 c
+## if (pyamplicol) {
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(xpbb,alphas,parent_leg,kt)
+## } else {
       KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,kt)
+## }
 c
 c     collinear double-collinear kernel, eq. (C.39) of 2212.11190v2
 c     (same as dropbox eq. 23)

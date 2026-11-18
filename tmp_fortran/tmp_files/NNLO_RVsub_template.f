@@ -134,7 +134,11 @@ c     renormalisation scale for the (n+1)-body kinematics
 c     (set_mur also updates MU_R and the couplings used by MadLoop)
       call set_mur_from_momenta(p,nexternal,leg_pdgs)
       alphas=alphas_current
+## if (pyamplicol_virtual) {
+      CALL %(long_proc_prefix)sLOOPME_ACCESSOR_HOOK(P,-1,ALPHAS,MUR_CURRENT,MATELEM,-1D0,PREC_FOUND,RETURNCODE)
+## } else {
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+## }
       RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       do i=-2,0
          if(abs(RVNNLO(i)).ge.huge(1d0).or.isnan(RVNNLO(i)))then

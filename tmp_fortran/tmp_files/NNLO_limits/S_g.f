@@ -117,7 +117,11 @@ c     renormalisation scale for the remapped kinematics xpb
          alphas=alphas_current
          pref=-(8d0*pi*alphas)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+## if (pyamplicol) {
+         ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(xpb,alphas,cb,ab)
+## } else {
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,ab)
+## }
 c
 c        safety check
          if(xs(i,c)*xs(i,a).le.0d0)then
@@ -163,7 +167,11 @@ c     renormalisation scale for the remapped kinematics xpb
          alphas=alphas_current
          pref=-(8d0*pi*alphas)
          call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+## if (pyamplicol) {
+         ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(xpb,alphas,cb,bb)
+## } else {
          ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(cb,bb)
+## }
 c
 c        safety check
          if(xs(i,c)*xs(i,b).le.0d0)then
@@ -206,7 +214,11 @@ c     renormalisation scale for the remapped kinematics xpb
       alphas=alphas_current
       pref=-(8d0*pi*alphas)
       call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
+## if (pyamplicol) {
+      ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(xpb,alphas,ab,bb)
+## } else {
       ccRNLO = %(proc_prefix_S_g)s_GET_CCBLO(ab,bb)
+## }
 c     safety check
       if(xs(i,a)*xs(i,b).le.0d0)then
          write(77,*)'Inaccuracy 1 in M2_S_g',xs(i,a),xs(i,b)

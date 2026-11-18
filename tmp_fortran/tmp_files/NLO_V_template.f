@@ -128,8 +128,12 @@ c     (set_mur also updates MU_R and the couplings used by MadLoop)
       alphas=alphas_current
 c
 c     call virtual
+## if (pyamplicol_virtual) {
+      CALL %(long_proc_prefix)sLOOPME_ACCESSOR_HOOK(P,-1,ALPHAS,MUR_CURRENT,MATELEM,-1D0,PREC_FOUND,RETURNCODE)
+## } else {
       COLOR_CORRELATED_EVALS = 0d0
       CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+## }
       VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
 c
 c     call counterterm

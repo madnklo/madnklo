@@ -107,7 +107,11 @@ c     call Real as per eq. (C.9)
       RNLO = ANS(0)
 c
       parent_leg = real_labels(ib,ia,ib)
+## if (pyamplicol) {
+      KKRNLO = %(proc_prefix_HC_gg)s_GET_KKBLO(xpb,alphas,parent_leg,kt)
+## } else {
       KKRNLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
+## }
 c     TODO: improve ktmuktnuRmunu / kt^2
       M2_C_gg=CA*2d0*(2d0/sab*KKRNLO+x/(1d0-x)*(1d0+1d0-x**alpha)*RNLO+(1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)
       M2_SC_gg=CA*2d0*((1d0-x)/x*(1d0+1d0-(1d0-x)**alpha)*RNLO)

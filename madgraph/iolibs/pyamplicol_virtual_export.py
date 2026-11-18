@@ -90,6 +90,7 @@ def virtual_code(matrix_element, directory, replacements, color_order=0, spin_or
     prefix = replacements['proc_prefix']
     values = dict(replacements)
     values.setdefault('n_color_correlators', 0)
+    values.setdefault('color_dipoles', '')
     values.update(pyamp_n=len(pdgs), pyamp_ni=ninitial,
         pyamp_nc=len(record['legacy_colors']),
         pyamp_pdgs=','.join(str(pdg) for pdg in pdgs), pyamp_np=len(parameters),

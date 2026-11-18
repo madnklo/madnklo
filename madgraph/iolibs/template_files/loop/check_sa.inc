@@ -327,7 +327,11 @@ C     We make sure to deactivate spin-correlations for now
 C
 C     Now we can call the matrix element
 C
+## if (pyamplicol_virtual and color_correlation) {
+      CALL %(proc_prefix)sGET_VIRTUAL_WITH_COLOR(P,-1,G**2/(16D0*DATAN(1D0)),MU_R,-1D0,MATELEM,PREC_FOUND,RETURNCODE,CCMES)
+## } else {
       CALL %(proc_prefix)sSLOOPMATRIX_THRES(P,MATELEM,-1.0d0,PREC_FOUND,RETURNCODE)
+## }
 
 C
 C        write the information on the four momenta 
@@ -444,7 +448,9 @@ C     We make sure to deactivate spin-correlations for now
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 ## }
 C     Access the value of the color correlated MEs computed
+## if (not pyamplicol_virtual) {
       CALL %(proc_prefix)sGET_COLOR_CORRELATED_ME(CCMES)
+## }
       
       DO I_ORDER=1,CC_PERT_ORDER
           WRITE(*,*) ''

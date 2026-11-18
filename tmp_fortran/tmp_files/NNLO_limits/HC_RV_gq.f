@@ -124,7 +124,11 @@ c
 c     call Born
       call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
       BLO = ANS(0)
+## if (pyamplicol_virtual) {
+      call %(V_long_proc_prefix)sLOOPME_ACCESSOR_HOOK(xpb,hel,alphas,muR_current,v_matelem,-1d0,v_prec_found,v_returncode)
+## } else {
       call %(V_long_proc_prefix)ssloopmatrix_thres(xpb,v_matelem,-1.0d0,v_prec_found,v_returncode)
+## }
       VNLO(-2:0) = [(V_MATELEM(i,0), i=3,1,-1)]
       color_correlated_evals = 0d0
 c
@@ -324,7 +328,11 @@ c     NLO invariants (abr)
 
 C     Born matrix elements mapped (abr)
 c     Colour-correlated Born_{[ab]l}
+## if (pyamplicol) {
+         CCBLO_parent_l=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb,alphas,mapped_labels(ib),lb)
+## } else {
          CCBLO_parent_l=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb)
+## }
 
          if(abs(leg_pdgs(l)).le.6) then
             gamma_l = gamma_q
@@ -371,7 +379,11 @@ c    NNLO invariants
 C     Define Born matrix elements for each pair (l,m)
 C     Born matrix elements mapped (abr)
 c     Colour-correlated Born_{lm}
+## if (pyamplicol) {
+            CCBLO_lm=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb,alphas,lb,mb)
+## } else {
             CCBLO_lm=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(lb,mb)
+## }
 c
             M2tmp(-1) = M2tmp(-1) - CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_lm*dlog(slm/sb_lm)
             M2tmp(0) = M2tmp(0) + CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_lm*1d0/2d0*dlog(slm/sb_lm)**2
@@ -416,7 +428,11 @@ c     renormalisation scale for the remapped kinematics xpb_bra
             pref=8d0*pi*alphas
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_bra,hel,alphas,ANS)
 c     The mother particle for the splitting [ab] ---> a b is ib
+## if (pyamplicol) {
+            CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb_bra,alphas,mapped_labels(ib),lb)
+## } else {
             CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
+## }
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_bra*dlog(sar/sal)
 c
             M2tmp(0) = M2tmp(0) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_bra*1d0/2d0*(dlog(sb_bra_al/sb_bra_ar)**2-dlog(sar*sb_bra_al/sb_bra_ar/sal)**2)
@@ -439,7 +455,11 @@ c     renormalisation scale for the remapped kinematics xpb_arb
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_arb,hel,alphas,ANS)
             BLO_arb = ANS(0)
 c     The mother particle for the splitting [ab] ---> a b is ib
+## if (pyamplicol) {
+            CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb_arb,alphas,mapped_labels(ib),lb)
+## } else {
             CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
+## }
 c
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_arb*dlog(sbr/sbl)
 c

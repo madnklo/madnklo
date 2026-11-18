@@ -585,6 +585,41 @@ c     E.8: J_hc^(2g)
       end select
       end
 
+## if (pyamplicol_virtual) {
+C Evaluate the ordinary virtual and all dipoles in one call at this point.
+      SUBROUTINE IRV_NLO_ACCESSOR_HOOK(P,HEL,ALPHAS,VNLO,VCNLO,IERR)
+      IMPLICIT NONE
+      INCLUDE 'nexternal.inc'
+      INCLUDE 'coupl.inc'
+      INCLUDE 'math.inc'
+      INCLUDE 'colored_partons.inc'
+      INTEGER HEL,IERR,I,J,STATUS
+      DOUBLE PRECISION P(0:3,NEXTERNAL),ALPHAS,VNLO(-2:0)
+      DOUBLE PRECISION VCNLO(-2:0,NEXTERNAL,NEXTERNAL)
+      VNLO=0D0
+      VCNLO=0D0
+      IERR=2
+      IF(HEL.NE.-1) RETURN
+      IERR=1
+      IF(.NOT.(ALPHAS.GT.0D0.AND.ALPHAS.LT.HUGE(1D0).AND.MUR_CURRENT.GT.0D0.AND.MUR_CURRENT.LT.HUGE(1D0))) RETURN
+      CALL %(virtual_prefix)sGET_VIRTUAL_DIPOLES(P,ALPHAS,MUR_CURRENT,VNLO,VCNLO,STATUS)
+      IF(STATUS/100.LT.1.OR.STATUS/100.GT.3) GOTO 999
+      DO I=1,NEXTERNAL
+         DO J=1,NEXTERNAL
+            IF(I.EQ.J.OR..NOT.ISLOQCDPARTON(I).OR..NOT.ISLOQCDPARTON(J)) VCNLO(:,I,J)=0D0
+         ENDDO
+      ENDDO
+C Convert the two outputs to the same Laurent convention as the counterterm.
+      VNLO(0)=VNLO(0)-VNLO(-2)*PI**2/12D0
+      VCNLO(0,:,:)=VCNLO(0,:,:)-VCNLO(-2,:,:)*PI**2/12D0
+      IF(.NOT.ALL(ABS(VNLO).LT.HUGE(1D0)).OR..NOT.ALL(ABS(VCNLO).LT.HUGE(1D0))) GOTO 999
+      IERR=0
+      RETURN
+ 999  IERR=4
+      VNLO=0D0
+      VCNLO=0D0
+      END
+## } else {
 C     Process adapter: same MadLoop call and Laurent ordering as
 C     NLO_V_%(proc_prefix)s.f. Physical a_s is already included in VNLO.
 C     For the qqbar singlet VC_ij=-CF*V for its two QCD labels.
@@ -671,3 +706,4 @@ c     From MadLoop to LASS
       VCNLO(:,I,J)=-CF*VNLO
       VCNLO(:,J,I)=-CF*VNLO
       END
+## }

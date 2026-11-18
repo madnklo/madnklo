@@ -121,7 +121,11 @@ c     call Born matrix element
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
       BLO = ANS(0)
 c
+## if (pyamplicol) {
+      KKBLO = %(proc_prefix_Born)s_GET_KKBLO(xpbb,alphas,parent_leg,ktb)
+## } else {
       KKBLO = %(proc_prefix_Born)s_GET_KKBLO(parent_leg,xpbb,ktb)
+## }
 c
 c     collinear double-collinear kernel, eq. (C.46) of 2212.11190v2 TODO
       Pij = 2d0*CA*(zi/zj+zj/zi+zi*zj)

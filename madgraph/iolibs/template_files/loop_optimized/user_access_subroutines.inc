@@ -49,11 +49,7 @@ C BEGIN CODE
 C ----------
 
 ## if (pyamplicol_virtual) {
-      IF (.NOT.(USER_ALPHAS.GT.0.0D0.AND.USER_MU_R.GT.0.0D0)) THEN
-         WRITE(*,*) 'pyAmpliCol: alpha_s and mu_r must be positive'
-         STOP 1
-      ENDIF
-      CALL UPDATE_AS_PARAM2(USER_MU_R,USER_ALPHAS)
+      CALL %(proc_prefix)sPYAMP_UPDATE_VIRTUAL(USER_ALPHAS,USER_MU_R)
 ## }
 ## if (not pyamplicol_virtual) {
 	  IF (USER_ALPHAS.gt.0.0d0.and.MU_R.gt.0.0d0) THEN
@@ -897,6 +893,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
 
+## if (not pyamplicol_virtual) {
       SUBROUTINE %(proc_prefix)sGET_KKVNLO(PARENT_LEG,PB,KT,KKVNLO)
       implicit NONE
       INTEGER I
@@ -909,9 +906,6 @@ C --------------------------------------------------------------
       double precision KT(0:3)
       double precision MATELEMS(0:3,0:NSQAMPSO)
       double precision KKVNLO(-2:0)
-## if (pyamplicol_virtual) {
-CF2PY INTENT(OUT) :: KKVNLO
-## }
       
       INCLUDE '%(proc_prefix)sspin_correlations.inc'
       INTEGER NENTRIES
@@ -919,12 +913,7 @@ CF2PY INTENT(OUT) :: KKVNLO
       REAL*8 SCVECTORS(MAX_N_SPIN_CORR_VECTORS,4)
       DATA SCVECTORS/NENTRIES*.0D0/
       INTEGER NVECTOR_TO_TRY_PER_LEG
-## if (pyamplicol_virtual) {
-      PARAMETER(NVECTOR_TO_TRY_PER_LEG=1)
-## }
-## if (not pyamplicol_virtual) {
       PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
-## }
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
@@ -934,19 +923,13 @@ CF2PY INTENT(OUT) :: KKVNLO
 
       CALL %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(PARENT_LEG,NVECTOR_TO_TRY_PER_LEG,SCVECTORS)
       CALL %(proc_prefix)sSLOOPMATRIX(PB,MATELEMS)
-## if (pyamplicol_virtual) {
-      KKVNLO(-2)=MATELEMS(3,0)
-      KKVNLO(-1)=MATELEMS(2,0)
-      KKVNLO(0)=MATELEMS(1,0)
-## }
-## if (not pyamplicol_virtual) {
       KKVNLO = MATELEMS(1:3,0)
-## }
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
       return
       end subroutine %(proc_prefix)sGET_KKVNLO
+## }
 
       SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
         IMPLICIT NONE
@@ -1153,6 +1136,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of color-correlated MEs.
 C --------------------------------------------------------------
 
+## if (not pyamplicol_virtual) {
       SUBROUTINE %(proc_prefix)sGET_CCVNLO(LEG_A,LEG_B,CCVNLO)
       IMPLICIT NONE
 C     given a color dipole pair, return the
@@ -1160,9 +1144,6 @@ C     corresponding COLOR_CORRELATED_EVALS value
       INTEGER I,J
       INTEGER LEG_A, LEG_B
       DOUBLE PRECISION CCVNLO(-2:0)
-## if (pyamplicol_virtual) {
-CF2PY INTENT(OUT) :: CCVNLO
-## }
       INTEGER NCOLORCORRELATORS
       PARAMETER (NCOLORCORRELATORS=%(n_color_correlators)d)
       INTEGER NSQAMPSO
@@ -1173,14 +1154,6 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
       INTEGER COLOR_DIPOLES(2,NCOLORCORRELATORS)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
-## if (pyamplicol_virtual) {
-      LOGICAL MNK_VALID
-      COMMON/%(proc_prefix)sPYAMP_VALID/MNK_VALID
-      IF (.NOT.MNK_VALID) THEN
-         WRITE(*,*) 'pyAmpliCol: evaluate the virtual before its colour getter'
-         STOP 1
-      ENDIF
-## }
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
 	 do j=-2,0	 
@@ -1189,13 +1162,11 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
             RETURN
          ENDIF
       ENDDO
-## if (pyamplicol_virtual) {
-      WRITE(*,*) 'pyAmpliCol: unknown virtual colour dipole',LEG_A,LEG_B
-      STOP 1
-## }
       RETURN
       END SUBROUTINE %(proc_prefix)sGET_CCVNLO
+## }
 
+## if (not pyamplicol_virtual) {
       SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
         IMPLICIT NONE
 C       Provide access to the color correlated evaluations
@@ -1228,6 +1199,7 @@ C Index 0 is the number of correlators to consider and the next indices are whic
         ENDDO
 
       END
+## }
       
       SUBROUTINE %(proc_prefix)sGET_N_COLOR_CORRELATORS(N_COLOR_CORRELATORS)
 C       Provide access to the number of color correlators

@@ -600,7 +600,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             file = open(NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file, context={
-                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol',
+                'pyamplicol_virtual': selected_provider('virtual', options=self.export_options) == 'pyamplicol'})
             os.system('rm ' + NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f')
 
             ###
@@ -614,7 +615,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             filename_int_real = pjoin(dirpath, 'NNLO_RVsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RVsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real
-            writer(filename_int_real).writelines(file_int_real)
+            writer(filename_int_real).writelines(file_int_real, context={
+                'pyamplicol_virtual': selected_provider('virtual', options=self.export_options) == 'pyamplicol'})
             UBgraphs = overall_sector_info[i]['Born_str']
             self.write_driver_npo_rv_template(writer, dirpath, dirmadnklo, i , isec, jsec, UBgraphs)
 
@@ -628,7 +630,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             filename = pjoin(dirpath, 'NNLO_I1_%d_%d.f' % (isec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_I1_RV_template.f")).read()
             file = file % replace_dict_int_real
-            writer(filename).writelines(file)
+            writer(filename).writelines(file, context={
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
 
              # write NNLO_I12
             filename = pjoin(dirpath, 'NNLO_I12_%d_%d.f' % (isec, jsec))

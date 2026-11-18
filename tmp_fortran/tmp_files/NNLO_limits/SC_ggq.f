@@ -150,7 +150,11 @@ c     renormalisation scale for the remapped kinematics xpbb
          alphas=alphas_current
          pref=-(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+## if (pyamplicol) {
+         ccBLO_krj_imj = %(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,kbb,mbb)
+## } else {
          ccBLO_krj_imj = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
+## }
 c
 c     invariant quantities
          sim = xs(i,m)
@@ -197,7 +201,11 @@ c     renormalisation scale for the remapped kinematics xpbb
          alphas=alphas_current
          pref=-(8d0*pi*alphas)**2
          call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+## if (pyamplicol) {
+         ccBLO_jrk_imk = %(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,kbb,mbb)
+## } else {
          ccBLO_jrk_imk = %(proc_prefix_Born)s_GET_CCBLO(kbb,mbb)
+## }
 c
 c     invariant quantities
          sim = xs(i,m)

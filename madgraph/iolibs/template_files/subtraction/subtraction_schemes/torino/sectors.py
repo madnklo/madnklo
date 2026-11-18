@@ -993,7 +993,9 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             filename = pjoin(secpath, 'NLO_IR_limits_%d_%d.f' % (isec, jsec))
             #file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_IR_limits_tmp.f")).read()
             file = IR_limits_str % replace_dict_limits
-            writer(filename).writelines(file)
+            from madgraph.iolibs.pyamplicol import selected_provider
+            writer(filename).writelines(file, context={
+                'pyamplicol': selected_provider(options=self.export_options) == 'pyamplicol'})
 
             ###
 

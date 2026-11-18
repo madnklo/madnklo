@@ -135,7 +135,11 @@ c
          if(.NOT.ISLOQCDPARTON(I)) cycle
          do j=1,nexternal
             if(.NOT.ISLOQCDPARTON(J)) cycle
+## if (pyamplicol) {
+            BC(I,J) = GET_CCBLO(p,alphas,I,J)
+## } else {
             BC(I,J) = GET_CCBLO(I,J)
+## }
          enddo
       enddo
 

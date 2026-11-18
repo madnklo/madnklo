@@ -157,7 +157,11 @@ c     renormalisation scale for the remapped kinematics xpbb
         alphas=alphas_current
         pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+## if (pyamplicol) {
+        ccBLO = %(proc_prefix_Born)s_get_ccBLO(xpbb,alphas,bbb,mbb)
+## } else {
         ccBLO = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
+## }
 c
         M2tmp = M2tmp+Ei_am*Pab_ima/sbab*rho_ab*ccblo*wcbar_nlo
 c
@@ -225,7 +229,11 @@ c     renormalisation scale for the remapped kinematics xpbb
         alphas=alphas_current
         pref=-(8d0*pi*alphas)**2
         call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ans)
+## if (pyamplicol) {
+        ccblo = %(proc_prefix_Born)s_get_ccBLO(xpbb,alphas,bbb,mbb)
+## } else {
         ccblo = %(proc_prefix_Born)s_get_ccBLO(bbb,mbb)
+## }
 c
         M2tmp = M2tmp+Ei_bm*Pab_imb*rho_ba*ccblo*wcbar_nlo
 c

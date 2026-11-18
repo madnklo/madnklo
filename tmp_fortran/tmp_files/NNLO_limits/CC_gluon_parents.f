@@ -120,8 +120,8 @@ c       The existing get_WCC_NNLO assumes a three-leg topology.
       call %(proc_prefix_Born)s_RESET_SPIN_CORRELATION_VECTORS()
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,-1,alphas,ans)
       BLO=ans(0)
-      KKBLO1=%(proc_prefix_Born)s_GET_KKBLO(parent1,xpbb,v1)
-      KKBLO2=%(proc_prefix_Born)s_GET_KKBLO(parent2,xpbb,v2)
+      KKBLO1=%(proc_prefix_Born)s_GET_KKBLO(xpbb,alphas,parent1,v1)
+      KKBLO2=%(proc_prefix_Born)s_GET_KKBLO(xpbb,alphas,parent2,v2)
       KKKKBLO=%(proc_prefix_Born)s_GET_KKKKBLO(xpbb,alphas,parent1,v1,parent2,v2)
       term=(p1+q1)*(p2+q2)*BLO+2d0*q1*(p2+q2)*KKBLO1/t1
       term=term+2d0*q2*(p1+q1)*KKBLO2/t2+4d0*q1*q2*KKKKBLO/t1/t2

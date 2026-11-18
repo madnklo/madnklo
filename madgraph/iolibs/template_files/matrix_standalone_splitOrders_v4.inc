@@ -699,7 +699,6 @@ C     ROUTINE FOR F2PY to read the benchmark point.
 CF2PY INTENT(IN) :: PATH
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found
       call setpara2(PATH)  !first call to setup the paramaters    
-%(pyamp_initialise)s
       return 
       end
 
@@ -765,6 +764,7 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of color-correlated MEs.
 C --------------------------------------------------------------
 
+## if (not pyamplicol_tree) {
       SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATED_ME(CORRELATED_MES)
         IMPLICIT NONE
 C       Provide access to the color correlated evaluations
@@ -784,17 +784,14 @@ C Index 0 is the number of correlators to consider and the next indices are whic
         REAL*8 COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:NSQAMPSO)                
         COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER, COLOR_CORRELATED_EVALS
 
-## if (pyamplicol_tree) {
-%(pyamp_table)s
-## } else {
         DO CCI=1,NCOLORCORRELATORS
           DO J=0,NSQAMPSO
             CORRELATED_MES(CCI, J) = COLOR_CORRELATED_EVALS(CCI, J)
           ENDDO
         ENDDO
-## }
 
       END
+## }
       
       SUBROUTINE %(proc_prefix)sGET_COLOR_CORRELATOR_ID(CONNECTION_INDEX_A, CONNECTION_INDEX_B, ID)
         IMPLICIT NONE
@@ -975,7 +972,9 @@ C           Now make sure we have not considered it yet, since (i, j) maps to (j
       END
 
 C gl  
-      %(extra_proc_CCBLO)sDOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)  
+      %(extra_proc_CCBLO)s
+## if (not pyamplicol_tree) {
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_CCBLO(LEG_A,LEG_B)
       IMPLICIT NONE
 C     given a color dipole pair, return the
 C     corresponding COLOR_CORRELATED_EVALS value
@@ -991,19 +990,15 @@ C      DATA ((COLOR_CORRELATED_EVALS(I,J), I=1,NCOLORCORRELATORS),J=0,NSQAMPSO)
       COMMON/%(proc_prefix)sCOLOR_CORRELATIONS/COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
       INTEGER COLOR_DIPOLES(2,NCOLORCORRELATORS)
       DATA COLOR_DIPOLES(:,:) /%(color_dipoles)s/
-%(pyamp_declarations)s
-## if (pyamplicol_tree) {
-%(pyamp_color)s
-## } else {
       DO I=1,NCOLORCORRELATORS
          IF((LEG_A.eq.COLOR_DIPOLES(1,I).and.LEG_B.eq.COLOR_DIPOLES(2,I)))THEN
             %(proc_prefix)sGET_CCBLO = COLOR_CORRELATED_EVALS(I,1)
             EXIT 
          ENDIF
       ENDDO
-## }
       RETURN
       END FUNCTION
+## }
 ## }
 
 ## if (spin_correlation_general_resources) {
@@ -1012,7 +1007,9 @@ C Beginning of a series of subroutine related to the evaluation
 C and steering of the computation of spin-correlated MEs.
 C --------------------------------------------------------------
 
-      %(extra_proc_KKBLO)sDOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKBLO(PARENT_LEG,PB,KT)
+      %(extra_proc_KKBLO)s
+## if (not pyamplicol_tree) {
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_KKBLO(PARENT_LEG,PB,KT)
       implicit NONE
       INTEGER I
       INTEGER NEXTERNAL
@@ -1031,10 +1028,6 @@ C --------------------------------------------------------------
       DATA SCVECTORS/NENTRIES*.0D0/
       INTEGER NVECTOR_TO_TRY_PER_LEG
       PARAMETER(NVECTOR_TO_TRY_PER_LEG=MIN(3,MAX_N_SPIN_CORR_VECTORS))
-%(pyamp_declarations)s
-## if (pyamplicol_tree) {
-%(pyamp_spin)s
-## } else {
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
       DO I=1,4
@@ -1047,9 +1040,9 @@ C --------------------------------------------------------------
 
       CALL %(proc_prefix)sRESET_SPIN_CORRELATION_VECTORS()
 
-## }
       return
       end function 
+## }
       
       SUBROUTINE %(proc_prefix)sSET_SPIN_CORRELATION_VECTORS(LEG_INDEX, N_VECTORS, VECTORS)
         IMPLICIT NONE

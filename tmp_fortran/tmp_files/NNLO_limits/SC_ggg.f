@@ -177,7 +177,11 @@ c     Do not expose a partial sum when a mapped point fails.
       alphas=alphas_current
 c     Keep the spin-summed dipole and the rank-one contraction distinct.
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,-1,alphas,ans)
+## if (pyamplicol) {
+      ccBLO=%(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,cb,db)
+## } else {
       ccBLO=%(proc_prefix_Born)s_GET_CCBLO(cb,db)
+## }
 ## if (pyamplicol) {
       kkccBLO=%(proc_prefix_Born)s_GET_KKCCBLO(xpbb,alphas,pb_parent,kt,cb,db)
 ## } else {

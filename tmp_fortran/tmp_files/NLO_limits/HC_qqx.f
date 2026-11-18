@@ -95,7 +95,11 @@ c     call Born
       BLO = ANS(0)
 c
       parent_leg = mapped_labels(ib)
+## if (pyamplicol) {
+      KKBLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(xpb,alphas,parent_leg,kt)
+## } else {
       KKBLO = %(proc_prefix_HC_qqx)s_GET_KKBLO(parent_leg,xpb,kt)
+## }
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_qqx = TR*(BLO-4d0/sab*KKBLO)
 c     compute collinear limit of sector function

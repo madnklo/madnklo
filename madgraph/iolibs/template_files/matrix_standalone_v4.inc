@@ -580,7 +580,6 @@ C     ROUTINE FOR F2PY to read the benchmark point.
 CF2PY INTENT(IN) :: PATH 
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found.
       CALL SETPARA2(path)
-%(pyamp_initialise)s
       return 
       end      
 

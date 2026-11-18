@@ -106,7 +106,11 @@ c     Soft contribution
                I1S(-1) = 2d0 - Lij
                I1S( 0) = 6d0-7d0/2d0*zeta2 - 2d0*Lij + Lij**2d0/2d0
                call %(NLO_proc_str)sME_ACCESSOR_HOOK(p,hel,alphas,ans)
+## if (pyamplicol) {
+               CCRNLO = %(NLO_proc_str)sGET_CCBLO(p,alphas,I,J)
+## } else {
                CCRNLO = %(NLO_proc_str)sGET_CCBLO(I,J)
+## }
                I1S = -I1S*CCRNLO
                I1NNLOS = I1NNLOS + I1S
             elseif(pmass(i).eq.0d0.and.pmass(j).ne.0d0)then

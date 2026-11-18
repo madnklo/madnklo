@@ -129,7 +129,11 @@ c     call colour-connected Born
             call %(proc_prefix_S_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
             lb=mapped_labels(l)
             mb=mapped_labels(m)
+## if (pyamplicol) {
+            ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(xpb,alphas,lb,mb)
+## } else {
             ccBLO = %(proc_prefix_S_g)s_GET_CCBLO(lb,mb)
+## }
 c
 c     eikonal
             M2tmp = slm/(sil*sim) - ml2/sil**2 - mm2/sim**2

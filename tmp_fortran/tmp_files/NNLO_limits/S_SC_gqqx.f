@@ -171,7 +171,7 @@ c       Same finite transverse-plane prescription as SC_gqqx.
       call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
       alphas=alphas_current
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,-1,alphas,ans)
-      ccBLO=%(proc_prefix_Born)s_GET_CCBLO(cb,db)
+      ccBLO=%(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,cb,db)
       kkccBLO=%(proc_prefix_Born)s_GET_KKCCBLO(xpbb,alphas,parent,kt,cb,db)
       contraction=Pjk*ccBLO+Qjk*(ccBLO+2d0*kkccBLO/kt2)
       if(mapping.ne.1)then

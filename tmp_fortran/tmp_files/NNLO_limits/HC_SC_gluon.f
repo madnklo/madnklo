@@ -164,7 +164,11 @@ c     Match the symmetric three-leg recoiler rule in get_recoiler.
       call set_mur_from_momenta(xpbb,nexternal-2,Born_leg_pdgs)
       alphas=alphas_current
       call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,-1,alphas,ans)
+## if (pyamplicol) {
+      ccBLO=%(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,ab,bb)
+## } else {
       ccBLO=%(proc_prefix_Born)s_GET_CCBLO(ab,bb)
+## }
 ## if (pyamplicol) {
       kkccBLO=%(proc_prefix_Born)s_GET_KKCCBLO(xpbb,alphas,parent,kt,ab,bb)
 ## } else {

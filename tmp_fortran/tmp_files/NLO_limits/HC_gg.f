@@ -96,7 +96,11 @@ c     call Born
       BLO = ANS(0)
 c
       parent_leg = mapped_labels(ib)
+## if (pyamplicol) {
+      KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(xpb,alphas,parent_leg,kt)
+## } else {
       KKBLO = %(proc_prefix_HC_gg)s_GET_KKBLO(parent_leg,xpb,kt)
+## }
 c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*BLO+(1d0-x)/x*BLO)
       M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0-x)**alpha)*BLO

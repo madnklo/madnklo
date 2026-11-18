@@ -1417,6 +1417,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
             self.module_initialized = True
         
         spins = new_opts['spin_correlation'] or ()
+        hel = -1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]
         explicit_double_spin = (len(spins) == 2 and all(vectors for _,vectors in spins)
             and not new_opts['color_correlation']
             and not new_opts['hel_config'] and self.has_function('get_kkkkblo'))
@@ -1433,11 +1434,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
             main_output = self.call_tree_ME(
                 self.get_function('me_accessor_hook'),
                 PS_point,
-                (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),
+                hel,
                 alpha_s)
 
         # Gather additional newly generated output_data to be returned and placed in the cache.
-        output_datas = self.gather_output_datas(main_output, new_opts, return_all_res)
+        output_datas = self.gather_output_datas(main_output, new_opts, return_all_res,
+                                               (PS_point, hel, alpha_s))
 
        # Make sure to clean up specification of various properties for that particular call
         if not explicit_double_spin:
@@ -1480,7 +1482,7 @@ class F2PYMEAccessor(VirtualMEAccessor):
         
         return False
 
-    def gather_output_datas(self, main_output, user_opts, return_all_res):
+    def gather_output_datas(self, main_output, user_opts, return_all_res, point=None):
         """ Gather additional newly generated output_data to be returned and placed in the cache.
             This functions returns output_datas  which is a list of 2-tuples of the form:
                   ( dictionary_describing_data, dictionary_of_data ) 
@@ -1490,6 +1492,12 @@ class F2PYMEAccessor(VirtualMEAccessor):
         """
 
         output_datas = []
+        if user_opts['color_correlation']:
+            if self.has_function('get_color_correlated_me_at_point'):
+                color_correlated_mes = self.call_tree_ME(
+                    self.get_function('get_color_correlated_me_at_point'), *point)
+            else:
+                color_correlated_mes = self.get_function('get_color_correlated_me')()
         
         # Basic output template dictionary. We can already assign hel_config and spin_correlation since nothing
         # can be computed on top.
@@ -1510,7 +1518,6 @@ class F2PYMEAccessor(VirtualMEAccessor):
                 output_result_template['finite'] = main_output[i_sqso]
             else:
                 output_key_template['color_correlation'] = user_opts['color_correlation'][0]
-                color_correlated_mes = self.get_function('get_color_correlated_me')()
                 output_result_template['finite'] = color_correlated_mes[\
                     self.color_correlations[user_opts['color_correlation'][0]]-1][i_sqso]
 
@@ -1529,7 +1536,6 @@ class F2PYMEAccessor(VirtualMEAccessor):
         # This is a rank-2 array, with first index labeling the squared orders and the second labelling
         # the color correlators
         if user_opts['color_correlation']:
-            color_correlated_mes = self.get_function('get_color_correlated_me')()
             for i_cc, color_correlator in self.id_to_color_correlation.items():
                 if not self.is_color_correlation_selected(color_correlator, user_opts['color_correlation']):
                     continue
@@ -1741,15 +1747,20 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         self.setup_ME(new_opts)
 
         # Actual call to the matrix element
-        evals, estimated_accuracies, return_code = self.call_loop_ME(
-            self.get_function('loopme_accessor_hook'),
+        with_color = (new_opts['color_correlation']
+                      and self.has_function('get_virtual_with_color'))
+        loop_result = self.call_loop_ME(
+            self.get_function('get_virtual_with_color' if with_color else 'loopme_accessor_hook'),
             self.format_momenta_for_f2py(PS_point), 
             (-1 if not new_opts['hel_config'] else self.helicity_configurations[new_opts['hel_config']]),                              
             alpha_s, mu_r, required_accuracy)
+        evals, estimated_accuracies, return_code = loop_result[:3]
 
         main_output = {'evals': evals,
                        'estimated_accuracies': estimated_accuracies,
                        'return_code': return_code}   
+        if with_color:
+            main_output['color_correlated_mes'] = loop_result[3]
 
         if __debug__ and return_code%100 ==4:
             logger.debug("MadLoop library '%s@%s' could not reach target accuracy %.2e for PS_point:\n%s"%(
@@ -1837,7 +1848,9 @@ class F2PYMEAccessorMadLoop(F2PYMEAccessor):
         
         # Now add the color-correlated results.
         if user_opts['color_correlation']:
-            color_correlated_mes = self.get_function('get_color_correlated_me')()            
+            color_correlated_mes = main_output.get('color_correlated_mes')
+            if color_correlated_mes is None:
+                color_correlated_mes = self.get_function('get_color_correlated_me')()
             for i_cc, color_correlator in self.id_to_color_correlation.items():
                 if not self.is_color_correlation_selected(color_correlator, user_opts['color_correlation']):
                     continue

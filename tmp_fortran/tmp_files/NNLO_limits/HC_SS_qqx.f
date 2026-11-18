@@ -178,7 +178,11 @@ c     renormalisation scale for the remapped kinematics xpbb
             alphas=alphas_current
             pref = -64d0*pi**2*alphas**2
             call %(proc_prefix_Born)s_ME_ACCESSOR_HOOK(xpbb,hel,alphas,ANS)
+## if (pyamplicol) {
+            ccBLO = %(proc_prefix_Born)s_GET_CCBLO(xpbb,alphas,mbb,lbb)
+## } else {
             ccBLO = %(proc_prefix_Born)s_GET_CCBLO(mbb,lbb)
+## }
 c
 c     collinear double-soft kernel, eq. (C.36) of 2212.11190v2
             Eb_jlm = sblm/sbjl/sbjm

@@ -950,8 +950,8 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
             self.link_files_from_Born_directory(matrix_element.get('processes')[0])
             self.write_NNLO_VV_template(writers.FortranWriter, matrix_element)
             self.write_NNLO_I2_template(writers.FortranWriter, matrix_element)
-            self.write_NNLO_IRV_template(writers.FortranWriter, matrix_element)
-            self.link_files_from_Virtual_directory(matrix_element.get('processes')[0])
+            virtual_prefix = self.link_files_from_Virtual_directory(matrix_element.get('processes')[0])
+            self.write_NNLO_IRV_template(writers.FortranWriter, matrix_element, virtual_prefix)
         self.link_files_common_directory()
         self.write_makefile_vv_template(writers.FileWriter, matrix_element) 
         # if len(glob.glob(dirpath+'/include/damping_factors.inc')) == 0 :
@@ -1021,7 +1021,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                 dirpathBorn = glob.glob("%s/SubProcesses/P%s" % (dirpathBorn,process.shell_string()))[0]
 
 
-            Vpref = open(pjoin(dirpathBorn,"proc_prefix.txt")).read()
+            Vpref = open(pjoin(dirpathBorn,"proc_prefix.txt")).read().strip()
             os.symlink( "%s/V_polynomial.f" % dirpathBorn, "%s/V_polynomial.f" % os.getcwd())
             os.symlink( "%s/V_loop_matrix.f" % dirpathBorn, "%s/V_loop_matrix.f" % os.getcwd())
             os.symlink( "%s/V_improve_ps.f" % dirpathBorn, "%s/V_improve_ps.f" % os.getcwd())
@@ -1052,6 +1052,7 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                 except OSError:
                     pass
                 os.symlink(src_path, tgt_path)
+            return Vpref
             
 
 
@@ -1149,7 +1150,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
         file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NLO_V_template.f")).read()
         file = file % replace_dict
-        writer(filename).writelines(file)
+        from madgraph.iolibs.pyamplicol import selected_provider
+        writer(filename).writelines(file, context={
+            'pyamplicol_virtual': selected_provider('virtual', options=self.opt) == 'pyamplicol'})
 
         return True
 
@@ -1168,7 +1171,9 @@ class LoopProcessExporterFortranSA(LoopExporterFortran,
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
         file = open(pjoin(self.dir_path,"../../tmp_fortran/tmp_files/NLO_I_template.f")).read()
         file = file % replace_dict
-        writer(filename).writelines(file)
+        from madgraph.iolibs.pyamplicol import selected_provider
+        writer(filename).writelines(file, context={
+            'pyamplicol': selected_provider(options=self.opt) == 'pyamplicol'})
 
         return True
 
@@ -1258,7 +1263,9 @@ virtual: $(FILES)
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
         file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_I2_template.f")).read()
         file = file % replace_dict
-        writer(filename).writelines(file)
+        from madgraph.iolibs.pyamplicol import selected_provider
+        writer(filename).writelines(file, context={
+            'pyamplicol': selected_provider(options=self.opt) == 'pyamplicol'})
 
         return True
 
@@ -1268,18 +1275,21 @@ virtual: $(FILES)
     # write NNLO_IRV : integrated counterterms
     #===========================================================================
     #gl
-    def write_NNLO_IRV_template(self, writer, matrix_element):
+    def write_NNLO_IRV_template(self, writer, matrix_element, virtual_prefix):
         
         replace_dict = {}
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
-
+        replace_dict['virtual_prefix'] = virtual_prefix
         # write driver
         filename = pjoin(os.getcwd(), 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))
         file = open(pjoin(os.getcwd(),"../../../../tmp_fortran/tmp_files/NNLO_IRV_template.f")).read()
         file = file % replace_dict
-        writer(filename).writelines(file)
+        from madgraph.iolibs.pyamplicol import selected_provider
+        writer(filename).writelines(file, context={
+            'pyamplicol': selected_provider(options=self.opt) == 'pyamplicol',
+            'pyamplicol_virtual': selected_provider('virtual', options=self.opt) == 'pyamplicol'})
 
         return True
 

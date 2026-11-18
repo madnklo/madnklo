@@ -318,6 +318,8 @@ c
          if(.not.isNLOQCDparton(l))cycle
          if(l.eq.ia) cycle
          if(l.eq.ib) cycle
+c     TODO(check): this jump enters the inner m loop and skips sal/sbl.
+c     Set sal/sbl before the cuts and guard abr, bra and arb separately.
          if(docut(xpb,nexternal-1,underlying_leg_pdgs,0)) goto 778
 c     NNLO invariants
          sal = xs(ia,l)
@@ -427,7 +429,9 @@ c     renormalisation scale for the remapped kinematics xpb_bra
             alphas=alphas_current
             pref=8d0*pi*alphas
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_bra,hel,alphas,ANS)
-c     The mother particle for the splitting [ab] ---> a b is ib
+c     TODO(check): use bra slots for both providers: ia carries the
+c     collinear parent in this map, so use mapped_labels_bra(ia)
+c     and mapped_labels_bra(l), not the abr slots.
 ## if (pyamplicol) {
             CCBLO_parent_l_bra=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb_bra,alphas,mapped_labels(ib),lb)
 ## } else {
@@ -454,13 +458,18 @@ c     renormalisation scale for the remapped kinematics xpb_arb
             pref=8d0*pi*alphas
             call %(proc_prefix_HC_RV_gq)s_ME_ACCESSOR_HOOK(xpb_arb,hel,alphas,ANS)
             BLO_arb = ANS(0)
-c     The mother particle for the splitting [ab] ---> a b is ib
+c     TODO(check): use arb slots for both providers: ib carries the
+c     collinear parent in this map, so use mapped_labels_arb(ib)
+c     and mapped_labels_arb(l), not the abr slots.
 ## if (pyamplicol) {
             CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(xpb_arb,alphas,mapped_labels(ib),lb)
 ## } else {
             CCBLO_parent_l_arb=%(proc_prefix_HC_RV_gq)s_GET_CCBLO(mapped_labels(ib),lb) 
 ## }
 c
+c     TODO(check): Eq. (5.20) uses rho_ba from Eq. (A.8) for arb.
+c     Here rho_ba=(2*CF-CA)/CF.
+c     Replace CA/CF in both the single-pole and finite terms below.
             M2tmp(-1) = M2tmp(-1) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_arb*dlog(sbr/sbl)
 c
             M2tmp(0) = M2tmp(0) + CA/CF*CF*((1d0-x)+2d0*x/(1d0-x)*(1d0+1d0-x**alpha))*CCBLO_parent_l_arb*1d0/2d0*(dlog(sb_arb_bl/sb_arb_br)**2-dlog(sbr*sb_arb_bl/sb_arb_br/sbl)**2)
@@ -468,6 +477,8 @@ c
 
             if(ia.eq.isec) then      ! CHECK
                M2tmp_SC(-1) = M2tmp_SC(-1)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*dlog(sbr/sbl)
+c     TODO(check): Eq. (5.22) gives a factor 1/2 on the finite log
+c     difference and uses sbl, not sal, in the second logarithm.
                M2tmp_SC(0) = M2tmp_SC(0)+(2d0*CF-CA)/CF*CCBLO_parent_l_arb*(dlog(sb_arb_bl/sb_arb_br)**2-dlog(sbr*sb_arb_bl/sb_arb_br/sal)**2)
             endif
 

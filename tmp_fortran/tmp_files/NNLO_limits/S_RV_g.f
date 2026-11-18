@@ -542,6 +542,8 @@ c     safety check
               goto 999
             endif
 c     call colour-connected B^{(icr)} and B^{(irc)}
+c     TODO(check): xpb_kr was built with mapped_labels(:,i,k).
+c     Check the dipole slots below against that map.
             kb=mapped_labels(k,i,iref)
             rb=mapped_labels(iref,i,iref)
 c     renormalisation scale for the remapped kinematics xpb_kr
@@ -555,9 +557,12 @@ c     renormalisation scale for the remapped kinematics xpb_kr
             ccBLO_kr =%(proc_prefix_S_RV_g)s_GET_CCBLO(kb,rb)
 ## }
 c
+c     TODO(check): xpb_rk was built with mapped_labels(:,i,iref).
+c     Check the dipole slots below against that map.
             kb=mapped_labels(k,i,k)
             rb=mapped_labels(iref,i,k)
-c     renormalisation scale for the remapped kinematics xpb_kr
+c     TODO(check): the amplitude below uses xpb_rk, not xpb_kr.
+c     Check that the scale and alpha_s use the same mapped point.
             call set_mur_from_momenta(xpb_kr,nexternal-1,underlying_leg_pdgs)
             alphas=alphas_current
             pref=-8d0*pi*alphas

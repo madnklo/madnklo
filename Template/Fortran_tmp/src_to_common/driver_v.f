@@ -54,6 +54,12 @@ c
       common/cfailure_stage/failure_stage
       double precision sum_v, sum_err_v
       double precision sum_err_v_a,err_v_a(N_MAX_CG)
+      double precision xi_ch(ndmx,mxdim,N_MAX_CG)
+      integer ndo_ch(N_MAX_CG),ncl_ch(N_MAX_CG),nclw_ch(N_MAX_CG)
+      integer k,itw,nflw
+      double precision s_ch(N_MAX_CG),s_prev(N_MAX_CG),s_main,sum_s
+      double precision rcalls
+      common/abchia/rcalls
       integer nwgt
       character*80 weights_info(100)
 c     integrand (common with int_virtual, NLO_V_*.f):
@@ -183,42 +189,108 @@ c     pole test (V + I) on the first points: needs the loop
       if(vmode.eq.1)write(iu,*)' Virtual contribution, loop only '
       if(vmode.eq.2)write(iu,*)' Virtual contribution, I + J + C only '
 c
-c     quickly get integration error per channel so to modulate
-c     number of points thrown per channel in the main loop
-c     (probe: npoints_V_grid/5 calls per channel, at least 500; with
-c     the former floor of 10000 the probe dominated the run time of
-c     slow loops at low statistics)
-      nclVth0=max(500,int(nclVth/5d0))
-      nitVth0=max(5,int(nitVth/2d0))
-c     channels: the phase-space configurations (configs.f)
+c     channels: the phase-space configurations (configs.f), each
+c     integrating the virtual times its multi-channel weight
+c     (born_chan_weight). Same scheme as the Born (driver_n.f).
+c     Warm-up, iteration by iteration over all the channels: each
+c     channel runs one vegas iteration on its own grid (flat at the
+c     first one), which refines the grid; its standard deviation per
+c     point on that grid, s = (error of the iteration)*sqrt(calls), is
+c     measured. The calls of an iteration (npoints_V_grid) are shared
+c     equally at the first one, then in proportion to s of the
+c     previous one (optimal for the total error), at least
+c     max(1000,npoints_V_grid/(10 nchan)) each, so that every channel
+c     stays measured (at least 1000 calls per channel and iteration:
+c     with fewer, the combination of the iterations by vegas, weighted
+c     by 1/sigma^2, is biased for integrands with large fluctuations,
+c     e.g. by 20% for the virtual of e+e- > 3 jets).
+c     Main runs: the calls (npoints_V) are shared in proportion to s
+c     averaged over the last two warm-up iterations, at least
+c     max(1000,npoints_V/(10 nchan)) each; each main run continues on
+c     the grid of its warm-up.
       nchan=n_born_channels()
-      sum_err_v_a=0d0
+      nflw=max(1000,nclVth/(10*nchan))
       do ich=1,nchan
-         init=0
-         doplot=.false.
-         failure_stage='probe'
-         call vegas(region,ndim,int_virtual,init,nclVth0,nitVth0,nprn,
-     &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         err_v_a(ich) = err_v
-         sum_err_v_a = sum_err_v_a + err_v_a(ich)
+         nclw_ch(ich)=max(1000,nclVth/nchan)
+         s_ch(ich)=0d0
+         s_prev(ich)=0d0
+      enddo
+      do itw=1,max(nitVth,1)
+         do ich=1,nchan
+            if(itw.eq.1)then
+               init=0
+            else
+               do k=1,ndim
+                  do j=1,ndmx
+                     xi(j,k)=xi_ch(j,k,ich)
+                  enddo
+               enddo
+               ndo=ndo_ch(ich)
+               init=1
+            endif
+            if(itw.eq.1)then
+               write(*,*)'Virtual warmup for channel',ich
+               write(iu1,*)
+               write(iu1,*)'============================='
+               write(iu1,*)' VIRTUAL WARMUP, CHANNEL',ich
+               write(iu1,*)'============================='
+            endif
+            doplot=.false.
+            failure_stage='warmup'
+            call vegas(region,ndim,int_virtual,init,nclw_ch(ich),1,
+     &      nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+            do k=1,ndim
+               do j=1,ndmx
+                  xi_ch(j,k,ich)=xi(j,k)
+               enddo
+            enddo
+            ndo_ch(ich)=ndo
+            s_prev(ich)=s_ch(ich)
+            s_ch(ich)=err_v*dsqrt(rcalls)
+            if(.not.(s_ch(ich).ge.0d0.and.s_ch(ich).lt.huge(1d0)))
+     &           s_ch(ich)=0d0
+            write(iu8,*)trim(tag)//
+     &           ' warmup: channel, itn, calls, sd/point = ',
+     &           ich,itw,nclw_ch(ich),s_ch(ich)
+         enddo
+c        calls of the next warm-up iteration
+         sum_s=0d0
+         do ich=1,nchan
+            sum_s=sum_s+s_ch(ich)
+         enddo
+         if(nchan.gt.1.and.sum_s.gt.0d0)then
+            do ich=1,nchan
+               nclw_ch(ich)=max(nflw,nint(nclVth*s_ch(ich)/sum_s))
+            enddo
+         endif
+      enddo
+c     calls of the main runs
+      sum_s=0d0
+      do ich=1,nchan
+         s_main=s_ch(ich)
+         if(nitVth.ge.2)s_main=0.5d0*(s_ch(ich)+s_prev(ich))
+         s_prev(ich)=s_main
+         sum_s=sum_s+s_main
+      enddo
+      do ich=1,nchan
+         if(nchan.eq.1)then
+            ncl_ch(ich)=nclV
+         elseif(sum_s.gt.0d0)then
+            ncl_ch(ich)=max(1000,nclV/(10*nchan),
+     &           nint(nclV*s_prev(ich)/sum_s))
+         else
+            ncl_ch(ich)=max(1000,nclV/nchan)
+         endif
       enddo
 c
-c     main loop over channels
+c     main runs, on the grids of the warm-ups
       do ich=1,nchan
-         write(*,*)'Virtual warmup for channel',ich
-         write(iu1,*)
-         write(iu1,*)'============================='
-         write(iu1,*)' VIRTUAL WARMUP, CHANNEL',ich
-         write(iu1,*)'============================='
-         init=0
-         doplot=.false.
-         nclVth1=max(1000,int(nclVth*err_v_a(ich)/sum_err_v_a))
-         failure_stage='warmup'
-         call vegas(region,ndim,int_virtual,init,nclVth1,nitVth,nprn,
-     &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu8,*)trim(tag)//' warmup: channel, itns, calls = ',ich,
-     &        nitVth,nclVth1
-c
+         do k=1,ndim
+            do j=1,ndmx
+               xi(j,k)=xi_ch(j,k,ich)
+            enddo
+         enddo
+         ndo=ndo_ch(ich)
          write(*,*)'Virtual for channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
@@ -226,13 +298,12 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-         nclV1=max(1000,int(nclV*err_v_a(ich)/sum_err_v_a))
          failure_stage='main'
-         call vegas(region,ndim,int_virtual,init,nclV1,nitV,nprn,
+         call vegas(region,ndim,int_virtual,init,ncl_ch(ich),nitV,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
          call sv_add_channel()
          write(iu8,*)trim(tag)//': channel, itns, calls = ',ich,nitV,
-     &        nclV1
+     &        ncl_ch(ich)
          rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
          sum_v = sum_v + res_v
          sum_err_v = sum_err_v + err_v**2

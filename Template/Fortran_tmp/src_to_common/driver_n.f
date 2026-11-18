@@ -45,6 +45,12 @@ c
       common/cfailure_stage/failure_stage
       double precision sum_b,sum_err_b
       double precision sum_err_b_a,err_b_a(N_MAX_CG)
+      double precision xi_ch(ndmx,mxdim,N_MAX_CG)
+      integer ndo_ch(N_MAX_CG),ncl_ch(N_MAX_CG),nclw_ch(N_MAX_CG)
+      integer k,itw,nflw
+      double precision s_ch(N_MAX_CG),s_prev(N_MAX_CG),s_main,sum_s
+      double precision rcalls
+      common/abchia/rcalls
       integer nwgt
       character*80 weights_info(100)
 c
@@ -100,38 +106,106 @@ c     LO: the PDF ratios of the muF variations are computed (LO_B.f)
       line='=================================================='
       write(iu,*)' Born contribution '
 c
-c     quickly get integration error per channel so to modulate
-c     number of points thrown per channel in the main loop
-      nclBth0=max(10000,int(nclBth/5d0))
-      nitBth0=max(5,int(nitBth/2d0))
-c     channels: the phase-space configurations (configs.f)
+c     channels: the phase-space configurations (configs.f), each
+c     integrating the Born times its multi-channel weight
+c     (born_chan_weight).
+c     Warm-up, iteration by iteration over all the channels: each
+c     channel runs one vegas iteration on its own grid (flat at the
+c     first one), which refines the grid; its standard deviation per
+c     point on that grid, s = (error of the iteration)*sqrt(calls), is
+c     measured. The npoints_B_grid calls of an iteration are shared
+c     equally at the first one, then in proportion to s of the
+c     previous one (optimal for the total error), at least
+c     max(1000,npoints_B_grid/(10 nchan)) each, so that every channel
+c     stays measured (at least 1000 calls per channel and iteration:
+c     with fewer, the combination of the iterations by vegas, weighted
+c     by 1/sigma^2, is biased for integrands with large fluctuations,
+c     e.g. by 20% for the virtual of e+e- > 3 jets).
+c     Main runs: the npoints_B calls are shared in proportion to s
+c     averaged over the last two warm-up iterations, at least
+c     max(1000,npoints_B/(10 nchan)) each; each main run continues on
+c     the grid of its warm-up.
       nchan=n_born_channels()
-      sum_err_b_a=0d0
+      nflw=max(1000,nclBth/(10*nchan))
       do ich=1,nchan
-         init=0
-         doplot=.false.
-         failure_stage='probe'
-         call vegas(region,ndim,int_Born,init,nclBth0,nitBth0,nprn,
-     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         err_b_a(ich) = err_b
-         sum_err_b_a = sum_err_b_a + err_b_a(ich)
+         nclw_ch(ich)=max(1000,nclBth/nchan)
+         s_ch(ich)=0d0
+         s_prev(ich)=0d0
+      enddo
+      do itw=1,max(nitBth,1)
+         do ich=1,nchan
+            if(itw.eq.1)then
+               init=0
+            else
+               do k=1,ndim
+                  do j=1,ndmx
+                     xi(j,k)=xi_ch(j,k,ich)
+                  enddo
+               enddo
+               ndo=ndo_ch(ich)
+               init=1
+            endif
+            if(itw.eq.1)then
+               write(iu1,*)
+               write(iu1,*)'============================='
+               write(iu1,*)' BORN WARMUP, CHANNEL',ich
+               write(iu1,*)'============================='
+            endif
+            doplot=.false.
+            failure_stage='warmup'
+            call vegas(region,ndim,int_Born,init,nclw_ch(ich),1,nprn,
+     &      res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
+            do k=1,ndim
+               do j=1,ndmx
+                  xi_ch(j,k,ich)=xi(j,k)
+               enddo
+            enddo
+            ndo_ch(ich)=ndo
+            s_prev(ich)=s_ch(ich)
+            s_ch(ich)=err_b*dsqrt(rcalls)
+            if(.not.(s_ch(ich).ge.0d0.and.s_ch(ich).lt.huge(1d0)))
+     &           s_ch(ich)=0d0
+            write(iu8,*)'B warmup: channel, itn, calls, sd/point = ',
+     &           ich,itw,nclw_ch(ich),s_ch(ich)
+         enddo
+c        calls of the next warm-up iteration
+         sum_s=0d0
+         do ich=1,nchan
+            sum_s=sum_s+s_ch(ich)
+         enddo
+         if(nchan.gt.1.and.sum_s.gt.0d0)then
+            do ich=1,nchan
+               nclw_ch(ich)=max(nflw,nint(nclBth*s_ch(ich)/sum_s))
+            enddo
+         endif
+      enddo
+c     calls of the main runs
+      sum_s=0d0
+      do ich=1,nchan
+         s_main=s_ch(ich)
+         if(nitBth.ge.2)s_main=0.5d0*(s_ch(ich)+s_prev(ich))
+         s_prev(ich)=s_main
+         sum_s=sum_s+s_main
+      enddo
+      do ich=1,nchan
+         if(nchan.eq.1)then
+            ncl_ch(ich)=nclB
+         elseif(sum_s.gt.0d0)then
+            ncl_ch(ich)=max(1000,nclB/(10*nchan),
+     &           nint(nclB*s_prev(ich)/sum_s))
+         else
+            ncl_ch(ich)=max(1000,nclB/nchan)
+         endif
       enddo
 c
-c     main loop over channels
+c     main runs, on the grids of the warm-ups
       do ich=1,nchan
-         write(*,*)'Born warmup for channel',ich
-         write(iu1,*)
-         write(iu1,*)'============================='
-         write(iu1,*)' BORN WARMUP, CHANNEL',ich
-         write(iu1,*)'============================='
-         init=0
-         doplot=.false.
-         nclBth1=max(1000,int(nclBth*err_b_a(ich)/sum_err_b_a))
-         failure_stage='warmup'
-         call vegas(region,ndim,int_Born,init,nclBth1,nitBth,nprn,
-     &   res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu8,*)'B warmup: channel, itns, calls = ',ich,nitBth,nclBth1
-c
+         do k=1,ndim
+            do j=1,ndmx
+               xi(j,k)=xi_ch(j,k,ich)
+            enddo
+         enddo
+         ndo=ndo_ch(ich)
          write(*,*)'Born for channel',ich
          write(iu1,*)
          write(iu1,*)'============================='
@@ -139,12 +213,11 @@ c
          write(iu1,*)'============================='
          init=1
          doplot=.true.
-         nclB1=max(1000,int(nclB*err_b_a(ich)/sum_err_b_a))
          failure_stage='main'
-         call vegas(region,ndim,int_Born,init,nclB1,nitB,nprn,
+         call vegas(region,ndim,int_Born,init,ncl_ch(ich),nitB,nprn,
      &        res_b,err_b,chi2a,acc,xi,it,ndo,si,swgt,schi)
          call sv_add_channel()
-         write(iu8,*)'B: channel, itns, calls = ',ich,nitB,nclB1
+         write(iu8,*)'B: channel, itns, calls = ',ich,nitB,ncl_ch(ich)
          rescale_plot_B=dble(nitB)/min(dble(nitB),dble(it))
          sum_b = sum_b + res_b
          sum_err_b = sum_err_b + err_b**2

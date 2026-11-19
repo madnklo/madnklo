@@ -23,7 +23,7 @@
 \title{The $\bbC{ijkl}$ limit with four final-state partons:\\
 mutual-recoil mappings for $e^+e^-\to jj$ at NNLO}
 \author{Notes for P.~Torrielli --- MadNkLO project}
-\date{17 November 2026 (v2)}
+\date{19 November 2026 (v3)}
 
 \begin{document}
 \maketitle
@@ -42,8 +42,9 @@ on-shell parent $\jb$ of $(ij)$;
 The $K^{(2)}$ map is symmetric under all eight index permutations and factorises the
 phase space exactly. The $K^{(1)}$ map composed with the $K^{(12)}$ map reproduces it
 exactly, so that, as with the common recoiler of the paper, $K^{(2)}-K^{(12)}$ for the
-$\bbC{ijkl}$ family differs only in the sector functions. The integrated counterterms are
-given in closed form. Appendix~\ref{app:l} keeps track of the simpler alternative,
+$\bbC{ijkl}$ family differs only in the sector functions. Section~\ref{sec:ps} gives the radiative phase spaces, the
+radiative variables and the kernels expressed in them, and the integration carried out step by step.
+The integrated counterterms are given in closed form. Appendix~\ref{app:l} keeps track of the simpler alternative,
 with recoiler $l$ in $K^{(1)}$.
 \end{abstract}
 
@@ -353,108 +354,419 @@ $\hat{\mathcal W}_{{\rm c},kl(\hat j)}=x_l^\alpha/(x_k^\alpha+x_l^\alpha)$ are m
 as in the paper. The latter is exactly invariant under the boost.
 
 %======================================================================
-\section{Phase space and integrated counterterms}
+\section{Radiative phase spaces, radiative variables and integration}
 \label{sec:ps}
 
-\subsection{Two-body phase space}
-In $d=4-2\eps$, for a massive momentum $P$ decaying into two massless partons with polar variable
-$x\in[0,1]$ (relative to a fixed axis in the rest frame of $P$):
+This section writes every counterterm of the $\bbC{ijkl}$ family as a radiative kernel, expressed in
+the variables of a radiative phase space, times a Born-level quantity evaluated with Born kinematics.
+It then carries out the integration step by step. The conventions are those of the paper:
 \begin{equation}
-d\Phi_2(P;a,b)=\frac{(4\pi^2)^{\eps}}{16\pi^2}\,(P^2)^{-\eps}\,[x(1-x)]^{-\eps}\,dx\,d\Omega_{d-2},
-\qquad \int d\Phi_2=\frac{(4\pi)^\eps}{8\pi}\,(P^2)^{-\eps}\,\frac{\Gamma(1-\eps)}{\Gamma(2-2\eps)} .
+\mathcal N_1=8\pi\alpha_s\Big(\frac{\mu^2e^{\gamma_E}}{4\pi}\Big)^{\eps},
+\qquad
+N(\eps)=\frac{(4\pi)^{\eps-2}}{\sqrt\pi\,\Gamma(\frac12-\eps)},
 \end{equation}
-For the decay of $Q$ into two particles with masses $m_1^2,m_2^2$, the phase space depends on the
-masses only through the factor $\big[\lambda(s,m_1^2,m_2^2)/s^2\big]^{\frac12-\eps}$.
-
-\subsection{$K^{(2)}$: exact factorisation}
-Since $\jb$ is parallel to $\vec k_i+\vec k_j$ in the $Q$ frame,
 \begin{equation}
-\boxed{\;d\Phi_4=d\Phi_2(Q;\jb,\kb)\,
-\frac{ds_{ij}\,ds_{kl}}{(2\pi)^2}\Big(\frac{\lambda}{s^2}\Big)^{\frac12-\eps}
-d\Phi_2(k_i+k_j;k_i,k_j)\,d\Phi_2(k_k+k_l;k_k,k_l),\;}
+\Omega(\eps)\equiv\int_0^\pi\!d\phi\,(\sin\phi)^{-2\eps}=\frac{\sqrt\pi\,\Gamma(\frac12-\eps)}{\Gamma(1-\eps)},
 \end{equation}
-with $\sqrt{s_{ij}}+\sqrt{s_{kl}}\le\sqrt s$. The polar variables are $x_i$ and $x_k$ of
-Section~\ref{sec:map}. At fixed Born the two azimuths are independent and uniform in the
-$(d-2)$-dimensional space orthogonal to $\jb,\kb$. Hence the spin-correlated parts of
-$P_{ij}$ and $P_{kl}$ average to zero separately and in the product, \emph{exactly}.
+so that $\mathcal N_1N(\eps)\Omega(\eps)=\frac{\alpha_s}{2\pi}\,\frac{(e^{\gamma_E}\mu^2)^{\eps}}{\Gamma(1-\eps)}$.
+The $m$-body phase space is
+\begin{equation}
+d\Phi_m(Q;p_1,\dots,p_m)=\prod_a\frac{d^dp_a}{(2\pi)^{d-1}}\delta_+(p_a^2)\,(2\pi)^d\delta^d\Big(Q-\sum_ap_a\Big).
+\end{equation}
+For massive particles $\delta_+(p_a^2)$ is replaced by $\delta_+(p_a^2-m_a^2)$.
 
-\paragraph{Radial integral.} For $\delta=1-\eps$:
+%----------------------------------------------------------------------
+\subsection{Building blocks}
+\label{sec:blocks}
+
+\paragraph{(B1) Two-body phase space.} In the rest frame of $P$, with $|\vec p|=\sqrt{\lambda(P^2,m_1^2,m_2^2)}/(2\sqrt{P^2})$,
+\begin{equation}
+d\Phi_2(P;p_1,p_2)=\frac{1}{4(2\pi)^{d-2}}\,\frac{|\vec p|^{\,d-3}}{\sqrt{P^2}}\,d\Omega_{d-1}.
+\label{eq:B1}
+\end{equation}
+Two two-body phase spaces with the same $P$ but different masses, taken at the \emph{same angles}, are therefore related by
+\begin{equation}
+d\Phi_2(P;m_1^2,m_2^2)=\bigg[\frac{\lambda(P^2,m_1^2,m_2^2)}{\lambda(P^2,m_1'^{\,2},m_2'^{\,2})}\bigg]^{\frac12-\eps}d\Phi_2(P;m_1'^{\,2},m_2'^{\,2}).
+\label{eq:B1ratio}
+\end{equation}
+
+\paragraph{(B2) Decay into two massless partons.} Take the polar angle $\theta$ in the rest frame of $P$, with respect to a
+fixed axis, and set $z=\frac12(1-\cos\theta)$. The remaining angles are written as
+$d\Omega_{d-1}=(\sin\theta)^{-2\eps}d\!\cos\theta\;(\sin\phi)^{-2\eps}d\phi\;d\Omega_{d-3}$, with $\int d\Omega_{d-3}=2\pi^{\frac12-\eps}/\Gamma(\frac12-\eps)$.
+After integrating over $d\Omega_{d-3}$, which is allowed when the integrand depends on the decay only through $z$ and $\phi$:
+\begin{equation}
+\frac{dP^2}{2\pi}\,d\Phi_2(P;p_1,p_2)\Big|_{m_{1,2}=0}
+\;\to\;N(\eps)\,dP^2\,(P^2)^{-\eps}\;dz\,[z(1-z)]^{-\eps}\;d\phi\,(\sin\phi)^{-2\eps}.
+\label{eq:B2}
+\end{equation}
+\textit{Derivation.} Eq.~\eqref{eq:B1} with $|\vec p|=\sqrt{P^2}/2$ gives
+$d\Phi_2=(P^2)^{-\eps}\,d\Omega_{d-1}/[2^{3-2\eps}(2\pi)^{2-2\eps}]$. Then
+$(\sin\theta)^{-2\eps}d\!\cos\theta=2\cdot4^{-\eps}[z(1-z)]^{-\eps}dz$, and collecting the constants gives
+\begin{equation}
+\frac{1}{2\pi}\cdot\frac{2\cdot4^{-\eps}}{2^{3-2\eps}(2\pi)^{2-2\eps}}\cdot\frac{2\pi^{\frac12-\eps}}{\Gamma(\frac12-\eps)}=N(\eps).
+\end{equation}
+
+\paragraph{(B3) Splitting $d\Phi_4$ into pairs.} Inserting
+\begin{equation}
+1=\int\frac{ds_{ij}}{2\pi}\int d^dP_1\,\delta^d(P_1-k_i-k_j)\,(2\pi)\,\delta(P_1^2-s_{ij}),
+\end{equation}
+and the same for $(kl)$, gives
+\begin{equation}
+d\Phi_4(Q;k_i,k_j,k_k,k_l)=\frac{ds_{ij}}{2\pi}\frac{ds_{kl}}{2\pi}\;
+d\Phi_2(Q;P_1,P_2)\Big|_{P_1^2=s_{ij},\,P_2^2=s_{kl}}\;
+d\Phi_2(P_1;k_i,k_j)\,d\Phi_2(P_2;k_k,k_l),
+\label{eq:B3}
+\end{equation}
+with $P_1=k_i+k_j$ and $P_2=k_k+k_l$. $P_1$ and $P_2$ are only labels for the intermediate integration momenta in this derivation.
+The final formulas are written in terms of $k_i+k_j$, $k_k+k_l$, $s_{ij}$, $s_{kl}$.
+
+%----------------------------------------------------------------------
+\subsection{$K^{(2)}$: factorisation of $d\Phi_4$ with the mutual-recoil map}
+\label{sec:psK2}
+
+\paragraph{Step 1: identify the Born.} In the rest frame of $Q$, the map of Eq.~\eqref{eq:map} gives two massless momenta
+$\jb,\kb$ that point along $\vec k_i+\vec k_j$ and $\vec k_k+\vec k_l$, i.e.\ \emph{at the same angles} as the pair momenta.
+By Eq.~\eqref{eq:B1ratio},
+\begin{equation}
+d\Phi_2(Q;k_i\!+\!k_j,\,k_k\!+\!k_l)=\Big[\frac{\lambda(s,s_{ij},s_{kl})}{s^2}\Big]^{\frac12-\eps}d\Phi_2(Q;\jb,\kb).
+\end{equation}
+
+\paragraph{Step 2: identify the decay variables.} The CS-like (Sudakov) decomposition used below lives in the plane
+${\rm span}(\jb,\kb)$. In the rest frame of $k_i+k_j$, both $\jb$ and $\kb$ point along one axis, the boost axis to the $Q$ frame.
+Taking that axis in (B2), the polar variable of $k_i$ is
+\begin{equation}
+z=\frac{k_i\cdot\kb}{(k_i+k_j)\cdot\kb}=\frac{s_{i\kb}}{s_{[ij]\kb}}=x_i,
+\end{equation}
+i.e.\ the collinear variable of the kernel with reference $\kb$. The azimuth $\phi$ is the azimuth of the transverse component
+of $k_i$ around the same axis, and is not changed by the boost to the $Q$ frame. The same holds for $(kl)$, with $z'=x_k$ (reference $\jb$) and azimuth $\phi'$.
+
+\paragraph{Result.} With $y=s_{ij}/s$ and $y'=s_{kl}/s$, Eqs.~\eqref{eq:B2}--\eqref{eq:B3} and Steps 1--2 give
 \begin{equation}
 \boxed{\;
-F(a,b)\equiv\int\!\!\int_{\sqrt u+\sqrt v\le1}\!du\,dv\;u^{a-1}v^{b-1}\lambda(1,u,v)^{\delta-\frac12}
-=\frac{\Gamma(2\delta)}{\Gamma(\delta)}\,
-\frac{\Gamma(a)\Gamma(a+\delta)\,\Gamma(b)\Gamma(b+\delta)}{\Gamma(a+b+\delta)\,\Gamma(a+b+2\delta)}.\;}
+\int d\Phi_{n+2}(\{k\})=\frac{\varsigma_{n+2}}{\varsigma_n}\int d\Phi_n^{(ij|kl)}\int d\Phi^{(ij|kl)}_{{\rm rad},2},
+\qquad d\Phi_n^{(ij|kl)}\equiv d\Phi_2(Q;\jb,\kb),\;}
+\end{equation}
+\begin{equation}
+\boxed{\;
+\begin{aligned}
+\int d\Phi^{(ij|kl)}_{{\rm rad},2}
+=\;&N^2(\eps)\,s^{2-2\eps}
+\int_0^\pi\!\!d\phi\,(\sin\phi)^{-2\eps}\int_0^\pi\!\!d\phi'\,(\sin\phi')^{-2\eps}
+\int_0^1\!\!dz\int_0^1\!\!dz'\,\big[z(1-z)\,z'(1-z')\big]^{-\eps}\\
+&\times\int_0^1\!\!dy\int_0^1\!\!dy'\;\Theta\big(1-\sqrt y-\sqrt{y'}\big)\,(y\,y')^{-\eps}\,
+\lambda(1,y,y')^{\frac12-\eps}.
+\end{aligned}\;}
+\label{eq:dPhirad2}
+\end{equation}
+Compared with the paper's nested measures:
+\begin{itemize}
+\item the two pairs are coupled only through $\lambda(1,y,y')^{\frac12-\eps}$ and the boundary $\sqrt y+\sqrt{y'}\le1$;
+\item the dependence on $(z,\phi)$ and on $(z',\phi')$ is fully factorised.
+\end{itemize}
+In $d=4$, with $\phi,\phi'\in[0,2\pi)$, the weight is $s^2\lambda^{1/2}/(2^{10}\pi^6)$ per unit of $dy\,dy'\,dz\,dz'\,d\phi\,d\phi'$ (since $N(0)\,\Omega(0)=1/(16\pi^2)=\int_0^{2\pi}d\phi/(32\pi^3)$).
+
+\paragraph{Inverse map: real momenta from Born and radiative variables.} Define
+\begin{equation}
+a=\frac{1+y-y'+\sqrt{\lambda(1,y,y')}}{2},\qquad b=\frac{1+y-y'-\sqrt{\lambda(1,y,y')}}{2},
+\end{equation}
+which satisfy $ab=y$, $(1-a)(1-b)=y'$ and $a-b=\sqrt{\lambda(1,y,y')}$.
+Then
+\begin{equation}
+\boxed{\;
+\begin{aligned}
+k_i&=z\,a\,\jb+(1-z)\,b\,\kb+k_\perp, &\qquad k_j&=(1-z)\,a\,\jb+z\,b\,\kb-k_\perp,\\
+k_k&=z'(1-b)\,\kb+(1-z')(1-a)\,\jb+q_\perp, & k_l&=(1-z')(1-b)\,\kb+z'(1-a)\,\jb-q_\perp,
+\end{aligned}\;}
+\label{eq:inverse}
+\end{equation}
+with $k_\perp,q_\perp$ orthogonal to $\jb$ and $\kb$, $k_\perp^2=-z(1-z)\,y\,s$, $q_\perp^2=-z'(1-z')\,y'\,s$, and azimuths $\phi,\phi'$.
+\textit{Derivation.} Write $k_i+k_j=a\jb+b\kb$, which is possible since it lies in ${\rm span}(\jb,\kb)$. Then
+$(k_i+k_j)^2=ab\,s=s_{ij}$ and $(k_k+k_l)^2=(Q-k_i-k_j)^2=(1-a)(1-b)s=s_{kl}$; the larger root goes to $a$.
+Next write $k_i=\alpha\jb+\beta\kb+k_\perp$. The condition $x_i=z$ gives $\alpha=za$. Masslessness of $k_i$ and $k_j$, together with $\beta_i+\beta_j=b$,
+fixes $\beta=(1-z)b$ and $|k_\perp|^2=z(1-z)ab\,s$. Inserting Eq.~\eqref{eq:inverse} into Eq.~\eqref{eq:map} gives back $\jb,\kb$ (checked numerically to $10^{-14}$).
+
+\paragraph{Invariants in radiative variables.} With $c_{\phi\phi'}\equiv\sqrt{z(1-z)z'(1-z')\,y\,y'}\,\cos(\phi-\phi')$ (in $d=4$):
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{ll}\toprule
+quantity & radiative variables\\\midrule
+$s_{ij}$, $s_{kl}$ & $y\,s$, \ $y'\,s$\\
+$s_{i\kb}$, $s_{j\kb}$, $s_{[ij]\kb}$ & $z\,a\,s$, \ $(1-z)\,a\,s$, \ $a\,s$\\
+$s_{i\jb}$, $s_{j\jb}$ & $(1-z)\,b\,s$, \ $z\,b\,s$\\
+$s_{k\jb}$, $s_{l\jb}$, $s_{[kl]\jb}$ & $z'(1-b)\,s$, \ $(1-z')(1-b)\,s$, \ $(1-b)\,s$\\
+$x_i$, $x_k$ & $z$, \ $z'$\\
+$\tilde k_{ij}$, $\tilde k_{kl}$ & $-k_\perp$, \ $-q_\perp$ \quad ($\tilde k_{ij}^2=-z(1-z)ys$, \ $\tilde k_{kl}^2=-z'(1-z')y's$)\\
+$s_{ik}/s$ & $zz'a(1-b)+(1-z)(1-z')b(1-a)-2c_{\phi\phi'}$\\
+$s_{jl}/s$ & $(1-z)(1-z')a(1-b)+zz'b(1-a)-2c_{\phi\phi'}$\\
+$s_{il}/s$ & $z(1-z')a(1-b)+(1-z)z'b(1-a)+2c_{\phi\phi'}$\\
+$s_{jk}/s$ & $(1-z)z'a(1-b)+z(1-z')b(1-a)+2c_{\phi\phi'}$\\
+$e_i$, $e_j$ & $\frac12[za+(1-z)b]$, \ $\frac12[(1-z)a+zb]$\\
+$e_k$, $e_l$ & $\frac12[z'(1-b)+(1-z')(1-a)]$, \ $\frac12[(1-z')(1-b)+z'(1-a)]$\\
+$w_{ab}$ & $s_{ab}/(2s\,e_ae_b)$\\
+$w_{i\kb}$, $w_{j\kb}$, $w_{k\jb}$, $w_{l\jb}$ & $za/e_i$, \ $(1-z)a/e_j$, \ $z'(1-b)/e_k$, \ $(1-z')(1-b)/e_l$\\\bottomrule
+\end{tabular}
+\end{center}
+Here $e_a=E_a/\sqrt s$ and $w_{ab}=1-\cos\theta_{ab}$ in the $Q$ frame, with $E_{\jb}=E_{\kb}=\sqrt s/2$.
+The kernels need only the first six rows. The inter-pair invariants enter only the sector functions. In $d$ dimensions
+$\cos(\phi-\phi')$ is replaced by the cosine of the angle between $k_\perp$ and $q_\perp$; this is irrelevant for the integration,
+because the sector functions are summed away there.
+
+%----------------------------------------------------------------------
+\subsection{$K^{(2)}$: kernels in radiative variables}
+\label{sec:kerK2}
+
+We write $P^{\mu\nu}_{ab}=-P_{ab}(z)\,g^{\mu\nu}+Q_{ab}(z)\,d^{\mu\nu}_\phi$, where $d^{\mu\nu}_\phi=-g^{\mu\nu}+(d-2)\tilde k^\mu\tilde k^\nu/\tilde k^2=-g^{\mu\nu}-(d-2)\,n_\phi^\mu n_\phi^\nu$,
+and $n_\phi$ is the unit spacelike vector along $k_\perp$ ($n_\phi^2=-1$). With $x_i=z$, $x_j=1-z$, the note's kernels and their hard-collinear parts
+(App.~\texttt{app:collkernels}) read:
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{llll}\toprule
+splitting & $P(z)$ & $Q(z)$ & $P^{\rm hc}(z)$\\\midrule
+$(0g)$: $q\bar q$ & $T_R\big[1-\frac{2z(1-z)}{1-\eps}\big]$ & $T_R\frac{2z(1-z)}{1-\eps}$ & $=P$\\
+$(1g)$: $i=g$, $j=q$ & $C_F\big[\frac{2(1-z)}{z}+(1-\eps)z\big]$ & $0$ & $C_F(1-\eps)\,z$\\
+$(2g)$: $gg$ & $2C_A\big[\frac{z}{1-z}+\frac{1-z}{z}+z(1-z)\big]$ & $-2C_A\,z(1-z)$ & $2C_A\,z(1-z)$\\\bottomrule
+\end{tabular}
+\end{center}
+The soft subtractions are $s_{ij}\,2C_{f_j}\E{i}{j}{\kb}=2C_{f_j}\frac{1-z}{z}$ and $s_{ij}\,2C_{f_i}\E{j}{i}{\kb}=2C_{f_i}\frac{z}{1-z}$
+(and the same with primes). The $K^{(2)}$ counterterms of Section~\ref{sec:local} are then
+\begin{align}
+\bbC{ijkl}\,\RR\,\W{ijkl}
+&=\frac{\Norms}{s^2\,y\,y'}\,
+\big[-P_{ij}(z)g^{\mu\nu}+Q_{ij}(z)d^{\mu\nu}_\phi\big]
+\big[-P_{kl}(z')g^{\rho\sigma}+Q_{kl}(z')d^{\rho\sigma}_{\phi'}\big]\nonumber\\
+&\hspace{6cm}\times\bar B_{\mu\nu\rho\sigma}(\jb,\kb)\;\W{ijkl}^{\bbC{ijkl}},
+\label{eq:CijklRad}\\
+\bbSC{ikl}\,\bbC{ijkl}\,\RR\,\W{ijkl}
+&=\frac{\Norms}{s^2\,y\,y'}\,2C_{f_j}\frac{1-z}{z}\,
+\big[-P_{kl}(z')g^{\rho\sigma}+Q_{kl}(z')d^{\rho\sigma}_{\phi'}\big]\,\bar B_{\rho\sigma}(\jb,\kb)\nonumber\\
+&\hspace{6cm}\times\W{ijkl}^{\bbSC{ikl}\bbC{ijkl}},\\
+\bbS{ik}\,\bbC{ijkl}\,\RR\,\W{ijkl}
+&=\frac{\Norms}{s^2\,y\,y'}\,4C_{f_j}C_{f_l}\,\frac{1-z}{z}\,\frac{1-z'}{z'}\;\bar B(\jb,\kb)\nonumber\\
+&\hspace{6cm}\times\W{ijkl}^{\bbS{ik}\bbC{ijkl}},
+\end{align}
+and similarly for $\bbSC{kij}\bbC{ijkl}$. After the sum over sectors, the combination entering $K^{(2)}$ is the product of two hard-collinear brackets:
+\begin{equation}
+\bbHC{ijkl}\,\RR=\frac{\Norms}{s^2\,y\,y'}\,
+\big[-P^{\rm hc}_{ij}(z)g^{\mu\nu}+Q_{ij}(z)d^{\mu\nu}_\phi\big]
+\big[-P^{\rm hc}_{kl}(z')g^{\rho\sigma}+Q_{kl}(z')d^{\rho\sigma}_{\phi'}\big]\,
+\bar B_{\mu\nu\rho\sigma}(\jb,\kb).
+\label{eq:HCijklRad}
+\end{equation}
+The radiative kernel depends only on $(y,z,\phi)$ and $(y',z',\phi')$. The Born enters only through
+$\bar B(\jb,\kb)$, and through the orientation of the transverse plane in which $\phi,\phi'$ are measured.
+
+%----------------------------------------------------------------------
+\subsection{$K^{(2)}$: integration}
+\label{sec:intK2}
+
+\paragraph{Step 0: sector functions.} The eight permutations share Eq.~\eqref{eq:HCijklRad} and the Born, and
+$\sum_\pi\W{\pi}=1$ for each of the four counterterms (Section~\ref{sec:sectors}). Hence
+$\sum_\pi[\dots]\W{\pi}$ reduces to Eq.~\eqref{eq:HCijklRad} with no sector function.
+
+\paragraph{Step 1: azimuths.} At fixed $(y,z)$, averaging over the directions of $n_\phi$ in the $(d-2)$-dimensional space orthogonal to $\jb,\kb$ gives
+\begin{equation}
+\langle n_\phi^\mu n_\phi^\nu\rangle=-\frac{g_\perp^{\mu\nu}}{d-2},\qquad
+\langle d^{\mu\nu}_\phi\rangle=-g^{\mu\nu}+g^{\mu\nu}_\perp=-\frac{\jb^{\,\mu}\kb^{\,\nu}+\kb^{\,\mu}\jb^{\,\nu}}{\jb\cdot\kb}.
+\end{equation}
+Each term contains $\jb^{\,\mu}$ or $\jb^{\,\nu}$ contracted into the indices of parton $\jb$, so it vanishes against $\bar B_{\mu\nu\dots}$ by gauge invariance.
+The same holds for $\phi'$, independently. Hence the $Q$-terms integrate to zero exactly, including the $Q_{ij}Q_{kl}$ cross term, and
+$\int d\phi\,(\sin\phi)^{-2\eps}\to\Omega(\eps)$. With $(-g^{\mu\nu})(-g^{\rho\sigma})\bar B_{\mu\nu\rho\sigma}=\bar B$:
+
+\paragraph{Step 2: collinear variables.}
+\begin{equation}
+\hat J^{(f)}(\eps)\equiv\int_0^1\!dz\,[z(1-z)]^{-\eps}P^{{\rm hc},(f)}(z):
+\end{equation}
+\begin{equation}
+\hat J^{(0g)}=T_R\frac{\Gamma(1-\eps)^2}{\Gamma(2-2\eps)}\frac{2(1-\eps)}{3-2\eps},\quad
+\hat J^{(1g)}=C_F(1-\eps)\frac{\Gamma(2-\eps)\Gamma(1-\eps)}{\Gamma(3-2\eps)},\quad
+\hat J^{(2g)}=2C_A\frac{\Gamma(2-\eps)^2}{\Gamma(4-2\eps)}.
+\end{equation}
+
+\paragraph{Step 3: virtualities.} $\displaystyle\int\!\!\int dy\,dy'\,\Theta(1-\sqrt y-\sqrt{y'})\,y^{-1-\eps}y'^{-1-\eps}\lambda(1,y,y')^{\frac12-\eps}=F(-\eps,-\eps)$, with
+\begin{equation}
+\boxed{\;\begin{aligned}
+F(a,b)&\equiv\int\!\!\int_{\sqrt u+\sqrt v\le1}\!du\,dv\;u^{a-1}v^{b-1}\lambda(1,u,v)^{\frac12-\eps}\\
+&=\frac{\Gamma(2-2\eps)}{\Gamma(1-\eps)}\,
+\frac{\Gamma(a)\Gamma(a+1-\eps)\,\Gamma(b)\Gamma(b+1-\eps)}{\Gamma(a+b+1-\eps)\,\Gamma(a+b+2-2\eps)}.
+\end{aligned}\;}
 \label{eq:F}
 \end{equation}
-\textit{Derivation.} The massless $m$-body volume is
-$V_m(s)\propto\Gamma(\delta)^m s^{(m-1)\delta-1}/[\Gamma((m-1)\delta)\Gamma(m\delta)]$. Inserting it in the
-recursion $V_{m_1+m_2}=\int\frac{ds_1ds_2}{(2\pi)^2}V_{m_1}(s_1)V_{m_2}(s_2)V_2(s;s_1,s_2)$ gives
-Eq.~\eqref{eq:F} for $a=(m_1-1)\delta$, $b=(m_2-1)\delta$. Analytic continuation (Carlson)
-extends it to all $a,b$. \textit{Check:} numerical integration at three values of $\delta$ and four
-$(a,b)$ pairs, agreement to $10^{-8}$.
+\textit{Derivation.} The massless $m$-body volume is $V_m(s)\propto\Gamma(\delta)^m s^{(m-1)\delta-1}/[\Gamma((m-1)\delta)\Gamma(m\delta)]$, with $\delta=1-\eps$.
+Eqs.~\eqref{eq:B1ratio} and \eqref{eq:B3}, applied to $m_1+m_2$ massless particles grouped into two clusters, give the recursion
+$V_{m_1+m_2}=\int\frac{ds_1ds_2}{(2\pi)^2}V_{m_1}(s_1)V_{m_2}(s_2)V_2(s)\big[\lambda(s,s_1,s_2)/s^2\big]^{\frac12-\eps}$.
+This is Eq.~\eqref{eq:F} for $a=(m_1-1)\delta$, $b=(m_2-1)\delta$, and analytic continuation in $m_{1,2}$ (Carlson) extends it to all $a,b$.
+It was checked numerically at three values of $\delta$ and four $(a,b)$ pairs, to $10^{-8}$.
 
-With $u=s_{ij}/s$, $v=s_{kl}/s$, the $\bbC{ijkl}$ family needs $a=b=-\eps$. Compared with the square of
-the CS radial integral $B(-\eps,2-2\eps)=\int_0^1du\,u^{-1-\eps}(1-u)^{1-2\eps}$:
-\begin{align}
-\frac{F(-\eps,-\eps)}{B(-\eps,2-2\eps)^2}
-&=1+(1-2\zeta_2)\,\eps^2+(6-10\zeta_3)\,\eps^3+(28-2\zeta_2-14\zeta_2^2)\,\eps^4+\mathcal O(\eps^5),\\
-\eps^2F(-\eps,-\eps)&=1+2\eps+(8-6\zeta_2)\eps^2+(32-12\zeta_2-22\zeta_3)\eps^3+\mathcal O(\eps^4)
-\end{align}
-(coefficients from PSLQ at 25 digits).
-
-\paragraph{Integrated $\bbHC{ijkl}$.} Summing over the eight permutations:
+\paragraph{Result.} Collecting Steps 0--3 and $s^{2-2\eps}/s^2=s^{-2\eps}$:
 \begin{equation}
-\int d\Phi_{\rm rad}\,\bbHC{ijkl}\,\RR
-=\Norms\,\frac{s^{-2\eps}}{(2\pi)^2}\Big[\frac{(4\pi)^\eps}{8\pi\,\Gamma(1-\eps)}\Big]^2
-F(-\eps,-\eps)\;\hat J^{ij}_{\rm hc}(\eps)\,\hat J^{kl}_{\rm hc}(\eps)\;\bar B(\jb,\kb),
+\int d\Phi^{(ij|kl)}_{{\rm rad},2}\sum_\pi\bbHC{\pi}\RR\,\W{\pi}
+=\big[\mathcal N_1N(\eps)\Omega(\eps)\big]^2\,s^{-2\eps}\,F(-\eps,-\eps)\,\hat J^{(f_{ij})}(\eps)\,\hat J^{(f_{kl})}(\eps)\,\bar B(\jb,\kb).
+\end{equation}
+It is convenient to compare with the NLO integral of the paper, eq.~\texttt{Jhc}:
+\begin{equation}
+J^{(f)}_{\rm hc}(s)=\mathcal N_1N(\eps)\Omega(\eps)\,s^{-\eps}B(-\eps,2-2\eps)\,\hat J^{(f)}(\eps),
+\end{equation}
+which follows from the measure \texttt{dPhi rad (acd) 3} with $\int_0^1dy\,y^{-1-\eps}(1-y)^{1-2\eps}=B(-\eps,2-2\eps)$.
+For $(0g)$, $(1g)$ and $(2g)$ this reproduces exactly the closed forms of the paper, eqs.~\texttt{Jhc}, \texttt{Jhc1g}, \texttt{Jhc2g}: $\frac{\alpha_s}{2\pi}(\frac{s}{e^{\gamma_E}\mu^2})^{-\eps}\frac{\Gamma(1-\eps)\Gamma(2-\eps)}{\eps\Gamma(2-3\eps)}\times\{-\frac{2T_R}{3-2\eps},\,-\frac{C_F}{2},\,-\frac{C_A}{3-2\eps}\}$.
+Therefore
+\begin{equation}
+\boxed{\;
+\int d\Phi^{(ij|kl)}_{{\rm rad},2}\sum_\pi\bbHC{\pi}\RR\,\W{\pi}
+=J^{(f_{ij})}_{\rm hc}(s)\;J^{(f_{kl})}_{\rm hc}(s)\;\Phi(\eps)\;\bar B(\jb,\kb),\;}
+\end{equation}
+\begin{equation}
+\Phi(\eps)\equiv\frac{F(-\eps,-\eps)}{B(-\eps,2-2\eps)^2},
 \label{eq:intCijkl}
 \end{equation}
 \begin{equation}
-\hat J^{ab}_{\rm hc}(\eps)=\int_0^1\!dx\,[x(1-x)]^{-\eps}\Big[P_{ab}(x)-\text{soft subtraction(s)}\Big],
+\Phi(\eps)=1+(1-2\zeta_2)\,\eps^2+(6-10\zeta_3)\,\eps^3+(28-2\zeta_2-14\zeta_2^2)\,\eps^4+\mathcal O(\eps^5)
 \end{equation}
-with $P_{ab}$ the spin-averaged $d$-dimensional kernel. The $\hat J_{\rm hc}$ are the same $x$-integrals as
-in the NLO $J_{\rm hc}$, and the result depends only on $s$.
+(coefficients from PSLQ at 25 digits; also $\eps^2F(-\eps,-\eps)=1+2\eps+(8-6\zeta_2)\eps^2+(32-12\zeta_2-22\zeta_3)\eps^3+\dots$).
+The double-collinear integral is the product of two NLO hard-collinear integrals, both at scale $s$, up to $\Phi(\eps)$.
+Since each $J_{\rm hc}$ has a $1/\eps$ pole, the $\eps^2$ term of $\Phi$ contributes at $\mathcal O(\eps^0)$.
 
-\subsection{$K^{(1)}$: exact factorisation}
-Since $\jh$ is parallel to $\vec k_i+\vec k_j$ and the $(kl)$ system is only boosted,
-\begin{equation}
-\boxed{\;d\Phi_4=d\Phi_3(\jh,\kh,\lh)\,\frac{ds_{ij}}{2\pi}
-\Big(\frac{\lambda(s,s_{ij},s_{kl})}{(s-s_{kl})^2}\Big)^{\frac12-\eps}d\Phi_2(k_i+k_j;k_i,k_j),\;}
-\end{equation}
-with $\sqrt{s_{ij}}\le\sqrt s-\sqrt{s_{kl}}$ and polar variable $x_i$. In this formula $s_{kl}$ is the
-invariant mass of the three-parton configuration, $s_{\hat k\hat l}=s_{kl}$.
-At fixed $\{\jh,\kh,\lh\}$, $\langle\tilde k_{ij}^\mu\tilde k_{ij}^\nu\rangle$ is proportional to the metric in the
-space orthogonal to $\jb,\kb$. The extra terms contain $\jh^\mu$ and vanish against
-$\hat R_{\mu\nu}$ by gauge invariance, so the spin correlations integrate to zero.
+%----------------------------------------------------------------------
+\subsection{$K^{(1)}$: factorisation of $d\Phi_4$ with the map of Eq.~\eqref{eq:M1}}
+\label{sec:psK1}
 
-\paragraph{Integrated $\bbHC{ij}$ in $\W{ijkl}$.}
+\paragraph{Steps.}
+\begin{enumerate}
+\item By (B3) with only the $(ij)$ pair clustered:
+$d\Phi_4=\frac{ds_{ij}}{2\pi}d\Phi_2(k_i+k_j;k_i,k_j)\,d\Phi_3(Q;k_i\!+\!k_j,k_k,k_l)$.
+Clustering $(kl)$ as well:
+$d\Phi_3(Q;k_i\!+\!k_j,k_k,k_l)=\frac{ds_{kl}}{2\pi}d\Phi_2(Q;k_i\!+\!k_j,k_k\!+\!k_l)\,d\Phi_2(k_k\!+\!k_l;k_k,k_l)$.
+\item The three-parton configuration $\{\jh,\kh,\lh\}$ has the same $s_{kl}=s_{\hat k\hat l}$. Moreover $\jh$ points along $\vec k_i+\vec k_j$,
+and $\kh+\lh$ along $\vec k_k+\vec k_l$, in the $Q$ frame. By Eq.~\eqref{eq:B1ratio},
+$d\Phi_2(Q;k_i\!+\!k_j,k_k\!+\!k_l)=\big[\lambda(s,s_{ij},s_{kl})/(s-s_{kl})^2\big]^{\frac12-\eps}d\Phi_2(Q;\jh,\kh\!+\!\lh)$.
+\item $d\Phi_2(k_k\!+\!k_l;k_k,k_l)=d\Phi_2(\kh\!+\!\lh;\kh,\lh)$, because the two are related by a boost.
+\item Steps 2--3 rebuild $d\Phi_3(Q;\jh,\kh,\lh)$. The decay of $k_i+k_j$ is parametrised as in (B2), with axis along $\kb$, so that $z=x_i$ as before.
+\end{enumerate}
+
+\paragraph{Result.} With $y=s_{ij}/s$ and $v\equiv s_{\hat k\hat l}/s$ fixed by the three-parton configuration:
 \begin{equation}
-\int d\Phi_{\rm rad}\,\bbHC{ij}\,\RR\,\W{ijkl}
-=\mathcal N_1\,\frac{s^{-\eps}}{2\pi}\,\frac{(4\pi)^\eps}{8\pi\,\Gamma(1-\eps)}\,
-\mathcal R\Big(\frac{s_{kl}}{s};\eps\Big)\,\hat J^{ij}_{\rm hc}(\eps)\;\hat R\,\hat{\mathcal W}_{kl},
+\boxed{\;
+\int d\Phi_{n+2}=\frac{\varsigma_{n+2}}{\varsigma_{n+1}}\int d\Phi_{n+1}(\jh,\kh,\lh)\int d\Phi_{\rm rad}^{(ij|kl)},\;}
 \end{equation}
 \begin{equation}
-\mathcal R(v;\eps)=\int_0^{(1-\sqrt v)^2}\!\!du\;u^{-1-\eps}
-\Big[\frac{\lambda(1,u,v)}{(1-v)^2}\Big]^{\frac12-\eps}
+\boxed{\;\int d\Phi_{\rm rad}^{(ij|kl)}=N(\eps)\,s^{1-\eps}\!\int_0^\pi\!\!d\phi(\sin\phi)^{-2\eps}\!\!\int_0^1\!\!dz\,[z(1-z)]^{-\eps}\!\!
+\int_0^{(1-\sqrt v)^2}\!\!\!dy\,y^{-\eps}\Big[\frac{\lambda(1,y,v)}{(1-v)^2}\Big]^{\frac12-\eps}.\;}
+\label{eq:dPhiradK1}
+\end{equation}
+For $v\to0$ this becomes the paper's CS measure, with $[y(1-y)^2]^{-\eps}(1-y)$ and $\bar s_{cd}\to s$.
+
+\paragraph{Inverse map.} Given $\{\jh,\kh,\lh\}$ and $(y,z,\phi)$:
+\begin{enumerate}
+\item $\jb=\jh/(1-v)$ and $\kb=Q-\jb$;
+\item $a,b$ as in Section~\ref{sec:psK2} with $y'\to v$; $k_i,k_j$ from Eq.~\eqref{eq:inverse};
+\item $k_a=\hat k_a+(\xi^{-1}-1)\frac{s_{\hat a\kb}}{s}\jb+(\xi-1)\frac{s_{\hat a\jb}}{s}\kb$ ($a=k,l$), the inverse boost, with $\xi=1-b$.
+\end{enumerate}
+The identity $\xi=1-b$ follows from the boost: it must take $k_k+k_l=(1-a)\jb+(1-b)\kb$ into $\kh+\lh=v\,\jb+\kb$, and indeed $(1-a)(1-b)=v$.
+
+\paragraph{Kernel.} With $\hat R\equiv R(\jh,\kh,\lh)$ and $\W{{\rm c},ij(\kb)}^{(\alpha)}=(1-z)^\alpha/[z^\alpha+(1-z)^\alpha]$:
+\begin{equation}
+\bbHC{ij}\,\RR\,\W{ijkl}=\frac{\mathcal N_1}{s\,y}\big[-P^{\rm hc}_{ij}(z)g^{\mu\nu}+Q_{ij}(z)d^{\mu\nu}_\phi\big]\hat R_{\mu\nu}\;
+\W{{\rm c},ij(\kb)}^{(\alpha)}\,\hat{\mathcal W}_{kl}.
+\end{equation}
+
+\paragraph{Integration.}
+\begin{enumerate}
+\item Summing the sectors $\W{ijkl}+\W{jikl}$ removes $\W{{\rm c}}$, since $\W{{\rm c},ij}+\W{{\rm c},ji}=1$.
+\item The azimuthal average kills $Q$ (Step 1 above, with the gauge invariance of $\hat R_{\mu\nu}$ in $\jh\propto\jb$).
+\item The $z$-integral gives $\hat J^{(f)}$.
+\item The $y$-integral is
+\begin{equation}
+\mathcal R(v;\eps)\equiv\int_0^{(1-\sqrt v)^2}\!\!dy\;y^{-1-\eps}\Big[\frac{\lambda(1,y,v)}{(1-v)^2}\Big]^{\frac12-\eps}
 =-\frac1\eps-1+\frac{v}{1-v}\ln v+2\ln(1-v)+\mathcal O(\eps).
 \label{eq:Rv}
 \end{equation}
-\textit{Derivation of the $\eps^0$ term.} Write $\mathcal R=-(1-\sqrt v)^{-2\eps}/\eps+\int_0^{(1-\sqrt v)^2}\frac{du}{u}\big[\frac{\sqrt{\lambda(1,u,v)}}{1-v}-1\big]+\mathcal O(\eps)$.
-The integral is elementary, since $\lambda(1,u,v)=[(1+\sqrt v)^2-u][(1-\sqrt v)^2-u]$, and equals
-$-1+\frac{v}{1-v}\ln v+2\ln(1+\sqrt v)$.
-\textit{Checks:} for $v\to0$, $\mathcal R\to B(-\eps,2-2\eps)=-1/\eps-1+\mathcal O(\eps)$, the CS result.
-Numerical integration at $v=0.05,0.3,0.7$ and $\eps=\pm10^{-4}$ leaves a residual that is odd in $\eps$.
+\textit{Derivation.} Subtract and add the $y\to0$ limit of the bracket, which is 1:
+\begin{equation}
+\mathcal R=-\frac{(1-\sqrt v)^{-2\eps}}{\eps}+\frac{1}{1-v}\,I(v)+\mathcal O(\eps),\qquad
+I(v)\equiv\int_0^{(1-\sqrt v)^2}\frac{dy}{y}\Big[\sqrt{\lambda(1,y,v)}-(1-v)\Big].
+\end{equation}
+Write $\lambda(1,y,v)=y^2-2(1+v)y+(1-v)^2=[(1+\sqrt v)^2-y]\,[(1-\sqrt v)^2-y]$. The standard reduction
+\begin{equation}
+\int\frac{dy}{y}\sqrt\lambda=\sqrt\lambda-(1+v)\int\frac{dy}{\sqrt\lambda}+(1-v)^2\int\frac{dy}{y\sqrt\lambda}
+\end{equation}
+gives
+\begin{equation}
+I(v)=\Big[\sqrt\lambda\Big]_0^{(1-\sqrt v)^2}-(1+v)\,I_1+I_2,
+\end{equation}
+\begin{align}
+I_1&=\int_0^{(1-\sqrt v)^2}\frac{dy}{\sqrt\lambda}
+=\Big[-2\ln\big(\sqrt{(1+\sqrt v)^2-y}+\sqrt{(1-\sqrt v)^2-y}\big)\Big]_0^{(1-\sqrt v)^2}=-\tfrac12\ln v,\\
+I_2&=\int_0^{(1-\sqrt v)^2}dy\Big[\frac{(1-v)^2}{y\sqrt\lambda}-\frac{1-v}{y}\Big]\nonumber\\
+&=\Big[-(1-v)\ln\big(2(1-v)\sqrt\lambda-2(1+v)y+2(1-v)^2\big)\Big]_0^{(1-\sqrt v)^2}
+=-(1-v)\ln\frac{\sqrt v}{(1+\sqrt v)^2}.
+\end{align}
+With $[\sqrt\lambda]_0^{(1-\sqrt v)^2}=-(1-v)$:
+\begin{equation}
+\frac{I(v)}{1-v}=-1+\frac{v}{1-v}\ln v+2\ln(1+\sqrt v).
+\end{equation}
+Adding $-(1-\sqrt v)^{-2\eps}/\eps=-1/\eps+2\ln(1-\sqrt v)+\mathcal O(\eps)$ gives Eq.~\eqref{eq:Rv}.
+\end{enumerate}
 
-Compared with a CS recoiler, the only new feature is the dependence on $s_{kl}/s$ through
-$\mathcal R$. This enters $I^{(1)}$ in the RV line, which is integrated numerically. Only the pole and
-$\eps^0$ terms of $\mathcal R$ are needed there, since $\hat J^{ij}_{\rm hc}$ is finite.
+\paragraph{Result.}
+\begin{equation}
+\boxed{\;
+\int d\Phi_{\rm rad}^{(ij|kl)}\big(\bbHC{ij}\RR\W{ijkl}+\bbHC{ji}\RR\W{jikl}\big)
+=J^{(f_{ij})}_{\rm hc}(s)\;\rho(v;\eps)\;\hat R\,\hat{\mathcal W}_{kl},\;}
+\end{equation}
+\begin{equation}
+\boxed{\;\rho(v;\eps)\equiv\frac{\mathcal R(v;\eps)}{B(-\eps,2-2\eps)}=1-\eps\Big[\frac{v\ln v}{1-v}+2\ln(1-v)\Big]+\mathcal O(\eps^2).\;}
+\label{eq:intK1}
+\end{equation}
+This is the paper's $J^{(f)}_{\rm hc}$ at scale $s=Q^2$, corrected by $\rho$. Since $J_{\rm hc}\sim1/\eps$, the $\mathcal O(\eps)$ term of $\rho$
+gives a finite shift $-\big[\frac{v\ln v}{1-v}+2\ln(1-v)\big]\times$(pole coefficient of $J_{\rm hc}$). The $\mathcal O(\eps^2)$ term of $\rho$ is not needed in the RV line.
+Numerically: $\mathcal R(v;\eps)$ minus Eq.~\eqref{eq:Rv} is odd in $\eps$ at $v=0.05,0.3,0.7$, $\eps=\pm10^{-4}$.
 
-\paragraph{Integrated $K^{(12)}$.} After integrating over the radiation of $(ij)$, the $K^{(12)}$ terms
-give $\mathcal R(s_{kl}/s;\eps)\,\hat J^{ij}_{\rm hc}$ times the NLO-type $\bar{\mathbf C}_{kl}$ counterterm on
-$\{\jh,\kh,\lh\}$. Integrating further over the $(kl)$ radiation with the CS measure, which contains
-$(1-s_{kl}/s)^{1-2\eps}$, the two measure factors combine into
-$[\lambda(s,s_{ij},s_{kl})/s^2]^{\frac12-\eps}$. The result is again Eq.~\eqref{eq:F}, so the
-double-virtual side contains only the $\Gamma$-functions of Eq.~\eqref{eq:intCijkl}.
+%----------------------------------------------------------------------
+\subsection{$K^{(12)}$: nested integration}
+\label{sec:intK12}
+
+The three-parton configuration $\{\jh,\kh,\lh\}$ is factorised further with the CS map $(\hat k\,\hat l\,\hat j)$, using the paper's measure \texttt{dPhi rad (acd) 3}
+with $\bar s_{cd}=s_{\jb\kb}=s$:
+\begin{equation}
+\begin{aligned}
+\int d\Phi_{n+1}(\jh,\kh,\lh)=\;&\frac{\varsigma_{n+1}}{\varsigma_n}\int d\Phi_2(Q;\jb,\kb)\;N(\eps)\,s^{1-\eps}\!\int\!d\phi'(\sin\phi')^{-2\eps}\\
+&\times\int_0^1\!\!dy'\!\int_0^1\!\!dz'\,\big[y'(1-y')^2z'(1-z')\big]^{-\eps}(1-y').
+\end{aligned}
+\end{equation}
+Its variables are exactly those of Section~\ref{sec:psK2}:
+\begin{itemize}
+\item $y'=s_{kl}/(s_{kl}+s_{[kl]\hat j})=s_{kl}/s=v$;
+\item $z'=s_{\hat k\hat j}/s_{[\hat k\hat l]\hat j}=x_k$, by the invariance of Section~\ref{sec:M1};
+\item $\phi'$ is the azimuth of $q_\perp$, unchanged by the boost.
+\end{itemize}
+In fact $\kh=(1-z')\,y'\,\jb+z'\,\kb+q_\perp$ and $\lh=z'y'\jb+(1-z')\kb-q_\perp$, which is the CS parametrisation.
+The product of the two measures is
+\begin{equation}
+\underbrace{y^{-\eps}\Big[\frac{\lambda(1,y,y')}{(1-y')^2}\Big]^{\frac12-\eps}}_{K^{(1)}\ \text{map}}\times
+\underbrace{y'^{-\eps}(1-y')^{1-2\eps}}_{\text{CS}\ (\hat k\hat l\hat j)}
+=(y\,y')^{-\eps}\lambda(1,y,y')^{\frac12-\eps},
+\end{equation}
+with $\Theta(1-\sqrt y-\sqrt{y'})$ from the $y$ range. This is exactly Eq.~\eqref{eq:dPhirad2}:
+\begin{equation}
+d\Phi^{(ij|kl)}_{\rm rad}\;d\Phi^{(\hat k\hat l\hat j)}_{\rm rad}=d\Phi^{(ij|kl)}_{{\rm rad},2}.
+\end{equation}
+Consequently, integrating the $\bbHC{ij}\bbHC{kl}$-type terms of $K^{(12)}$ first over $(y,z,\phi)$ gives
+$J_{\rm hc}^{(f_{ij})}(s)\,\rho(y';\eps)$ times the NLO $\bar{\mathbf{HC}}_{kl}$ counterterm on $\{\jh,\kh,\lh\}$.
+Integrating then over $(y',z',\phi')$ gives back $F(-\eps,-\eps)$, i.e.\ Eq.~\eqref{eq:intCijkl}.
+The double-virtual side therefore contains only $\Gamma$-functions to all orders in $\eps$.
+This also shows directly that, for the $\bbC{ijkl}$ family, the local $K^{(2)}$ and $K^{(12)}$ share the same radiative variables and the same kernels.
+
+%----------------------------------------------------------------------
+\subsection{Summary of the radiative variables}
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{llll}\toprule
+counterterm & Born / mapped kinematics & radiative variables & radiative measure\\\midrule
+$K^{(2)}$, $\bbC{ijkl}$ family & $\{\jb,\kb\}$, Eq.~\eqref{eq:map} & $y,z,\phi;\ y',z',\phi'$ & Eq.~\eqref{eq:dPhirad2}\\
+$K^{(1)}$, $\bbC{ij}\RR\W{ijkl}$ & $\{\jh,\kh,\lh\}$, Eq.~\eqref{eq:M1} & $y,z,\phi$ (at fixed $v=y'$) & Eq.~\eqref{eq:dPhiradK1}\\
+$K^{(12)}$, $\bbC{ij}\bbC{ijkl}$ etc. & $\{\jh,\kh,\lh\}\to\{\jb,\kb\}$ & $y,z,\phi$, then $y',z',\phi'$ & product $=$ Eq.~\eqref{eq:dPhirad2}\\\bottomrule
+\end{tabular}
+\end{center}
+with $y=s_{ij}/s$, $y'=s_{kl}/s$, $z=x_i=s_{i\kb}/s_{[ij]\kb}$, $z'=x_k=s_{k\jb}/s_{[kl]\jb}$, and $\phi,\phi'$ the azimuths of $\tilde k_{ij},\tilde k_{kl}$ in the plane orthogonal to $\jb,\kb$.
 
 %======================================================================
 \section{The literal nested alternative in $K^{(2)}$}
@@ -533,6 +845,11 @@ $\langle s_{ik}/s_{[ij]k}\rangle$ & $0.49997(46)$ & $0.49867(123)$ & $+1.00$\\\b
 \end{tabular}
 \end{center}
 
+\paragraph{Radiative variables.} Momenta built from a fixed Born and random $(y,y',z,z',\phi,\phi')$ with Eq.~\eqref{eq:inverse}
+are massless and map back to the same Born to $10^{-14}$. They also reproduce $s_{ij}=ys$, $s_{kl}=y's$, $x_i=z$, $x_k=z'$, $\tilde k_{ij}=-k_\perp$,
+the inter-pair invariants and the energies of the table in Section~\ref{sec:psK2} to $10^{-16}$. Sampling Eq.~\eqref{eq:dPhirad2} in $d=4$
+(Born direction, $y,y',z,z',\phi,\phi'$ flat, weight $\sqrt{\lambda(1,y,y')}$) reproduces RAMBO for the six observables above, with all pulls below $1\sigma$.
+
 \paragraph{Radial integrals.} Eq.~\eqref{eq:F} and Eq.~\eqref{eq:Rv} are checked as described above.
 
 %======================================================================
@@ -543,14 +860,15 @@ in kernels, eikonals and sector functions.
 \item $K^{(1)}$ in the $(ijkl)$ sectors: $(ij)$ recoils against $\kb$, i.e.\ the $(kl)$ system
 (Eq.~\eqref{eq:M1}). $K^{(12)}$ then uses the CS map $(\hat k\,\hat l\,\hat j)$.
 \item With these choices $K^{(2)}-K^{(12)}$ differs only in the sector functions, exactly as in the paper.
-The integrated $\bbHC{ijkl}$ is given by Eq.~\eqref{eq:intCijkl}. The integrated $K^{(1)}$ contains
-$\mathcal R(s_{kl}/s;\eps)$ of Eq.~\eqref{eq:Rv}.
+The integrated $\bbHC{ijkl}$ is $J_{\rm hc}(s)\,J_{\rm hc}(s)\,\Phi(\eps)\,\bar B$, Eq.~\eqref{eq:intCijkl}.
+The integrated $K^{(1)}$ is $J_{\rm hc}(s)\,\rho(s_{kl}/s;\eps)$, Eq.~\eqref{eq:intK1}. The nested integration of $K^{(12)}$ gives back
+Eq.~\eqref{eq:intCijkl}.
 \item Valid for any Born with two coloured final-state partons and a colourless initial state.
 Not applicable to initial-state radiation.
 \item MadNkLO: one routine for Eq.~\eqref{eq:map} (the $\bbC{ijkl}$ family: \texttt{CC\_gqgq} and its overlaps) and one for
 Eq.~\eqref{eq:M1} (used by $K^{(1)}$ and $K^{(12)}$ in the $ijkl$ sectors, replacing the hard-coded \texttt{iref = 1}).
-\item Still open: normalisation in the paper's conventions ($\mathcal N_1$, $\varsigma_{n+2}/\varsigma_n$) and
-comparison with the corresponding $I^{(2)}$ entry; $\mathcal O(\eps)$ term of $\mathcal R$ if needed;
+\item Still open: comparison with the corresponding entry of $I^{(2)}$ in the paper (the results are now written in the paper's normalisation, through $J_{\rm hc}$);
+$\mathcal O(\eps^2)$ term of $\rho$ if ever needed;
 limit tests with the full $\RR$ of $e^+e^-\to q\bar qgg$, including spin correlations.
 \end{itemize}
 

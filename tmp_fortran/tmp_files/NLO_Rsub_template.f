@@ -18,9 +18,19 @@ c     regions is the same in the two orientations.
       double precision x(mxdim),wgt
       double precision int_real_orient_%(isec)d_%(jsec)d
       external int_real_orient_%(isec)d_%(jsec)d
-      integer ntest,ntested
+c     limit tests (testR) and channel checks at the first points: counts
+c     in a common block. In its main phase (--main) the driver skips the
+c     channel checks (nchecked = ntest), done in the warm-up phase, and
+c     sets protect_rng: the limit tests are run again, since they also
+c     initialise the matrix elements (e.g. the identical-particle factors
+c     used by the counterterms), but with the state of the random numbers
+c     restored afterwards, so that the integration is the same as in a
+c     single run
+      integer ntest,ntested,nchecked
       parameter(ntest=20)
-      save ntested
+      logical protect_rng
+      common/c_tests_R/ntested,nchecked,protect_rng
+      integer rst(35)
       integer imirror_npo
       common/c_imirror_npo/imirror_npo
       integer mapped_labels(nexternal)
@@ -49,7 +59,9 @@ c     test phase-space singularities of matrix elements (without PDFs)
       if(ntested.lt.ntest)then
          ntested=ntested+1
          imirror_npo=0
+         if(protect_rng)call ran2_get_state(rst)
          call test_R_%(isec)d_%(jsec)d(ntested)
+         if(protect_rng)call ran2_set_state(rst)
       endif
 c     the limit tests call the counterterms: discard their contributions
 c     to the renormalisation-scale variations
@@ -139,9 +151,9 @@ c     channel decomposition (run_card channel_decomposition, run.inc)
       double precision KCH,KNC,KCHNC,rho,Kstd,xjcs,lumr
       double precision pbs(0:3,nexternal-1)
       double precision sLOs(nexternal-1,nexternal-1)
-      integer nchecked
-      data nchecked/0/
-      save nchecked
+      integer ntested,nchecked
+      logical protect_rng
+      common/c_tests_R/ntested,nchecked,protect_rng
       integer imirror_npo
       common/c_imirror_npo/imirror_npo
       double precision lumi_npo

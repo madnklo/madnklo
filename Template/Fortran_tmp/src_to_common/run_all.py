@@ -628,9 +628,14 @@ def relpath(path):
 def run_executable(task):
     """Run one executable and return the files it has written."""
     p, exe = task
-    p = exe_dir(p, exe)
     start = time.time() - 1.0  # tolerance for the file-system time resolution
-    run(f"./{exe}", p, os.path.join(p, log_name(exe)))
+    run(f"./{exe}", exe_dir(p, exe), os.path.join(exe_dir(p, exe), log_name(exe)))
+    return executable_outputs(p, exe, start)
+
+
+def executable_outputs(p, exe, start):
+    """results_<tag>.log and the plot written by exe since start."""
+    p = exe_dir(p, exe)
     tag = output_tag(exe)
     results = os.path.join(p, f"results_{tag}.log")
     if not (os.path.isfile(results) and os.path.getmtime(results) >= start):
@@ -650,6 +655,141 @@ def timed_call(fn, item):
     return fn(item), time.time() - start
 
 
+# ---------------- warm-up and main phases ----------------
+# For the contributions in TWO_PHASE (by default; --equal-calls switches it
+# off), each executable runs twice: './<exe> --warmup' runs the warm-up of its
+# vegas grids and writes warmup_<tag>.dat (standard deviation per point s of
+# each of its channels, measured on the adapted grids, and CPU time per call
+# c); when the warm-ups of all the executables of the contribution are over,
+# the calls per iteration of the main runs are shared among them as
+# N ~ S/sqrt(c), S = sum of s over the channels of the executable (the
+# weights that minimise the total error at fixed CPU time), keeping the
+# total number of calls of the default ones (npoints_<X> per executable,
+# divided among the sectors for R), at least min(1000 nch, default) each,
+# and written to main_calls_<tag>.dat (for V,
+# the loop and, with n_VC_folds > 1, the I + J + C executables 'virtual
+# --counterterms' are shared separately); then
+# './<exe> --main' runs the main integration from the saved grids and state
+# of the random numbers. With the default calls, warm-up + main give exactly
+# the results of a single run of the executable.
+TWO_PHASE = ("B", "V", "R")
+CALL_FLOOR = 1000
+
+
+def warmup_file(p, exe):
+    return os.path.join(exe_dir(p, exe), f"warmup_{output_tag(exe)}.dat")
+
+
+def main_calls_file(p, exe):
+    return os.path.join(exe_dir(p, exe), f"main_calls_{output_tag(exe)}.dat")
+
+
+def read_warmup(path):
+    """nch, default main calls per iteration, main iterations, warm-up calls,
+    CPU time per call and the standard deviations per point s of the
+    channels, from warmup_<tag>.dat."""
+    with open(path) as f:
+        lines = f.read().split("\n")
+    if not lines or not lines[0].strip().startswith("MADNKLO_WARMUP"):
+        raise RuntimeError(f"{relpath(path)}: not a warm-up file")
+    head = lines[1].split()
+    nch, ndim, ndmx = int(head[0]), int(head[1]), int(head[2])
+    ncl, nit = int(head[3]), int(head[4])
+    ncalls, cpu = float(head[5].replace("D", "E")), float(head[6].replace("D", "E"))
+    nxi = ndmx * ndim
+    rows_xi = (nxi + 3) // 4
+    s, i = [], 2
+    for _ in range(nch):
+        s.append(float(lines[i].split()[0].replace("D", "E")))
+        i += 1 + rows_xi
+    return {"nch": nch, "ncl": ncl, "nit": nit, "ncalls": ncalls, "cpu": cpu, "s": s}
+
+
+def run_warmup(task):
+    p, exe = task
+    d = exe_dir(p, exe)
+    start = time.time() - 1.0
+    run(f"./{exe} --warmup", d, os.path.join(d, log_name(exe)))
+    path = warmup_file(p, exe)
+    if not (os.path.isfile(path) and os.path.getmtime(path) >= start):
+        raise RuntimeError(f"{exe} in {d} did not write {os.path.basename(path)}")
+    return read_warmup(path)
+
+
+def run_main(task):
+    p, exe = task
+    d = exe_dir(p, exe)
+    start = time.time() - 1.0
+    run(f"./{exe} --main", d, os.path.join(d, log_name(exe)), append=True)
+    return executable_outputs(p, exe, start)
+
+
+def allocate_calls(infos):
+    """Main calls per iteration of the executables (infos: {task: warm-up
+    info}), see above. Returns {task: calls}."""
+    tasks = list(infos)
+    cpu_min = min([i["cpu"] for i in infos.values() if i["cpu"] > 0] or [1.0])
+    data = {}
+    for t in tasks:
+        i = infos[t]
+        c = i["cpu"] if i["cpu"] > 0 else cpu_min
+        S = sum(x for x in i["s"] if x > 0 and math.isfinite(x))
+        floor = min(CALL_FLOOR * i["nch"], i["ncl"])
+        data[t] = {"c": c, "nit": i["nit"], "S": S, "floor": floor, "def": i["ncl"]}
+    # the total number of main calls (sum of the defaults) is kept
+    budget = sum(d["nit"] * d["def"] for d in data.values())
+    if not any(d["S"] > 0 for d in data.values()):
+        return {t: data[t]["def"] for t in tasks}
+    free = [t for t in tasks if data[t]["S"] > 0]
+    fixed = {t: data[t]["floor"] for t in tasks if data[t]["S"] <= 0}
+    while True:
+        left = budget - sum(data[t]["nit"] * n for t, n in fixed.items())
+        w = {t: data[t]["S"] / math.sqrt(data[t]["c"]) for t in free}
+        denom = sum(data[t]["nit"] * w[t] for t in free)
+        lam = left / denom if denom > 0 else 0.0
+        low = [t for t in free if lam * w[t] < data[t]["floor"]]
+        if not low:
+            break
+        for t in low:
+            fixed[t] = data[t]["floor"]
+            free.remove(t)
+        if not free:
+            break
+    calls = dict(fixed)
+    for t in free:
+        calls[t] = max(data[t]["floor"], int(round(lam * w[t])))
+    return calls
+
+
+def write_allocation(label, infos, calls):
+    """main_calls_<tag>.dat of each executable, and a summary in
+    Events/alloc_<label>.txt."""
+    for (p, exe), n in calls.items():
+        with open(main_calls_file(p, exe), "w") as f:
+            f.write(f"{n}\n")
+    path = os.path.join(output_dir(), "Events", f"alloc_{label}.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    budget = sum(i["cpu"] * i["nit"] * i["ncl"] for i in infos.values())
+    used = sum(infos[t]["cpu"] * infos[t]["nit"] * calls[t] for t in calls)
+    ndef = sum(i["ncl"] for i in infos.values())
+    nused = sum(calls.values())
+    with open(path, "w") as f:
+        f.write(f"# {label}: main calls per iteration shared among {len(calls)} executables, "
+                f"N ~ S/sqrt(c) (see run_all.py)\n")
+        f.write(f"# main calls per iteration: default {ndef}, shared {nused}\n")
+        f.write(f"# CPU of the main runs (estimate from the warm-ups): default {budget:.4g} s, "
+                f"shared {used:.4g} s\n")
+        f.write(f"# {'executable':<60} {'S':>12} {'c [s]':>11} {'default':>9} {'calls':>9}\n")
+        for (p, exe) in sorted(calls, key=lambda t: short(os.path.join(*t))):
+            i = infos[(p, exe)]
+            f.write(f"  {short(os.path.join(p, exe)):<60} {sum(i['s']):12.5g} {i['cpu']:11.4g} "
+                    f"{i['ncl']:9d} {calls[(p, exe)]:9d}\n")
+    ratios = [calls[t] / infos[t]["ncl"] for t in calls if infos[t]["ncl"] > 0]
+    print(f"--- {label}: main calls shared among {len(calls)} executables from their warm-ups "
+          f"(calls/default between {min(ratios):.2g} and {max(ratios):.2g}; {relpath(path)})",
+          flush=True)
+
+
 # ---------------- scheduling ----------------
 # All the contributions of the mode share one set of n process slots. The
 # libraries are built first, serially, for all the P1_* directories (they
@@ -666,12 +806,14 @@ RUN_ORDER = ("V", "R", "B")
 
 
 def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_done=None,
-             extra_tasks=None):
+             extra_tasks=None, two_phase=()):
     """Build and run the executables of the contributions labels (see above).
     run_fn((p, exe)) runs one executable; exe_filter(exe) selects the
     executables (default all); label_done(label, state) is called when all
     the tasks of a contribution are over; extra_tasks(label, p, exe) gives
-    more executables to run after exe (see VC_TASK). Returns {label: state}, state =
+    more executables to run after exe (see VC_TASK); the contributions in
+    two_phase run each executable as warm-up, then, when all their warm-ups
+    are over, main (see TWO_PHASE). Returns {label: state}, state =
     {"tasks": [(p, exe), ...], "results": {(p, exe): result}, "failed": [names]}."""
     order = sorted(labels, key=RUN_ORDER.index)
     paths = {}
@@ -693,9 +835,11 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
                  if exe_filter is None or exe_filter(exe)]
         if extra_tasks is not None:
             tasks = [(p, e) for p, exe in tasks for e in [exe] + extra_tasks(label, p, exe)]
-        state[label] = {"tasks": tasks, "results": {}, "failed": [],
-                        "left": len(paths[label]) + len(tasks)}
-    n_tasks = sum(len(state[label]["tasks"]) for label in order)
+        phases = 2 if label in two_phase else 1
+        state[label] = {"tasks": tasks, "results": {}, "failed": [], "phases": phases,
+                        "left": len(paths[label]) + phases * len(tasks),
+                        "warm_left": len(tasks) if phases == 2 else 0, "warmups": {}}
+    n_tasks = sum(st["phases"] * len(st["tasks"]) for st in state.values())
     slots, compile_slots = max(1, n), max(1, min(n, compile_jobs))
     output = "" if verbose() else f", output in log_<executable>{'_test' if run_verb == 'tested' else ''}.txt"
     print(f"--- compiling {len(all_paths)} P1_* directories ({compile_slots} at a time) and "
@@ -716,6 +860,20 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
         if st["left"] == 0 and label_done is not None:
             label_done(label, st)
 
+    def warmup_over(label):
+        """All the warm-ups of label are over: share the main calls and queue
+        the main runs."""
+        st = state[label]
+        pools = {}
+        for task, info in st["warmups"].items():
+            pools.setdefault("VC" if task[1] == VC_TASK else label, {})[task] = info
+        for pool, infos in sorted(pools.items()):
+            calls = allocate_calls(infos)
+            write_allocation(pool, infos, calls)
+        for task in st["tasks"]:
+            if task in st["warmups"]:
+                heapq.heappush(ready, (RUN_ORDER.index(label), next(seq), label, ("main", task)))
+
     with ProcessPoolExecutor(max_workers=slots) as executor:
         while compile_queue or ready or running:
             while len(running) < slots:
@@ -725,9 +883,10 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
                     running[future] = ("compile", label, p)
                     n_compiling += 1
                 elif ready:
-                    _, _, label, task = heapq.heappop(ready)
-                    future = executor.submit(timed_call, run_fn, task)
-                    running[future] = ("run", label, task)
+                    _, _, label, (phase, task) = heapq.heappop(ready)
+                    fn = {"warmup": run_warmup, "main": run_main}.get(phase, run_fn)
+                    future = executor.submit(timed_call, fn, task)
+                    running[future] = (phase, label, task)
                 else:
                     break
             done, _ = wait(running, return_when=FIRST_COMPLETED)
@@ -738,7 +897,9 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
                     n_compiling -= 1
                     name, verb = short(item), "compiled"
                 else:
-                    name, verb = short(os.path.join(*item)), run_verb
+                    name = short(os.path.join(*item))
+                    verb = "warmed up" if kind == "warmup" else run_verb
+                    kind, phase = "run", kind
                 counter = counters[kind]
                 counter[0] += 1
                 k = f"{counter[0]:>{len(str(n_tasks if kind == 'run' else len(all_paths)))}}/{counter[1]}"
@@ -750,15 +911,33 @@ def schedule(labels, n, compile_jobs, run_fn, run_verb, exe_filter=None, label_d
                     if kind == "compile":
                         # its executables cannot run
                         skipped = [t for t in st["tasks"] if t[0] == item]
-                        counters["run"][1] -= len(skipped)
-                        st["left"] -= len(skipped)
+                        counters["run"][1] -= st["phases"] * len(skipped)
+                        st["left"] -= st["phases"] * len(skipped)
+                        if st["phases"] == 2:
+                            st["warm_left"] -= len(skipped)
+                            if st["warm_left"] == 0:
+                                warmup_over(label)
+                    elif phase == "warmup":
+                        # its main run is skipped
+                        counters["run"][1] -= 1
+                        st["left"] -= 1
+                        st["warm_left"] -= 1
+                        if st["warm_left"] == 0:
+                            warmup_over(label)
                     finished(label)
                     continue
                 print(f"    [{k}] {verb:<9} {name:<{width}}  {seconds:7.1f} s", flush=True)
                 if kind == "compile":
+                    first = "warmup" if st["phases"] == 2 else "run"
                     for task in st["tasks"]:
                         if task[0] == item:
-                            heapq.heappush(ready, (RUN_ORDER.index(label), next(seq), label, task))
+                            heapq.heappush(ready, (RUN_ORDER.index(label), next(seq), label,
+                                                   (first, task)))
+                elif phase == "warmup":
+                    st["warmups"][item] = result
+                    st["warm_left"] -= 1
+                    if st["warm_left"] == 0:
+                        warmup_over(label)
                 else:
                     st["results"][item] = result
                 finished(label)
@@ -781,7 +960,7 @@ def record_contribution(label, st):
           f"{relpath(manifest_path())}", flush=True)
 
 
-def run_mode(labels, n, compile_jobs, sequential):
+def run_mode(labels, n, compile_jobs, sequential, equal_calls=False):
     """Run the contributions labels: all together (default) or one after the
     other (sequential, stopping at the first failure)."""
     manifest = load_manifest()
@@ -794,7 +973,8 @@ def run_mode(labels, n, compile_jobs, sequential):
         print(f"=== Running {' + '.join(NAMES[label] for label in group)}"
               + (" (in parallel)" if len(group) > 1 else "") + " ===")
         state = schedule(group, n, compile_jobs, run_executable, "done",
-                         label_done=record_contribution, extra_tasks=vc_extra_tasks)
+                         label_done=record_contribution, extra_tasks=vc_extra_tasks,
+                         two_phase=() if equal_calls else TWO_PHASE)
         failed += [label for label in group if state.get(label, {}).get("failed")]
         if failed:
             break
@@ -1193,6 +1373,14 @@ if __name__ == "__main__":
              "prints one line per directory compiled and per executable run)",
     )
     parser.add_argument(
+        "--equal-calls",
+        action="store_true",
+        help="Run each executable once, with the calls of the run_card (npoints_*, "
+             "divided equally among the sectors for R), instead of sharing the main "
+             "calls among the executables of the contribution (P1_* directories, "
+             "and sectors for R) from their warm-ups",
+    )
+    parser.add_argument(
         "--no-collect",
         action="store_true",
         help="Do not run Events/collect.py at the end (by default it writes the "
@@ -1217,7 +1405,8 @@ if __name__ == "__main__":
             run_tests(args.mode, MODES[args.mode], args.n, args.compile_jobs,
                       args.tol_poles, args.tol_limits)
             sys.exit(0)
-        run_mode(MODES[args.mode], args.n, args.compile_jobs, args.sequential)
+        run_mode(MODES[args.mode], args.n, args.compile_jobs, args.sequential,
+                 equal_calls=args.equal_calls)
     except (RuntimeError, subprocess.CalledProcessError) as e:
         sys.exit(f"\nrun_all.py stopped: {e}")
     if not args.no_collect:

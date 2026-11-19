@@ -43,6 +43,13 @@ c      COMMON/abresl/resl(10),standdevl(10)
 *6end
 *
       INTEGER ntotcells,naux,nlabel,nlocal
+c     all the ncall calls are used: npg points in each supercell, plus
+c     one in nrem = ncall-npg*ntotcells of them (npc points in the
+c     current supercell), the estimates of each supercell with its own
+c     number of points (wfac, tfac: 1 when npc = npg)
+      INTEGER nrem,npc
+      INTEGER*8 ilo,ihi
+      DOUBLE PRECISION rstrat,wfac,tfac
       DOUBLE PRECISION sigma_sq_inv
       DOUBLE PRECISION ran_numb(mxdim)
 
@@ -102,13 +109,17 @@ c          ENDIF
         ENDIF
         ntotcells=ng**ndim            ! total number of supercells
         npg=max(ncall/ntotcells,2)    ! number of points per supercell
-        rcalls=npg*ntotcells          
+        rstrat=npg*ntotcells          
+                       ! calls with npg points in every supercell
+        nrem=max(ncall-npg*ntotcells,0)
+                       ! supercells with one more point
+        rcalls=rstrat+nrem
                        ! total number of effective calls per iteration
         dxg=1.d0/ng
-        dv2g=(rcalls*dxg**ndim)**2/npg/npg/(npg-1.d0)
+        dv2g=(rstrat*dxg**ndim)**2/npg/npg/(npg-1.d0)
         xnd=nd
         dxg=dxg*xnd                   ! number of cells per supercell
-        xjac=1.d0/rcalls
+        xjac=1.d0/rstrat
 
         DO 12 j=1,ndim
           dx(j)=region(j+ndim)-region(j)
@@ -205,7 +216,7 @@ c
 !    $OMP+         PRIVATE(NLOCAL,KG,FB,F2B,WGT,XN,IA,XO,RC,X,F,F2)
 !$OMP PARALLEL DEFAULT(PRIVATE)
 !$OMP+ SHARED(NG,NDIM,NPG,XJAC,IDUM,DXG,XI,REGION,XND,DX,DI,MDS,D,
-!$OMP+        TI,TSI)
+!$OMP+        TI,TSI,NREM,NTOTCELLS,DV2G)
 
 !   $OMP DO REDUCTION(+:TI,TSI)
 !$OMP DO
@@ -217,8 +228,25 @@ c
           ENDDO   
           fb=0.d0
           f2b=0.d0
-          DO 19 k=1,npg      ! Loop on points in a supercell
-            wgt=xjac
+c         one more point in nrem supercells, evenly spread over the
+c         labels (those where int(nlabel*nrem/ntotcells) increases).
+c         A supercell with npc points has the weights times npg/npc
+c         and the variance estimate times (npg-1)/(npc-1) (relative to
+c         dv2g, applied at the end of the iteration)
+          npc=npg
+          wfac=1.d0
+          tfac=1.d0
+          if(nrem.gt.0)then
+            ilo=(int(nlabel,8)*nrem)/ntotcells
+            ihi=(int(nlabel+1,8)*nrem)/ntotcells
+            if(ihi.gt.ilo)then
+              npc=npg+1
+              wfac=dble(npg)/dble(npc)
+              tfac=1.d0/(dble(npg)*dv2g)
+            endif
+          endif
+          DO 19 k=1,npc      ! Loop on points in a supercell
+            wgt=xjac*wfac
 !$OMP CRITICAL(idum_updating)
             DO j=1,ndim
               ran_numb(j)=ran2(idum)        ! Flat random variables
@@ -280,23 +308,23 @@ c     end of PT against infinities
               IF(mds.GE.0) d(ia(j),j)=d(ia(j),j)+f2
    18       CONTINUE
 !$OMP END CRITICAL(point_downloading)
-   19     CONTINUE             ! end do on k=1,npg
+   19     CONTINUE             ! end do on k=1,npc
 c     Stratified variance of the histogram bins for this supercell.
 c     NB: like HwU_add_points, this assumes the points of a supercell are
 c     processed by a single thread (true when OpenMP is not enabled).
           if(doplot) then
 !$OMP CRITICAL(hwu_points)
-             call HwU_end_cell(npg)
+             call HwU_end_cell(npc)
 !$OMP END CRITICAL(hwu_points)
           endif
 c     renormalisation-scale variations: variance of this supercell
-          call sv_vegas_end_cell(npg)
-          f2b=sqrt(f2b*npg)
+          call sv_vegas_end_cell(npc,tfac)
+          f2b=sqrt(f2b*npc)
           f2b=(f2b-fb)*(f2b+fb)
           IF (f2b.LE.0.d0) f2b=tiny
 !$OMP CRITICAL(cell_result_downloading)
           ti=ti+fb            ! ti accumulates fxn*wgt
-          tsi=tsi+f2b    
+          tsi=tsi+f2b*tfac
           ! tsi accumulates   sum(npg*(fxn*wgt)**2) - (sum(f*wgt))**2
        ! the extra factor of npg is later eliminated when multiplying by
        ! dv2g leading to the correct averages
@@ -423,7 +451,9 @@ C  (C) Copr. 1986-92 Numerical Recipes Software #>,1')5c).
      *ia1=40014,ia2=40692,iq1=53668,iq2=52774,ir1=12211,ir2=3791,
      *ntab=32,ndiv=1+imm1/ntab,eps=1.2d-7,rnmx=1.-eps)
       INTEGER idum2,j,k,iv(ntab),iy
-      DATA idum2/123456789/, iv/ntab*0/, iy/0/
+c     state of the generator in a common block (ran2_get_state,
+c     ran2_set_state), initialised in block data ran2_init
+      COMMON/ran2_state/idum2,iy,iv
       IF (idum.LE.0) THEN
         idum=max(-idum,1)
         idum2=idum
@@ -449,6 +479,51 @@ C  (C) Copr. 1986-92 Numerical Recipes Software #>,1')5c).
       RETURN
       END
 C  (C) Copr. 1986-92 Numerical Recipes Software #>,1')5c).
+
+
+      BLOCK DATA ran2_init
+      INTEGER ntab
+      PARAMETER (ntab=32)
+      INTEGER idum2,iv(ntab),iy
+      COMMON/ran2_state/idum2,iy,iv
+      DATA idum2/123456789/, iv/ntab*0/, iy/0/
+      END
+
+
+      SUBROUTINE ran2_get_state(st)
+c     full state of ran2: st(1) = idum (common rand), st(2) = idum2,
+c     st(3) = iy, st(4:35) = iv
+      IMPLICIT NONE
+      INTEGER st(35),ntab,idum,i
+      PARAMETER (ntab=32)
+      INTEGER idum2,iv(ntab),iy
+      COMMON/ran2_state/idum2,iy,iv
+      COMMON/rand/idum
+      st(1)=idum
+      st(2)=idum2
+      st(3)=iy
+      DO i=1,ntab
+        st(3+i)=iv(i)
+      ENDDO
+      RETURN
+      END
+
+
+      SUBROUTINE ran2_set_state(st)
+      IMPLICIT NONE
+      INTEGER st(35),ntab,idum,i
+      PARAMETER (ntab=32)
+      INTEGER idum2,iv(ntab),iy
+      COMMON/ran2_state/idum2,iy,iv
+      COMMON/rand/idum
+      idum=st(1)
+      idum2=st(2)
+      iy=st(3)
+      DO i=1,ntab
+        iv(i)=st(3+i)
+      ENDDO
+      RETURN
+      END
 
 
       SUBROUTINE rebin(rc,nd,r,xin,xi)

@@ -20,7 +20,7 @@ c     test-only mode (command-line argument --test_only)
       parameter(ntest_r=20)
       integer ndim,i,j,idum
       double precision s_had
-      integer iu,iu1,iu7,iu8,iu9
+      integer iu,iu1,iu7,iu8,iu9,iuw
       common/cdim/ndim
       double precision int_real_%(isec)d_%(jsec)d
       double precision err_r,res_r
@@ -63,6 +63,19 @@ c     channel decomposition (run_card channel_decomposition)
       double precision err_ch(maxchan),sum_err_ch
       double precision xi_ch(ndmx,mxdim,maxchan)
       integer ndo_ch(maxchan),ncl_ch(maxchan)
+c     warm-up iteration by iteration over the channels, and phases
+c     (see below)
+      integer nclw_ch(maxchan),itw,nflw,ncl_tot,nit_w,nch_w,ndim_w
+      double precision s_ch(maxchan),s_prev(maxchan),s_main(maxchan)
+      double precision sum_s,ncalls_w,t_w0,t_w1,cpu_call
+      double precision rcalls
+      common/abchia/rcalls
+      integer rstate(35)
+      logical do_warm,do_main
+      character*7 fpos
+      integer ntested_c,nchecked_c
+      logical protect_rng_c
+      common/c_tests_R/ntested_c,nchecked_c,protect_rng_c
       INCLUDE 'all_sector_list.inc'
 c
       nfail=0
@@ -93,6 +106,7 @@ c     initialise physics parameters and set sector parametrisation
       iu7=77
       iu8=88
       iu9=99
+      iuw=97
 c
 c     phase-space dimension, same for all contributions to this folder:
 c     one more variable per hadron beam (momentum fractions, as in
@@ -138,6 +152,27 @@ c        (testR_i_j.log), without integration
          stop
       endif
 c
+c     phases: './sector_%(isec)d_%(jsec)d --warmup' only runs the
+c     warm-up and writes warmup_R_%(isec)d_%(jsec)d.dat (grids,
+c     standard deviation per point of each channel, cost per call,
+c     state of the random numbers); './sector_%(isec)d_%(jsec)d --main'
+c     reads it and runs the main integration with the calls per
+c     iteration of main_calls_R_%(isec)d_%(jsec)d.dat, written by
+c     run_all.py, which shares the calls among all the sectors of the
+c     contribution (optimal for the total error at fixed CPU time);
+c     without these arguments, both, with npoints_R/(number of sectors)
+c     calls per iteration. --warmup followed by --main with these calls
+c     gives exactly the same results.
+      do_warm=.true.
+      do_main=.true.
+      do iarg=1,command_argument_count()
+         call get_command_argument(iarg,arg)
+         if(trim(arg).eq.'--warmup')do_main=.false.
+         if(trim(arg).eq.'--main')do_warm=.false.
+      enddo
+      fpos='rewind'
+      if(.not.do_warm)fpos='append'
+c
 c     initialise histograms and open output files
 c      call histo_init
 c     scale variations (rw_rscale, rw_fscale in run_card.dat): one
@@ -148,84 +183,173 @@ c     R and the counterterms set their PDF ratios in lumi_npo
       call sv_init()
       call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
-      open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log')
-      open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log',status='replace',action='write')
-      open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log')
-      open(unit=iu9,file='chan_R_%(isec)d_%(jsec)d.log')
-      open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
+      open(unit=iu1,file='integration_R_%(isec)d_%(jsec)d.log',position=fpos)
+      if(do_warm)then
+         open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log',status='replace',action='write')
+      else
+         open(unit=iu7,file='failures_R_%(isec)d_%(jsec)d.log',position='append',action='write')
+      endif
+      open(unit=iu8,file='testR_%(isec)d_%(jsec)d.log',position=fpos)
+      open(unit=iu9,file='chan_R_%(isec)d_%(jsec)d.log',position=fpos)
+      if(do_main)open(unit=iu,file='results_R_%(isec)d_%(jsec)d.log')
       line='=================================================='
-      write(iu9,*)' Real contribution '
-c
-c     quickly get integration error per channel so to modulate
-c     number of points thrown per channel in the main loop
-c      nclRth0=max(10000,int(nclRth/5d0))
-c      nitRth0=max(5,int(nitRth/2d0))
-c      sum_err_r_a=0d0
-c      do i=1,N_MAX_CG
-c         ich=i
-c         init=0
-c         doplot=.false.
-c         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclRth0,nitRth0,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-c         err_r_a(ich) = err_r
-c         sum_err_r_a = sum_err_r_a + err_r_a(ich)
-c      enddo
+      if(do_warm)write(iu9,*)' Real contribution '
 c
 c     single phase-space channel for the Born (ich=1). With the
 c     channel decomposition (run_card channel_decomposition), one
 c     integration per channel ichan (momentum mapping of a
-c     counterterm piece), with its own vegas grid: warm-ups of all
-c     channels first (nclRth/nch calls each), then the main runs,
-c     the nclR calls being shared among the channels in proportion
-c     to their warm-up errors (optimal for the total error). The
-c     results, histograms and scale variations are summed over the
-c     channels.
+c     counterterm piece), with its own vegas grid.
+c     Warm-up, iteration by iteration over the channels: each channel
+c     runs one vegas iteration on its own grid (flat at the first one),
+c     which refines the grid; its standard deviation per point on that
+c     grid, s = (error of the iteration)*sqrt(calls), is measured. With
+c     more than one channel, the nclRth calls of an iteration are
+c     shared equally at the first one, then in proportion to s of the
+c     previous one, at least max(1000,nclRth/(10 nch)) each (with
+c     fewer calls per iteration, the combination of the iterations by
+c     vegas is biased for integrands with large fluctuations).
+c     Main runs: the calls are shared among the channels in proportion
+c     to s averaged over the last two warm-up iterations, at least
+c     max(1000,calls/(10 nch)) each; each main run continues on the
+c     grid of its warm-up. The results, histograms and scale variations
+c     are summed over the channels.
       ich=1
-      do ichan=1,nch
-         write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ichan
-         write(iu1,*)
-         write(iu1,*)'============================='
-         write(iu1,*)' REAL_%(isec)d_%(jsec)d WARMUP, CHANNEL',ichan
-         write(iu1,*)'============================='
-         init=0
-         doplot=.false.
-         failure_stage='warmup'
-         call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,max(1,nclRth/nch),nitRth,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
-         write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itns, calls = ',ichan,nitRth,max(1,nclRth/nch)
-         err_ch(ichan)=err_r
-         if(nch.gt.1)then
-            do k=1,ndim
-               do j=1,ndmx
-                  xi_ch(j,k,ichan)=xi(j,k)
-               enddo
-            enddo
-            ndo_ch(ichan)=ndo
-         endif
-      enddo
-c     calls of the main runs
-      if(nch.eq.1)then
-         ncl_ch(1)=nclR
-      else
-         sum_err_ch=0d0
+      if(do_warm)then
+         call cpu_time(t_w0)
+         ncalls_w=0d0
+         nflw=max(1000,nclRth/(10*nch))
          do ichan=1,nch
-            sum_err_ch=sum_err_ch+err_ch(ichan)
+            nclw_ch(ichan)=nclRth
+            if(nch.gt.1)nclw_ch(ichan)=max(1000,nclRth/nch)
+            s_ch(ichan)=0d0
+            s_prev(ichan)=0d0
+         enddo
+         do itw=1,max(nitRth,1)
+            do ichan=1,nch
+               if(itw.eq.1)then
+                  init=0
+                  write(*,*)'Real %(isec)d%(jsec)d warmup for channel',ichan
+                  write(iu1,*)
+                  write(iu1,*)'============================='
+                  write(iu1,*)' REAL_%(isec)d_%(jsec)d WARMUP, CHANNEL',ichan
+                  write(iu1,*)'============================='
+               else
+                  do k=1,ndim
+                     do j=1,ndmx
+                        xi(j,k)=xi_ch(j,k,ichan)
+                     enddo
+                  enddo
+                  ndo=ndo_ch(ichan)
+                  init=1
+               endif
+               doplot=.false.
+               failure_stage='warmup'
+               call vegas(region,ndim,int_real_%(isec)d_%(jsec)d,init,nclw_ch(ichan),1,nprn,res_r,err_r,chi2a,acc,xi,it,ndo,si,swgt,schi)
+               do k=1,ndim
+                  do j=1,ndmx
+                     xi_ch(j,k,ichan)=xi(j,k)
+                  enddo
+               enddo
+               ndo_ch(ichan)=ndo
+               ncalls_w=ncalls_w+rcalls
+               s_prev(ichan)=s_ch(ichan)
+               s_ch(ichan)=err_r*dsqrt(rcalls)
+               if(.not.(s_ch(ichan).ge.0d0.and.s_ch(ichan).lt.huge(1d0)))s_ch(ichan)=0d0
+               write(iu9,*)'R%(isec)d%(jsec)d warmup: channel, itn, calls, sd/point = ',ichan,itw,nclw_ch(ichan),s_ch(ichan)
+            enddo
+c           calls of the next warm-up iteration
+            if(nch.gt.1)then
+               sum_s=0d0
+               do ichan=1,nch
+                  sum_s=sum_s+s_ch(ichan)
+               enddo
+               if(sum_s.gt.0d0)then
+                  do ichan=1,nch
+                     nclw_ch(ichan)=max(nflw,nint(nclRth*s_ch(ichan)/sum_s))
+                  enddo
+               endif
+            endif
+         enddo
+         call cpu_time(t_w1)
+         cpu_call=0d0
+         if(ncalls_w.gt.0d0)cpu_call=(t_w1-t_w0)/ncalls_w
+         do ichan=1,nch
+            s_main(ichan)=s_ch(ichan)
+            if(nitRth.ge.2)s_main(ichan)=0.5d0*(s_ch(ichan)+s_prev(ichan))
+         enddo
+         if(.not.do_main)then
+c           warm-up only: save the state and stop
+            call ran2_get_state(rstate)
+            open(unit=iuw,file='warmup_R_%(isec)d_%(jsec)d.dat',status='replace')
+            write(iuw,*)'MADNKLO_WARMUP 1'
+            write(iuw,*)nch,ndim,ndmx,nclR,nitR,ncalls_w,cpu_call
+            do ichan=1,nch
+               write(iuw,'(es26.17e3,i6)')s_main(ichan),ndo_ch(ichan)
+               write(iuw,'(4es26.17e3)')((xi_ch(j,k,ichan),j=1,ndmx),k=1,ndim)
+            enddo
+            write(iuw,'(5i14)')rstate
+            close(iuw)
+            close(iu1)
+            close(iu7)
+            close(iu8)
+            close(iu9)
+            write(*,*)'Warm-up written to warmup_R_%(isec)d_%(jsec)d.dat'
+            stop
+         endif
+      else
+c        main only: state of the warm-up
+         open(unit=iuw,file='warmup_R_%(isec)d_%(jsec)d.dat',status='old')
+         read(iuw,*)
+         read(iuw,*)nch_w,ndim_w,j,k,nit_w,ncalls_w,cpu_call
+         if(nch_w.ne.nch.or.ndim_w.ne.ndim.or.j.ne.ndmx)then
+            write(*,*)'warmup_R_%(isec)d_%(jsec)d.dat does not match this executable'
+            stop 1
+         endif
+         do ichan=1,nch
+            read(iuw,*)s_main(ichan),ndo_ch(ichan)
+            read(iuw,*)((xi_ch(j,k,ichan),j=1,ndmx),k=1,ndim)
+         enddo
+         read(iuw,*)rstate
+         close(iuw)
+         call ran2_set_state(rstate)
+c        the channel checks of the first points have been done in the
+c        warm-up phase; the limit tests are run again (they initialise
+c        the matrix elements) without changing the random numbers
+         nchecked_c=ntest_r
+         protect_rng_c=.true.
+      endif
+c
+c     calls per iteration of the main runs: npoints_R/(number of
+c     sectors), or those given by run_all.py (main_calls_R_i_j.dat)
+      ncl_tot=nclR
+      if(.not.do_warm)then
+         open(unit=iuw,file='main_calls_R_%(isec)d_%(jsec)d.dat',status='old',err=11)
+         read(iuw,*)ncl_tot
+         close(iuw)
+ 11      continue
+      endif
+      if(nch.eq.1)then
+         ncl_ch(1)=ncl_tot
+      else
+         sum_s=0d0
+         do ichan=1,nch
+            sum_s=sum_s+s_main(ichan)
          enddo
          do ichan=1,nch
-            if(sum_err_ch.gt.0d0)then
-               ncl_ch(ichan)=max(nclR/(10*nch),nint(nclR*err_ch(ichan)/sum_err_ch))
+            if(sum_s.gt.0d0)then
+               ncl_ch(ichan)=max(1000,ncl_tot/(10*nch),nint(ncl_tot*s_main(ichan)/sum_s))
             else
-               ncl_ch(ichan)=max(1,nclR/nch)
+               ncl_ch(ichan)=max(1000,ncl_tot/nch)
             endif
          enddo
       endif
       do ichan=1,nch
-         if(nch.gt.1)then
-            do k=1,ndim
-               do j=1,ndmx
-                  xi(j,k)=xi_ch(j,k,ichan)
-               enddo
+         do k=1,ndim
+            do j=1,ndmx
+               xi(j,k)=xi_ch(j,k,ichan)
             enddo
-            ndo=ndo_ch(ichan)
-         endif
+         enddo
+         ndo=ndo_ch(ichan)
          write(*,*)'Real %(isec)d%(jsec)d for channel',ichan
          write(iu1,*)
          write(iu1,*)'============================='
@@ -249,15 +373,8 @@ c
 c     finalise histograms and output files
       call analysis_end(1d0,'plot_R_%(isec)d_%(jsec)d.dat')
       sum_err_r = dsqrt(sum_err_r)
-c      call histo_final('plot_R_%(isec)d_%(jsec)d.dat',rescale_plot_R)
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       write(iu,*)' sigma R%(isec)d%(jsec)d [pb]  = ',sum_r,' +-',sum_err_r
       call sv_write_results(iu,'R%(isec)d%(jsec)d',sum_r,sum_err_r)
-c      write(iu,*)
-c      write(iu,*)' '//line
-c      write(iu,*)
       close(iu)
       close(iu1)
       if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail

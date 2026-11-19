@@ -51,6 +51,13 @@ c
       double precision s_ch(N_MAX_CG),s_prev(N_MAX_CG),s_main,sum_s
       double precision rcalls
       common/abchia/rcalls
+c     phases (--warmup, --main: see below)
+      integer iuw,ncl_tot,nch_w,ndim_w,nit_w,iarg
+      double precision s_mn(N_MAX_CG),ncalls_w,t_w0,t_w1,cpu_call
+      integer rstate(35)
+      logical do_warm,do_main
+      character*7 fpos
+      character*40 arg
       integer nwgt
       character*80 weights_info(100)
 c
@@ -99,12 +106,37 @@ c     LO: the PDF ratios of the muF variations are computed (LO_B.f)
       call sv_init()
       call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
-      open(unit=iu1,file='integration_B.log')
-      open(unit=iu7,file='failures_B.log',status='replace',action='write')
-      open(unit=iu8 ,file='B_chan.log')
-      open(unit=iu ,file='results_B.log')
+c     phases: './Born --warmup' only runs the warm-up and writes
+c     warmup_B.dat (grids, standard deviation per point of each channel,
+c     cost per call, state of the random numbers); './Born --main'
+c     reads it and runs the main integration with the calls per
+c     iteration of main_calls_B.dat, written by run_all.py, which shares
+c     the calls among the P1_* directories of the contribution (optimal
+c     for the total error at fixed CPU time); without these arguments,
+c     both, with npoints_B calls per iteration. --warmup followed by
+c     --main with these calls gives exactly the same results.
+      iuw=97
+      do_warm=.true.
+      do_main=.true.
+      do iarg=1,command_argument_count()
+         call get_command_argument(iarg,arg)
+         if(trim(arg).eq.'--warmup')do_main=.false.
+         if(trim(arg).eq.'--main')do_warm=.false.
+      enddo
+      fpos='rewind'
+      if(.not.do_warm)fpos='append'
+      open(unit=iu1,file='integration_B.log',position=fpos)
+      if(do_warm)then
+         open(unit=iu7,file='failures_B.log',status='replace',
+     &        action='write')
+      else
+         open(unit=iu7,file='failures_B.log',position='append',
+     &        action='write')
+      endif
+      open(unit=iu8 ,file='B_chan.log',position=fpos)
+      if(do_main)open(unit=iu ,file='results_B.log')
       line='=================================================='
-      write(iu,*)' Born contribution '
+      if(do_main)write(iu,*)' Born contribution '
 c
 c     channels: the phase-space configurations (configs.f), each
 c     integrating the Born times its multi-channel weight
@@ -126,6 +158,9 @@ c     averaged over the last two warm-up iterations, at least
 c     max(1000,npoints_B/(10 nchan)) each; each main run continues on
 c     the grid of its warm-up.
       nchan=n_born_channels()
+      if(do_warm)then
+      call cpu_time(t_w0)
+      ncalls_w=0d0
       nflw=max(1000,nclBth/(10*nchan))
       do ich=1,nchan
          nclw_ch(ich)=max(1000,nclBth/nchan)
@@ -161,6 +196,7 @@ c     the grid of its warm-up.
                enddo
             enddo
             ndo_ch(ich)=ndo
+            ncalls_w=ncalls_w+rcalls
             s_prev(ich)=s_ch(ich)
             s_ch(ich)=err_b*dsqrt(rcalls)
             if(.not.(s_ch(ich).ge.0d0.and.s_ch(ich).lt.huge(1d0)))
@@ -179,22 +215,70 @@ c        calls of the next warm-up iteration
             enddo
          endif
       enddo
-c     calls of the main runs
+      call cpu_time(t_w1)
+      cpu_call=0d0
+      if(ncalls_w.gt.0d0)cpu_call=(t_w1-t_w0)/ncalls_w
+      do ich=1,nchan
+         s_mn(ich)=s_ch(ich)
+         if(nitBth.ge.2)s_mn(ich)=0.5d0*(s_ch(ich)+s_prev(ich))
+      enddo
+      if(.not.do_main)then
+c        warm-up only: save the state and stop
+         call ran2_get_state(rstate)
+         open(unit=iuw,file='warmup_B.dat',status='replace')
+         write(iuw,*)'MADNKLO_WARMUP 1'
+         write(iuw,*)nchan,ndim,ndmx,nclB,nitB,ncalls_w,cpu_call
+         do ich=1,nchan
+            write(iuw,'(es26.17e3,i6)')s_mn(ich),ndo_ch(ich)
+            write(iuw,'(4es26.17e3)')
+     &           ((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
+         enddo
+         write(iuw,'(5i14)')rstate
+         close(iuw)
+         close(iu1)
+         close(iu7)
+         close(iu8)
+         write(*,*)'Warm-up written to warmup_B.dat'
+         stop
+      endif
+      else
+c     main only: state of the warm-up
+      open(unit=iuw,file='warmup_B.dat',status='old')
+      read(iuw,*)
+      read(iuw,*)nch_w,ndim_w,j,k,nit_w,ncalls_w,cpu_call
+      if(nch_w.ne.nchan.or.ndim_w.ne.ndim.or.j.ne.ndmx)then
+         write(*,*)'warmup_B.dat does not match this executable'
+         stop 1
+      endif
+      do ich=1,nchan
+         read(iuw,*)s_mn(ich),ndo_ch(ich)
+         read(iuw,*)((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
+      enddo
+      read(iuw,*)rstate
+      close(iuw)
+      call ran2_set_state(rstate)
+      endif
+c     calls per iteration of the main runs: npoints_B, or those given by
+c     run_all.py (main_calls_B.dat)
+      ncl_tot=nclB
+      if(.not.do_warm)then
+         open(unit=iuw,file='main_calls_B.dat',status='old',err=11)
+         read(iuw,*)ncl_tot
+         close(iuw)
+ 11      continue
+      endif
       sum_s=0d0
       do ich=1,nchan
-         s_main=s_ch(ich)
-         if(nitBth.ge.2)s_main=0.5d0*(s_ch(ich)+s_prev(ich))
-         s_prev(ich)=s_main
-         sum_s=sum_s+s_main
+         sum_s=sum_s+s_mn(ich)
       enddo
       do ich=1,nchan
          if(nchan.eq.1)then
-            ncl_ch(ich)=nclB
+            ncl_ch(ich)=ncl_tot
          elseif(sum_s.gt.0d0)then
-            ncl_ch(ich)=max(1000,nclB/(10*nchan),
-     &           nint(nclB*s_prev(ich)/sum_s))
+            ncl_ch(ich)=max(1000,ncl_tot/(10*nchan),
+     &           nint(ncl_tot*s_mn(ich)/sum_s))
          else
-            ncl_ch(ich)=max(1000,nclB/nchan)
+            ncl_ch(ich)=max(1000,ncl_tot/nchan)
          endif
       enddo
 c

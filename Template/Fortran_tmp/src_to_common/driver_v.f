@@ -60,6 +60,12 @@ c
       double precision s_ch(N_MAX_CG),s_prev(N_MAX_CG),s_main,sum_s
       double precision rcalls
       common/abchia/rcalls
+c     phases (--warmup, --main: see below)
+      integer iuw,ncl_tot,nch_w,ndim_w,nit_w
+      double precision s_mn(N_MAX_CG),ncalls_w,t_w0,t_w1,cpu_call
+      integer rstate(35)
+      logical do_warm,do_main
+      character*7 fpos
       integer nwgt
       character*80 weights_info(100)
 c     integrand (common with int_virtual, NLO_V_*.f):
@@ -88,15 +94,23 @@ c     read inputs
       idum = -max(abs(iseed),1)
       s_had = (EBEAM(1)+EBEAM(2))**2
 c
-c     command-line arguments: '--test_only' (tests only, see below) and
-c     '--counterterms' (I + J + C only)
+c     command-line arguments: '--test_only' (tests only, see below),
+c     '--counterterms' (I + J + C only), and the phases '--warmup' and
+c     '--main' (see below)
       test_only=.false.
       counterterms=.false.
+      do_warm=.true.
+      do_main=.true.
       do iarg=1,command_argument_count()
          call get_command_argument(iarg,arg)
          if(trim(arg).eq.'--test_only')test_only=.true.
          if(trim(arg).eq.'--counterterms')counterterms=.true.
+         if(trim(arg).eq.'--warmup')do_main=.false.
+         if(trim(arg).eq.'--main')do_warm=.false.
       enddo
+      iuw=97
+      fpos='rewind'
+      if(.not.do_warm)fpos='append'
       vmode=0
       if(n_vc_folds.gt.1)vmode=1
       if(counterterms)then
@@ -177,17 +191,37 @@ c     the integrand computes V+I and J+C at each muF (NLO_V_template.f)
       call sv_init()
       call sv_weights_info(nwgt,weights_info,100)
       call analysis_begin(nwgt,weights_info)
-      open(unit=iu1,file='integration_'//trim(tag)//'.log')
+c     phases: './virtual --warmup' (also with --counterterms) only
+c     runs the warm-up and writes warmup_<tag>.dat (grids, standard
+c     deviation per point of each channel, cost per call, state of the
+c     random numbers); './virtual --main' reads it and runs the main
+c     integration with the calls per iteration of main_calls_<tag>.dat,
+c     written by run_all.py, which shares the calls among the P1_*
+c     directories of the contribution (optimal for the total error at
+c     fixed CPU time); without these arguments, both, with npoints_V
+c     calls per iteration (times n_VC_folds for VC). --warmup followed
+c     by --main with these calls gives the same results (up to the
+c     initialisation of MadLoop, done in the first process).
+      open(unit=iu1,file='integration_'//trim(tag)//'.log',
+     &     position=fpos)
 c     pole test (V + I) on the first points: needs the loop
-      if(vmode.ne.2)open(unit=iu2,file='test_poles_V.log')
-      open(unit=iu7,file='failures_'//trim(tag)//'.log',status='replace',
-     &     action='write')
-      open(unit=iu8,file=trim(tag)//'_chan.log')
-      open(unit=iu,file='results_'//trim(tag)//'.log')
+      if(vmode.ne.2)open(unit=iu2,file='test_poles_V.log',position=fpos)
+      if(do_warm)then
+         open(unit=iu7,file='failures_'//trim(tag)//'.log',
+     &        status='replace',action='write')
+      else
+         open(unit=iu7,file='failures_'//trim(tag)//'.log',
+     &        position='append',action='write')
+      endif
+      open(unit=iu8,file=trim(tag)//'_chan.log',position=fpos)
+      if(do_main)then
+         open(unit=iu,file='results_'//trim(tag)//'.log')
+         if(vmode.eq.0)write(iu,*)' Virtual contribution '
+         if(vmode.eq.1)write(iu,*)' Virtual contribution, loop only '
+         if(vmode.eq.2)write(iu,*)
+     &        ' Virtual contribution, I + J + C only '
+      endif
       line='=================================================='
-      if(vmode.eq.0)write(iu,*)' Virtual contribution '
-      if(vmode.eq.1)write(iu,*)' Virtual contribution, loop only '
-      if(vmode.eq.2)write(iu,*)' Virtual contribution, I + J + C only '
 c
 c     channels: the phase-space configurations (configs.f), each
 c     integrating the virtual times its multi-channel weight
@@ -209,6 +243,9 @@ c     averaged over the last two warm-up iterations, at least
 c     max(1000,npoints_V/(10 nchan)) each; each main run continues on
 c     the grid of its warm-up.
       nchan=n_born_channels()
+      if(do_warm)then
+      call cpu_time(t_w0)
+      ncalls_w=0d0
       nflw=max(1000,nclVth/(10*nchan))
       do ich=1,nchan
          nclw_ch(ich)=max(1000,nclVth/nchan)
@@ -245,6 +282,7 @@ c     the grid of its warm-up.
                enddo
             enddo
             ndo_ch(ich)=ndo
+            ncalls_w=ncalls_w+rcalls
             s_prev(ich)=s_ch(ich)
             s_ch(ich)=err_v*dsqrt(rcalls)
             if(.not.(s_ch(ich).ge.0d0.and.s_ch(ich).lt.huge(1d0)))
@@ -264,22 +302,73 @@ c        calls of the next warm-up iteration
             enddo
          endif
       enddo
-c     calls of the main runs
+      call cpu_time(t_w1)
+      cpu_call=0d0
+      if(ncalls_w.gt.0d0)cpu_call=(t_w1-t_w0)/ncalls_w
+      do ich=1,nchan
+         s_mn(ich)=s_ch(ich)
+         if(nitVth.ge.2)s_mn(ich)=0.5d0*(s_ch(ich)+s_prev(ich))
+      enddo
+      if(.not.do_main)then
+c        warm-up only: save the state and stop
+         call ran2_get_state(rstate)
+         open(unit=iuw,file='warmup_'//trim(tag)//'.dat',
+     &        status='replace')
+         write(iuw,*)'MADNKLO_WARMUP 1'
+         write(iuw,*)nchan,ndim,ndmx,nclV,nitV,ncalls_w,cpu_call
+         do ich=1,nchan
+            write(iuw,'(es26.17e3,i6)')s_mn(ich),ndo_ch(ich)
+            write(iuw,'(4es26.17e3)')
+     &           ((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
+         enddo
+         write(iuw,'(5i14)')rstate
+         close(iuw)
+         close(iu1)
+         if(vmode.ne.2)close(iu2)
+         close(iu7)
+         close(iu8)
+         write(*,*)'Warm-up written to warmup_'//trim(tag)//'.dat'
+         stop
+      endif
+      else
+c     main only: state of the warm-up
+      open(unit=iuw,file='warmup_'//trim(tag)//'.dat',status='old')
+      read(iuw,*)
+      read(iuw,*)nch_w,ndim_w,j,k,nit_w,ncalls_w,cpu_call
+      if(nch_w.ne.nchan.or.ndim_w.ne.ndim.or.j.ne.ndmx)then
+         write(*,*)'warmup_'//trim(tag)//'.dat does not match'
+         stop 1
+      endif
+      do ich=1,nchan
+         read(iuw,*)s_mn(ich),ndo_ch(ich)
+         read(iuw,*)((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
+      enddo
+      read(iuw,*)rstate
+      close(iuw)
+      call ran2_set_state(rstate)
+      endif
+c     calls per iteration of the main runs: npoints_V (times n_VC_folds
+c     for VC), or those given by run_all.py (main_calls_<tag>.dat)
+      ncl_tot=nclV
+      if(.not.do_warm)then
+         open(unit=iuw,file='main_calls_'//trim(tag)//'.dat',
+     &        status='old',err=11)
+         read(iuw,*)ncl_tot
+         close(iuw)
+ 11      continue
+      endif
       sum_s=0d0
       do ich=1,nchan
-         s_main=s_ch(ich)
-         if(nitVth.ge.2)s_main=0.5d0*(s_ch(ich)+s_prev(ich))
-         s_prev(ich)=s_main
-         sum_s=sum_s+s_main
+         sum_s=sum_s+s_mn(ich)
       enddo
       do ich=1,nchan
          if(nchan.eq.1)then
-            ncl_ch(ich)=nclV
+            ncl_ch(ich)=ncl_tot
          elseif(sum_s.gt.0d0)then
-            ncl_ch(ich)=max(1000,nclV/(10*nchan),
-     &           nint(nclV*s_prev(ich)/sum_s))
+            ncl_ch(ich)=max(1000,ncl_tot/(10*nchan),
+     &           nint(ncl_tot*s_mn(ich)/sum_s))
          else
-            ncl_ch(ich)=max(1000,nclV/nchan)
+            ncl_ch(ich)=max(1000,ncl_tot/nchan)
          endif
       enddo
 c

@@ -3,6 +3,8 @@
 c     collinear limit C_(ia,ib) * Wcollinear - S_(ia)C_(ia,ib)
       use sectors2_module
       implicit none
+      logical sig2_called
+      common/c_sig2_called/sig2_called
       double precision fl_factor_npo
       external fl_factor_npo
       include 'nexternal.inc'
@@ -110,6 +112,13 @@ c     TODO: improve ktmuktnuBmunu / kt^2
       M2_C_gg  = CA*2d0*(2d0/sab*KKBLO+x/(1d0-x)*BLO+(1d0-x)/x*BLO)
       M2_SC_gg = CA*2d0*((1d0-x)/x*(1d0-x)**alpha)*BLO
 c     compute collinear limit of sector function
+c     the sector-function normalisations of this phase-space point
+c     (get_sig2): computed in the real-emission integrand only if
+c     the real passes the cuts, so here when it does not
+      if(.not.sig2_called)then
+         call get_sig2(xs,nexternal)
+         sig2_called=.true.
+      endif
       call get_wc_nlo(isec,jsec,iref)
       M2_C_gg  = M2_C_gg*wc_nlo
 c     damping with a massive recoiler is not available (the integrated

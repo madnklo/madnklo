@@ -644,13 +644,14 @@ c
       end
 
 
-      subroutine sv_vegas_end_cell(npg)
+      subroutine sv_vegas_end_cell(npg,tfac)
 c     called by vegas at the end of each supercell (npg points): same
-c     variance estimate as for the central value
+c     variance estimate as for the central value (tfac: factor of the
+c     supercells with one more point than the others, see vegas.f)
       use scale_var_module
       implicit none
       integer npg,k
-      double precision t
+      double precision t,tfac
 c
       if(sv_n.eq.0)return
       do k=0,sv_n*sv_nv
@@ -658,7 +659,7 @@ c
          t=(t-sv_fb(k))*(t+sv_fb(k))
          if(t.le.0d0)t=1d-30
          sv_ti(k)=sv_ti(k)+sv_fb(k)
-         sv_tsi(k)=sv_tsi(k)+t
+         sv_tsi(k)=sv_tsi(k)+t*tfac
          sv_fb(k)=0d0
          sv_f2b(k)=0d0
       enddo

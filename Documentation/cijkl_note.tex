@@ -146,6 +146,56 @@ s_{[ij]\kb}=\frac{s+s_{ij}-s_{kl}+\sqL}{2},
 \end{equation}
 and the same with $(ij)\leftrightarrow(kl)$, $\jb\leftrightarrow\kb$.
 
+\subsection{Origin: two CS steps with mutual spectators}
+\label{sec:CSform}
+Eq.~\eqref{eq:map} is what one obtains by applying two CS maps, each using the parent of the other
+pair as spectator. Take the CS parents
+\begin{equation}
+k_a=k_i+k_j-\frac{s_{ij}}{s_{[ij]b}}\,k_b,\qquad
+k_b=k_k+k_l-\frac{s_{kl}}{s_{[kl]a}}\,k_a,
+\label{eq:CSparents}
+\end{equation}
+with $s_{[ij]b}=2(k_i+k_j)\cdot k_b$ and $s_{[kl]a}=2(k_k+k_l)\cdot k_a$. Here each definition contains the other momentum.
+As for a CS parent, on-shellness is automatic:
+\begin{equation}
+k_a^2=s_{ij}-\frac{s_{ij}}{s_{[ij]b}}\,2(k_i+k_j)\cdot k_b+\Big(\frac{s_{ij}}{s_{[ij]b}}\Big)^2k_b^2
+=s_{ij}-\frac{s_{ij}}{s_{[ij]b}}\,s_{[ij]b}=0
+\end{equation}
+holds identically for any massless $k_b$, and likewise $k_b^2=0$ for any massless $k_a$.
+The system therefore only fixes the \emph{directions} of $k_a$ and $k_b$.
+To solve the system, decompose $k_i+k_j=a\,\jb+b\,\kb$, where $a=s_{[ij]\kb}/s$ and $b=s_{[ij]\jb}/s$; this is possible
+because $k_i+k_j\in{\rm span}(\jb,\kb)$. Then $k_k+k_l=(1-a)\jb+(1-b)\kb$, with $ab=s_{ij}/s$ and $(1-a)(1-b)=s_{kl}/s$.
+The physical solution is
+\begin{equation}
+k_a=a\,\jb=\frac{s_{[ij]\kb}}{s}\,\jb,\qquad
+k_b=(1-b)\,\kb=\frac{s_{[kl]\jb}}{s}\,\kb .
+\label{eq:CSsol}
+\end{equation}
+\textit{Check.} $s_{[ij]b}=2(a\jb+b\kb)\cdot(1-b)\kb=a(1-b)s$, so $s_{ij}/s_{[ij]b}=b/(1-b)$ and
+$k_i+k_j-\frac{b}{1-b}(1-b)\kb=a\jb=k_a$. Likewise $s_{[kl]a}=a(1-b)s$, so $s_{kl}/s_{[kl]a}=(1-a)/a$ and $k_k+k_l-(1-a)\jb=(1-b)\kb=k_b$.
+The other solution of Eq.~\eqref{eq:CSparents} is unphysical (Appendix~\ref{app:branch}).
+
+\paragraph{Spectator rescaling.} By themselves, the parents do not conserve momentum:
+\begin{equation}
+k_a+k_b=Q-(1-a)\,\jb-b\,\kb\neq Q .
+\end{equation}
+The missing piece is the spectator half of each CS step. In a CS map $(ijr)$ the parent is $k_i+k_j-\frac{y}{1-y}k_r$, with
+$y=s_{ij}/(s_{ij}+s_{[ij]r})$, i.e.\ $\frac{y}{1-y}=\frac{s_{ij}}{s_{[ij]r}}$, and the spectator is rescaled to $k_r/(1-y)$.
+Here the spectator of $(ij)$ is $k_b$, and the spectator of $(kl)$ is $k_a$:
+\begin{equation}
+y_{ij}=\frac{s_{ij}}{s_{ij}+s_{[ij]b}}=b,\qquad
+y_{kl}=\frac{s_{kl}}{s_{kl}+s_{[kl]a}}=1-a .
+\end{equation}
+Rescaling each parent in its role as spectator gives the Born momenta of Eq.~\eqref{eq:map}:
+\begin{equation}
+\boxed{\;\jb=\frac{k_a}{1-y_{kl}},\qquad \kb=\frac{k_b}{1-y_{ij}},\qquad
+\jb+\kb=k_a+k_b+\frac{y_{kl}}{1-y_{kl}}k_a+\frac{y_{ij}}{1-y_{ij}}k_b=Q .\;}
+\end{equation}
+Each Born momentum thus plays two roles: it is the parent of its own pair, and the rescaled spectator of the other pair.
+In the $\bbC{ijkl}$ limit $y_{ij},y_{kl}\to0$, so parents and Born momenta coincide. In the $\bbC{ij}$ limit $y_{ij}\to0$, and only the
+$(kl)$ step survives, i.e.\ the CS map $(k\,l\,[ij])$ of Section~\ref{sec:map}. In an implementation one can use
+either Eq.~\eqref{eq:map} or Eqs.~\eqref{eq:CSsol} with the rescaling; the two are identical (checked numerically to $10^{-16}$).
+
 \subsection{Properties}
 \begin{itemize}
 \item \textbf{Symmetry.} Eq.~\eqref{eq:map} depends only on $k_i+k_j$, $k_k+k_l$ and $Q$.
@@ -936,5 +986,32 @@ With the map of Eq.~\eqref{eq:M1} this difference is zero (up to sector function
 The advantage of recoiler $l$ is that the integrated $K^{(1)}$ is the standard CS
 $J^{ijl}_{\rm hc}$, which contains only $\Gamma$-functions and $s_{[ij]l}^{-\eps}$, instead of
 $\mathcal R(s_{kl}/s;\eps)$. Both options give Eq.~\eqref{eq:intCijkl} for the integrated $K^{(2)}$.
+
+
+%======================================================================
+\section{The second solution of the CS-form equations}
+\label{app:branch}
+
+Eq.~\eqref{eq:CSparents} reads $k_a+c\,k_b=k_i+k_j$ and $k_b+c'\,k_a=k_k+k_l$, with $c=s_{ij}/s_{[ij]b}$ and $c'=s_{kl}/s_{[kl]a}$.
+For $cc'\neq1$ this gives $k_a=(k_i+k_j-c\,(k_k+k_l))/(1-cc')$, and similarly for $k_b$. Hence $k_a,k_b\in{\rm span}(k_i+k_j,k_k+k_l)={\rm span}(\jb,\kb)$.
+This plane contains only two light-like directions, those of $\jb$ and $\kb$. Moreover, $k_a$ and $k_b$ cannot be parallel, otherwise $k_i+k_j$ would be light-like.
+So there are exactly two assignments:
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lcccc}\toprule
+& $k_a$ & $k_b$ & $c=s_{ij}/s_{[ij]b}$ & $c'=s_{kl}/s_{[kl]a}$\\\midrule
+physical & $a\,\jb$ & $(1-b)\,\kb$ & $b/(1-b)$ & $(1-a)/a$\\
+unphysical & $b\,\kb$ & $(1-a)\,\jb$ & $a/(1-a)$ & $(1-b)/b$\\\bottomrule
+\end{tabular}
+\end{center}
+Both satisfy Eq.~\eqref{eq:CSparents} exactly (numerically to $10^{-16}$). In the second solution:
+\begin{itemize}
+\item the parent of $(ij)$ points along $\kb$, i.e.\ \emph{opposite} to $\vec k_i+\vec k_j$ in the $Q$ frame;
+\item $c,c'\to\infty$ in the $\bbC{ijkl}$ limit ($a\to1$, $b\to0$); at small $s_{ij},s_{kl}$ we find $c,c'\sim10$--$70$, against $c,c'\sim0.02$--$0.09$ on the physical branch;
+\item after the spectator rescaling it gives the same two Born momenta, but with $[ij]$ and $[kl]$ exchanged. The Born therefore does not tend to
+$\{k_i+k_j,\,k_k+k_l\}$ in the collinear limits.
+\end{itemize}
+The physical branch is the one with $c,c'\to0$ in the $\bbC{ijkl}$ limit, equivalently with $k_a$ along $\vec k_i+\vec k_j$; it also has $cc'<1$.
+With the closed form of Eq.~\eqref{eq:CSsol} the question does not arise. It matters only if Eq.~\eqref{eq:CSparents} were solved numerically (e.g.\ by iteration).
 
 \end{document}

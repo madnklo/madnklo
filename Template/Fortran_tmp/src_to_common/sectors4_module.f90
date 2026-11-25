@@ -4,14 +4,14 @@ module sectors4_module
   double precision, public, parameter :: alpha_mod=2d0
   double precision, public, parameter :: alpha_mod_bar=1d0
   double precision, public :: W_NNLO, WSS_NNLO, WCC_NNLO, WSS_CC_NNLO, WSC_IKL_NNLO, WSC_KIJ_NNLO, WSS_SC_IKL_NNLO, WSS_SC_KIJ_NNLO
-  double precision, public :: WSC_CC_IJK_NNLO, WSC_CC_KIJ_NNLO, WSS_SC_CC_IJK_NNLO, WSS_SC_CC_KIJ_NNLO
+  double precision, public :: WSC_CC_IJK_NNLO, WSC_CC_KIJ_NNLO, WSS_SC_CC_IJK_NNLO, WSS_SC_CC_KIJ_NNLO, WCC_4p_NNLO
   double precision, public :: Wbar_NLO, WS_NLO, WSbar_NLO, WC_NLO, WCbar_NLO, WS12_NLO
   double precision, allocatable, dimension(:,:), public :: xs_mod
   double precision, allocatable, dimension(:,:), public :: w,sig2,hatsig2
   double precision, allocatable, dimension(:,:,:,:), public :: sigNNLO,hatsigNNLO
   public :: get_sigNNLO, get_hatsigNNLO, get_W_NNLO, get_WSS_NNLO, get_WCC_NNLO, get_WSS_CC_NNLO
   public :: get_WSC_IKL_NNLO, get_WSC_KIJ_NNLO, get_WSS_SC_IKL_NNLO, get_WSS_SC_KIJ_NNLO, get_WSC_CC_IJK_NNLO, get_WSC_CC_KIJ_NNLO
-  public :: get_WSS_SC_CC_IJK_NNLO, get_WSS_SC_CC_KIJ_NNLO
+  public :: get_WSS_SC_CC_IJK_NNLO, get_WSS_SC_CC_KIJ_NNLO, get_WCC_4p_NNLO
   public :: get_w, get_sig2, get_Wbar_NLO, get_WS_NLO, get_WSbar_NLO, get_WC_NLO, get_WCbar_NLO, get_WS12_NLO
   private
 
@@ -185,6 +185,24 @@ contains
     enddo
     wcc_nnlo=num/sigma
   end subroutine get_WCC_NNLO
+
+  subroutine get_WCC_4p_NNLO(a,b,c,d,pab,pcd)
+          ! NNLO double-collinear sector functions WCC
+    implicit none
+    integer :: i,ii(3),a,b,c,d,pab,pcd,sec(4)
+    double precision :: num, sigma
+    include 'all_K2_sector_list.inc'
+    num = sigNNLO(a,b,c,d)/w(a,pcd)/w(c,pab)
+    sigma = 0d0
+    ii = sort4([a,b,c])
+    do i=1,len
+       sec=cccc_sector_list(ii(1),ii(2),ii(3),i,:)
+       if(all(sec.eq.0))cycle
+       sigma = sigma + sigNNLO(sec(1),sec(2),sec(3),sec(4))/w(sec(1),pcd)/w(sec(3),pab)
+    enddo
+    wcc_4p_nnlo=num/sigma
+  end subroutine get_WCC_4p_NNLO
+
 
   subroutine get_WSS_CC_NNLO(a,b,c,d)
           ! NNLO double-soft double-collinear sector functions WSSCC
@@ -562,5 +580,16 @@ contains
     if (jj(1) > jj(3)) call swap(jj(1), jj(3))
     if (jj(2) > jj(3)) call swap(jj(2), jj(3))
   end function sort3
+
+  function sort4(ii) result(jj)
+    integer, intent(in) :: ii(4)
+    integer :: jj(4)
+    jj = ii
+    if (jj(1) > jj(2)) call swap(jj(1), jj(2))
+    if (jj(3) > jj(4)) call swap(jj(3), jj(4))
+    if (jj(1) > jj(3)) call swap(jj(1), jj(3))
+    if (jj(2) > jj(4)) call swap(jj(2), jj(4))
+    if (jj(2) > jj(3)) call swap(jj(2), jj(3))
+  end function sort4
 
 end module sectors4_module

@@ -194,9 +194,9 @@ contains
     include 'all_K2_sector_list.inc'
     num = sigNNLO(a,b,c,d)/w(a,pcd)/w(c,pab)
     sigma = 0d0
-    ii = sort4([a,b,c])
+    ii = sort4([a,b,c,d])
     do i=1,len
-       sec=cccc_sector_list(ii(1),ii(2),ii(3),i,:)
+       sec=cccc_sector_list(ii(1),ii(2),ii(3),ii(4),i,:)
        if(all(sec.eq.0))cycle
        sigma = sigma + sigNNLO(sec(1),sec(2),sec(3),sec(4))/w(sec(1),pcd)/w(sec(3),pab)
     enddo

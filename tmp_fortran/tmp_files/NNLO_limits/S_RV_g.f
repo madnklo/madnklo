@@ -188,10 +188,17 @@ c     invariant quantities
 c
 c     call triple-colour-connected Born
                qb=mapped_labels(q,i,m)
-c               call %(proc_prefix_S_RV_g)s_ME_ACCESSOR_HOOK(xpb,hel,alphas,ANS)
-c     TODO(hardcoded-ME): replace the zero tripole placeholder with
-c     a mapped getter or establish its vanishing for supported channels.
-               TRIBLO = 0d0 !%(proc_prefix_S_RV_g)s_GET_TRIBLO(lb,mb,qb)
+## if (pyamplicol) {
+c     The B.5 tripole coefficient assumes massless final-state charges.
+               if(min(i,l,m,q).le.nincoming.or.any(pmass((/i,l,m,q/)).ne.0d0))then
+                  write(*,*) 'S_RV_g: pyAmpliCol tripole requires massless final-state QCD'
+                  stop 1
+               endif
+               TRIBLO = %(proc_prefix_S_RV_g)s_GET_TRIBLO(xpb,alphas,lb,mb,qb)
+## } else {
+c     TODO(hardcoded-ME): the MadGraph provider has no tripole getter.
+               TRIBLO = 0d0
+## }
 c
 c     eikonals
                EIK2(-2) = 0d0

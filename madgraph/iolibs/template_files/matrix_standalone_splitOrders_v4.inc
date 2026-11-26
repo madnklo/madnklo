@@ -29,12 +29,12 @@ CF2PY INTENT(OUT) :: ANS
 
 %(pyamp_declarations)s
 %(pyamp_hook_declarations)s
-%(flav_factor_line)s
 
 C ----------
 C BEGIN CODE
 C ----------
 
+      CALL %(proc_prefix)sINITIALISE_ME_METADATA()
 %(pyamp_hook_check)s
       IF (USER_ALPHAS.gt.0.0d0) THEN
  	    THIS_G = 2* DSQRT(USER_ALPHAS*PI)
@@ -699,6 +699,7 @@ C     ROUTINE FOR F2PY to read the benchmark point.
 CF2PY INTENT(IN) :: PATH
 C     USE SETPARA2 and not SETPARA so that ident_card.dat can be automatically found
       call setpara2(PATH)  !first call to setup the paramaters    
+      CALL %(proc_prefix)sINITIALISE_ME_METADATA()
       return 
       end
 
@@ -1258,5 +1259,7 @@ C
 %(color_connections_to_index)s
 
 ## }
+
+%(me_metadata_initializer)s
 
 %(pyamp_helpers)s

@@ -1171,15 +1171,26 @@ param_card.inc: ../Cards/param_card.dat\n\t../bin/madevent treatcards param\n'''
         return "DATA IDEN/%2r/" % \
                matrix_element.get_denominator_factor()
 
-    #gl
-    def get_flav_factor_line(self, matrix_element,proc_prefix):
-        """Return the flavour factor line for this matrix element"""
-
-        str = proc_prefix
-        return """ \
-        INTEGER %sFL_FACTOR
-        COMMON/%sFLAVOUR_FACTOR/%sFL_FACTOR
-        %sFL_FACTOR = %d""" % (str,str,str,str,len(matrix_element.get('processes')))
+    def get_me_metadata_lines(self, matrix_element, proc_prefix, extra_proc=()):
+        """Initialize process normalization without evaluating a phase-space point."""
+        prefixes = [proc_prefix] + sorted(set(extra_proc or ()) - {proc_prefix})
+        flavour_factor = len(matrix_element.get('processes'))
+        denominator = matrix_element.get_denominator_factor()
+        lines = ['SUBROUTINE %sINITIALISE_ME_METADATA()' % proc_prefix,
+                 'IMPLICIT NONE']
+        for prefix in prefixes:
+            lines.extend(['INTEGER %sFL_FACTOR,%sDEN' % (prefix,prefix),
+                          'COMMON/%sFLAVOUR_FACTOR/%sFL_FACTOR' % (prefix,prefix),
+                          'COMMON/%sIDEN/%sDEN' % (prefix,prefix)])
+        for prefix in prefixes:
+            lines.extend(['%sFL_FACTOR = %d' % (prefix,flavour_factor),
+                          '%sDEN = %d' % (prefix,denominator)])
+        lines.append('END')
+        for prefix in prefixes[1:]:
+            lines.extend(['SUBROUTINE %sINITIALISE_ME_METADATA()' % prefix,
+                          'IMPLICIT NONE',
+                          'CALL %sINITIALISE_ME_METADATA()' % proc_prefix, 'END'])
+        return '\n'.join(lines)
 
     def get_icolamp_lines(self, mapconfigs, matrix_element, num_matrix_element):
         """Return the ICOLAMP matrix, showing which JAMPs contribute to
@@ -3824,7 +3835,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         #gl
         # Flavour multiplicative factor
-        replace_dict['flav_factor_line'] = self.get_flav_factor_line(matrix_element,proc_prefix)
+        replace_dict['me_metadata_initializer'] = self.get_me_metadata_lines(
+            matrix_element, proc_prefix, extra_proc)
 
         # Extract ngraphs
         ngraphs = matrix_element.get_number_of_amplitudes()

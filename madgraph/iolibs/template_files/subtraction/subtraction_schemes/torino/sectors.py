@@ -282,6 +282,13 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
         super(SectorGenerator, self).__init__(*args, **opts)
 
     @staticmethod
+    def me_metadata_calls(process_names):
+        """Initialize the resolved and linked underlying processes before any cuts."""
+        names = sorted(set(name.rstrip('_') for name in process_names
+                           if name and name != 'dummy'))
+        return '\n'.join('      CALL %s_INITIALISE_ME_METADATA()' % name for name in names)
+
+    @staticmethod
     def read_limits_template(directory):
         """Append shared kernels only when a wrapper needs them."""
         with open(pjoin(directory, 'IR_tmp.f')) as stream:
@@ -1005,6 +1012,8 @@ class SectorGenerator(generic_sectors.GenericSectorGenerator):
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
             filename_int_real = pjoin(secpath, 'NLO_Rsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NLO_Rsub_template.f")).read()
+            replace_dict_int_real['me_metadata_calls'] = self.me_metadata_calls([
+                replace_dict_int_real['NLO_proc_str'], overall_sector_info[i]['Born_str']])
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real)
             UBgraphs = overall_sector_info[i]['Born_str']

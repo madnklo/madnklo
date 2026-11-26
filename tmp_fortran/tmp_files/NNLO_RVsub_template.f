@@ -70,7 +70,7 @@ c
 c     call initialisation function
       if(firsttime)then
          call initialise_sector()
-         call %(NNLO_RV_proc_str)sme_accessor_hook(p,hel,alphas,ans)
+%(me_metadata_calls)s
          firsttime=.false.
       endif
 c

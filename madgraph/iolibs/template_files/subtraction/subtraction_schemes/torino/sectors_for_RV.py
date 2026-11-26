@@ -614,6 +614,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             replace_dict_int_real['long_proc_prefix'] = proc_RV_pref
             filename_int_real = pjoin(dirpath, 'NNLO_RVsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RVsub_template.f")).read()
+            replace_dict_int_real['me_metadata_calls'] = self.me_metadata_calls([
+                replace_dict_int_real['NNLO_RV_proc_str'], overall_sector_info[i]['Born_str']])
             file_int_real = file_int_real % replace_dict_int_real
             writer(filename_int_real).writelines(file_int_real, context={
                 'pyamplicol_virtual': selected_provider('virtual', options=self.export_options) == 'pyamplicol'})

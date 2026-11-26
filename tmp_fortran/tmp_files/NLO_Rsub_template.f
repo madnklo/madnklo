@@ -76,6 +76,7 @@ c
 c     call initialisation function
       if(firsttime)then
          call initialise_sector()
+%(me_metadata_calls)s
          firsttime=.false.
       endif
 c

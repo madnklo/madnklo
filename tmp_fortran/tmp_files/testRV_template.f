@@ -10,6 +10,7 @@
       character*10 dash10
       double precision e(2), l(2)
 c
+      call %(NNLO_RV_proc_str)sINITIALISE_ME_METADATA()
       dash10='----------'
 c
       write(88,*)dash10//dash10//dash10//dash10

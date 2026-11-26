@@ -228,7 +228,7 @@ c
       enddo
 c
 c     apply flavour factor
-      ret(-2:0) = ret(-2:0)*DBLE(EPEM_UUX_DEN)/DBLE(EPEM_GUUX_DEN)*%(proc_prefix_real)s_fl_factor
+      ret(-2:0) = ret(-2:0)*DBLE(%(proc_prefix_S_RV_g)s_den)/DBLE(%(proc_prefix_real)s_den)*%(proc_prefix_real)s_fl_factor
 c
 c     sanity check
       if(abs(ret(0)).ge.huge(1d0).or.isnan(ret(0)))then

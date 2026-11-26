@@ -1857,6 +1857,9 @@ c       %s
             elif label == 'ijkj':
                 filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec, jsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
+            replace_dict_double_real['me_metadata_calls'] = self.me_metadata_calls([
+                replace_dict_double_real['proc_prefix_rr'],
+                sector_info['Born_str'], sector_info['Real_str']])
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
 
@@ -2277,6 +2280,9 @@ c       %s
             filename = []
             filename = pjoin(dirpath, 'NNLO_RRsub_%d_%d_%d_%d.f' % (isec, jsec, ksec, lsec))
             file = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RRsub_template.f")).read()
+            replace_dict_double_real['me_metadata_calls'] = self.me_metadata_calls([
+                replace_dict_double_real['proc_prefix_rr'],
+                sector_info['Born_str'], sector_info['Real_str']])
             file = file % replace_dict_double_real
             writer(filename).writelines(file)
 

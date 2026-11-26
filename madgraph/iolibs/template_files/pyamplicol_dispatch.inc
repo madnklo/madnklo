@@ -92,6 +92,45 @@ C Explicit joint spin-dipole contraction; no Born hook or setters required.
 ## }
 
 ## if (pyamp_quadruple_color) {
+C B_abc = f_ABC <M|T_a^A T_b^B T_c^C|M>
+C       = i <M|[D_ab,D_bc]|M>, for three distinct legs.
+      DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_TRIBLO(P,ALPHAS,A,B,C)
+      IMPLICIT NONE
+      INTEGER A,B,C,LEGS(3),I,J,TEMP,PARITY
+      REAL*8 P(0:3,%(nexternal)d),ALPHAS,PAIR(2)
+      COMPLEX*16 VECTOR(0:3,1)
+      CHARACTER*64 ID
+%(pyamp_declarations)s
+      IF(MIN(A,B,C).LT.1.OR.MAX(A,B,C).GT.MNK_N.OR.A.EQ.B.OR.A.EQ.C.OR.B.EQ.C) THEN
+         WRITE(*,*) 'pyAmpliCol: tripole requires three distinct valid colour legs'
+         STOP 1
+      ENDIF
+C Canonical requests avoid generating six equivalent colour histories.
+      LEGS=(/A,B,C/)
+      PARITY=1
+      DO I=1,2
+         DO J=I+1,3
+            IF(LEGS(I).GT.LEGS(J)) THEN
+               TEMP=LEGS(I)
+               LEGS(I)=LEGS(J)
+               LEGS(J)=TEMP
+               PARITY=-PARITY
+            ENDIF
+         ENDDO
+      ENDDO
+      VECTOR=DCMPLX(0D0,0D0)
+      WRITE(ID,'(A,I0,A,I0,A,I0)') 'mnk-extra/tripole/',LEGS(1),'_',LEGS(2),'_',LEGS(3)
+C Always spin-summed and independent of saved Born or selection state.
+      CALL MNK_PYAMP_CORRELATED_SPIN(MNK_N,MNK_NINITIAL,MNK_PDGS,P,ALPHAS,ID,LEN_TRIM(ID),0,LEGS,VECTOR,PAIR)
+      IF(ANY(PAIR.NE.PAIR).OR.ANY(ABS(PAIR).GT.HUGE(1D0))) THEN
+         WRITE(*,*) 'pyAmpliCol: nonfinite tripole result'
+         STOP 1
+      ENDIF
+C The declared history is -i*B_abc. Re(i*history) = -Im(history);
+C its unphysical real component is not amplified when B_abc vanishes.
+      %(proc_prefix)sGET_TRIBLO=-PARITY*PAIR(2)
+      END
+
       DOUBLE PRECISION FUNCTION %(proc_prefix)sGET_QUADBLO(P,ALPHAS,A,B,C,D)
       IMPLICIT NONE
       INTEGER A,B,C,D,ORDERING,LEGS(1),IA(2),IB(2)

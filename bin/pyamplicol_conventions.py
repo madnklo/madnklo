@@ -117,6 +117,25 @@ class UnorientableDipoleProduct(ValueError):
     """An ordered product cannot be represented by a single emission pair."""
 
 
+def tripole(record, first, second, third):
+    """One physical history for -i*f_ABC*T_first^A*T_second^B*T_third^C.
+
+    Declare only increasing triples. Runtime permutations are their parity,
+    not additional amplitudes. The adjoint auxiliary supplies the f tensor.
+    """
+    legs = (first, second, third)
+    active = outgoing_representations(record)
+    if (any(not _integer(leg) or leg not in active for leg in legs) or
+            not first < second < third):
+        raise ValueError('Tripole declarations require three increasing coloured legs')
+    emit = lambda leg, auxiliary: dict(kind='emit-gluon', emitter=leg, emitted=auxiliary)
+    request = dict(id='mnk-extra/tripole/%d_%d_%d' % legs,
+                   bra=[emit(first, -1), emit(-1, -2)],
+                   ket=[emit(second, -1), emit(third, -2)])
+    validate_correlator(record, request)
+    return request
+
+
 def dipole_product(record, pairs, identifier=None):
     """Chronological histories for up to four full-colour dipoles in input order.
 

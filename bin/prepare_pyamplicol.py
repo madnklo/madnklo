@@ -15,7 +15,7 @@ import copy
 from fractions import Fraction
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from pyamplicol_conventions import (dipole_product, outgoing_representations,
+from pyamplicol_conventions import (dipole_product, tripole, outgoing_representations,
                                    symmetric_dipole, validate_correlator)
 
 
@@ -102,6 +102,13 @@ def quadruple_color_requests(record):
     pairs = list(itertools.combinations_with_replacement(color_legs(record), 2))
     return [dipole_product(record, (first, second))
             for first in pairs for second in pairs]
+
+
+def tripole_color_requests(record, color_order):
+    """NNLO Born only: one native request per unordered coloured triple."""
+    if color_order < 2:
+        return []
+    return [tripole(record, *legs) for legs in itertools.combinations(color_legs(record), 3)]
 
 
 def symmetric_color_requests(record, color_order, diagnostic=False):
@@ -320,7 +327,8 @@ def prepare(args):
                           for a in colored for b in colored) if color_order else ()
         if color_order >= 2:
             operators += CorrelatorConfig.from_json_dict(dict(
-                color_correlations=quadruple_color_requests(record))).color_correlations
+                color_correlations=quadruple_color_requests(record)+
+                    tripole_color_requests(record, color_order))).color_correlations
         symmetric = symmetric_color_requests(record, color_order,
                                               getattr(args, 'symmetric_color', False))
         if symmetric:

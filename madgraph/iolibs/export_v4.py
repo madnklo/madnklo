@@ -4064,6 +4064,15 @@ COMMON/%sSPIN_CORRELATION_DATA/SPIN_CORR_VECTORS, N_SPIN_CORR_VECTORS, SPIN_CORR
                     if item == proc_prefix:
                         continue
                     replace_dict['pyamp_helpers'] += '''
+      DOUBLE PRECISION FUNCTION %sGET_TRIBLO(P,ALPHAS,A,B,C)
+      IMPLICIT NONE
+      INTEGER A,B,C
+      REAL*8 P(0:3,%d),ALPHAS
+      DOUBLE PRECISION %sGET_TRIBLO
+      %sGET_TRIBLO=%sGET_TRIBLO(P,ALPHAS,A,B,C)
+      END
+''' % (item,nexternal,proc_prefix,item,proc_prefix)
+                    replace_dict['pyamp_helpers'] += '''
       DOUBLE PRECISION FUNCTION %sGET_QUADBLO(P,ALPHAS,A,B,C,D)
       IMPLICIT NONE
       INTEGER A,B,C,D

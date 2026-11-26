@@ -6,9 +6,10 @@ C     Same I2 structure: wrapper, core, Laurent helpers, kernel tables.
 C     CORE returns no a_s**2 prefactor; wrapper multiplies it once.
 C     V=VNLO/a_s, VC=VCNLO/a_s; a_s=alpha_s/(2*pi).
 C     BC,B4,B3,VC use ORIGINAL leg labels; S,FLAV,REFS are compact.
-C     Process wrapper: e+e- -> u ubar (two massless QCD Born legs).
-C     General core also accepts explicit higher-multiplicity input.
-C     Included one-loop hook calls V_ML5_1_1_SLOOPMATRIX_THRES:
+C     Automatic entry uses the linked process's public loop and colour
+C     getters. WITH_V is an internal/testing entry with explicit loop input.
+C     The pyAmpliCol branch fills genuine Born correlators for any N;
+C     the default Born branch still requires the two-leg singlet.
 C       IRV_NLO_ACCESSOR_HOOK(P,HEL,ALPHAS,VNLO,VCNLO,IERR)
 C     VNLO(-2:0), VCNLO(-2:0,NEXTERNAL,NEXTERNAL) include a_s.
 C     Error 1 invalid data; 2 unsupported process; 3 invalid mapping.
@@ -47,7 +48,7 @@ C     Last line (6.12) includes B, as implied by (6.7).
       INCLUDE 'double_virtual_recoilers.inc'
       INCLUDE 'leg_PDGs_%(proc_prefix)s.inc'
       INCLUDE 'colored_partons.inc'
-      INTEGER IERR,I,J,N,A,B,IP,REFS(NEXTERNAL)
+      INTEGER IERR,I,J,K,N,A,B,C,IP,REFS(NEXTERNAL)
       INTEGER LEGS(NEXTERNAL),FLAV(NEXTERNAL),POS(NEXTERNAL)
       INTEGER,PARAMETER :: HEL=-1
       DOUBLE PRECISION P(0:3,NEXTERNAL),SLO(NEXTERNAL,NEXTERNAL)
@@ -59,6 +60,10 @@ C     Last line (6.12) includes B, as implied by (6.7).
       DOUBLE PRECISION COEFF(-4:0),MU2
       DOUBLE PRECISION GET_CCBLO,GET_QUADRUPLE_BLO
       EXTERNAL ALPHA_QCD,GET_CCBLO,GET_QUADRUPLE_BLO
+## if (pyamplicol) {
+      DOUBLE PRECISION GET_QUADBLO,GET_TRIBLO
+      EXTERNAL GET_QUADBLO,GET_TRIBLO
+## }
       DOUBLE PRECISION VNLO(-2:0),VCNLO(-2:0,NEXTERNAL,NEXTERNAL)
       DOUBLE PRECISION V(-2:0),VC(-2:0,NEXTERNAL,NEXTERNAL)
       DOUBLE PRECISION B3(NEXTERNAL,NEXTERNAL,NEXTERNAL),AA
@@ -149,12 +154,14 @@ C     renormalisation scale for the n-body kinematics
       CALL ME_ACCESSOR_HOOK(P,HEL,ALPHAS,ANS)
       BORN=ANS(0)
 
-C     Current process has two coloured Born legs. Correlator arrays
-C     keep ORIGINAL external labels; non-QCD slots remain zero.
+C     Correlator arrays keep ORIGINAL labels; non-QCD slots stay zero.
+## if (not pyamplicol) {
+C     The default provider still uses the two-leg singlet identity below.
       IF (N.NE.2) THEN
          IERR=2
          RETURN
       ENDIF
+## }
       IF (.NOT.(ABS(BORN).LT.HUGE(1D0))) THEN
          IERR=1
          RETURN
@@ -164,13 +171,26 @@ C     keep ORIGINAL external labels; non-QCD slots remain zero.
          DO B=1,N
             IF (A.EQ.B) CYCLE
             J=LEGS(B)
+## if (pyamplicol) {
+            BC(I,J)=GET_CCBLO(P,alphas,I,J)
+## } else {
             BC(I,J)=GET_CCBLO(I,J)
+## }
+## if (pyamplicol) {
+            B4(I,J,I,J)=GET_QUADBLO(P,alphas,I,J,I,J)
+            DO C=1,N
+               IF (C.EQ.A.OR.C.EQ.B) CYCLE
+               K=LEGS(C)
+               B3(I,J,K)=GET_TRIBLO(P,ALPHAS,I,J,K)
+            ENDDO
+## } else {
 C     On the two-leg singlet: T_i.T_j=-C_i, so no division by B.
             IF (FLAV(A).EQ.21) THEN
                B4(I,J,I,J)=-2D0*CA*BC(I,J)
             ELSE
                B4(I,J,I,J)=-2D0*CF*BC(I,J)
             ENDIF
+## }
          ENDDO
       ENDDO
 C     The loop provider includes its a_s; CORE, like I2, has none.
@@ -585,61 +605,17 @@ c     E.8: J_hc^(2g)
       end select
       end
 
-## if (pyamplicol_virtual) {
-C Evaluate the ordinary virtual and all dipoles in one call at this point.
+C     Process adapter: a_s is included in ordinary and colour inputs.
+C     No process-specific colour factor or table layout is assumed.
       SUBROUTINE IRV_NLO_ACCESSOR_HOOK(P,HEL,ALPHAS,VNLO,VCNLO,IERR)
       IMPLICIT NONE
       INCLUDE 'nexternal.inc'
       INCLUDE 'coupl.inc'
       INCLUDE 'math.inc'
-      INCLUDE 'colored_partons.inc'
-      INTEGER HEL,IERR,I,J,STATUS
-      DOUBLE PRECISION P(0:3,NEXTERNAL),ALPHAS,VNLO(-2:0)
-      DOUBLE PRECISION VCNLO(-2:0,NEXTERNAL,NEXTERNAL)
-      VNLO=0D0
-      VCNLO=0D0
-      IERR=2
-      IF(HEL.NE.-1) RETURN
-      IERR=1
-      IF(.NOT.(ALPHAS.GT.0D0.AND.ALPHAS.LT.HUGE(1D0).AND.MUR_CURRENT.GT.0D0.AND.MUR_CURRENT.LT.HUGE(1D0))) RETURN
-      CALL %(virtual_prefix)sGET_VIRTUAL_DIPOLES(P,ALPHAS,MUR_CURRENT,VNLO,VCNLO,STATUS)
-      IF(STATUS/100.LT.1.OR.STATUS/100.GT.3) GOTO 999
-      DO I=1,NEXTERNAL
-         DO J=1,NEXTERNAL
-            IF(I.EQ.J.OR..NOT.ISLOQCDPARTON(I).OR..NOT.ISLOQCDPARTON(J)) VCNLO(:,I,J)=0D0
-         ENDDO
-      ENDDO
-C Convert the two outputs to the same Laurent convention as the counterterm.
-      VNLO(0)=VNLO(0)-VNLO(-2)*PI**2/12D0
-      VCNLO(0,:,:)=VCNLO(0,:,:)-VCNLO(-2,:,:)*PI**2/12D0
-      IF(.NOT.ALL(ABS(VNLO).LT.HUGE(1D0)).OR..NOT.ALL(ABS(VCNLO).LT.HUGE(1D0))) GOTO 999
-      IERR=0
-      RETURN
- 999  IERR=4
-      VNLO=0D0
-      VCNLO=0D0
-      END
-## } else {
-C     Process adapter: same MadLoop call and Laurent ordering as
-C     NLO_V_%(proc_prefix)s.f. Physical a_s is already included in VNLO.
-C     For the qqbar singlet VC_ij=-CF*V for its two QCD labels.
-      SUBROUTINE IRV_NLO_ACCESSOR_HOOK(P,HEL,ALPHAS, VNLO,VCNLO,IERR)
-      IMPLICIT NONE
-      INCLUDE 'nexternal.inc'
-      INCLUDE 'nsquaredSO.inc'
-      INCLUDE 'coupl.inc'
-      INCLUDE 'math.inc'
       INCLUDE 'input.inc'
-      INCLUDE 'double_virtual_recoilers.inc'
-      INCLUDE 'leg_PDGs_%(proc_prefix)s.inc'
       INCLUDE 'colored_partons.inc'
-      INTEGER HEL,IERR,I,J,N,LEGS(2),RETURNCODE
+      INTEGER HEL,IERR,I,J,RETURNCODE
       INTEGER MATELEM_ARRAY_DIM,NSQUAREDSO_LOOP
-      INTEGER NCOLORCORRELATORS
-      PARAMETER (NCOLORCORRELATORS=4)
-      INTEGER COLOR_CORRELATORS_TO_CONSIDER(0:NCOLORCORRELATORS)
-      DOUBLE PRECISION COLOR_CORRELATED_EVALS(NCOLORCORRELATORS, 0:3,0:NSQUAREDSO)
-      COMMON/V_ML5_1_1_COLOR_CORRELATIONS/ COLOR_CORRELATORS_TO_CONSIDER,COLOR_CORRELATED_EVALS
       DOUBLE PRECISION P(0:3,NEXTERNAL),ALPHAS,VNLO(-2:0)
       DOUBLE PRECISION VCNLO(-2:0,NEXTERNAL,NEXTERNAL)
       DOUBLE PRECISION,ALLOCATABLE :: MATELEM(:,:),PREC_FOUND(:)
@@ -654,35 +630,19 @@ C     For the qqbar singlet VC_ij=-CF*V for its two QCD labels.
          IERR=2
          RETURN
       ENDIF
-      IF (.NOT.(ALPHAS.GT.0D0.AND.ALPHAS.LT.HUGE(1D0))) THEN
+      IF (.NOT.(ALPHAS.GT.0D0.AND.ALPHAS.LT.HUGE(1D0)).OR..NOT.(MUR_CURRENT.GT.0D0.AND.MUR_CURRENT.LT.HUGE(1D0))) THEN
          IERR=1
          RETURN
       ENDIF
-      N=0
-      DO I=1,NEXTERNAL
-         IF (.NOT.ISLOQCDPARTON(I)) CYCLE
-         N=N+1
-         IF (N.GT.2) THEN
-            IERR=2
-            RETURN
-         ENDIF
-         LEGS(N)=I
-      ENDDO
-      IF (N.NE.2) THEN
-         IERR=2
-         RETURN
-      ENDIF
-      I=LEGS(1)
-      J=LEGS(2)
-      IF (ABS(LEG_PDGS_%(proc_prefix)s(I)).NE.2.OR. LEG_PDGS_%(proc_prefix)s(J).NE.-LEG_PDGS_%(proc_prefix)s(I)) THEN
-         IERR=2
-         RETURN
-      ENDIF
+## if (pyamplicol_virtual) {
+      CALL %(virtual_prefix)sGET_VIRTUAL_DIPOLES(P,ALPHAS,MUR_CURRENT,VNLO,VCNLO,RETURNCODE)
+## } else {
       IF (.NOT.LOOP_ARRAYS_INITIALISED) THEN
-         CALL V_ML5_1_1_GET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
-         CALL V_ML5_1_1_GET_NSQSO_LOOP(NSQUAREDSO_LOOP)
-         IF (MATELEM_ARRAY_DIM.LT.0.OR.NSQUAREDSO_LOOP.LT.0) THEN
-            IERR=4
+         CALL %(virtual_prefix)sGET_ANSWER_DIMENSION(MATELEM_ARRAY_DIM)
+         CALL %(virtual_prefix)sGET_NSQSO_LOOP(NSQUAREDSO_LOOP)
+C     Ordinary and colour getters must refer to the same single order.
+         IF (MATELEM_ARRAY_DIM.LT.1.OR.NSQUAREDSO_LOOP.NE.1) THEN
+            IERR=2
             RETURN
          ENDIF
          ALLOCATE(MATELEM(0:3,0:MATELEM_ARRAY_DIM))
@@ -691,19 +651,47 @@ C     For the qqbar singlet VC_ij=-CF*V for its two QCD labels.
       ENDIF
       MATELEM=HUGE(1D0)
       PREC_FOUND=0D0
-      COLOR_CORRELATED_EVALS=0D0
-      CALL V_ML5_1_1_SLOOPMATRIX_THRES(P,MATELEM,-1D0, PREC_FOUND,RETURNCODE)
+      RETURNCODE=0
+%(irv_reset_spin)s
+C     Request the full colour table through the public selector API.
+      CALL %(virtual_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(-1,-1)
+C     Public provider hook synchronizes alpha_s and mu_r before evaluation.
+      CALL %(virtual_prefix)sLOOPME_ACCESSOR_HOOK(P,HEL,ALPHAS,MUR_CURRENT,MATELEM,-1D0,PREC_FOUND,RETURNCODE)
       VNLO(-2)=MATELEM(3,0)
       VNLO(-1)=MATELEM(2,0)
       VNLO(0)=MATELEM(1,0)
-c     From MadLoop to LASS
-      VNLO(0) = VNLO(0) - VNLO(-2)*pi**2/12d0
-      IF (.NOT.ALL(ABS(VNLO).LT.HUGE(1D0))) THEN
-         IERR=4
-         VNLO=0D0
-         RETURN
-      ENDIF
-      VCNLO(:,I,J)=-CF*VNLO
-      VCNLO(:,J,I)=-CF*VNLO
-      END
 ## }
+      IF (RETURNCODE/100.LT.1.OR.RETURNCODE/100.GT.3) THEN
+         WRITE(*,*) 'IRV virtual provider failed; return code',RETURNCODE
+         GOTO 999
+      ENDIF
+      IF (.NOT.ALL(ABS(VNLO).LT.HUGE(1D0))) GOTO 999
+      DO I=1,NEXTERNAL
+         DO J=1,NEXTERNAL
+            IF (I.EQ.J.OR..NOT.ISLOQCDPARTON(I).OR..NOT.ISLOQCDPARTON(J)) THEN
+               VCNLO(:,I,J)=0D0
+               CYCLE
+            ENDIF
+## if (not pyamplicol_virtual) {
+C     A missing/default getter must not leave an apparently valid zero.
+            VCNLO(:,I,J)=HUGE(1D0)
+            CALL %(virtual_prefix)sGET_CCVNLO(I,J,VCNLO(:,I,J))
+## }
+            IF (.NOT.ALL(ABS(VCNLO(:,I,J)).LT.HUGE(1D0))) GOTO 999
+         ENDDO
+      ENDDO
+## if (not pyamplicol_virtual) {
+      CALL %(virtual_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(0,0)
+## }
+C     Convert every virtual coefficient from MadLoop to the LASS convention.
+      VNLO(0)=VNLO(0)-VNLO(-2)*PI**2/12D0
+      VCNLO(0,:,:)=VCNLO(0,:,:)-VCNLO(-2,:,:)*PI**2/12D0
+      IF (.NOT.ALL(ABS(VNLO).LT.HUGE(1D0)).OR..NOT.ALL(ABS(VCNLO).LT.HUGE(1D0))) GOTO 999
+      RETURN
+ 999  IERR=4
+## if (not pyamplicol_virtual) {
+      CALL %(virtual_prefix)sSET_COLOR_CORRELATORS_TO_CONSIDER(0,0)
+## }
+      VNLO=0D0
+      VCNLO=0D0
+      END

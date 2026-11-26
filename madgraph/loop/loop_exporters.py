@@ -1281,6 +1281,17 @@ virtual: $(FILES)
         replace_dict['proc_prefix'] = matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)
         replace_dict['virtual_prefix'] = virtual_prefix
+        with open('V_user_access_subroutines.f') as stream:
+            virtual_api = stream.read()
+        def has_virtual_routine(name):
+            return re.search(r'\bSUBROUTINE\s+'+re.escape(virtual_prefix+name)+r'\b',
+                             virtual_api, re.I) is not None
+        if not has_virtual_routine('GET_CCVNLO'):
+            raise MadGraph5Error('Integrated RV requires colour-correlated NLO virtual getters')
+        replace_dict['irv_reset_spin'] = (
+            '      CALL %sRESET_SPIN_CORRELATION_VECTORS()' % virtual_prefix
+            if has_virtual_routine('RESET_SPIN_CORRELATION_VECTORS') else '')
+
         # write driver
         filename = pjoin(os.getcwd(), 'NNLO_IRV_%s.f' % (matrix_element.get('processes')[0].shell_string(
                                         schannel=True, forbid=True, main=False, pdg_order=False, print_id = False)))

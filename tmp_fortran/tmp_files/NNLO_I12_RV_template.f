@@ -50,10 +50,12 @@ c     DOUBLE_POLE = I12NNLO(-2)
       include 'pmass.inc'
 c
 c     initialise
-c     renormalisation scale: taken from the input (n+1)-body momenta p.
-c     TODO: once the mapping to xpb is implemented here, set the scale
-c     from xpb right before the matrix-element calls instead.
-      call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix_real)s)
+c     p and LEG_PDGS describe the same input (n+1)-body point.
+c     TODO(check): establish whether I12 should use this real-point
+c     scale or a scale for each mapped Born. Check pole cancellation
+c     with KRV before changing it. For a mapped scale, pass the
+c     mapped momenta and their matching ordered Born PDGs together.
+      call set_mur_from_momenta(p,nexternal,leg_pdgs)
       alphas=alphas_current
       pref=alphas/(2d0*pi)
 

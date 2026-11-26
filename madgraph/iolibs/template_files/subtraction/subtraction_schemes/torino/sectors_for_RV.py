@@ -596,6 +596,7 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             os.symlink( "%s/proc_prefix.txt" % overall_sector_info[i]['path_to_Virt'], "%s/V_proc_prefix.txt" % dirpath )
             proc_V_pref = open(pjoin(dirpath,"V_proc_prefix.txt")).read()
             replace_dict_limits['V_long_proc_prefix'] = proc_V_pref
+            
             file = open(NNLO_RV_IR_limits_tmp_path + 'IR_tmp.f').read()
             file = file % replace_dict_limits
             writer(filename).writelines(file)
@@ -609,6 +610,8 @@ class SectorGeneratorRV(sectors.SectorGenerator):
             replace_dict_int_real['UBgraphs'] = overall_sector_info[i]['Born_str']
             proc_RV_pref = open(pjoin(dirpath,"proc_prefix.txt")).read()
             replace_dict_int_real['long_proc_prefix'] = proc_RV_pref
+            replace_dict_limits['NNLO_RV_proc_str'] = str(defining_process.shell_string(schannel=True,
+                                                    forbid=True, main=False, pdg_order=False, print_id = False))
             filename_int_real = pjoin(dirpath, 'NNLO_RVsub_%d_%d.f' % (isec, jsec))
             file_int_real = open(pjoin(dirmadnklo,"tmp_fortran/tmp_files/NNLO_RVsub_template.f")).read()
             file_int_real = file_int_real % replace_dict_int_real

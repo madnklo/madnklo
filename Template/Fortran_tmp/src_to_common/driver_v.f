@@ -78,6 +78,36 @@ c                  times the calls of V; tag of the output files: V or VC
       common/c_vmode/vmode
       logical counterterms
       character*2 tag
+c     virtual trick (loop computed only at a fraction of the points
+c     from the second warm-up iteration on, see below and
+c     NLO_V_template.f): vtrick = .true. switches it on by default; the
+c     environment variable MADNKLO_VTRICK = 0 (1) switches it off (on)
+c     at run time. At least vt_nlmin loops per channel and main
+c     iteration (reliable errors of the iterations, combined with
+c     weights 1/sigma^2), vt_nlminw per warm-up iteration
+      logical vtrick
+      parameter (vtrick=.true.)
+      integer vt_nlmin,vt_nlminw
+      parameter (vt_nlmin=1000,vt_nlminw=200)
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+      logical vt_on,vt_main
+      integer iversion,vt_ncl
+      character*40 envv
+      double precision vt_popt(N_MAX_CG),vt_d(N_MAX_CG)
+      double precision vt_sraw(N_MAX_CG)
+      double precision vt_tlc(N_MAX_CG),vt_trc(N_MAX_CG),vt_gain
+      double precision vt_cf,vt_sw,vt_pe,vt_pmain,vt_popt_f
+      external vt_pmain,vt_popt_f
+      double precision vt_pw(N_MAX_CG),vt_sr1(N_MAX_CG),vt_sr0(N_MAX_CG)
+      double precision vt_d1(N_MAX_CG),vt_d0(N_MAX_CG)
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
 c
       nfail=0
       sum_v=0d0
@@ -122,6 +152,38 @@ c     '--main' (see below)
          vmode=2
       endif
       if(test_only)vmode=0
+c     virtual trick: only with the loop (not for I + J + C only, nor in
+c     the tests)
+      vt_on=vtrick
+      call get_environment_variable('MADNKLO_VTRICK',envv)
+      if(trim(envv).eq.'0')vt_on=.false.
+      if(trim(envv).eq.'1')vt_on=.true.
+      if(vmode.eq.2.or.test_only)vt_on=.false.
+      vt_mode=0
+      vt_main=.false.
+      vt_n=0d0
+      vt_g=0d0
+      vt_b=0d0
+      vt_yy=0d0
+      vt_tl=0d0
+      vt_tt=0d0
+      vt_nl=0d0
+      vt_c=0d0
+      vt_p=1d0
+      vt_popt=1d0
+      vt_d=0d0
+      vt_sraw=0d0
+      vt_tlc=0d0
+      vt_trc=0d0
+      vt_pw=1d0
+      vt_di=0d0
+      vt_ni=0d0
+      vt_nlw=0d0
+      vt_sr1=0d0
+      vt_sr0=0d0
+      vt_d1=0d0
+      vt_d0=0d0
+      if(vt_on)call vt_seed(iseed,1)
       tag='V'
       if(vmode.eq.2)tag='VC'
       NITVTH = NITERS_V_GRID
@@ -274,8 +336,19 @@ c     the grid of its warm-up.
             endif
             doplot=.false.
             failure_stage='warmup'
+c           virtual trick: in the first iteration the loop is always
+c           computed; then with probability vt_pw(ich) (and the
+c           reference fitted on the previous iterations); sums for the
+c           fit in all the iterations
+            vt_mode=0
+            if(vt_on)then
+               vt_mode=1
+               vt_p(ich)=vt_pw(ich)
+               call vt_iter_start(ich)
+            endif
             call vegas(region,ndim,int_virtual,init,nclw_ch(ich),1,
      &      nprn,res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+            vt_mode=0
             do k=1,ndim
                do j=1,ndmx
                   xi_ch(j,k,ich)=xi(j,k)
@@ -287,6 +360,20 @@ c     the grid of its warm-up.
             s_ch(ich)=err_v*dsqrt(rcalls)
             if(.not.(s_ch(ich).ge.0d0.and.s_ch(ich).lt.huge(1d0)))
      &           s_ch(ich)=0d0
+c           virtual trick: s without the trick (vt_sr1, squared), the
+c           residual D (vt_d1), new fit of the reference, probability
+c           of the loop and CPU times per loop and per call for the rest
+            if(vt_on)then
+               vt_sr0(ich)=vt_sr1(ich)
+               vt_d0(ich)=vt_d1(ich)
+               call vt_iter_end(ich,itw,s_ch(ich),vt_sr1(ich),
+     &              vt_d1(ich),vt_popt(ich),vt_tlc(ich),vt_trc(ich))
+               write(iu8,'(a,i4,i4,a,f8.5,a,es10.3,a,es10.3,a,f8.5)')
+     &              ' '//trim(tag)//' trick warmup: channel, itn',ich,
+     &              itw,', p =',vt_p(ich),', sd/point without trick =',
+     &              sqrt(vt_sr1(ich)),', D/S =',vt_d1(ich)
+     &              /max(vt_sr1(ich),1d-300),', p_opt =',vt_popt(ich)
+            endif
             write(iu8,*)trim(tag)//
      &           ' warmup: channel, itn, calls, sd/point = ',
      &           ich,itw,nclw_ch(ich),s_ch(ich)
@@ -301,6 +388,12 @@ c        calls of the next warm-up iteration
                nclw_ch(ich)=max(nflw,nint(nclVth*s_ch(ich)/sum_s))
             enddo
          endif
+c        virtual trick: probability of the loop in the next iteration
+         if(vt_on)then
+            do ich=1,nchan
+               vt_pw(ich)=vt_pmain(vt_popt(ich),nclw_ch(ich),vt_nlminw)
+            enddo
+         endif
       enddo
       call cpu_time(t_w1)
       cpu_call=0d0
@@ -309,12 +402,53 @@ c        calls of the next warm-up iteration
          s_mn(ich)=s_ch(ich)
          if(nitVth.ge.2)s_mn(ich)=0.5d0*(s_ch(ich)+s_prev(ich))
       enddo
+c     virtual trick: s without the trick (vt_sraw) and residual D
+c     (vt_d) of each channel, averaged over the last two warm-up
+c     iterations as s_mn, and probability of the loop for the main runs;
+c     s_mn and the CPU time per call become those expected with the
+c     trick, so that the calls are shared accordingly (here and by
+c     run_all.py), with the probabilities expected for the calls per
+c     channel of a main run with the default calls (see vt_pmain)
+      vt_cf=0d0
+      vt_sw=0d0
+      sum_s=0d0
+      do ich=1,nchan
+         vt_sraw(ich)=s_mn(ich)
+         if(vt_on)then
+            vt_sraw(ich)=sqrt(vt_sr1(ich))
+            vt_d(ich)=vt_d1(ich)
+            if(nitVth.ge.2)then
+               vt_sraw(ich)=0.5d0*(sqrt(vt_sr1(ich))+sqrt(vt_sr0(ich)))
+               vt_d(ich)=0.5d0*(vt_d1(ich)+vt_d0(ich))
+            endif
+            vt_popt(ich)=vt_popt_f(vt_sraw(ich)**2,vt_d(ich),
+     &           vt_tlc(ich),vt_trc(ich),vt_n(ich))
+         endif
+         sum_s=sum_s+vt_sraw(ich)
+      enddo
+      do ich=1,nchan
+         if(vt_on)then
+            vt_ncl=nclV
+            if(nchan.gt.1.and.sum_s.gt.0d0)vt_ncl=max(1000,
+     &           nclV/(10*nchan),nint(nclV*vt_sraw(ich)/sum_s))
+            vt_pe=vt_pmain(vt_popt(ich),vt_ncl,vt_nlmin)
+            s_mn(ich)=sqrt(vt_sraw(ich)**2
+     &           +(1d0/vt_pe-1d0)*vt_d(ich))
+            if(vt_tlc(ich)+vt_trc(ich).gt.0d0)then
+               vt_cf=vt_cf+s_mn(ich)*(vt_trc(ich)+vt_pe*vt_tlc(ich))
+               vt_sw=vt_sw+s_mn(ich)
+            endif
+         endif
+      enddo
+c     (the CPU time per call measured in the warm-up mixes iterations
+c     with and without the trick: the one expected in the main runs)
+      if(vt_sw.gt.0d0.and.vt_cf.gt.0d0)cpu_call=vt_cf/vt_sw
       if(.not.do_main)then
 c        warm-up only: save the state and stop
          call ran2_get_state(rstate)
          open(unit=iuw,file='warmup_'//trim(tag)//'.dat',
      &        status='replace')
-         write(iuw,*)'MADNKLO_WARMUP 1'
+         write(iuw,*)'MADNKLO_WARMUP 2'
          write(iuw,*)nchan,ndim,ndmx,nclV,nitV,ncalls_w,cpu_call
          do ich=1,nchan
             write(iuw,'(es26.17e3,i6)')s_mn(ich),ndo_ch(ich)
@@ -322,6 +456,14 @@ c        warm-up only: save the state and stop
      &           ((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
          enddo
          write(iuw,'(5i14)')rstate
+c        virtual trick (version 2): per channel the probability of the
+c        loop, the coefficients of the reference, the residual and the
+c        standard deviation per point without the trick, the CPU times
+c        per call of the loops and of the rest
+         do ich=1,nchan
+            write(iuw,'(10es26.17e3)')vt_popt(ich),(vt_c(k,ich),k=1,4),
+     &           vt_d(ich),vt_sraw(ich),vt_tlc(ich),vt_trc(ich)
+         enddo
          close(iuw)
          close(iu1)
          if(vmode.ne.2)close(iu2)
@@ -333,7 +475,9 @@ c        warm-up only: save the state and stop
       else
 c     main only: state of the warm-up
       open(unit=iuw,file='warmup_'//trim(tag)//'.dat',status='old')
-      read(iuw,*)
+      read(iuw,'(a)')line
+      iversion=1
+      if(index(line,'MADNKLO_WARMUP 2').gt.0)iversion=2
       read(iuw,*)nch_w,ndim_w,j,k,nit_w,ncalls_w,cpu_call
       if(nch_w.ne.nchan.or.ndim_w.ne.ndim.or.j.ne.ndmx)then
          write(*,*)'warmup_'//trim(tag)//'.dat does not match'
@@ -344,8 +488,23 @@ c     main only: state of the warm-up
          read(iuw,*)((xi_ch(j,k,ich),j=1,ndmx),k=1,ndim)
       enddo
       read(iuw,*)rstate
+      if(iversion.ge.2)then
+         do ich=1,nchan
+            read(iuw,*)vt_popt(ich),(vt_c(k,ich),k=1,4),vt_d(ich),
+     &           vt_sraw(ich),vt_tlc(ich),vt_trc(ich)
+         enddo
+      else
+         vt_on=.false.
+      endif
       close(iuw)
       call ran2_set_state(rstate)
+c     virtual trick switched off for the main runs only: the calls are
+c     shared with the standard deviations without the trick
+      if(.not.vt_on.and.iversion.ge.2)then
+         do ich=1,nchan
+            if(vt_sraw(ich).gt.0d0)s_mn(ich)=vt_sraw(ich)
+         enddo
+      endif
       endif
 c     calls per iteration of the main runs: npoints_V (times n_VC_folds
 c     for VC), or those given by run_all.py (main_calls_<tag>.dat)
@@ -371,6 +530,16 @@ c     for VC), or those given by run_all.py (main_calls_<tag>.dat)
             ncl_ch(ich)=max(1000,ncl_tot/nchan)
          endif
       enddo
+c     virtual trick: probability of the loop of each channel, at least
+c     vt_nlmin loops per iteration (1: no trick in this channel); the
+c     choices are drawn from their own random numbers (vt_rand), so that
+c     those of vegas are not changed
+      do ich=1,nchan
+         vt_p(ich)=1d0
+         if(vt_on)vt_p(ich)=vt_pmain(vt_popt(ich),ncl_ch(ich),vt_nlmin)
+         if(vt_p(ich).lt.1d0)vt_main=.true.
+      enddo
+      if(vt_main)call vt_seed(iseed,2)
 c
 c     main runs, on the grids of the warm-ups
       do ich=1,nchan
@@ -388,11 +557,30 @@ c     main runs, on the grids of the warm-ups
          init=1
          doplot=.true.
          failure_stage='main'
+         vt_mode=0
+         if(vt_p(ich).lt.1d0)vt_mode=2
          call vegas(region,ndim,int_virtual,init,ncl_ch(ich),nitV,nprn,
      &   res_v,err_v,chi2a,acc,xi,it,ndo,si,swgt,schi)
+         vt_mode=0
          call sv_add_channel()
          write(iu8,*)trim(tag)//': channel, itns, calls = ',ich,nitV,
      &        ncl_ch(ich)
+         if(vt_on)then
+c           virtual trick: summary of the channel; expected gain in
+c           error^2 x CPU time
+            vt_gain=1d0
+            if(vt_p(ich).ge.1d0)vt_nl(ich)=dble(nitV)*ncl_ch(ich)
+            if(vt_p(ich).lt.1d0.and.vt_sraw(ich).gt.0d0)
+     &           vt_gain=vt_sraw(ich)**2*(vt_trc(ich)+vt_tlc(ich))
+     &           /((vt_sraw(ich)**2+(1d0/vt_p(ich)-1d0)*vt_d(ich))
+     &           *(vt_trc(ich)+vt_p(ich)*vt_tlc(ich)))
+            write(iu8,'(a,i4,a,f8.5,a,4es12.4,a,es10.3,a,f8.4,a,f7.2)')
+     &           ' '//trim(tag)//' trick: channel',ich,', p =',
+     &           vt_p(ich),', c =',(vt_c(k,ich),k=1,4),
+     &           ', D/S =',vt_d(ich)/max(vt_sraw(ich)**2,1d-300),
+     &           ', loops/calls =',vt_nl(ich)/dble(max(1,nitV
+     &           *ncl_ch(ich))),', expected gain =',vt_gain
+         endif
          rescale_plot_V=dble(nitV)/min(dble(nitV),dble(it))
          sum_v = sum_v + res_v
          sum_err_v = sum_err_v + err_v**2
@@ -413,4 +601,363 @@ c     finalise histograms and output files
       close(iu7)
       close(iu8)
 c
+      end
+
+
+c     ------------------------------------------------------------------
+c     Virtual trick (see also NLO_V_template.f). The loop L of a point
+c     is computed only with probability p (vt_p, per channel); the
+c     integrand uses instead the reference
+c       R = sum_k c_k X_k,  X = (Born, finite part, single and double
+c                                pole of the integrated counterterm I),
+c     available at every point, plus (L - R)/p when the loop is
+c     computed. The average is unchanged; per call the CPU time drops
+c     from t_r + t_l (rest, loop) to t_r + p t_l, and the variance grows
+c     from S to S + (1/p - 1) D, D = <(J (L - R))^2> (J: weight of the
+c     point; the added variance is not reduced by the stratification).
+c     The poles of I are minus those of the loop: they carry the
+c     logarithms of the scales of V, so the reference follows the loop
+c     at any choice of the scales. The scale variations are linear in
+c     the loop, so they stay unbiased.
+c     Warm-up: in the first iteration the loop is always computed; after
+c     each iteration the c_k are fitted (least squares, minimum D) on
+c     all the warm-up points so far (those without the loop weighted
+c     as in the integrand: the loop terms of the sums by 1/p), and used
+c     in the next iteration, where the loop is computed with probability
+c     p = sqrt(D/(S - D) t_r/t_l) (minimum of variance x CPU time, at
+c     least vt_pmin and vt_nlminw loops per iteration). S (without the
+c     trick) is obtained from the measured s^2 = S + (1/p - 1) D, D from
+c     the points of the iteration (with the c_k fixed before it). The c_k
+c     and p are fixed within each iteration, so that every iteration is
+c     unbiased. Main runs: c_k of the end of the warm-up, p from S and D
+c     of its last two iterations (at least vt_nlmin loops per
+c     iteration).
+c     ------------------------------------------------------------------
+      subroutine vt_accum(fac,wgt,v0,v0m,xp,xm,lum,lumm,loop)
+c     warm-up: sums for the fit of the reference of channel ich; the
+c     loop part of the integrand is fac*(v0*lum + v0m*lumm) (process
+c     and mirror; if computed, loop), its weight J = wgt*rcalls (vegas),
+c     the reference quantities xp, xm (process, mirror) enter in the
+c     same way. Also the residual with the present reference (vt_di)
+      implicit none
+      include 'ngraphs.inc'
+      double precision fac,wgt,v0,v0m,xp(4),xm(4),lum,lumm
+      logical loop
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+c     sums of the current warm-up iteration: residual, calls; loops
+c     computed in the warm-up
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
+      integer ich
+      common/comich/ich
+      double precision rcalls
+      common/abchia/rcalls
+      double precision f,y,x(4),w,r
+      integer k,l
+      f=fac*wgt*rcalls
+      do k=1,4
+         x(k)=f*(xp(k)*lum+xm(k)*lumm)
+      enddo
+      do k=1,4
+         do l=1,4
+            vt_g(k,l,ich)=vt_g(k,l,ich)+x(k)*x(l)
+         enddo
+      enddo
+      if(.not.loop)return
+      w=1d0/vt_p(ich)
+      y=f*(v0*lum+v0m*lumm)
+      r=0d0
+      do k=1,4
+         vt_b(k,ich)=vt_b(k,ich)+w*x(k)*y
+         r=r+vt_c(k,ich)*x(k)
+      enddo
+      vt_yy(ich)=vt_yy(ich)+w*y*y
+      vt_di(ich)=vt_di(ich)+w*(y-r)**2
+      return
+      end
+
+
+      subroutine vt_time(dt,dtl,did)
+c     warm-up: one more call of channel ich, CPU time dt, of which dtl
+c     in the loops (if computed, did)
+      implicit none
+      include 'ngraphs.inc'
+      double precision dt,dtl
+      logical did
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+c     sums of the current warm-up iteration: residual, calls; loops
+c     computed in the warm-up
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
+      integer ich
+      common/comich/ich
+      vt_n(ich)=vt_n(ich)+1d0
+      vt_ni(ich)=vt_ni(ich)+1d0
+      vt_tt(ich)=vt_tt(ich)+dt
+      if(did)then
+         vt_tl(ich)=vt_tl(ich)+dtl
+         vt_nlw(ich)=vt_nlw(ich)+1d0
+      endif
+      return
+      end
+
+
+      subroutine vt_iter_start(ich)
+c     warm-up: start of an iteration of channel ich
+      implicit none
+      include 'ngraphs.inc'
+      integer ich
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+c     sums of the current warm-up iteration: residual, calls; loops
+c     computed in the warm-up
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
+      vt_di(ich)=0d0
+      vt_ni(ich)=0d0
+      return
+      end
+
+
+      subroutine vt_iter_end(ich,itw,s,sr,d,popt,tl,tr)
+c     warm-up: end of iteration itw of channel ich, with standard
+c     deviation per call s (with the trick, probability vt_p(ich)).
+c     Returns sr = S (s^2 without the trick), d = D (with the reference
+c     used in the iteration; after the first, with the new fit), popt
+c     (vt_popt_f), tl, tr: CPU time per loop and per call for the
+c     rest. The reference (vt_c) is fitted again on all the points so
+c     far
+      implicit none
+      include 'ngraphs.inc'
+      integer ich,itw
+      double precision s,sr,d,popt,tl,tr
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+c     sums of the current warm-up iteration: residual, calls; loops
+c     computed in the warm-up
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
+      double precision dit,dfit,p,vt_popt_f
+      external vt_popt_f
+      dit=-1d0
+      if(itw.gt.1.and.vt_ni(ich).gt.0d0)dit=vt_di(ich)/vt_ni(ich)
+      p=vt_p(ich)
+      sr=s*s
+      if(dit.ge.0d0.and.p.lt.1d0)
+     &     sr=max(s*s-(1d0/p-1d0)*dit,0.1d0*s*s)
+      call vt_fit(vt_g(1,1,ich),vt_b(1,ich),vt_yy(ich),vt_c(1,ich),
+     &     dfit)
+      if(vt_n(ich).gt.0d0)dfit=dfit/vt_n(ich)
+      d=dfit
+      if(dit.ge.0d0)d=dit
+      tl=0d0
+      tr=0d0
+      if(vt_nlw(ich).gt.0d0)tl=vt_tl(ich)/vt_nlw(ich)
+      if(vt_n(ich).gt.0d0)tr=max((vt_tt(ich)-vt_tl(ich))/vt_n(ich),0d0)
+      popt=vt_popt_f(sr,d,tl,tr,vt_n(ich))
+      return
+      end
+
+
+      double precision function vt_popt_f(sr,d,tl,tr,n)
+c     probability of the loop that minimises (variance x CPU time):
+c     sr = S, d = D, tl, tr: CPU times per loop and per call for the
+c     rest, n: calls of the sums; 1 (no trick) with fewer than 1000
+c     calls, or if the trick does not pay off (above 0.7)
+      implicit none
+      double precision sr,d,tl,tr,n
+      double precision vt_pmin
+      parameter (vt_pmin=0.02d0)
+      vt_popt_f=1d0
+      if(n.lt.1000d0.or.d.ge.sr.or.tl.le.0d0)return
+      vt_popt_f=min(1d0,max(vt_pmin,sqrt(d/(sr-d)*tr/tl)))
+      if(vt_popt_f.gt.0.7d0)vt_popt_f=1d0
+      return
+      end
+
+
+      subroutine vt_apply(v0,x,loop)
+c     the loop v0 of a point of channel ich replaced by R + (v0 - R)/p
+c     if it was computed (loop), by R otherwise (p = vt_p(ich) < 1)
+      implicit none
+      include 'ngraphs.inc'
+      double precision v0,x(4)
+      logical loop
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+      integer ich
+      common/comich/ich
+      double precision r
+      integer k
+      if(vt_p(ich).ge.1d0)return
+      r=0d0
+      do k=1,4
+         r=r+vt_c(k,ich)*x(k)
+      enddo
+      if(loop)then
+         v0=r+(v0-r)/vt_p(ich)
+      else
+         v0=r
+      endif
+      return
+      end
+
+
+      double precision function vt_pmain(popt,ncl,nlmin)
+c     probability of the loop in a main run with ncl calls per iteration
+c     of the channel: popt (vt_popt_f), but at least nlmin loops per
+c     iteration; 1 (no trick) above 0.7
+      implicit none
+      double precision popt
+      integer ncl,nlmin
+      vt_pmain=1d0
+      if(popt.ge.1d0)return
+      vt_pmain=max(popt,min(1d0,dble(nlmin)/dble(max(ncl,1))))
+      if(vt_pmain.gt.0.7d0)vt_pmain=1d0
+      return
+      end
+
+
+      subroutine vt_fit(g,b,yy,c,d)
+c     least squares: c minimises sum (y - sum_k c_k x_k)^2, from the
+c     sums g = sum x x^T, b = sum x y, yy = sum y^2; d is the minimum.
+c     Cholesky decomposition of g (columns normalised), the columns
+c     that depend on the previous ones (pivot < 1d-10) dropped, e.g.
+c     the double pole proportional to the Born for a single Born colour
+c     structure
+      implicit none
+      double precision g(4,4),b(4),yy,c(4),d
+      double precision a(4,4),sc(4),z(4),cs(4),t
+      logical keep(4)
+      integer j,k,l
+      do k=1,4
+         sc(k)=sqrt(max(g(k,k),0d0))
+         keep(k)=sc(k).gt.0d0
+         z(k)=0d0
+         cs(k)=0d0
+         c(k)=0d0
+      enddo
+      a=0d0
+      do k=1,4
+         if(.not.keep(k))cycle
+         t=1d0
+         do j=1,k-1
+            if(keep(j))t=t-a(k,j)**2
+         enddo
+         if(t.le.1d-10)then
+            keep(k)=.false.
+            cycle
+         endif
+         a(k,k)=sqrt(t)
+         do l=k+1,4
+            if(.not.keep(l))cycle
+            t=g(l,k)/(sc(l)*sc(k))
+            do j=1,k-1
+               if(keep(j))t=t-a(l,j)*a(k,j)
+            enddo
+            a(l,k)=t/a(k,k)
+         enddo
+      enddo
+c     L z = b (normalised), then L^T c = z
+      d=yy
+      do k=1,4
+         if(.not.keep(k))cycle
+         t=b(k)/sc(k)
+         do j=1,k-1
+            if(keep(j))t=t-a(k,j)*z(j)
+         enddo
+         z(k)=t/a(k,k)
+         d=d-z(k)**2
+      enddo
+      do k=4,1,-1
+         if(.not.keep(k))cycle
+         t=z(k)
+         do l=k+1,4
+            if(keep(l))t=t-a(l,k)*cs(l)
+         enddo
+         cs(k)=t/a(k,k)
+         c(k)=cs(k)/sc(k)
+      enddo
+      d=max(d,0d0)
+      return
+      end
+
+
+      subroutine vt_seed(iseed,k)
+c     random numbers of the virtual trick (vt_rand), from the seed;
+c     k = 1: warm-up, 2: main runs (the same with --warmup and --main)
+      implicit none
+      include 'ngraphs.inc'
+      integer iseed,k
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+c     sums of the current warm-up iteration: residual, calls; loops
+c     computed in the warm-up
+      double precision vt_di(N_MAX_CG),vt_ni(N_MAX_CG),vt_nlw(N_MAX_CG)
+      common/c_vtrick_w/vt_di,vt_ni,vt_nlw
+      integer*8 is
+      is=abs(iseed)+1000003_8*k
+      vt_s1=int(1+mod(7919_8*is+12345_8,2147483562_8))
+      vt_s2=int(1+mod(104729_8*is+67890_8,2147483398_8))
+      return
+      end
+
+
+      double precision function vt_rand()
+c     uniform random number in (0,1) for the virtual trick: L'Ecuyer's
+c     combination of two multiplicative congruential generators
+c     (Schrage's method; ran2 without the shuffle), separate from the
+c     random numbers of vegas
+      implicit none
+      include 'ngraphs.inc'
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG)
+      double precision vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,
+     &     vt_mode,vt_s1,vt_s2
+      integer k,z
+      k=vt_s1/53668
+      vt_s1=40014*(vt_s1-k*53668)-k*12211
+      if(vt_s1.lt.0)vt_s1=vt_s1+2147483563
+      k=vt_s2/52774
+      vt_s2=40692*(vt_s2-k*52774)-k*3791
+      if(vt_s2.lt.0)vt_s2=vt_s2+2147483399
+      z=vt_s1-vt_s2
+      if(z.lt.1)z=z+2147483562
+      vt_rand=z*4.656613057d-10
+      return
       end

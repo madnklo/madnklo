@@ -116,6 +116,26 @@ c     2 I + J + C only; floop, fct = 1 or 0 select the two parts
       double precision floop,fct
       double precision get_muf,pdf_lumi,pdf_swap_initial
       external get_muf,pdf_lumi,pdf_swap_initial
+c     virtual trick (driver_v.f): in the main runs the loop is computed
+c     only with probability vt_p(ich), and the integrand uses instead the
+c     reference R = sum_k vt_c(k,ich) X_k, with X = (Born, finite part,
+c     single and double pole of I), computed at every point, plus
+c     (loop - R)/vt_p(ich) when the loop is computed (unbiased).
+c     vt_mode = 0: off; 1: warm-up (trick applied with the reference
+c     of the previous iterations, none in the first one, and sums for
+c     the fit of vt_c and the choice of vt_p, vt_accum and vt_time);
+c     2: main runs (trick applied by vt_apply). Same common block in
+c     driver_v.f
+      double precision vt_c(4,N_MAX_CG),vt_p(N_MAX_CG),vt_n(N_MAX_CG)
+      double precision vt_g(4,4,N_MAX_CG),vt_b(4,N_MAX_CG),vt_yy(N_MAX_CG)
+      double precision vt_tl(N_MAX_CG),vt_tt(N_MAX_CG),vt_nl(N_MAX_CG)
+      integer vt_mode,vt_s1,vt_s2
+      common/c_vtrick/vt_c,vt_p,vt_n,vt_g,vt_b,vt_yy,vt_tl,vt_tt,vt_nl,vt_mode,vt_s1,vt_s2
+      logical vt_loop,vt_did
+      double precision vt_t0,vt_t1,vt_dtl,vt_v0,vt_v0m,vt_lum,vt_lumm
+      double precision vt_xp(4),vt_xm(4)
+      double precision vt_rand
+      external vt_rand
 c
       if(firsttime)then
          hadrons=(lpp(1).ne.0.or.lpp(2).ne.0)
@@ -148,6 +168,14 @@ c     initialise
       int_virtual = 0d0
       VNLO = 0d0
       INLO = 0d0
+c     virtual trick: compute the loop at this point? (main runs only)
+      vt_loop=.true.
+      vt_did=.false.
+      vt_dtl=0d0
+      if(vt_mode.eq.1)call cpu_time(vt_t0)
+      if(vt_mode.ge.1.and.vmode.ne.2)then
+         if(vt_p(ich).lt.1d0)vt_loop=vt_rand().lt.vt_p(ich)
+      endif
 c
       call gen_mom(iconfig,mincfig,maxcfig,invar,xjac,x,p,nexternal)
       if(xjac.eq.0d0)goto 999
@@ -167,9 +195,17 @@ c     (set_mur also updates MU_R and the couplings used by MadLoop)
       alphas=alphas_current
 c
 c     call virtual (not for I + J + C only)
-      if(vmode.ne.2)then
+      if(vmode.ne.2.and.vt_loop)then
          COLOR_CORRELATED_EVALS = 0d0
+         if(vt_mode.eq.1)call cpu_time(vt_t1)
          CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(p,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+         vt_did=.true.
+         if(vt_mode.eq.1)then
+            vt_dtl=vt_t1
+            call cpu_time(vt_t1)
+            vt_dtl=vt_t1-vt_dtl
+         endif
+         if(vt_mode.eq.2)vt_nl(ich)=vt_nl(ich)+1d0
          VNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
       endif
 c
@@ -180,9 +216,20 @@ c     call counterterm
          write(77,*)'ierr failure: V',ierr,ich,failure_stage
          goto 999
       endif
+c     virtual trick: the loop and the reference quantities X of the
+c     process (the Born BLOI is summed with the luminosities below)
+      vt_v0=VNLO(0)
+      vt_xp(1)=BLOI
+      vt_xp(2)=INLO(0)
+      vt_xp(3)=INLO(-1)
+      vt_xp(4)=INLO(-2)
+      vt_v0m=0d0
+      vt_xm=0d0
+      vt_lum=1d0
+      vt_lumm=0d0
 c
 c     test coefficients of epsilon poles (needs the loop)
-      if(ntested.lt.ntest.and.vmode.ne.2)then
+      if(ntested.lt.ntest.and.vmode.ne.2.and.vt_loop)then
          ntested=ntested+1
          write(50,*)
          write(50,*)'Testing point # ', ntested
@@ -193,6 +240,7 @@ c     test coefficients of epsilon poles (needs the loop)
 c
 c     subtracted virtual
       if(.not.hadrons)then
+         if(vt_mode.ge.1)call vt_apply(VNLO(0),vt_xp,vt_loop)
          int_virtual=(floop*VNLO(0)+fct*INLO(0))*xjac
 c
 c     apply flavour multiplicity factor
@@ -211,9 +259,15 @@ c     evaluated with the initial momenta exchanged
             lumm=pdf_lumi(xbk(1),xbk(2),muf,2)*pdf_swap_initial(p,pm,nexternal)
             call invariants_from_p(pm,nexternal,sLOm,ierr)
             if(ierr.ne.0)goto 999
-            if(vmode.ne.2)then
+            if(vmode.ne.2.and.vt_loop)then
                COLOR_CORRELATED_EVALS = 0d0
+               if(vt_mode.eq.1)call cpu_time(vt_t1)
                CALL %(long_proc_prefix)sSLOOPMATRIX_THRES(pm,MATELEM,-1.0D0,PREC_FOUND,RETURNCODE)
+               if(vt_mode.eq.1)then
+                  vt_dtl=vt_dtl-vt_t1
+                  call cpu_time(vt_t1)
+                  vt_dtl=vt_dtl+vt_t1
+               endif
                VNLOm(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
             endif
             call int_counter_NLO(pm,sLOm,INLOm,BLOIm,ierr)
@@ -222,6 +276,18 @@ c     evaluated with the initial momenta exchanged
                write(77,*)'ierr failure: V (mirror)',ierr,ich,failure_stage
                goto 999
             endif
+         endif
+c        virtual trick: the same for the mirror, and the luminosities
+         vt_v0m=VNLOm(0)
+         vt_xm(1)=BLOIm
+         vt_xm(2)=INLOm(0)
+         vt_xm(3)=INLOm(-1)
+         vt_xm(4)=INLOm(-2)
+         vt_lum=lum
+         vt_lumm=lumm
+         if(vt_mode.ge.1)then
+            call vt_apply(VNLO(0),vt_xp,vt_loop)
+            if(has_mirror)call vt_apply(VNLOm(0),vt_xm,vt_loop)
          endif
          VIp=floop*VNLO(0)+fct*INLO(0)
          VIm=floop*VNLOm(0)+fct*INLOm(0)
@@ -264,6 +330,17 @@ c     Multi channeling
       chw = born_chan_weight(ich)
       int_virtual = int_virtual * chw
 c
+c     virtual trick, warm-up: sums for the fit of the reference (the loop
+c     part of the integrand, if computed, and the X, with the same
+c     factors)
+      if(vt_mode.eq.1.and.vmode.ne.2)then
+         if(.not.hadrons)then
+            call vt_accum(floop*xjac*chw*fl_factor,wgt,vt_v0,vt_v0m,vt_xp,vt_xm,vt_lum,vt_lumm,vt_loop)
+         else
+            call vt_accum(floop*xjac*chw,wgt,vt_v0,vt_v0m,vt_xp,vt_xm,vt_lum,vt_lumm,vt_loop)
+         endif
+      endif
+c
 c     renormalisation-scale variations, with b = born_qcd_power:
 c     (V+I)(k muR) = r_k^(b+1) [ (V+I)(muR) + b beta0/2 alphas/(2 pi) B log(k^2) ]
 c     (the explicit infrared logarithms of V and I cancel, since their
@@ -296,7 +373,13 @@ c     plot
       endif
       if(doplot)call analysis_fill(p,sLO,nexternal,leg_pdgs,wgts)
 c
- 999  return
+ 999  continue
+c     virtual trick, warm-up: CPU time of the call and of its loops
+      if(vt_mode.eq.1)then
+         call cpu_time(vt_t1)
+         call vt_time(vt_t1-vt_t0,vt_dtl,vt_did)
+      endif
+      return
       end
 
 

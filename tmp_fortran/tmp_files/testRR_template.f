@@ -118,6 +118,9 @@ c     for the limiting procedure
 c      x0(1)=0.5d0
 c      x0(2)=0.5d0
 c
+c     limit and sector of the consistency log (ct_log)
+      call ct_log_begin(limstr,'%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d')
+c
 c     loop to get closer and closer to the limit
       do iitn=1,maxitn
          lam=10d0**(1d0-iitn)
@@ -171,6 +174,8 @@ c     renormalisation scale for the (n+2)-body kinematics
 c
 c     counterterm
          consistency_check = .false.
+c        consistency_check = .true. writes the pieces of the counterterm
+         call ct_log_lam(lam)
          call local_counter_NNLO_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d(sNNLO,p,sNLO,pb,sLO,ptilde,wgt,xjac,xjacB,x,KNNLO,wgt_chan,ierr)
          if(ierr.ne.0)cycle
 
@@ -187,6 +192,7 @@ c     counterterm
             write(iunit,*)lam,double_real,lim,double_real,' *** '
          endif
       enddo
+      call ct_log_end()
       x=x0
 c
       return

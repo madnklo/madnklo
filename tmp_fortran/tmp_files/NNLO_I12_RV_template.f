@@ -17,9 +17,11 @@ c     DOUBLE_POLE = I12NNLO(-2)
       INCLUDE 'virtual_recoilers.inc'
       INCLUDE 'rv_mapped_labels_common.inc'
       integer i,j,k,r,c,d,e,f,rp,rpp
-      integer cb,db,rb,jb,kb
+      integer cb,db,eb,fb,rb,jb,kb
       integer ierr
       double precision p(0:3,nexternal),pb(0:3,nexternal-1),xjcs1
+      double precision pb_icd(0:3,nexternal-1),pb_idc(0:3,nexternal-1)
+      logical keep_icd,keep_idc
       double precision sNLO(nexternal,nexternal),sLO(nexternal-1,nexternal-1)
       double precision I12NNLO(-2:0),pref
       double precision Is(-2:0),Ic(-2:0),Isc(-2:0)
@@ -101,14 +103,34 @@ c
 c
           cb = mapped_labels(c,i,c)
           db = mapped_labels(d,i,c)
+## if (pyamplicol) {
+c     The two mapped Borns in Eq. (4.47) have independent cut decisions.
+          call phase_space_CS_inv(i,c,d,p,pb_icd,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
+          if(xjCS1.eq.0d0)goto 999
+          keep_icd=.not.docut(pb_icd,nexternal-1,underlying_leg_pdgs,0)
+          call phase_space_CS_inv(i,d,c,p,pb_idc,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,d))
+          if(xjCS1.eq.0d0)goto 999
+          keep_idc=.not.docut(pb_idc,nexternal-1,underlying_leg_pdgs,0)
+          if(.not.keep_icd.and..not.keep_idc)cycle
+## }
 c
           do e=1,nexternal
             if(.not.isnloqcdparton(e)) cycle
             if(e.eq.i) cycle
+## if (pyamplicol) {
+            cb = mapped_labels(c,i,c)
+            db = mapped_labels(d,i,c)
+            eb = mapped_labels(e,i,c)
+## }
             do f=1,nexternal
                if(.not.isnloqcdparton(f)) cycle
                if(f.eq.i.or.f.eq.e) cycle
 c
+## if (pyamplicol) {
+               fb = mapped_labels(f,i,c)
+               quadblo=0d0
+               if(keep_icd) quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(pb_icd,alphas,cb,db,eb,fb)
+## } else {
                if(size(leg_pdgs).le.5) then
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
 c     the mapped quadruple-colour Born getter.
@@ -118,12 +140,17 @@ c     the mapped quadruple-colour Born getter.
                  goto 999
                  !quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(c,d,e,f)
                endif
+## }
                call get_Js(snlo(e,f), JsEF)
                Is = Is + Ei_cd * JsEF * quadblo/2d0
              enddo
 c
              if(e.eq.i.or.e.eq.d) cycle
 c
+## if (pyamplicol) {
+             quadblo=0d0
+             if(keep_icd) quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(pb_icd,alphas,cb,db,eb,db)
+## } else {
              if(size(leg_pdgs).le.5) then
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
 c     the mapped quadruple-colour Born getter.
@@ -133,14 +160,21 @@ c     the mapped quadruple-colour Born getter.
                goto 999
                !quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(c,d,e,d)
              endif
+## }
              call get_Js(snlo(d,e), JsDE)
              Is = Is + Ei_cd * JsDE * quadblo
 c
              cb = mapped_labels(c,i,d)
              db = mapped_labels(d,i,d)
 c
+## if (pyamplicol) {
+             if(.not.keep_idc)cycle
+             pb=pb_idc
+             eb=mapped_labels(e,i,d)
+## } else {
              call phase_space_CS_inv(i,d,c,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,d))
              if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
+## }
              call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
              blo = ans(0)
 ## if (pyamplicol) {
@@ -149,6 +183,9 @@ c
              ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,db)
 ## }
 c
+## if (pyamplicol) {
+             quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(pb,alphas,cb,db,eb,db)
+## } else {
              if(size(leg_pdgs).le.5) then
 c     TODO(hardcoded-ME): replace the two-leg Casimir shortcut with
 c     the mapped quadruple-colour Born getter.
@@ -158,12 +195,25 @@ c     the mapped quadruple-colour Born getter.
                goto 999
                !quadblo = %(proc_prefix_S_RV_g)s_get_quadblo(c,d,e,d)
              endif
+## }
              call get_Js(snlo(d,e), JsDE)
              Is = Is - Ei_cd * JsDE * quadblo
           enddo
 c
+## if (pyamplicol) {
+          if(.not.keep_icd)cycle
+          pb=pb_icd
+          cb=mapped_labels(c,i,c)
+          db=mapped_labels(d,i,c)
+## } else {
           call phase_space_CS_inv(i,c,d,p,pb,nexternal,leg_PDGs,xjCS1,mapped_labels(:,i,c))
           if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
+c     TODO(check): restore cb=mapped_labels(c,i,c) and
+c     db=mapped_labels(d,i,c). The inner loop can leave both labels
+c     from (i,d,c), but the Born hook below fills the table for (i,c,d).
+c     With only two coloured Born legs, a swap selects the same
+c     dipole and can hide the mismatch at GET_CCBLO.
+## }
           call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
           blo = ans(0)
 ## if (pyamplicol) {

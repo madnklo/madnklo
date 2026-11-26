@@ -126,6 +126,9 @@ c     be saved
       ihlast(i_replace)=ih
       imemlast(i_replace)=imem
       isetlast(i_replace)=iset
+c     (the parton is part of the key of the cache: without it no call
+c     was ever reused)
+      ipartlast(i_replace)=ipart
 c
       return
       end

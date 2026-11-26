@@ -25,6 +25,7 @@ import array
 import sys
 
 import madgraph.core.color_algebra as color_algebra
+from madgraph.core.color_scalar import ClosedColorTraceCache
 import madgraph.core.diagram_generation as diagram_generation
 import madgraph.core.base_objects as base_objects
 from madgraph import MadGraph5Error
@@ -1149,9 +1150,12 @@ class ColorMatrix(dict):
                 except KeyError:                 
                     
                     # Now simplify and evaluate the corresponding color chain
-                    col_fact = color_algebra.ColorFactor([final_color_string])
-                    if debug: print(col_fact)                        
-                    result = col_fact.full_simplify()
+                    scalar_cache = getattr(self, '_closed_color_cache', None)
+                    result = scalar_cache.contract(final_color_string) if scalar_cache is not None else None
+                    if result is None:
+                        col_fact = color_algebra.ColorFactor([final_color_string])
+                        if debug: print(col_fact)
+                        result = col_fact.full_simplify()
                     if debug: print('result:',result)
 
                     # Keep only terms with Nc_max >= Nc power >= Nc_min
@@ -1222,6 +1226,7 @@ class ColorMatrix(dict):
         all_color_correlated_matrices = {}
         # Cache results
         canonical_dict = {}
+        closed_color_cache = ClosedColorTraceCache()
         
         # Identify all colored indices to be replaced by their double-prime image in the
         # conjugated matrix element
@@ -1277,6 +1282,7 @@ class ColorMatrix(dict):
                         col_basis2 = self._col_basis2 if not self.is_symmetric else None, 
                         Nc = Nc, Nc_power_min = Nc_power_min, Nc_power_max = Nc_power_max,
                         automatic_build = False)
+                    color_matrix._closed_color_cache = closed_color_cache
 
                     # This follows very closely what "build_matrix" does but it is unfortunately sufficiently
                     # different that it is to cumbersome to modify the color matrix above so as to reuse the build_matrix() function.

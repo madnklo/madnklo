@@ -2896,6 +2896,8 @@ class ProcessExporterFortranSA(ProcessExporterFortran):
 
         cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/collect.py'),pjoin(path_to_create,'Events'))
         cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/run_all.py'),pjoin(path_to_create,'bin'))
+        # checks of the relations between the counterterms (testRR, consistency_check on)
+        cp(pjoin(dirpath,'../../../../Template/Fortran_tmp/src_to_common/consistencyRR.py'),pjoin(path_to_create,'bin'))
 
         for file in linkfiles:
             ln('../%s' % file, cwd=dirpath)

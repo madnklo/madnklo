@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""consistency check of the counterterms of the double real
+"""Consistency check of the counterterms of the double real (testRR).
 """
 import argparse
 import os
 import re
 import sys
-from collections import ordereddict
+from collections import OrderedDict
 
 def sector_type(tag):
     """ijjk, ijkj or ijkl from the tag isec_jsec_c3p_d3p."""
@@ -17,6 +17,7 @@ def sector_type(tag):
     return "ijkl"
 
 def operators(label):
+    """K<op>_<op>_...: the operators of a piece, e.g. KSS_SC -> {SS, SC}."""
     return frozenset(label[1:].split("_"))
 
 def by_set(labels):
@@ -34,109 +35,96 @@ def set_rule(target_of):
             target = frozenset(target_of(t))
             if target == t:
                 continue
-            for partner in sets.get(target, [none]):
+            for partner in sets.get(target, [None]):
                 pairs.append((lab, partner))
         return pairs
     return relations
 
-
 def pair_rule(table):
+    """Explicit relations: table = [(A, B), ...], those with both pieces
+    in the log."""
     def relations(labels):
         have = set(labels)
         return [(a, b) for a, b in table if a in have and b in have]
     return relations
 
 
-# ijjk (sij, cijk, scijk), sector 3_4_4_5 of e+e- > g g c cx
-ijjk = {
-    # k1 soft limit of i
-    "si": set_rule(lambda t: t | {"s"}),
+# ijjk (Sij, Cijk, SCijk), sector 3_4_4_5 of e+e- > g g c cx
+IJJK = {
+    # K1 soft limit of i
+    "Si": set_rule(lambda t: t | {"S"}),
     # soft limit of the pair
-    "sij": set_rule(lambda t: t | {"ss"}),
-    # collinear limit of ij: the sc piece becomes cc
-    "cij": set_rule(lambda t: t | ({"cc"} if "sc" in t else {"c"})),
-    # soft-collinear limit of ijk: s where there is already a c
-    "scijk": set_rule(lambda t: t | ({"s"} if "c" in t else {"sc"})),
+    "Sij": set_rule(lambda t: t | {"SS"}),
+    # collinear limit of ij: the SC piece becomes CC
+    "Cij": set_rule(lambda t: t | ({"CC"} if "SC" in t else {"C"})),
+    # soft-collinear limit of ijk: S where there is already a C
+    "SCijk": set_rule(lambda t: t | ({"S"} if "C" in t else {"SC"})),
     # triple collinear limit
-    "cijk": set_rule(lambda t: t | {"cc"}),
+    "Cijk": set_rule(lambda t: t | {"CC"}),
     # spurious limits: pieces that coincide
-    "cir": pair_rule([
-        ("kc", "ks_c"), ("kcc", "ks_cc"), ("kc_cc", "ks_c_cc"),
-        ("kc_ss", "ks_c_ss"), ("kc_ss_cc", "ks_c_ss_cc"),
-        ("ksc", "ks_sc"), ("ksc_cc", "ks_sc_cc"),
-        ("kss_cc", "ks_ss_cc"), ("kss_sc", "ks_ss_sc"),
-        ("kss_sc_cc", "ks_ss_cc_sc")]),
-    "cjr": pair_rule([
-        ("kc", "ks_c"), ("kc_cc", "ks_c_cc"), ("kc_ss", "ks_c_ss"),
-        ("kc_ss_cc", "ks_c_ss_cc"), ("ksc", "kss_sc"),
-        ("ksc_cc", "kss_sc_cc"), ("ks_cc", "ks_ss_cc")]),
-    "cijr": pair_rule([
-        ("kcc", "kss_cc"), ("kc_cc", "kc_ss_cc"), ("ksc", "kss_sc"),
-        ("ksc_cc", "kss_sc_cc"), ("ks_cc", "ks_ss_cc"),
-        ("ks_c_cc", "ks_c_ss_cc"), ("ks_sc", "ks_ss_sc"),
-        ("ks_sc_cc", "ks_ss_cc_sc")]),
+    "Cir": pair_rule([
+        ("KC", "KS_C"), ("KCC", "KS_CC"), ("KC_CC", "KS_C_CC"),
+        ("KC_SS", "KS_C_SS"), ("KC_SS_CC", "KS_C_SS_CC"),
+        ("KSC", "KS_SC"), ("KSC_CC", "KS_SC_CC"),
+        ("KSS_CC", "KS_SS_CC"), ("KSS_SC", "KS_SS_SC"),
+        ("KSS_SC_CC", "KS_SS_CC_SC")]),
+    "Cjr": pair_rule([
+        ("KC", "KS_C"), ("KC_CC", "KS_C_CC"), ("KC_SS", "KS_C_SS"),
+        ("KC_SS_CC", "KS_C_SS_CC"), ("KSC", "KSS_SC"),
+        ("KSC_CC", "KSS_SC_CC"), ("KS_CC", "KS_SS_CC")]),
+    "Cijr": pair_rule([
+        ("KCC", "KSS_CC"), ("KC_CC", "KC_SS_CC"), ("KSC", "KSS_SC"),
+        ("KSC_CC", "KSS_SC_CC"), ("KS_CC", "KS_SS_CC"),
+        ("KS_C_CC", "KS_C_SS_CC"), ("KS_SC", "KS_SS_SC"),
+        ("KS_SC_CC", "KS_SS_CC_SC")]),
 }
 
-relations = {"ijjk": ijjk}
+RELATIONS = {"ijjk": IJJK}
 
-def read_log(path):
-    """{limit: [event, ...]}, event = ordereddict {lambda: {label: value}}."""
-    events = ordereddict()
-    current = none
-    with open(path) as f:
-        for line in f:
-            if not line.strip():
-                continue
-            if line.startswith("#"):
-                current = none          # new event: its limit is on the next line
-                continue
-            lim, lam, label, val = line.split()
-            if current is none:
-                current = ordereddict()
-                events.setdefault(lim, []).append(current)
-            current.setdefault(float(lam), ordereddict())[label] = float(val)
-    return events
 
 
 def read_testrr(path):
-    """same as read_log, from a testrr log of the former format."""
-    events = ordereddict()
-    limit = none
-    cur = ordereddict()
-    event = none
+    """{event number: {limit: {lambda: {label: value}}}} from
+    testRR_<sector>.log: for each lambda, the pieces logged by ct_log
+    followed by the line 'lambda RR LIM |RR-LIM|/|LIM|'."""
+    events = OrderedDict()
+    event = limit = None
+    cur = OrderedDict()
     with open(path) as f:
         for line in f:
             t = line.split()
             if not t or t[0].startswith("---") or t[0] == "lambda":
                 continue
-            if t[0] == "event":
-                limit, event = none, none
+            if t[0] == "EVENT":
+                event = events.setdefault(int(t[2]), OrderedDict())
+                limit = None
                 continue
-            if t[0] == "lim":
-                limit, cur, event = t[2], ordereddict(), none
+            if t[0] == "LIM":
+                limit, cur = t[2], OrderedDict()
+                if event is not None:
+                    event[limit] = OrderedDict()
                 continue
-            if limit is none:
+            if limit is None or event is None:
                 continue
-            if t[0].startswith("k") and len(t) == 2:
-                cur[t[0]] = float(t[1].replace("d", "e"))
+            if t[0].startswith("K") and len(t) == 2:
+                cur[t[0]] = float(t[1].replace("D", "E"))
                 continue
             try:
                 lam = float(t[0])
-            except valueerror:
+            except ValueError:
                 continue
             if len(t) >= 4 and cur:
-                if event is none:
-                    event = ordereddict()
-                    events.setdefault(limit, []).append(event)
-                event[lam] = cur
-                cur = ordereddict()
+                event[limit][lam] = cur
+                cur = OrderedDict()
     return events
 
 
 
-tiny = 1e-8      # converged: rel. difference below this at the smallest lambda
-drop = 0.5       # else: it must drop by this factor over 3 decades of lambda
-loose = 1e-2     # and be below this
+TINY = 1e-8      # converged: best |A-B|/|B| below this
+DROP = 0.5       # else: it must be this factor below the one at 1e3 times larger lambda
+LOOSE = 1e-2     # and below this
+PLATEAU = 1e-5   # or: below this and 1e3 times below the difference at the largest lambda
+                 # (the difference can stop dropping at a precision floor of the pieces)
 
 
 def reldiff(a, b):
@@ -150,53 +138,32 @@ def judge(lams, diffs):
     best = diffs[k]
     if best < TINY:
         return True, best
+    if best < PLATEAU and diffs[0] > 1e3 * best:
+        return True, best
     ref = [i for i in range(len(lams)) if lams[i] >= 300 * lams[k]]
     if not ref or best >= LOOSE:
         return False, best
-    # nearest to 1e3 times larger
     r = min(ref, key=lambda i: abs(lams[i] / lams[k] / 1e3 - 1))
     return best <= DROP * diffs[r], best
 
 
-def full_lambdas(event):
+def full_lambdas(points):
     labels = OrderedDict()
-    for vals in event.values():
+    for vals in points.values():
         for lab in vals:
             labels[lab] = None
-    lams = sorted([lam for lam, vals in event.items() if len(vals) == len(labels)], reverse=True)
+    lams = sorted([lam for lam, vals in points.items() if len(vals) == len(labels)],
+                  reverse=True)
     return list(labels), lams
 
 
-def check_limit(f, stype, limit, events):
-    summary = OrderedDict()
-    f.write("\n\n LIM = %s\n" % limit)
-    for iev, event in enumerate(events, 1):
-        labels, lams = full_lambdas(event)
-        if not lams:
-            continue
-        for a, b in RELATIONS[stype][limit](labels):
-            if b is None:
-                f.write("\n EVENT %d  RELATION  %s -> ?   *** no piece to compare with\n" % (iev, a))
-                summary.setdefault((a, b), []).append((iev, False, None))
-                continue
-            f.write("\n EVENT %d  RELATION  %s -> %s\n" % (iev, a, b))
-            f.write("%24s%24s%24s%24s\n" % ("lambda", a, b, "|A-B|/|B|"))
-            diffs = []
-            for lam in lams:
-                x, y = event[lam][a], event[lam][b]
-                diffs.append(reldiff(x, y))
-                f.write("%24.15E%24.15E%24.15E%24.15E\n" % (lam, x, y, diffs[-1]))
-            ok, d = judge(lams, diffs)
-            summary.setdefault((a, b), []).append((iev, bool(ok), d))
-    return summary
-
-
-def write_summary(f, limit, summary):
-    f.write("\n\n SUMMARY %s (events ok / events; best rel. diff over lambda, worst event;\n"
-            " ok: below %g, or below %g and %g times smaller than at 1e3 times larger lambda)\n"
-            % (limit, TINY, LOOSE, DROP))
+def write_summary(f, limit, rels):
+    f.write("\n\n SUMMARY %s (events ok / events; best |A-B|/|B| over lambda, worst event;\n"
+            " ok: below %g; or below %g and 1e3 times below the one at the largest lambda;\n"
+            " or below %g and %g times smaller than at 1e3 times larger lambda)\n"
+            % (limit, TINY, PLATEAU, LOOSE, DROP))
     nbad = 0
-    for (a, b), res in summary.items():
+    for (a, b), res in rels.items():
         nok = sum(1 for _, ok, _ in res if ok)
         ds = [d for _, _, d in res if d is not None]
         bad = [str(i) for i, ok, _ in res if not ok]
@@ -208,37 +175,63 @@ def write_summary(f, limit, summary):
     return nbad
 
 
-def check(path, testrr):
+def check(path):
     name = os.path.basename(path)
-    m = re.match(r"(?:testRR_|consistency_(?:[A-Za-z0-9]+)_)(\d+_\d+_\d+_\d+)", name)
+    m = re.match(r"testRR_(\d+_\d+_\d+_\d+)\.log$", name)
     if not m:
-        sys.exit("%s: cannot read the sector from the name" % name)
+        sys.exit("%s: expected testRR_<isec>_<jsec>_<c3p>_<d3p>.log" % name)
     tag = m.group(1)
     stype = sector_type(tag)
-    events = (read_testrr if testrr else read_log)(path)
-    out = os.path.join(os.path.dirname(path), "consistencyRR_" + name.split("_", 1)[1]
-                       if not testrr else "consistencyRR_" + tag + ".log")
-    nbad = 0
+    events = read_testrr(path)
+    out = os.path.join(os.path.dirname(path), "consistencyRR_%s.log" % tag)
+    summary = OrderedDict()      # limit -> {(A, B): [(event, ok, best)]}
+    skipped = OrderedDict()
+    dash = "-" * 40
     with open(out, "w") as f:
-        f.write(" sector %s, type %s, source %s\n" % (tag, stype, name))
-        summaries = []
-        for limit, evs in events.items():
-            if limit not in RELATIONS.get(stype, {}):
-                f.write("\n\n LIM = %s: no relations defined for sectors of type %s, skipped\n"
-                        % (limit, stype))
-                print("%s: no relations for the limit %s (%s)" % (name, limit, stype))
-                continue
-            summaries.append((limit, check_limit(f, stype, limit, evs)))
-        for limit, summary in summaries:
-            nbad += write_summary(f, limit, summary)
-    print("%s -> %s: %d relations not ok" % (name, os.path.basename(out), nbad))
+        f.write(" consistency of the counterterms, sector %s (type %s), from %s\n" % (tag, stype, name))
+        f.write(" relation REL = A -> B: under the limit, piece A tends to piece B\n")
+        for evno, limits in events.items():
+            f.write("\n %s\n %s\n  EVENT NUMBER %12d\n %s\n %s\n" % (dash, dash, evno, dash, dash))
+            for limit, points in limits.items():
+                if limit not in RELATIONS.get(stype, {}):
+                    skipped[limit] = None
+                    continue
+                labels, lams = full_lambdas(points)
+                if not lams:
+                    continue
+                f.write("\n\n LIM = %s\n" % limit)
+                for a, b in RELATIONS[stype][limit](labels):
+                    res = summary.setdefault(limit, OrderedDict()).setdefault((a, b), [])
+                    if b is None:
+                        f.write(" REL = %s -> ?   *** no piece to compare with\n" % a)
+                        res.append((evno, False, None))
+                        continue
+                    f.write(" REL = %s -> %s\n" % (a, b))
+                    f.write("%24s%24s%24s%24s\n" % ("lambda", a, b, "|A-B|/|B|"))
+                    diffs = []
+                    for lam in lams:
+                        x, y = points[lam][a], points[lam][b]
+                        diffs.append(reldiff(x, y))
+                        f.write("%24.15E%24.15E%24.15E%24.15E\n" % (lam, x, y, diffs[-1]))
+                    ok, best = judge(lams, diffs)
+                    res.append((evno, bool(ok), best))
+                    f.write(" %s (best |A-B|/|B| = %.3e)\n\n" % ("ok" if ok else "*** FAIL", best))
+        nbad = 0
+        for limit, rels in summary.items():
+            nbad += write_summary(f, limit, rels)
+        for limit in skipped:
+            f.write("\n\n LIM = %s: no relations defined for sectors of type %s, not checked\n"
+                    % (limit, stype))
+    nrel = sum(len(rels) for rels in summary.values())
+    if nbad:
+        print("%s -> %s: %d of %d relations FAILED" % (name, os.path.basename(out), nbad, nrel))
+    else:
+        print("%s -> %s: all good (%d relations)" % (name, os.path.basename(out), nrel))
     return nbad
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("logs", nargs="+")
-    parser.add_argument("--testrr", action="store_true",
-                        help="the logs are testRR_<sector>.log of the former format")
+    parser.add_argument("logs", nargs="+", help="testRR_<sector>.log")
     args = parser.parse_args()
-    sys.exit(1 if sum(check(p, args.testrr) for p in args.logs) else 0)
+    sys.exit(1 if sum(check(p) for p in args.logs) else 0)

@@ -15,6 +15,7 @@
       common/cxsave/xsave
       double precision e(5),l(5)
       integer i,iexit
+      character*100 cmd
       logical consistency_check
       common/cconscheck/consistency_check
 
@@ -41,9 +42,9 @@ c
 c     consistencyRR_<sector>.log (all the events so far)
       if(consistency_check)then
          call flush(iunit)
-         call execute_command_line('python3 ../../bin/consistencyRR.py '//
-     &        'testRR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log',
-     &        wait=.true.,exitstat=iexit)
+         cmd='python3 ../../../bin/consistencyRR.py '
+         cmd=trim(cmd)//' testRR_%(isec)d_%(jsec)d_%(c3p)d_%(d3p)d.log'
+         call execute_command_line(trim(cmd),exitstat=iexit)
       endif
 c
       return

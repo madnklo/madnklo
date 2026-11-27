@@ -23,6 +23,17 @@ c
       write(88,*)
       write(88,*)
 c
+      write(881,*)dash10//dash10//dash10//dash10
+      write(881,*)dash10//dash10//dash10//dash10
+      write(881,*)' EVENT NUMBER ',ievnt
+      write(881,*)dash10//dash10//dash10//dash10
+      write(881,*)dash10//dash10//dash10//dash10
+%(limit_str)s
+c
+      write(881,*)
+      write(881,*)
+      write(881,*)
+c
       return
       end
 
@@ -49,7 +60,7 @@ c
       double precision x0(3*nexternal-10),xr(3*nexternal-10)
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
-      double precision KRVNNLO(-2:0)
+      double precision KRVNNLO(-2:0),I1(-2:0),I12(-2:0)
       double precision lam,lim(-2:0),RVNNLO(-2:0),single_real(-2:0)
       character*5 str5
       character*8 limstr
@@ -98,12 +109,19 @@ c     start testing
       write(88,*)'LIM = '//trim(limstr)
       write(88,*)str10//'lambda'//str10//str10//'RV'//str10//str10//str5//'LIM'//str10//str5//'|RV-LIM|/|LIM|_0'//str10//'|RV-LIM|/|LIM|_-1'//str10//'|RV-LIM|/|LIM|_-2'
 c
+      write(881,*)
+      write(881,*)
+      write(881,*)'LIM = '//trim(limstr)
+      write(881,*)str10//'lambda'//str10//str10//'I1'//str10//str10//str5//'I12'//str10//str5//'|I1-I12|/|I12|_0'//str10//'|I1-I12|/|I12|_-1'//str10//'|I1-I12|/|I12|_-2'
+c
 c     loop to get closer and closer to the limit
       do iitn=1,maxitn
          lam=10d0**(1d0-iitn)
 c
 c     initialise
          KRVNNLO=0d0
+         I1=0d0
+         I12=0d0
 c
 c     rescale relevant x random numbers
 c     x(1) is zCS, while x(2) is yCS
@@ -121,37 +139,53 @@ c     recompute momenta after rescaling
          if(sCM.le.0d0.or.abs(sCM-sLO(1,2))/sCM.gt.1d-8)cycle
 c
 c     real virtual
-      if (inittest) then
-         inittest=.false.
-         call %(long_proc_prefix)sget_answer_dimension(matelem_array_dim)
-         allocate(matelem(0:3,0:matelem_array_dim))
-         call %(long_proc_prefix)sget_nsqso_loop(nsquaredso_loop)
-         allocate(prec_found(0:nsquaredso_loop))
-      endif
+         if (inittest) then
+           inittest=.false.
+           call %(long_proc_prefix)sget_answer_dimension(matelem_array_dim)
+           allocate(matelem(0:3,0:matelem_array_dim))
+           call %(long_proc_prefix)sget_nsqso_loop(nsquaredso_loop)
+           allocate(prec_found(0:nsquaredso_loop))
+         endif
 c
 c     renormalisation scale for the (n+1)-body kinematics
-      call set_mur_from_momenta(p,nexternal,leg_pdgs)
-      alphas=alphas_current
-      call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
-      RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
-      RVNNLO = RVNNLO* %(NNLO_RV_proc_str)sfl_factor
-      if(abs(RVNNLO(0)).ge.huge(1d0).or.isnan(RVNNLO(0)))cycle
+         call set_mur_from_momenta(p,nexternal,leg_pdgs)
+         alphas=alphas_current
+         call %(long_proc_prefix)ssloopmatrix_thres(p,matelem,-1.0d0,prec_found,returncode)
+         RVNNLO(-2:0) = [(MATELEM(i,0), i=3,1,-1)]
+         RVNNLO = RVNNLO* %(NNLO_RV_proc_str)sfl_factor
+         if(abs(RVNNLO(0)).ge.huge(1d0).or.isnan(RVNNLO(0)))cycle
 c
-      call get_sig2(snlo,nexternal)
-      call get_W_NLO(isec,jsec)
+         call get_sig2(snlo,nexternal)
+         call get_W_NLO(isec,jsec)
 c
 c     counterterm
-      call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,xr,KRVNNLO,wgt_chan,ierr)
+         call local_RV_counter_NNLO_%(isec)d_%(jsec)d(sNLO,p,sLO,pb,wgt,xjac,xjacB,xr,KRVNNLO,wgt_chan,ierr)
+         if(ierr.ne.0)cycle
+c     1-unresolved integrated counterterm
+         call int_counter_I1_NNLO_%(isec)d_%(jsec)d(p,snlo,slo,i1,ierr)
+         if(ierr.ne.0)cycle
+c     12-unresolved integrated counterterm
+         call int_counter_I12_NNLO_%(isec)d_%(jsec)d(p,snlo,slo,i12,ierr)
          if(ierr.ne.0)cycle
 
          lim=KRVNNLO
          single_real=RVNNLO*W_NLO*xjac
 
          if(abs(lim(0)).gt.0d0)then
-            write(88,*)lam,single_real(0),lim(0),abs(single_real(0)-lim(0))/abs(lim(0)),abs(single_real(-1)-lim(-1))/abs(lim(-1)),abs(single_real(-2)-lim(-2))/abs(lim(-2))
+           write(88,*)lam,single_real(0),lim(0),abs(single_real(0)-lim(0))/abs(lim(0)),abs(single_real(-1)-lim(-1))/abs(lim(-1)),abs(single_real(-2)-lim(-2))/abs(lim(-2))
          else
-            write(88,*)lam,single_real(0),lim(0),single_real(0),' *** '
-         endif
+           write(88,*)lam,single_real(0),lim(0),single_real(0),' *** '
+        endif
+
+        lim=I12
+        single_real=I1*W_NLO
+
+        if(abs(lim(0)).gt.0d0)then
+          write(881,*)lam,single_real(0),lim(0),abs(single_real(0)-lim(0))/abs(lim(0)),abs(single_real(-1)-lim(-1))/abs(lim(-1)),abs(single_real(-2)-lim(-2))/abs(lim(-2))
+        else
+          write(881,*)lam,single_real(0),lim(0),single_real(0),' *** '
+        endif
+
       enddo
 c
       return

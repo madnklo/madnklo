@@ -53,7 +53,7 @@ c     TODO: once the mapping to xpb is implemented here, set the scale
 c     from xpb right before the matrix-element calls instead.
       call set_mur_from_momenta(p,nexternal,leg_pdgs_%(proc_prefix_real)s)
       alphas=alphas_current
-      pref=alphas/(2d0*pi)
+      pref=8d0*pi*alphas
 
       iref1 = 0
       do i=1,len_iref
@@ -221,7 +221,7 @@ c
             enddo
 c
 c     TODO: needs rpp in initial state for 2jets
-            if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5)cycle
+            if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5)goto 11
             if(c.eq.r)goto 11
             call phase_space_CS_inv(i,c,r,p,pb,nexternal,leg_PDGs_%(NNLO_RV_proc_str)s,xjCS1,mapped_labels(:,i,c))
             if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 11
@@ -231,13 +231,14 @@ c     TODO: needs rpp in initial state for 2jets
             Is = Is - JhcKKRpp * 2d0 * Ei_cr * ccblo
 c
 c     TODO: needs rpp in initial state for 2jets
- 11         if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5)cycle
-            call phase_space_CS_inv(i,c,k,p,pb,nexternal,leg_PDGs_%(NNLO_RV_proc_str)s,xjCS1,mapped_labels(:,i,c))
+c           temporary fix for checking I1-I12 at eps^-2 and eps^-1
+c           if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5)cycle
+ 11         call phase_space_CS_inv(i,c,k,p,pb,nexternal,leg_PDGs_%(NNLO_RV_proc_str)s,xjCS1,mapped_labels(:,i,c))
             if(docut(pb,nexternal-1,underlying_leg_pdgs,0))cycle
             call %(proc_prefix_S_RV_g)s_me_accessor_hook(pb,hel,alphas,ans)
             blo = ans(0)
             ccblo = %(proc_prefix_S_RV_g)s_get_ccblo(cb,kb)
-            call get_Jhc(k, snlo(k,rpp), JhcKKRpp)
+            call get_Jhc(k, snlo(k,i), JhcKKRpp)  ! should be snlo(k,rpp)
             Is = Is - JhcKKRpp * 2d0 * Ei_ck * ccblo
          enddo
       enddo
@@ -360,6 +361,8 @@ c
       call get_Jhc(i, snlo(i,r), JhcIIR)
       call get_Jhc(j, snlo(j,r), JhcJJR)
       Ic = Ic - (JhcIIR+JhcJJR) * blo
+      ! all Isc pieces but the one below have a different pre-factor
+      Isc = Isc / (-C_l(j))
       Isc = Isc - JhcIIR * blo
 c
       if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5) then
@@ -376,18 +379,13 @@ c
 c
       call get_wc_nlo(isec,jsec,r)
       Ic  = -pref * Pgq/sij * Ic * Wc_nlo
-      Isc = -pref * Pgq_sc * Isc * 1d0
+      Isc =  pref * Pgq_sc/sij * Isc * 1d0
 c
 c     FINAL RESULT: eq. (4.46)
 c
       call get_ws_nlo(isec,jsec)
       I12NNLO = Is*Ws_nlo + Ic - Isc
 c
-c     TODO: check normalisation
-c     Torino to ML conversion factor (gamma[1-eps] -> exp[ eps eulergamma])
-      I12NNLO(0)  = I12NNLO(0) + pi**2/12d0 * CF
-      I12NNLO(-1) = I12NNLO(-1) + gamma_q
-      I12NNLO(-2) = I12NNLO(-2) + CF
 c
       if(abs(I12NNLO(0)).ge.huge(1d0).or.isnan(I12NNLO(0)))then
          write(77,*)'Exception caught in int_counter_I12_NNLO',I12NNLO(0)
@@ -429,7 +427,7 @@ C     eq. (E.9) of 2212.11190v2
       lmu       = log(s/mu_r**2)
 
       Jhc(-2) = 0d0
-      
+
       if(leg_PDGs_%(NNLO_RV_proc_str)s(k).eq.21) then
         Jhc(-1) = gamma_hc_g
         Jhc( 0) = phi_hc_g - gamma_hc_g*lmu

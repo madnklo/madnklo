@@ -11,12 +11,12 @@
       parameter(mxdim=30)
       integer ndim,i,j,idum
       double precision s_had
-      integer iu,iu1,iu7,iu8,iu9,iu0
+      integer iu,iu1,iu7,iu8,iu81,iu9,iu0
       common/cdim/ndim
       double precision int_real_virtual_%(isec)d_%(jsec)d
       double precision err_rv,res_rv
       external int_real_virtual_%(isec)d_%(jsec)d
-      common/ciunitNLO/iu8
+      common/ciunitNLO/iu8,iu81
       integer order
       logical doplot
       common/cdoplot/doplot
@@ -73,6 +73,7 @@ c     initialise physics parameters and set sector parametrisation
       iu=55
       iu7=77
       iu8=88
+      iu81=881
       iu9=99
       iu0=50
 c
@@ -94,6 +95,7 @@ c     call histo_init
       open(unit=iu1,file='integration_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu7,file='failures_RV_%(isec)d_%(jsec)d.log',status='replace',action='write')
       open(unit=iu8,file='testRV_%(isec)d_%(jsec)d.log')
+      open(unit=iu81,file='testI1_I12_%(isec)d_%(jsec)d.log')
       open(unit=iu9,file='chan_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu,file='results_RV_%(isec)d_%(jsec)d.log')
       open(unit=iu0,file='poles_RV_%(isec)d_%(jsec)d.log')
@@ -169,6 +171,7 @@ c      write(iu,*)
       if(nfail.gt.0)write(iu7,*)'Total ierr failures: ',nfail
       close(iu7)
       close(iu8)
+      close(iu81)
       close(iu9)
 c
       stop

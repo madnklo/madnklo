@@ -18,8 +18,6 @@ c     (n+1)-body NNLO integrand for vegas
       parameter(ntest=20)
       integer ntested
       save ntested
-      integer iunit
-      common/ciunitNLO/iunit
       double precision sNLO(nexternal,nexternal)
       double precision sLO(nexternal-1,nexternal-1)
       double precision RVNNLO(-2:0),KRVNNLO(-2:0)

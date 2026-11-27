@@ -260,17 +260,15 @@ c
       jb = mapped_labels(j,i,j)
       if(abs(underlying_leg_pdgs(jb)).le.6)then
         Cb_l = Cf
-        rho_ij_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_ij_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-        rho_ji_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_ji_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
       elseif(abs(underlying_leg_pdgs(jb)).eq.21)then
         Cb_l = Ca
-        rho_ij_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
-        rhob_ij_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
-        rho_ji_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
-        rhob_ji_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
       endif
+c
+      rho_ij_l = (Cb_l + C_l(i) - C_l(j)) / Cb_l
+      rhob_ij_l = (Cb_l - C_l(i) - C_l(j)) / Cb_l
+      rho_ji_l = (Cb_l + C_l(j) - C_l(i)) / Cb_l
+      rhob_ji_l = (Cb_l - C_l(j) - C_l(i)) / Cb_l
+
 c
       do c=1,nexternal
         if(.not.isnloqcdparton(c)) cycle
@@ -338,7 +336,7 @@ c
       Ic = Ic + Cb_l * rho_ji_l * JsJR * blo
       Isc = Isc + (2d0*C_l(j)-Ca) * C_l(j) * JsJR * blo
       call get_Jhc(j, snlo(j,r), JhcJJR)
-      Isc = Isc - JhcJJR * blo
+      Isc = Isc - C_l(j)*JhcJJR * blo
 c
  23   call phase_space_CS_inv(i,j,r,p,pb,nexternal,leg_PDGs_%(NNLO_RV_proc_str)s,xjCS1,mapped_labels(:,i,j))
       if(docut(pb,nexternal-1,underlying_leg_pdgs,0))goto 24
@@ -363,7 +361,7 @@ c
       Ic = Ic - (JhcIIR+JhcJJR) * blo
       ! all Isc pieces but the one below have a different pre-factor
       Isc = Isc / (-C_l(j))
-      Isc = Isc - JhcIIR * blo
+      Isc = Isc + JhcIIR * blo
 c
       if(size(leg_pdgs_%(NNLO_RV_proc_str)s).le.5) then
         write(77,*)'ee -> >2j is not implemented yet'
@@ -379,7 +377,18 @@ c
 c
       call get_wc_nlo(isec,jsec,r)
       Ic  = -pref * Pgq/sij * Ic * Wc_nlo
+
+      
       Isc =  pref * Pgq_sc/sij * Isc * 1d0
+
+c     The rprime mapping needs to be implemented
+c     Since in the limit the recoiler dependence vanishes
+c     the following is the expression of the term containing
+c     the rprime dependence, evaluated with r rather than rprime.
+c     Only to test poles cancellation
+      Ic(-1) = Ic(-1)  +  pref*Pgq/sij*alphas/2d0/pi*gamma_hc_q*blo*Wc_nlo
+      Isc(-1) = Isc(-1) + pref*Pgq_sc/sij*alphas/2d0/pi*gamma_hc_q*blo
+c      
 c
 c     FINAL RESULT: eq. (4.46)
 c
